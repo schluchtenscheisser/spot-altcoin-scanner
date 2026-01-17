@@ -25,22 +25,24 @@ class OHLCVFetcher:
             config: Config dict with 'ohlcv' section
         """
         self.mexc = mexc_client
-        self.config = config.get('ohlcv', {})
+        
+        # Handle both dict and ScannerConfig object
+        if hasattr(config, 'get'):
+            self.config = config.get('ohlcv', {})
+        else:
+            # It's a ScannerConfig object, access via attributes
+            self.config = getattr(config, 'ohlcv', {}) if hasattr(config, 'ohlcv') else {}
         
         # Timeframes to fetch
-        self.timeframes = self.config.get('timeframes', ['1d', '4h'])
+        self.timeframes = self.config.get('timeframes', ['1d', '4h']) if isinstance(self.config, dict) else ['1d', '4h']
         
         # Lookback (number of candles)
-        self.lookback = self.config.get('lookback', {
-            '1d': 120,  # ~4 months
-            '4h': 180   # ~30 days
-        })
-        
-        # Minimum required candles
-        self.min_candles = self.config.get('min_candles', {
-            '1d': 60,  # At least 2 months
-            '4h': 90   # At least 15 days
-        })
+        if isinstance(self.config, dict):
+            self.lookback = self.config.get('lookback', {'1d': 120, '4h': 180})
+            self.min_candles = self.config.get('min_candles', {'1d': 60, '4h': 90})
+        else:
+            self.lookback = {'1d': 120, '4h': 180}
+            self.min_candles = {'1d': 60, '4h': 90}
         
         logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}")
     
