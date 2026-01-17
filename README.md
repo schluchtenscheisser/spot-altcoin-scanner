@@ -62,3 +62,20 @@ pytest
 ### Documentation
 
 All specs and dev guides live in /docs.
+
+
+## Development Status
+
+**Last Updated:** 2026-01-17
+
+### ✅ Completed:
+- Phase 1: Foundation (Utils + Config)
+- Phase 2: Data Clients (MEXC + CMC)
+- Phase 3: Mapping Layer
+
+### 🔄 Next:
+- Phase 4: Pipeline (Filters, Features)
+- Phase 5: Scoring (Breakout/Pullback/Reversal)
+- Phase 6: Output (Reports, Snapshots)
+
+See `snapshots/gpt/gpt_snapshot_2026-01-17.md` for details.
