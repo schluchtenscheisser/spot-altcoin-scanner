@@ -1,152 +1,116 @@
-name: Update Code Map
+name: 🗺️ Auto-Update Code Map with Call Graph
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [ main ]
     paths:
       - 'scanner/**/*.py'
       - 'tests/**/*.py'
+      - 'scripts/update_codemap.py'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  update-code-map:
+  update-codemap:
     runs-on: ubuntu-latest
     
+    # Prevent infinite loop
+    if: ${{ !contains(github.event.head_commit.message, 'Auto-update code map') }}
+    
     steps:
-      - name: Checkout repository
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
-      - name: Set up Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       
-      - name: Generate Code Map Update
+      - name: 🔍 Verify Script Exists
         run: |
-          python3 << 'PYTHON_SCRIPT'
-          import os
-          import ast
-          from pathlib import Path
-          from datetime import datetime
-          
-          def analyze_module(filepath):
-              """Analyze a Python module and extract structure."""
-              with open(filepath, 'r', encoding='utf-8') as f:
-                  try:
-                      tree = ast.parse(f.read())
-                  except:
-                      return None
-              
-              classes = []
-              functions = []
-              
-              for node in ast.walk(tree):
-                  if isinstance(node, ast.ClassDef):
-                      methods = [m.name for m in node.body if isinstance(m, ast.FunctionDef)]
-                      classes.append({'name': node.name, 'methods': methods})
-                  elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
-                      functions.append(node.name)
-              
-              return {'classes': classes, 'functions': functions}
-          
-          def scan_package(package_path):
-              """Scan a package and return structure."""
-              modules = {}
-              base_path = Path(package_path).resolve()
-              
-              for py_file in base_path.rglob('*.py'):
-                  rel_path = str(py_file.relative_to(Path.cwd()))
-                  result = analyze_module(py_file)
-                  if result:
-                      modules[rel_path] = result
-              
-              return modules
-          
-          def generate_code_map_update():
-              """Generate code map update section."""
-              scanner_modules = scan_package('scanner')
-              
-              lines = []
-              lines.append("# Code Map - Auto-Generated Section")
-              lines.append("")
-              lines.append(f"**Last Auto-Update:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
-              lines.append("")
-              lines.append("## Module Summary")
-              lines.append("")
-              
-              total_classes = sum(len(m['classes']) for m in scanner_modules.values())
-              total_functions = sum(len(m['functions']) for m in scanner_modules.values())
-              
-              lines.append(f"- **Total Modules:** {len(scanner_modules)}")
-              lines.append(f"- **Total Classes:** {total_classes}")
-              lines.append(f"- **Total Functions:** {total_functions}")
-              lines.append("")
-              lines.append("## Quick Reference")
-              lines.append("")
-              
-              lines.append("### Classes")
-              for module_path, data in sorted(scanner_modules.items()):
-                  if data['classes']:
-                      for cls in data['classes']:
-                          lines.append(f"- **{cls['name']}** (`{module_path}`)")
-                          if cls['methods']:
-                              method_count = len(cls['methods'])
-                              lines.append(f"  - {method_count} methods")
-              
-              lines.append("")
-              return '\n'.join(lines)
-          
-          update_section = generate_code_map_update()
-          
-          code_map_path = Path('docs/code_map.md')
-          if code_map_path.exists():
-              with open(code_map_path, 'r', encoding='utf-8') as f:
-                  content = f.read()
-              
-              start_marker = '# Code Map - Auto-Generated Section'
-              if start_marker in content:
-                  parts = content.split(start_marker)
-                  if len(parts) == 2:
-                      end_idx = parts[1].find('\n## ', 100)
-                      if end_idx != -1:
-                          new_content = parts[0] + update_section + parts[1][end_idx:]
-                      else:
-                          new_content = parts[0] + update_section
-                  else:
-                      new_content = content + '\n\n---\n\n' + update_section
-              else:
-                  new_content = content + '\n\n---\n\n' + update_section
-              
-              with open(code_map_path, 'w', encoding='utf-8') as f:
-                  f.write(new_content)
-              
-              print("✓ Code Map updated")
-          else:
-              print("✗ Code Map not found")
-              exit(1)
-          PYTHON_SCRIPT
+          if [ ! -f scripts/update_codemap.py ]; then
+            echo "❌ scripts/update_codemap.py not found!"
+            exit 1
+          fi
+          echo "✅ Script found"
       
-      - name: Check for changes
+      - name: 🧩 Generate Code Map with Call Graph
+        run: |
+          echo "🗺️  Running Code Map Generator..."
+          python scripts/update_codemap.py
+      
+      - name: 📊 Check Generated File
+        run: |
+          if [ -f docs/code_map.md ]; then
+            SIZE=$(wc -c < docs/code_map.md)
+            LINES=$(wc -l < docs/code_map.md)
+            echo "✅ Code Map generated successfully"
+            echo "   Size: ${SIZE} bytes"
+            echo "   Lines: ${LINES}"
+          else
+            echo "❌ docs/code_map.md not found!"
+            exit 1
+          fi
+      
+      - name: 🔍 Check for Changes
         id: check_changes
         run: |
           if git diff --quiet docs/code_map.md; then
             echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✅ Code Map is already up to date"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📝 Changes detected in Code Map"
+            echo ""
+            echo "Summary of changes:"
+            git diff --stat docs/code_map.md
           fi
       
-      - name: Commit changes
+      - name: 📤 Commit and Push Changes
         if: steps.check_changes.outputs.changed == 'true'
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
           git add docs/code_map.md
-          git commit -m "docs: auto-update code map [skip ci]"
-          git push
+          git commit -m "🤖 Auto-update code map with call graph analysis"
+          
+          # Fetch latest and rebase to avoid conflicts
+          echo "📥 Fetching latest main..."
+          git fetch origin main
+          
+          echo "🔄 Rebasing onto latest main..."
+          git rebase origin/main || {
+            echo "⚠️  Rebase conflict detected"
+            echo "   Attempting to resolve..."
+            git rebase --skip || {
+              echo "❌ Could not resolve rebase conflict"
+              exit 1
+            }
+          }
+          
+          echo "🚀 Pushing to main..."
+          git push origin HEAD:main
+          
+          echo "✅ Code Map successfully updated and pushed"
+      
+      - name: 📊 Summary
+        run: |
+          echo "════════════════════════════════════════════════════════════"
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ Code Map has been updated with call graph analysis"
+            echo ""
+            echo "New features in Code Map:"
+            echo "  • Module structure overview"
+            echo "  • Function dependencies (who calls whom)"
+            echo "  • Internal vs. external call separation"
+            echo "  • Coupling statistics with refactoring insights"
+          else
+            echo "✅ Code Map was already up to date"
+            echo "   No changes needed"
+          fi
+          echo "════════════════════════════════════════════════════════════"
