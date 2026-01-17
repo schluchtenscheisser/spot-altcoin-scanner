@@ -1,0 +1,180 @@
+name: Update Code Map
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'scanner/**/*.py'
+      - 'tests/**/*.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-code-map:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Generate Code Map
+        run: |
+          python3 << 'EOF'
+          import os
+          import ast
+          from pathlib import Path
+          from datetime import datetime
+          
+          def analyze_module(filepath):
+              """Analyze a Python module and extract structure."""
+              with open(filepath, 'r', encoding='utf-8') as f:
+                  try:
+                      tree = ast.parse(f.read())
+                  except:
+                      return None
+              
+              classes = []
+              functions = []
+              
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.ClassDef):
+                      methods = [m.name for m in node.body if isinstance(m, ast.FunctionDef)]
+                      classes.append({'name': node.name, 'methods': methods})
+                  elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
+                      # Top-level functions only
+                      functions.append(node.name)
+              
+              return {'classes': classes, 'functions': functions}
+          
+          def scan_package(package_path):
+              """Scan a package and return structure."""
+              modules = {}
+              
+              for py_file in Path(package_path).rglob('*.py'):
+                  rel_path = py_file.relative_to(Path.cwd())
+                  result = analyze_module(py_file)
+                  if result:
+                      modules[str(rel_path)] = result
+              
+              return modules
+          
+          def generate_code_map_update():
+              """Generate code map update section."""
+              scanner_modules = scan_package('scanner')
+              
+              lines = []
+              lines.append(f"# Code Map - Auto-Generated Section")
+              lines.append(f"**Last Auto-Update:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+              lines.append("")
+              lines.append("## Module Summary")
+              lines.append("")
+              
+              # Count statistics
+              total_classes = sum(len(m['classes']) for m in scanner_modules.values())
+              total_functions = sum(len(m['functions']) for m in scanner_modules.values())
+              
+              lines.append(f"- **Total Modules:** {len(scanner_modules)}")
+              lines.append(f"- **Total Classes:** {total_classes}")
+              lines.append(f"- **Total Functions:** {total_functions}")
+              lines.append("")
+              lines.append("## Quick Reference")
+              lines.append("")
+              
+              # List all classes
+              lines.append("### Classes")
+              for module_path, data in sorted(scanner_modules.items()):
+                  if data['classes']:
+                      for cls in data['classes']:
+                          lines.append(f"- **{cls['name']}** (`{module_path}`)")
+                          if cls['methods']:
+                              method_count = len(cls['methods'])
+                              lines.append(f"  - {method_count} methods")
+              
+              lines.append("")
+              return '\n'.join(lines)
+          
+          # Generate update
+          update_section = generate_code_map_update()
+          
+          # Read existing code map
+          code_map_path = Path('docs/code_map.md')
+          if code_map_path.exists():
+              with open(code_map_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              
+              # Check if update is needed
+              if '**Last Auto-Update:**' in content:
+                  # Replace auto-generated section
+                  start_marker = '# Code Map - Auto-Generated Section'
+                  if start_marker in content:
+                      # Find the section
+                      parts = content.split(start_marker)
+                      if len(parts) == 2:
+                          # Find end of auto-generated section (next ## heading)
+                          end_idx = parts[1].find('\n## ', 100)  # Skip first heading
+                          if end_idx != -1:
+                              # Replace section
+                              new_content = parts[0] + update_section + parts[1][end_idx:]
+                          else:
+                              # Append at end
+                              new_content = parts[0] + update_section
+                      else:
+                          # Append at end
+                          new_content = content + '\n\n---\n\n' + update_section
+                  else:
+                      # Append at end
+                      new_content = content + '\n\n---\n\n' + update_section
+              else:
+                  # First time - append at end
+                  new_content = content + '\n\n---\n\n' + update_section
+              
+              # Write updated content
+              with open(code_map_path, 'w', encoding='utf-8') as f:
+                  f.write(new_content)
+              
+              print("✓ Code Map updated")
+              print(f"  Total modules: {len(scan_package('scanner'))}")
+          else:
+              print("✗ Code Map not found at docs/code_map.md")
+              exit(1)
+          
+          EOF
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet docs/code_map.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes to Code Map"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Code Map updated"
+          fi
+      
+      - name: Commit changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/code_map.md
+          git commit -m "docs: auto-update code map [skip ci]"
+          git push
+      
+      - name: Summary
+        run: |
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✓ Code Map has been updated and committed"
+          else
+            echo "✓ Code Map is already up to date"
+          fi
