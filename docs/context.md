@@ -86,12 +86,14 @@ Der Zeithorizont „Tage bis wenige Wochen“ profitiert stark von:
 
 ## 8. Beispielhafte Ziel-Patterns
 
-Der Scanner soll **Trades entdecken wie**:
+Der Scanner soll zum Beispiel **Trades entdecken wie**:
 
-> Humanity Protocol (H) im Dezember:  
+> Humanity Protocol (H) im Dezember 2025:  
 > Drawdown → Base → Reclaim + Volume → 2–3× Move
 
-Diese Klasse von Moves ist weder reiner Breakout noch klassischer Pullback, sondern eine **strukturierte Reversal-Transition**.
+Das ist ein Beispiel für eine **strukturierte Reversal-Transition**.
+
+Die anderen Kategorien **Breakout** und **Pullback** sind gleichermaßen wichtig. Siehe nachfolgender Punkt.
 
 ---
 
