@@ -65,22 +65,39 @@ for symbol, feat_data in features.items():
     if '1d' in feat_data:
         f1d = feat_data['1d']
         print(f"  1d Features:")
-        print(f"    close: {f1d.get('close'):.2f}")
-        print(f"    ema_20: {f1d.get('ema_20'):.2f if f1d.get('ema_20') else 'N/A'}")
-        print(f"    ema_50: {f1d.get('ema_50'):.2f if f1d.get('ema_50') else 'N/A'}")
-        print(f"    r_7: {f1d.get('r_7'):.2f if f1d.get('r_7') else 'N/A'}%")
-        print(f"    atr_pct: {f1d.get('atr_pct'):.2f if f1d.get('atr_pct') else 'N/A'}%")
-        print(f"    volume_spike: {f1d.get('volume_spike'):.2f if f1d.get('volume_spike') else 'N/A'}x")
-        print(f"    drawdown_from_ath: {f1d.get('drawdown_from_ath'):.2f if f1d.get('drawdown_from_ath') else 'N/A'}%")
+        print(f"    close: {f1d.get('close', 0):.2f}")
+        
+        ema20 = f1d.get('ema_20')
+        print(f"    ema_20: {ema20:.2f if ema20 is not None else 'N/A'}")
+        
+        ema50 = f1d.get('ema_50')
+        print(f"    ema_50: {ema50:.2f if ema50 is not None else 'N/A'}")
+        
+        r7 = f1d.get('r_7')
+        print(f"    r_7: {r7:.2f if r7 is not None else 'N/A'}%")
+        
+        atr = f1d.get('atr_pct')
+        print(f"    atr_pct: {atr:.2f if atr is not None else 'N/A'}%")
+        
+        vol_spike = f1d.get('volume_spike')
+        print(f"    volume_spike: {vol_spike:.2f if vol_spike is not None else 'N/A'}x")
+        
+        dd = f1d.get('drawdown_from_ath')
+        print(f"    drawdown_from_ath: {dd:.2f if dd is not None else 'N/A'}%")
+        
         print(f"    hh_20: {f1d.get('hh_20')}")
         print(f"    base_detected: {f1d.get('base_detected')}")
     
     if '4h' in feat_data:
         f4h = feat_data['4h']
         print(f"  4h Features:")
-        print(f"    close: {f4h.get('close'):.2f}")
-        print(f"    ema_20: {f4h.get('ema_20'):.2f if f4h.get('ema_20') else 'N/A'}")
-        print(f"    volume_spike: {f4h.get('volume_spike'):.2f if f4h.get('volume_spike') else 'N/A'}x")
+        print(f"    close: {f4h.get('close', 0):.2f}")
+        
+        ema20 = f4h.get('ema_20')
+        print(f"    ema_20: {ema20:.2f if ema20 is not None else 'N/A'}")
+        
+        vol_spike = f4h.get('volume_spike')
+        print(f"    volume_spike: {vol_spike:.2f if vol_spike is not None else 'N/A'}x")
 
 # Validation
 print("\n--- Validation ---")
