@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-01-17 18:43 UTC  
+**Last Updated:** 2026-01-17 20:42 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 23
-- **Total Classes:** 14
-- **Total Functions:** 121
+- **Total Modules:** 24
+- **Total Classes:** 15
+- **Total Functions:** 126
 
 ---
 
@@ -100,7 +100,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `run_pipeline`
 
-**Module Variables:** `breakout_results, cmc, cmc_listings, cmc_symbol_map, feature_engine, features, filtered, filters, logger, mapper` _(+22 more)_
+**Module Variables:** `breakout_results, cmc, cmc_listings, cmc_symbol_map, feature_engine, features, filtered, filters, logger, mapper` _(+24 more)_
 
 **Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, datetime, features, filters` _(+8 more)_
 
@@ -109,6 +109,18 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 ### 📄 `scanner/pipeline/backtest_runner.py`
 
 **Functions:** —
+
+---
+
+### 📄 `scanner/pipeline/excel_output.py`
+
+**Classes:** `ExcelReportGenerator`
+
+**Functions:** `__init__, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
+
+**Module Variables:** `cell, col_letter, comp_key, comp_value, components, excel_path, flag_str, flags, flags_col, headers` _(+9 more)_
+
+**Imports:** `datetime, logging, openpyxl, openpyxl.styles, openpyxl.utils, pathlib, typing`
 
 ---
 
@@ -154,9 +166,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _format_setup_entry, generate_json_report, generate_markdown_report, save_reports`
 
-**Module Variables:** `components, flag_str, flags, json_content, json_path, lines, logger, md_content, md_path, output_config` _(+7 more)_
+**Module Variables:** `analysis, coin_name, components, excel_config, excel_gen, excel_path, flag_list, flag_str, flags, json_content` _(+14 more)_
 
-**Imports:** `datetime, json, logging, pathlib, typing`
+**Imports:** `datetime, excel_output, json, logging, pathlib, typing`
 
 ---
 
@@ -341,7 +353,16 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `create_snapshot`, `fetch_all`, `get`, `get_24h_tickers`, `get_listings`, `get_spot_usdt_symbols`, `info`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `utcnow` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `create_snapshot`, `fetch_all`, `get`, `get_24h_tickers`, `get_listings`, `get_spot_usdt_symbols`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `utcnow` |
+
+### 📄 scanner/pipeline/excel_output.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `_create_setup_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `get_column_letter`, `items`, `join`, `lower` |
+| `_create_summary_sheet` | — | `Alignment`, `Font`, `PatternFill`, `create_sheet`, `get`, `strftime`, `utcnow` |
+| `generate_excel_report` | `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
 
 ### 📄 scanner/pipeline/features.py
 
@@ -379,10 +400,10 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
-| `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join` |
+| `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join`, `replace` |
 | `generate_json_report` | — | `isoformat`, `update`, `utcnow` |
 | `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `join`, `strftime`, `utcnow` |
-| `save_reports` | `generate_json_report`, `generate_markdown_report` | `dump`, `info`, `write` |
+| `save_reports` | `generate_json_report`, `generate_markdown_report` | `ExcelReportGenerator`, `dump`, `error`, `generate_excel_report`, `info`, `warning`, `write` |
 
 ### 📄 scanner/pipeline/scoring/breakout.py
 
@@ -480,12 +501,13 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 30 | 30 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 32 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 25 | 29 | 🔴 High |
+| `scanner/pipeline/excel_output.py` | 3 | 25 | 28 | 🔴 High |
+| `scanner/pipeline/output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/features.py` | 11 | 12 | 23 | ⚠️ Medium |
-| `scanner/pipeline/output.py` | 3 | 20 | 23 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 6 | 17 | 23 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 6 | 17 | 23 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 6 | 17 | 23 | 🔴 High |
@@ -515,4 +537,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-01-17 18:43 UTC_
+_Generated by GitHub Actions • 2026-01-17 20:42 UTC_
