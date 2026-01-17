@@ -1,5 +1,10 @@
 # Project Development Phases
 
+Version: v1.0  
+Language: English  
+Audience: Developer + GPT
+
+----
 This document defines the development phases for the Spot Altcoin Scanner MVP.
 
 ---
@@ -248,4 +253,4 @@ This document defines the development phases for the Spot Altcoin Scanner MVP.
 
 ---
 
-## End of Document
+## End of `project_phases.md`
