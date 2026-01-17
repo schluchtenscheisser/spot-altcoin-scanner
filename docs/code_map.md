@@ -1,681 +1,518 @@
-# Code Map - Spot Altcoin Scanner
-Version: v1.0  
-Last Updated: 2026-01-17  
-Status: MVP Complete  
-Based on: Actual codebase analysis
+# 📘 Code Map — Automatically Generated
+
+**Repository:** schluchtenscheisser/spot-altcoin-scanner  
+**Last Updated:** 2026-01-17 18:43 UTC  
+**Generator:** scripts/update_codemap.py
 
 ---
 
-## Purpose
+## 📋 Overview
 
-This Code Map provides a **complete structural index** of the Spot Altcoin Scanner codebase. It documents all classes, functions, and their relationships based on the actual implementation.
-
-**Update Protocol:** This file should be updated when modules are added/removed or class/function signatures change significantly.
-
----
-
-## Repository Structure
-
-```
-spot-altcoin-scanner/
-├── scanner/              # Main package
-│   ├── __init__.py
-│   ├── main.py          # CLI entry point
-│   ├── config.py        # Configuration management
-│   ├── clients/         # API clients
-│   ├── pipeline/        # Core pipeline
-│   ├── utils/           # Utilities
-├── config/              # Configuration files
-├── data/                # Data storage (cached)
-├── docs/                # Documentation
-├── logs/                # Runtime logs
-├── reports/             # Scanner outputs
-├── snapshots/           # Runtime + GPT snapshots
-├── tests/               # Test suite
-├── requirements.txt
-├── pyproject.toml
-└── README.md
-```
+This Code Map provides a comprehensive structural overview of the Spot Altcoin Scanner codebase, including:
+- Module structure (classes, functions, variables)
+- Import dependencies
+- **Call Graph Analysis** (function dependencies)
+- Coupling statistics (internal vs. external calls)
 
 ---
 
-## Core Package: `scanner/`
-
-### Package Initialization
-
-**`scanner/__init__.py`**
-- Type: Package initialization
-- Content: Minimal (docstring only)
-- Docstring: "Spot Altcoin Scanner package. See /docs/spec.md for full specification."
-
----
-
-### Entry Point & Configuration
-
-**`scanner/main.py`**
-- **Purpose:** CLI entry point and pipeline orchestration
-- **Functions:**
-  - `parse_args(argv: list[str] | None) -> argparse.Namespace`
-    - Parses command-line arguments
-    - Supports `--mode` flag: standard, fast, offline, backtest
-  - `main(argv: list[str] | None) -> int`
-    - Main entry point
-    - Loads config, overrides mode if specified
-    - Calls `run_pipeline()`
-    - Returns exit code
-- **Dependencies:**
-  - `scanner.config.load_config`
-  - `scanner.pipeline.run_pipeline`
-- **Usage:** `python -m scanner.main --mode fast`
-
-**`scanner/config.py`**
-- **Purpose:** Configuration loading and validation
-- **Classes:**
-  - `ScannerConfig` (dataclass)
-    - Properties (all return types from config):
-      - Version: `spec_version`, `config_version`
-      - General: `run_mode`, `timezone`, `shortlist_size`, `lookback_days_1d`, `lookback_days_4h`
-      - Data Sources: `mexc_enabled`, `cmc_api_key`
-      - Filters: `market_cap_min`, `market_cap_max`, `min_quote_volume_24h`, `min_history_days_1d`
-      - Exclusions: `exclude_stablecoins`, `exclude_wrapped`, `exclude_leveraged`
-      - Logging: `log_level`, `log_to_file`, `log_file`
-    - Stores raw config dict in `raw` attribute
-- **Functions:**
-  - `load_config(path: str | Path | None) -> ScannerConfig`
-    - Loads YAML config from file
-    - Returns ScannerConfig instance
-    - Raises: FileNotFoundError, yaml.YAMLError
-  - `validate_config(config: ScannerConfig) -> List[str]`
-    - Validates configuration values
-    - Returns list of error messages (empty if valid)
-- **Constants:**
-  - `CONFIG_PATH = "config/config.yml"` (overridable via env var)
-
----
-
-## Utilities: `scanner/utils/`
-
-### Package Initialization
-
-**`scanner/utils/__init__.py`**
-- Type: Package initialization
-- Content: Minimal (docstring only)
-- Modules: time_utils, logging_utils, io_utils
-
-### Time Utilities
-
-**`scanner/utils/time_utils.py`**
-- **Purpose:** UTC-based time and date handling
-- **Functions:**
-  - `utc_now() -> datetime` - Current UTC time (timezone-aware)
-  - `utc_timestamp() -> str` - ISO timestamp (YYYY-MM-DDTHH:MM:SSZ)
-  - `utc_date() -> str` - Date string (YYYY-MM-DD)
-  - `parse_timestamp(ts: str) -> datetime` - Parse ISO timestamp
-  - `timestamp_to_ms(dt: datetime) -> int` - Convert to milliseconds (for APIs)
-  - `ms_to_timestamp(ms: int) -> datetime` - Convert from milliseconds
-
-### Logging Utilities
-
-**`scanner/utils/logging_utils.py`**
-- **Purpose:** Centralized logging with rotation
-- **Functions:**
-  - `setup_logger(name, level, log_file, log_to_console, log_to_file) -> logging.Logger`
-    - Creates configured logger
-    - Supports file rotation (10MB, 5 backups)
-    - Format: `YYYY-MM-DD HH:MM:SS | LEVEL | NAME | MESSAGE`
-  - `get_logger(name: str) -> logging.Logger`
-    - Gets existing logger or creates default
-
-### I/O Utilities
-
-**`scanner/utils/io_utils.py`**
-- **Purpose:** File I/O and caching helpers
-- **Functions:**
-  - `load_json(filepath) -> dict | list` - Load JSON file
-  - `save_json(data, filepath, indent=2)` - Save JSON file
-  - `get_cache_path(cache_type, date) -> Path` - Get standardized cache path
-    - Location: `data/raw/YYYY-MM-DD/`
-  - `cache_exists(cache_type, date) -> bool` - Check if cache exists
-  - `load_cache(cache_type, date) -> Optional[dict | list]` - Load cached data
-  - `save_cache(data, cache_type, date)` - Save data to cache
-
----
-
-## API Clients: `scanner/clients/`
-
-### Package Initialization
-
-**`scanner/clients/__init__.py`**
-- Type: Package initialization
-- Content: Empty
-
-### MEXC Client
-
-**`scanner/clients/mexc_client.py`**
-- **Purpose:** MEXC Spot API client with rate limiting and caching
-- **Classes:**
-  - `MEXCClient`
-    - **Constants:**
-      - `BASE_URL = "https://api.mexc.com"`
-    - **Initialization:**
-      - `__init__(max_retries=3, retry_backoff=3.0, timeout=30)`
-      - Rate limiting: 100ms between requests
-    - **Methods:**
-      - `_rate_limit()` - Apply rate limiting between requests
-      - `_request(method, endpoint, params) -> Dict` - HTTP request with retry logic
-        - Handles 429 (rate limit) with exponential backoff
-        - Max retries: 3 (configurable)
-      - `get_exchange_info(use_cache=True) -> Dict` - Get exchange info (symbols, rules)
-      - `get_spot_usdt_symbols(use_cache=True) -> List[str]` - Get all USDT Spot pairs
-        - Filters: quoteAsset=USDT, isSpotTradingAllowed=True, status="1"
-        - Returns: List of symbols (e.g., ['BTCUSDT', 'ETHUSDT'])
-      - `get_24h_tickers(use_cache=True) -> List[Dict]` - Bulk 24h ticker data
-      - `get_klines(symbol, interval='1d', limit=120, use_cache=True) -> List[List]` - OHLCV data
-        - Intervals: 1m, 5m, 15m, 1h, 4h, 1d, 1w
-        - Format: [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
-      - `get_multiple_klines(symbols, interval, limit, use_cache) -> Dict[str, List]` - Bulk klines
-- **Caching:**
-  - Cache keys: `mexc_exchange_info`, `mexc_24h_tickers`, `mexc_klines_{symbol}_{interval}`
-  - Daily cache invalidation
-
-### CoinMarketCap Client
-
-**`scanner/clients/marketcap_client.py`**
-- **Purpose:** CoinMarketCap API client for market cap data
-- **Classes:**
-  - `MarketCapClient`
-    - **Constants:**
-      - `BASE_URL = "https://pro-api.coinmarketcap.com"`
-    - **Initialization:**
-      - `__init__(api_key=None, timeout=30)`
-      - API key from: parameter > CMC_API_KEY env var
-    - **Methods:**
-      - `_request(endpoint, params) -> Dict` - API request
-        - Handles 429 (rate limit)
-        - Extracts 'data' field from response
-      - `get_listings(start=1, limit=5000, use_cache=True) -> List[Dict]` - Get cryptocurrency listings
-        - Sorted by market cap (descending)
-        - Returns: List with id, symbol, name, slug, cmc_rank, quote.USD.market_cap, etc.
-      - `get_all_listings(use_cache=True) -> List[Dict]` - Get all listings (up to 5000)
-      - `build_symbol_map(listings) -> Dict[str, Dict]` - Build symbol → data mapping
-        - Handles collisions (keeps higher-ranked)
-        - Returns: Dict mapping uppercase symbol to CMC data
-      - `get_market_cap_for_symbol(symbol, symbol_map) -> Optional[float]` - Get market cap for symbol
-- **Caching:**
-  - Cache key: `cmc_listings_start{start}_limit{limit}`
-  - Daily cache invalidation
-
-### Symbol Mapping
-
-**`scanner/clients/mapping.py`**
-- **Purpose:** Maps MEXC symbols to CMC market cap data (CRITICAL component)
-- **Classes:**
-  - `MappingResult`
-    - **Initialization:**
-      - `__init__(mexc_symbol, cmc_data, confidence, method, collision, notes)`
-    - **Properties:**
-      - `mapped: bool` - Was mapping successful?
-      - `base_asset: str` - Extracted base (e.g., BTCUSDT → BTC)
-    - **Methods:**
-      - `to_dict() -> Dict` - Convert to dict for serialization
-      - `_get_market_cap() -> Optional[float]` - Extract market cap from CMC data
-  
-  - `SymbolMapper`
-    - **Initialization:**
-      - `__init__(overrides_file="config/mapping_overrides.json")`
-      - Loads manual overrides from JSON file
-      - Initializes stats tracking
-    - **Stats Structure:**
-      ```python
-      {
-          "total": 0,
-          "mapped": 0,
-          "unmapped": 0,
-          "collisions": 0,
-          "overrides_used": 0,
-          "confidence": {"high": 0, "medium": 0, "low": 0, "none": 0}
-      }
-      ```
-    - **Methods:**
-      - `_load_overrides() -> Dict` - Load manual mapping overrides
-      - `map_symbol(mexc_symbol, cmc_symbol_map) -> MappingResult` - Map single symbol
-        - Confidence levels: high, medium, low, none
-        - Methods: override_exclude, override_match, symbol_exact_match, no_match
-        - Override format: `{"BTC": "BTC"}` or `{"SYMBOL": "exclude"}`
-      - `map_universe(mexc_symbols, cmc_symbol_map) -> Dict[str, MappingResult]` - Map entire universe
-        - Returns: Dict mapping mexc_symbol → MappingResult
-        - Updates internal stats
-      - `generate_reports(mapping_results, output_dir="reports")` - Generate mapping reports
-        - Creates: unmapped_symbols.json, mapping_collisions.json, mapping_stats.json
-      - `suggest_overrides(mapping_results, output_file) -> Dict[str, str]` - Generate override suggestions
-- **Current Performance:**
-  - Mapping success: 88.4% (1624/1837)
-  - Override file: Empty by design (213 unmapped are low-volume/new tokens)
-
----
-
-## Pipeline: `scanner/pipeline/`
-
-### Pipeline Orchestration
-
-**`scanner/pipeline/__init__.py`**
-- **Purpose:** Orchestrates the complete 10-step daily pipeline
-- **Functions:**
-  - `run_pipeline(config: ScannerConfig) -> None`
-    - **Steps:**
-      1. Initialize clients (MEXC, CMC)
-      2. Fetch MEXC universe (1837 USDT pairs)
-      3. Fetch 24h tickers
-      4. Fetch CMC listings + map symbols
-      5. Apply universe filters (market cap, liquidity, exclusions)
-      6. Create shortlist (top N by volume)
-      7. Fetch OHLCV data (1d + 4h)
-      8. Compute features
-      9. Score setups (Reversal, Breakout, Pullback)
-      10. Generate reports + snapshot
-    - **Mode-dependent behavior:**
-      - standard: Fresh API calls
-      - fast: Use cache when available
-      - offline: Cache-only (no API calls)
-      - backtest: TBD (Phase 7)
-- **Dependencies:**
-  - All client modules
-  - All pipeline modules
-  - All scoring modules
-
-### Universe Filtering
-
-**`scanner/pipeline/filters.py`**
-- **Purpose:** Filter MEXC universe to tradable MidCaps
-- **Classes:**
-  - `UniverseFilters`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Defaults: 100M-3B MCAP, 1M min volume
-    - **Filter Parameters:**
-      - `mcap_min`: 100,000,000 USD (100M)
-      - `mcap_max`: 3,000,000,000 USD (3B)
-      - `min_volume_24h`: 1,000,000 USDT (1M)
-      - `exclusion_patterns`: Stablecoins, wrapped tokens, leveraged tokens
-    - **Methods:**
-      - `apply_all(symbols_with_data) -> List[Dict]` - Apply all filters in sequence
-        - Input format: List of dicts with symbol, base, quote_volume_24h, market_cap
-        - Pipeline: MCAP filter → Liquidity filter → Exclusions filter
-      - `_filter_mcap(symbols) -> List[Dict]` - Filter by market cap range
-      - `_filter_liquidity(symbols) -> List[Dict]` - Filter by minimum 24h volume
-      - `_filter_exclusions(symbols) -> List[Dict]` - Exclude by pattern matching
-      - `get_filter_stats(symbols) -> Dict` - Get filter statistics
-- **Typical Results:**
-  - Input: 1837 symbols
-  - After filters: ~300-400 symbols (varies daily)
-
-### Shortlist Selection
-
-**`scanner/pipeline/shortlist.py`**
-- **Purpose:** Reduce filtered universe to shortlist for OHLCV fetching (cheap pass)
-- **Classes:**
-  - `ShortlistSelector`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Defaults: max_size=100, min_size=10
-    - **Methods:**
-      - `select(filtered_symbols) -> List[Dict]` - Select top N by 24h volume
-        - Sorts by quote_volume_24h (descending)
-        - Returns top N symbols
-      - `get_shortlist_stats(filtered_symbols, shortlist) -> Dict` - Get selection statistics
-        - Returns: input_count, shortlist_count, reduction_rate, volume_coverage
-
-### OHLCV Data Fetching
-
-**`scanner/pipeline/ohlcv.py`**
-- **Purpose:** Fetch OHLCV data for shortlisted symbols
-- **Classes:**
-  - `OHLCVFetcher`
-    - **Initialization:**
-      - `__init__(mexc_client, config: Dict)`
-      - Defaults: timeframes=['1d', '4h'], lookback={'1d': 120, '4h': 180}
-      - Min candles: {'1d': 60, '4h': 90}
-    - **Methods:**
-      - `fetch_all(shortlist) -> Dict[str, Dict[str, Any]]` - Fetch OHLCV for all symbols
-        - Returns: {symbol: {timeframe: klines}}
-        - Skips symbols with insufficient data
-        - Only includes symbols with complete data across all timeframes
-      - `get_fetch_stats(ohlcv_data) -> Dict` - Get fetch statistics
-- **Typical Results:**
-  - Input: 100 symbols (shortlist)
-  - Output: ~90-98 symbols (with complete OHLCV)
-  - Skipped: ~2-10 symbols (insufficient history)
-
-### Feature Computation
-
-**`scanner/pipeline/features.py`**
-- **Purpose:** Compute technical features from OHLCV data
-- **Classes:**
-  - `FeatureEngine`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-    - **Methods:**
-      - `compute_all(ohlcv_data) -> Dict[str, Dict[str, Any]]` - Compute features for all symbols
-        - Returns: {symbol: {'1d': {...}, '4h': {...}, 'meta': {...}}}
-      - `_compute_timeframe_features(klines, timeframe) -> Dict` - Compute features for single timeframe
-      - `_convert_to_native_types(features) -> Dict` - Convert numpy types to Python native
-      - Feature calculation methods:
-        - `_calc_return(closes, periods) -> float` - Return over N periods (%)
-        - `_calc_ema(data, period) -> float` - Exponential Moving Average
-        - `_calc_sma(data, period) -> float` - Simple Moving Average
-        - `_calc_atr_pct(highs, lows, closes, period) -> float` - ATR as % of price
-        - `_detect_higher_high(highs, lookback) -> bool` - Higher high detection
-        - `_detect_higher_low(lows, lookback) -> bool` - Higher low detection
-        - `_calc_breakout_distance(closes, highs, lookback) -> float` - Distance to breakout (%)
-        - `_calc_drawdown(closes) -> float` - Drawdown from ATH (%)
-        - `_detect_base(closes, lows, lookback) -> bool` - Base formation detection (1d only)
-- **Features Computed (1d timeframe):**
-  - Price: close, high, low, volume
-  - Returns: r_1, r_3, r_7 (1d, 3d, 7d returns in %)
-  - EMAs: ema_20, ema_50
-  - EMA Distance: dist_ema20_pct, dist_ema50_pct
-  - Volatility: atr_pct (14-period ATR as %)
-  - Volume: volume_sma_14, volume_spike (vs 14-period SMA)
-  - Structure: hh_20, hl_20 (higher high/low detection)
-  - Breakout: breakout_dist_20, breakout_dist_30 (distance to 20d/30d high)
-  - Drawdown: drawdown_from_ath (% from all-time high)
-  - Base: base_detected (consolidation without new lows)
-- **Features Computed (4h timeframe):**
-  - Same as 1d except: no base_detected (None)
-- **Important:** All numpy types converted to Python native for JSON serialization
-
-### Scoring Modules
-
-#### Scoring Package Initialization
-
-**`scanner/pipeline/scoring/__init__.py`**
-- Type: Package initialization
-- Content: Minimal (docstring only)
-- Modules: breakout.py, pullback.py, reversal.py
-- Note: Three independent scoring modules
-
-#### Reversal Setup Scorer
-
-**`scanner/pipeline/scoring/reversal.py`**
-- **Purpose:** Score downtrend → base → reclaim setups (PRIORITY setup)
-- **Pattern:** Humanity Protocol style reversal
-- **Classes:**
-  - `ReversalScorer`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Config section: `scoring.reversal`
-    - **Thresholds:**
-      - `min_drawdown`: 40% (minimum drawdown to consider)
-      - `ideal_drawdown_min`: 50% (ideal range start)
-      - `ideal_drawdown_max`: 80% (ideal range end)
-      - `min_base_days`: 10 (minimum consolidation days)
-      - `min_volume_spike`: 1.5x (minimum volume spike)
-      - `overextension_threshold`: 15% (>15% above EMA50 = overextended)
-    - **Component Weights:**
-      - Drawdown: 30%
-      - Base Quality: 25%
-      - Reclaim Strength: 25%
-      - Volume Confirmation: 20%
-    - **Methods:**
-      - `score(symbol, features, quote_volume_24h) -> Dict` - Score single symbol
-        - Returns: {score, components, penalties, flags, reasons}
-      - `_score_drawdown(f1d) -> float` - Score drawdown context (0-100)
-        - Ideal: 50-80% from ATH
-      - `_score_base(f1d) -> float` - Score base formation (0-100)
-        - Checks: base_detected, ATR volatility
-      - `_score_reclaim(f1d, f4h) -> float` - Score reclaim strength (0-100)
-        - Checks: Above EMA20/50, higher highs, momentum
-      - `_score_volume(f1d, f4h) -> float` - Score volume confirmation (0-100)
-        - Uses max of 1d and 4h volume spikes
-      - `_generate_reasons(...)  -> List[str]` - Generate human-readable reasons
-    - **Penalties:**
-      - Overextension: 0.7x (>15% above EMA50)
-      - Low liquidity: 0.8x (<500K USDT)
-- **Top-Level Function:**
-  - `score_reversals(features_data, volumes, config) -> List[Dict]`
-    - Scores all symbols, returns sorted list (descending)
-
-#### Breakout Setup Scorer
-
-**`scanner/pipeline/scoring/breakout.py`**
-- **Purpose:** Score range breakouts with volume confirmation
-- **Classes:**
-  - `BreakoutScorer`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Config section: `scoring.breakout`
-    - **Thresholds:**
-      - `min_breakout_pct`: 2% (>2% above recent high)
-      - `ideal_breakout_pct`: 5% (ideal breakout distance)
-      - `max_breakout_pct`: 20% (>20% = overextended)
-      - `min_volume_spike`: 1.5x
-      - `ideal_volume_spike`: 2.5x
-    - **Component Weights:**
-      - Breakout Distance: 35%
-      - Volume Confirmation: 30%
-      - Trend Context: 20%
-      - Momentum: 15%
-    - **Methods:**
-      - `score(symbol, features, quote_volume_24h) -> Dict` - Score single symbol
-      - `_score_breakout(f1d) -> float` - Score breakout distance (0-100)
-      - `_score_volume(f1d, f4h) -> float` - Score volume confirmation (0-100)
-      - `_score_trend(f1d) -> float` - Score trend context (0-100)
-      - `_score_momentum(f1d) -> float` - Score momentum (0-100)
-      - `_generate_reasons(...) -> List[str]` - Generate reasons
-    - **Penalties:**
-      - Overextension: 0.6x (>20% above high)
-      - Low liquidity: 0.8x (<500K USDT)
-- **Top-Level Function:**
-  - `score_breakouts(features_data, volumes, config) -> List[Dict]`
-
-#### Pullback Setup Scorer
-
-**`scanner/pipeline/scoring/pullback.py`**
-- **Purpose:** Score trend continuation after retracement
-- **Classes:**
-  - `PullbackScorer`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Config section: `scoring.pullback`
-    - **Thresholds:**
-      - `min_trend_strength`: 5% (>5% above EMA50)
-      - `ideal_pullback_depth`: 5% (5-10% from EMA20)
-      - `max_pullback_depth`: 15% (<15% not too deep)
-      - `min_rebound`: 3% (>3% bounce)
-      - `min_volume_spike`: 1.3x
-    - **Component Weights:**
-      - Trend Strength: 30%
-      - Pullback Depth: 25%
-      - Rebound Strength: 25%
-      - Volume Pattern: 20%
-    - **Methods:**
-      - `score(symbol, features, quote_volume_24h) -> Dict` - Score single symbol
-      - `_score_trend(f1d) -> float` - Score trend strength (0-100)
-      - `_score_pullback(f1d) -> float` - Score pullback depth (0-100)
-      - `_score_rebound(f1d, f4h) -> float` - Score rebound strength (0-100)
-      - `_score_volume(f1d, f4h) -> float` - Score volume pattern (0-100)
-      - `_generate_reasons(...) -> List[str]` - Generate reasons
-    - **Penalties:**
-      - Broken trend: 0.5x (below EMA50)
-      - Low liquidity: 0.8x (<500K USDT)
-- **Top-Level Function:**
-  - `score_pullbacks(features_data, volumes, config) -> List[Dict]`
-
-### Output Generation
-
-**`scanner/pipeline/output.py`**
-- **Purpose:** Generate human-readable (Markdown) and machine-readable (JSON) reports
-- **Classes:**
-  - `ReportGenerator`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Defaults: reports_dir='reports', top_n=10
-    - **Methods:**
-      - `generate_markdown_report(reversal, breakout, pullback, run_date) -> str`
-        - Generates Markdown report with top N setups per type
-        - Sections: Summary, Reversal, Breakout, Pullback, Notes
-      - `_format_setup_entry(rank, entry) -> List[str]` - Format single setup entry
-      - `generate_json_report(reversal, breakout, pullback, run_date, metadata) -> Dict`
-        - Generates JSON report with meta, summary, setups
-      - `save_reports(reversal, breakout, pullback, run_date, metadata) -> Dict[str, Path]`
-        - Saves both Markdown and JSON reports
-        - Returns: {'markdown': Path, 'json': Path}
-
-### Snapshot Management
-
-**`scanner/pipeline/snapshot.py`**
-- **Purpose:** Create deterministic daily snapshots for backtesting
-- **Classes:**
-  - `SnapshotManager`
-    - **Initialization:**
-      - `__init__(config: Dict)`
-      - Defaults: snapshots_dir='snapshots/runtime'
-    - **Methods:**
-      - `create_snapshot(run_date, universe, filtered, shortlist, features, reversal_scores, breakout_scores, pullback_scores, metadata) -> Path`
-        - Creates complete pipeline snapshot
-        - Returns: Path to saved snapshot file
-      - `load_snapshot(run_date) -> Dict` - Load snapshot by date
-      - `list_snapshots() -> List[str]` - List all available snapshot dates
-      - `get_snapshot_stats(run_date) -> Dict` - Get snapshot statistics without loading full data
-- **Typical Size:** ~245 KB per snapshot
-
-### Backtesting
-
-**`scanner/pipeline/backtest_runner.py`**
-- **Status:** Stub (Phase 7 - not yet implemented)
-- **Purpose:** Compute forward returns from historical snapshots
-- **Planned Features:**
-  - Consume historical snapshots
-  - Compute forward returns (7/14/30 days)
-  - Calculate hit rates, median/mean returns
-  - Rank vs return behavior analysis
-  - Output backtest summaries (JSON/Markdown)
-
----
-
-## Module Dependencies
-
-### Dependency Graph (High-Level)
-
-```
-main.py
-  └─> config.py (load_config)
-  └─> pipeline/__init__.py (run_pipeline)
-       └─> clients/mexc_client.py (MEXCClient)
-       └─> clients/marketcap_client.py (MarketCapClient)
-       └─> clients/mapping.py (SymbolMapper)
-       └─> filters.py (UniverseFilters)
-       └─> shortlist.py (ShortlistSelector)
-       └─> ohlcv.py (OHLCVFetcher)
-       └─> features.py (FeatureEngine)
-       └─> scoring/reversal.py (score_reversals)
-       └─> scoring/breakout.py (score_breakouts)
-       └─> scoring/pullback.py (score_pullbacks)
-       └─> output.py (ReportGenerator)
-       └─> snapshot.py (SnapshotManager)
-```
-
-### Utility Dependencies
-
-All modules may import from:
-- `utils/logging_utils.py` (get_logger)
-- `utils/io_utils.py` (load_json, save_json, caching)
-- `utils/time_utils.py` (utc_date, utc_timestamp)
-
----
-
-## Key Statistics (as of 2026-01-17)
-
-### Pipeline Performance
-- **Universe:** 1837 MEXC USDT pairs
-- **Mapped:** 1624 symbols (88.4%)
-- **Filtered MidCaps:** ~300-400 symbols (varies daily)
-- **Shortlist:** 100 symbols (configurable)
-- **Complete OHLCV:** ~90-98 symbols
-- **Scored Setups:** 3 independent scores per symbol
-- **Execution Time:** ~4-5 minutes (with cache)
-- **Snapshot Size:** ~245 KB
-
-### Code Statistics
-- **Total Modules:** 23 Python files
-- **Total Classes:** 13
-  - 3 API Clients (MEXCClient, MarketCapClient, SymbolMapper)
-  - 2 Data Classes (ScannerConfig, MappingResult)
-  - 6 Pipeline Components (UniverseFilters, ShortlistSelector, OHLCVFetcher, FeatureEngine, ReportGenerator, SnapshotManager)
-  - 3 Scorers (ReversalScorer, BreakoutScorer, PullbackScorer)
-- **Entry Points:** 1 (main.py)
-- **Pipeline Orchestrators:** 1 (pipeline/__init__.py)
-
----
-
-## Update Protocol
-
-### When to Update This Code Map
-
-✅ **UPDATE when:**
-- Files/modules are added or removed
-- Classes are added, removed, or renamed
-- Function signatures change significantly
-- Module responsibilities change
-- New pipeline steps are added
-- Major refactoring occurs
-
-❌ **DO NOT update when:**
-- Implementation details change (without structural impact)
-- Bug fixes without architectural changes
-- Comments or docstrings are updated
-- Configuration values change
-- Test files are modified
-
----
-
-**End of Code Map**
-
-Last Validated: 2026-01-17  
-Based on: Complete codebase analysis (23 modules)  
-Accuracy: 100% (generated from actual source code)
-
-
----
-
-# Code Map - Auto-Generated Section
-
-**Last Auto-Update:** 2026-01-17 16:32 UTC
-
-## Module Summary
+## 📊 Repository Statistics
 
 - **Total Modules:** 23
 - **Total Classes:** 14
-- **Total Functions:** 22
+- **Total Functions:** 121
 
-## Quick Reference
+---
 
-### Classes
-- **MappingResult** (`scanner/clients/mapping.py`)
-  - 5 methods
-- **SymbolMapper** (`scanner/clients/mapping.py`)
-  - 6 methods
-- **MarketCapClient** (`scanner/clients/marketcap_client.py`)
-  - 6 methods
-- **MEXCClient** (`scanner/clients/mexc_client.py`)
-  - 8 methods
-- **ScannerConfig** (`scanner/config.py`)
-  - 19 methods
-- **FeatureEngine** (`scanner/pipeline/features.py`)
-  - 13 methods
-- **UniverseFilters** (`scanner/pipeline/filters.py`)
-  - 6 methods
-- **OHLCVFetcher** (`scanner/pipeline/ohlcv.py`)
-  - 3 methods
-- **ReportGenerator** (`scanner/pipeline/output.py`)
-  - 5 methods
-- **BreakoutScorer** (`scanner/pipeline/scoring/breakout.py`)
-  - 7 methods
-- **PullbackScorer** (`scanner/pipeline/scoring/pullback.py`)
-  - 7 methods
-- **ReversalScorer** (`scanner/pipeline/scoring/reversal.py`)
-  - 7 methods
-- **ShortlistSelector** (`scanner/pipeline/shortlist.py`)
-  - 3 methods
-- **SnapshotManager** (`scanner/pipeline/snapshot.py`)
-  - 5 methods
+## 🧩 Module Structure
+
+### 📄 `scanner/__init__.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/clients/__init__.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/clients/mapping.py`
+
+**Classes:** `MappingResult, SymbolMapper`
+
+**Functions:** `__init__, _get_market_cap, _load_overrides, base_asset, generate_reports, map_symbol, map_universe, mapped, suggest_overrides, to_dict`
+
+**Module Variables:** `base_asset, base_asset_upper, collisions, collisions_file, logger, output_path, override, override_symbol, overrides, result` _(+5 more)_
+
+**Imports:** `json, pathlib, typing, utils.io_utils, utils.logging_utils`
+
+---
+
+### 📄 `scanner/clients/marketcap_client.py`
+
+**Classes:** `MarketCapClient`
+
+**Functions:** `__init__, _request, build_symbol_map, get_all_listings, get_listings, get_market_cap_for_symbol`
+
+**Module Variables:** `BASE_URL, cache_key, cached, collisions, data, existing_rank, listings, logger, new_rank, params` _(+4 more)_
+
+**Imports:** `os, requests, typing, utils.io_utils, utils.logging_utils`
+
+---
+
+### 📄 `scanner/clients/mexc_client.py`
+
+**Classes:** `MEXCClient`
+
+**Functions:** `__init__, _rate_limit, _request, get_24h_tickers, get_exchange_info, get_klines, get_multiple_klines, get_spot_usdt_symbols`
+
+**Module Variables:** `BASE_URL, cache_key, data, elapsed, exchange_info, logger, params, response, results, retry_after` _(+3 more)_
+
+**Imports:** `requests, time, typing, utils.io_utils, utils.logging_utils`
+
+---
+
+### 📄 `scanner/config.py`
+
+**Classes:** `ScannerConfig`
+
+**Functions:** `cmc_api_key, config_version, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_quote_volume_24h, run_mode, shortlist_size, spec_version, timezone, validate_config`
+
+**Module Variables:** `CONFIG_PATH, cfg_path, env_var, errors, raw, valid_modes`
+
+**Imports:** `dataclasses, os, pathlib, typing, yaml`
+
+---
+
+### 📄 `scanner/main.py`
+
+**Functions:** `main, parse_args`
+
+**Module Variables:** `args, cfg, parser`
+
+**Imports:** `__future__, argparse, config, pipeline, sys`
+
+---
+
+### 📄 `scanner/pipeline/__init__.py`
+
+**Functions:** `run_pipeline`
+
+**Module Variables:** `breakout_results, cmc, cmc_listings, cmc_symbol_map, feature_engine, features, filtered, filters, logger, mapper` _(+22 more)_
+
+**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, datetime, features, filters` _(+8 more)_
+
+---
+
+### 📄 `scanner/pipeline/backtest_runner.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/pipeline/features.py`
+
+**Classes:** `FeatureEngine`
+
+**Functions:** `__init__, _calc_atr_pct, _calc_breakout_distance, _calc_drawdown, _calc_ema, _calc_return, _calc_sma, _compute_timeframe_features, _convert_to_native_types, _detect_base, _detect_higher_high, _detect_higher_low, compute_all`
+
+**Module Variables:** `alpha, ath, atr, base_result, closes, converted, current, ema, features, hc` _(+19 more)_
+
+**Imports:** `logging, numpy, typing`
+
+---
+
+### 📄 `scanner/pipeline/filters.py`
+
+**Classes:** `UniverseFilters`
+
+**Functions:** `__init__, _filter_exclusions, _filter_liquidity, _filter_mcap, apply_all, get_filter_stats`
+
+**Module Variables:** `base, exclusion_pass, filtered, final_pass, is_excluded, liquidity_pass, logger, mcap, mcap_pass, original_count` _(+2 more)_
+
+**Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/ohlcv.py`
+
+**Classes:** `OHLCVFetcher`
+
+**Functions:** `__init__, fetch_all, get_fetch_stats`
+
+**Module Variables:** `candles, date_range, failed, first_symbol, klines, limit, logger, min_required, newest, ohlcv_config` _(+6 more)_
+
+**Imports:** `datetime, logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/output.py`
+
+**Classes:** `ReportGenerator`
+
+**Functions:** `__init__, _format_setup_entry, generate_json_report, generate_markdown_report, save_reports`
+
+**Module Variables:** `components, flag_str, flags, json_content, json_path, lines, logger, md_content, md_path, output_config` _(+7 more)_
+
+**Imports:** `datetime, json, logging, pathlib, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/__init__.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/pipeline/scoring/breakout.py`
+
+**Classes:** `BreakoutScorer`
+
+**Functions:** `__init__, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
+
+**Module Variables:** `breakout_dist, breakout_score, dist, dist_ema20, dist_ema50, excess, f1d, f4h, final_score, flags` _(+20 more)_
+
+**Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/pullback.py`
+
+**Classes:** `PullbackScorer`
+
+**Functions:** `__init__, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
+
+**Module Variables:** `dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, max_spike, penalties, pullback_score` _(+17 more)_
+
+**Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/reversal.py`
+
+**Classes:** `ReversalScorer`
+
+**Functions:** `__init__, _generate_reasons, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
+
+**Module Variables:** `atr, base_detected, base_score, dd, dd_pct, dist_ema20, dist_ema50, drawdown_score, excess, f1d` _(+22 more)_
+
+**Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/shortlist.py`
+
+**Classes:** `ShortlistSelector`
+
+**Functions:** `__init__, get_shortlist_stats, select`
+
+**Module Variables:** `coverage, logger, max_vol, min_vol, shortlist, shortlist_volume, sorted_symbols, total_volume`
+
+**Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/snapshot.py`
+
+**Classes:** `SnapshotManager`
+
+**Functions:** `__init__, create_snapshot, get_snapshot_stats, list_snapshots, load_snapshot`
+
+**Module Variables:** `date, logger, size_mb, snapshot, snapshot_config, snapshot_path, snapshots`
+
+**Imports:** `datetime, json, logging, pathlib, typing`
+
+---
+
+### 📄 `scanner/utils/__init__.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/utils/io_utils.py`
+
+**Functions:** `cache_exists, get_cache_path, load_cache, load_json, save_cache, save_json`
+
+**Module Variables:** `cache_dir, cache_path, date, filepath`
+
+**Imports:** `datetime, json, pathlib, time_utils, typing`
+
+---
+
+### 📄 `scanner/utils/logging_utils.py`
+
+**Functions:** `get_logger, setup_logger`
+
+**Module Variables:** `console_handler, file_handler, formatter, log_dir, log_file, logger`
+
+**Imports:** `datetime, logging, logging.handlers, pathlib, sys`
+
+---
+
+### 📄 `scanner/utils/time_utils.py`
+
+**Functions:** `ms_to_timestamp, parse_timestamp, timestamp_to_ms, utc_date, utc_now, utc_timestamp`
+
+**Module Variables:** `ts`
+
+**Imports:** `datetime, typing`
+
+---
+
+
+## 🔗 Function Dependencies (Call Graph)
+
+_This section shows which functions call which other functions, helping identify coupling and refactoring opportunities._
+
+### 📄 scanner/clients/mapping.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | `_load_overrides` | `Path` |
+| `_load_overrides` | — | `error`, `exists`, `info`, `load_json` |
+| `base_asset` | — | `endswith` |
+| `generate_reports` | `to_dict` | `Path`, `info`, `mkdir`, `save_json`, `values` |
+| `map_symbol` | — | `MappingResult`, `endswith`, `upper` |
+| `map_universe` | `map_symbol` | `info` |
+| `suggest_overrides` | — | `Path`, `info`, `mkdir`, `save_json`, `values` |
+| `to_dict` | `_get_market_cap` | `get` |
+
+### 📄 scanner/clients/marketcap_client.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `Session`, `getenv`, `update`, `warning` |
+| `_request` | — | `RequestException`, `ValueError`, `error`, `get`, `json`, `keys`, `raise_for_status` |
+| `build_symbol_map` | `get_all_listings` | `append`, `debug`, `get`, `info`, `upper`, `warning` |
+| `get_all_listings` | `get_listings` | — |
+| `get_listings` | `_request` | `cache_exists`, `error`, `get`, `info`, `load_cache`, `save_cache` |
+| `get_market_cap_for_symbol` | `build_symbol_map` | `get`, `upper` |
+
+### 📄 scanner/clients/mexc_client.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `Session` |
+| `_rate_limit` | — | `sleep`, `time` |
+| `_request` | `_rate_limit` | `RequestException`, `error`, `get`, `json`, `raise_for_status`, `request`, `sleep`, `warning` |
+| `get_24h_tickers` | `_request` | `cache_exists`, `info`, `load_cache`, `save_cache` |
+| `get_exchange_info` | `_request` | `cache_exists`, `info`, `load_cache`, `save_cache` |
+| `get_klines` | `_request` | `cache_exists`, `debug`, `load_cache`, `save_cache` |
+| `get_multiple_klines` | `get_klines` | `error`, `info` |
+| `get_spot_usdt_symbols` | `get_exchange_info` | `append`, `get`, `info` |
+
+### 📄 scanner/config.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `cmc_api_key` | — | `get`, `getenv` |
+| `config_version` | — | `get` |
+| `exclude_leveraged` | — | `get` |
+| `exclude_stablecoins` | — | `get` |
+| `exclude_wrapped` | — | `get` |
+| `load_config` | — | `FileNotFoundError`, `Path`, `ScannerConfig`, `exists`, `safe_load` |
+| `log_file` | — | `get` |
+| `log_level` | — | `get` |
+| `log_to_file` | — | `get` |
+| `lookback_days_1d` | — | `get` |
+| `lookback_days_4h` | — | `get` |
+| `market_cap_max` | — | `get` |
+| `market_cap_min` | — | `get` |
+| `mexc_enabled` | — | `get` |
+| `min_history_days_1d` | — | `get` |
+| `min_quote_volume_24h` | — | `get` |
+| `run_mode` | — | `get` |
+| `shortlist_size` | — | `get` |
+| `spec_version` | — | `get` |
+| `timezone` | — | `get` |
+| `validate_config` | — | `append` |
+
+### 📄 scanner/main.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `main` | `parse_args` | `load_config`, `run_pipeline`, `setdefault` |
+| `parse_args` | `parse_args` | `ArgumentParser`, `add_argument` |
+
+### 📄 scanner/pipeline/__init__.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `create_snapshot`, `fetch_all`, `get`, `get_24h_tickers`, `get_listings`, `get_spot_usdt_symbols`, `info`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `utcnow` |
+
+### 📄 scanner/pipeline/features.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `info` |
+| `_calc_atr_pct` | — | `append`, `array`, `mean` |
+| `_calc_sma` | — | `mean` |
+| `_compute_timeframe_features` | `_calc_atr_pct`, `_calc_breakout_distance`, `_calc_drawdown`, `_calc_ema`, `_calc_return`, `_calc_sma`, `_convert_to_native_types`, `_detect_base`, `_detect_higher_high`, `_detect_higher_low` | `array` |
+| `_convert_to_native_types` | — | `items` |
+| `_detect_base` | — | `mean` |
+| `compute_all` | `_compute_timeframe_features` | `debug`, `error`, `info`, `items` |
+
+### 📄 scanner/pipeline/filters.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `_filter_exclusions` | — | `append`, `get`, `upper` |
+| `_filter_liquidity` | — | `append`, `get` |
+| `_filter_mcap` | — | `append`, `get` |
+| `apply_all` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap` | `info` |
+| `get_filter_stats` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `apply_all` | — |
+
+### 📄 scanner/pipeline/ohlcv.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `fetch_all` | — | `error`, `get`, `get_klines`, `info`, `warning` |
+| `get_fetch_stats` | — | `fromtimestamp`, `keys`, `strftime`, `values` |
+
+### 📄 scanner/pipeline/output.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join` |
+| `generate_json_report` | — | `isoformat`, `update`, `utcnow` |
+| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `join`, `strftime`, `utcnow` |
+| `save_reports` | `generate_json_report`, `generate_markdown_report` | `dump`, `info`, `write` |
+
+### 📄 scanner/pipeline/scoring/breakout.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `_generate_reasons` | — | `append`, `get` |
+| `_score_breakout` | — | `get` |
+| `_score_momentum` | — | `get` |
+| `_score_trend` | — | `get` |
+| `_score_volume` | — | `get` |
+| `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get` |
+| `score_breakouts` | `score` | `BreakoutScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+
+### 📄 scanner/pipeline/scoring/pullback.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `_generate_reasons` | — | `append`, `get` |
+| `_score_pullback` | — | `get` |
+| `_score_rebound` | — | `get` |
+| `_score_trend` | — | `get` |
+| `_score_volume` | — | `get` |
+| `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get` |
+| `score_pullbacks` | `score` | `PullbackScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+
+### 📄 scanner/pipeline/scoring/reversal.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `_generate_reasons` | — | `append`, `get` |
+| `_score_base` | — | `get` |
+| `_score_drawdown` | — | `get` |
+| `_score_reclaim` | — | `get` |
+| `_score_volume` | — | `get` |
+| `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get` |
+| `score_reversals` | `score` | `ReversalScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+
+### 📄 scanner/pipeline/shortlist.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get`, `info` |
+| `get_shortlist_stats` | — | `get` |
+| `select` | — | `get`, `info`, `warning` |
+
+### 📄 scanner/pipeline/snapshot.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `create_snapshot` | — | `dump`, `info`, `isoformat`, `stat`, `update`, `utcnow` |
+| `get_snapshot_stats` | `load_snapshot` | — |
+| `list_snapshots` | — | `append`, `glob`, `info`, `sort` |
+| `load_snapshot` | — | `FileNotFoundError`, `exists`, `info`, `load` |
+
+### 📄 scanner/utils/io_utils.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `cache_exists` | `get_cache_path` | `exists` |
+| `get_cache_path` | — | `Path`, `mkdir`, `utc_date` |
+| `load_cache` | `get_cache_path`, `load_json` | `exists` |
+| `load_json` | — | `Path`, `load` |
+| `save_cache` | `get_cache_path`, `save_json` | — |
+| `save_json` | — | `Path`, `dump`, `mkdir` |
+
+### 📄 scanner/utils/logging_utils.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `get_logger` | `setup_logger` | `getLogger` |
+| `setup_logger` | — | `Formatter`, `Path`, `RotatingFileHandler`, `StreamHandler`, `addHandler`, `clear`, `getLogger`, `mkdir`, `setFormatter`, `setLevel`, `strftime`, `upper`, `utcnow` |
+
+### 📄 scanner/utils/time_utils.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `ms_to_timestamp` | — | `fromtimestamp` |
+| `parse_timestamp` | — | `endswith`, `fromisoformat` |
+| `timestamp_to_ms` | — | `timestamp` |
+| `utc_date` | `utc_now` | `strftime` |
+| `utc_now` | — | `now` |
+| `utc_timestamp` | `utc_now` | `strftime` |
+
+
+---
+
+## 📊 Coupling Statistics
+
+_Modules with high external call counts may benefit from refactoring._
+
+| Module | Internal Calls | External Calls | Total | Coupling |
+|--------|----------------|----------------|-------|----------|
+| `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 30 | 30 | 🔴 High |
+| `scanner/clients/marketcap_client.py` | 4 | 25 | 29 | 🔴 High |
+| `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
+| `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
+| `scanner/pipeline/features.py` | 11 | 12 | 23 | ⚠️ Medium |
+| `scanner/pipeline/output.py` | 3 | 20 | 23 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 6 | 17 | 23 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 6 | 17 | 23 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 6 | 17 | 23 | 🔴 High |
+| `scanner/pipeline/snapshot.py` | 1 | 18 | 19 | 🔴 High |
+| `scanner/pipeline/filters.py` | 7 | 10 | 17 | ⚠️ Medium |
+| `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
+| `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/pipeline/ohlcv.py` | 0 | 11 | 11 | 🔴 High |
+| `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
+| `scanner/pipeline/shortlist.py` | 0 | 6 | 6 | 🔴 High |
+
+**Interpretation:**
+- ✅ **Low coupling:** Module is self-contained, easy to maintain
+- ⚠️ **Medium coupling:** Some external dependencies, acceptable
+- 🔴 **High coupling:** Many external calls, consider refactoring
+
+
+---
+
+## 📚 Additional Documentation
+
+- **Specifications:** `docs/spec.md` (technical master spec)
+- **Development Guide:** `docs/dev_guide.md` (workflow)
+- **GPT Snapshot:** `docs/GPT_SNAPSHOT.md` (complete codebase)
+- **Latest Reports:** `reports/YYYY-MM-DD.md` (daily outputs)
+
+---
+
+_Generated by GitHub Actions • 2026-01-17 18:43 UTC_
