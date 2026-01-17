@@ -183,10 +183,17 @@ class ReportGenerator:
             lines.append(analysis)
             lines.append("")
         
-        # Flags
+        # Flags - handle both dict and list formats
         flags = data.get('flags', {})
-        if any(flags.values()):
-            flag_str = ', '.join([k for k, v in flags.items() if v])
+        flag_list = []
+        
+        if isinstance(flags, dict):
+            flag_list = [k for k, v in flags.items() if v]
+        elif isinstance(flags, list):
+            flag_list = flags
+        
+        if flag_list:
+            flag_str = ', '.join(flag_list)
             lines.append(f"**⚠️ Flags:** {flag_str}")
             lines.append("")
         
