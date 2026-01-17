@@ -2,10 +2,10 @@
 requests>=2.31.0
 
 # Config & Serialization
-PyYAML>=6.0.1
+PyYAML>=6.0
 
 # Data Processing
-pandas>=2.1.0
+pandas>=2.0.0
 numpy>=1.24.0
 
 # Time & Date
@@ -13,3 +13,6 @@ python-dateutil>=2.8.2
 
 # Optional: Better Logging
 loguru>=0.7.0
+
+# Excel output
+openpyxl>=3.1.0
