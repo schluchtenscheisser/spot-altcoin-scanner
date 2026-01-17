@@ -634,3 +634,48 @@ All modules may import from:
 Last Validated: 2026-01-17  
 Based on: Complete codebase analysis (23 modules)  
 Accuracy: 100% (generated from actual source code)
+
+
+---
+
+# Code Map - Auto-Generated Section
+
+**Last Auto-Update:** 2026-01-17 16:32 UTC
+
+## Module Summary
+
+- **Total Modules:** 23
+- **Total Classes:** 14
+- **Total Functions:** 22
+
+## Quick Reference
+
+### Classes
+- **MappingResult** (`scanner/clients/mapping.py`)
+  - 5 methods
+- **SymbolMapper** (`scanner/clients/mapping.py`)
+  - 6 methods
+- **MarketCapClient** (`scanner/clients/marketcap_client.py`)
+  - 6 methods
+- **MEXCClient** (`scanner/clients/mexc_client.py`)
+  - 8 methods
+- **ScannerConfig** (`scanner/config.py`)
+  - 19 methods
+- **FeatureEngine** (`scanner/pipeline/features.py`)
+  - 13 methods
+- **UniverseFilters** (`scanner/pipeline/filters.py`)
+  - 6 methods
+- **OHLCVFetcher** (`scanner/pipeline/ohlcv.py`)
+  - 3 methods
+- **ReportGenerator** (`scanner/pipeline/output.py`)
+  - 5 methods
+- **BreakoutScorer** (`scanner/pipeline/scoring/breakout.py`)
+  - 7 methods
+- **PullbackScorer** (`scanner/pipeline/scoring/pullback.py`)
+  - 7 methods
+- **ReversalScorer** (`scanner/pipeline/scoring/reversal.py`)
+  - 7 methods
+- **ShortlistSelector** (`scanner/pipeline/shortlist.py`)
+  - 3 methods
+- **SnapshotManager** (`scanner/pipeline/snapshot.py`)
+  - 5 methods
