@@ -23,23 +23,24 @@ print("\n--- Initializing MEXC Client ---")
 mexc = MEXCClient(config)
 print("✓ MEXC client ready")
 
-# Override config for faster test
-test_config = config.copy()
-test_config['ohlcv'] = {
-    'timeframes': ['1d', '4h'],
-    'lookback': {
-        '1d': 90,   # 3 months
-        '4h': 120   # ~20 days
-    },
-    'min_candles': {
-        '1d': 60,
-        '4h': 90
+# Test config (override for faster testing)
+test_ohlcv_config = {
+    'ohlcv': {
+        'timeframes': ['1d', '4h'],
+        'lookback': {
+            '1d': 90,   # 3 months
+            '4h': 120   # ~20 days
+        },
+        'min_candles': {
+            '1d': 60,
+            '4h': 90
+        }
     }
 }
 
 # Initialize fetcher
 print("\n--- Initializing OHLCV Fetcher ---")
-fetcher = OHLCVFetcher(mexc, test_config)
+fetcher = OHLCVFetcher(mexc, test_ohlcv_config)
 print(f"✓ Fetcher ready: {fetcher.timeframes}")
 
 # Test with small shortlist
