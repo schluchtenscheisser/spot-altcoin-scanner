@@ -140,36 +140,40 @@ class ReportGenerator:
         
         return "\n".join(lines)
     
-    def _format_setup_entry(self, rank: int, entry: Dict[str, Any]) -> List[str]:
-        """Format a single setup entry for markdown."""
+    def _format_setup_entry(self, rank: int, symbol: str, data: dict) -> str:
+        """Format a single setup entry for markdown output."""
         lines = []
         
-        symbol = entry['symbol']
-        score = entry['score']
-        components = entry['components']
-        flags = entry.get('flags', [])
-        reasons = entry.get('reasons', [])
+        # Header with rank, symbol, name, and score
+        coin_name = data.get('coin_name', 'Unknown')
+        score = data.get('score', 0)
+        price = data.get('price_usdt')
         
-        # Header
-        flag_str = f" ⚠️ {', '.join(flags)}" if flags else ""
-        lines.append(f"### {rank}. {symbol} - Score: {score:.1f}{flag_str}")
-        lines.append("")
+        lines.append(f"### {rank}. {symbol} ({coin_name}) - Score: {score:.1f}")
+        
+        if price is not None:
+            lines.append(f"**Price:** ${price:.6f} USDT")
         
         # Components
-        lines.append("**Components:**")
-        for comp_name, comp_score in components.items():
-            lines.append(f"- {comp_name.capitalize()}: {comp_score:.1f}")
-        lines.append("")
+        components = data.get('components', {})
+        if components:
+            lines.append("**Components:**")
+            for comp_name, comp_value in components.items():
+                lines.append(f"- {comp_name.replace('_', ' ').capitalize()}: {comp_value:.1f}")
         
-        # Reasons
-        if reasons:
-            lines.append("**Analysis:**")
-            for reason in reasons:
-                lines.append(f"- {reason}")
-            lines.append("")
+        # Analysis
+        analysis = data.get('analysis', '')
+        if analysis:
+            lines.append(f"\n**Analysis:**\n{analysis}")
         
-        return lines
-    
+        # Flags
+        flags = data.get('flags', {})
+        if any(flags.values()):
+            flag_str = ', '.join([k for k, v in flags.items() if v])
+            lines.append(f"\n**Flags:** {flag_str}")
+        
+        return '\n'.join(lines)
+        
     def generate_json_report(
         self,
         reversal_results: List[Dict[str, Any]],
