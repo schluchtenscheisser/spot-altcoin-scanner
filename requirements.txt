@@ -1,5 +1,15 @@
-requests
-PyYAML
-pandas
-python-dateutil
-numpy
+# HTTP & API
+requests>=2.31.0
+
+# Config & Serialization
+PyYAML>=6.0.1
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Time & Date
+python-dateutil>=2.8.2
+
+# Optional: Better Logging
+loguru>=0.7.0
