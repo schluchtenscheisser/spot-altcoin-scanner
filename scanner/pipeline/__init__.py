@@ -117,6 +117,25 @@ def run_pipeline(config: ScannerConfig) -> None:
     feature_engine = FeatureEngine(config.raw)
     features = feature_engine.compute_all(ohlcv_data)
     logger.info(f"✓ Features: {len(features)} symbols")
+
+    # Step 6.1: Enrich features with price and name
+    logger.info("Step 6.1: Enriching features with price and coin name...")
+    for symbol in features.keys():
+        # Add current price from tickers
+        ticker = next((t for t in tickers if t.get('symbol') == symbol), None)
+        if ticker:
+            features[symbol]['price_usdt'] = float(ticker.get('lastPrice', 0))
+        else:
+            features[symbol]['price_usdt'] = None
+    
+        # Add coin name from CMC
+        mapping = mapper.map_symbol(symbol)
+        if mapping.mapped and mapping.cmc_data:
+            features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
+        else:
+            features[symbol]['coin_name'] = 'Unknown'
+
+    logger.info(f"Enriched {len(features)} symbols with price and name")
     
     # Prepare volume map for scoring
     volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
