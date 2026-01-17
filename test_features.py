@@ -68,22 +68,22 @@ for symbol, feat_data in features.items():
         print(f"    close: {f1d.get('close', 0):.2f}")
         
         ema20 = f1d.get('ema_20')
-        print(f"    ema_20: {ema20:.2f if ema20 is not None else 'N/A'}")
+        print(f"    ema_20: {ema20:.2f}" if ema20 is not None else "    ema_20: N/A")
         
         ema50 = f1d.get('ema_50')
-        print(f"    ema_50: {ema50:.2f if ema50 is not None else 'N/A'}")
+        print(f"    ema_50: {ema50:.2f}" if ema50 is not None else "    ema_50: N/A")
         
         r7 = f1d.get('r_7')
-        print(f"    r_7: {r7:.2f if r7 is not None else 'N/A'}%")
+        print(f"    r_7: {r7:.2f}%" if r7 is not None else "    r_7: N/A")
         
         atr = f1d.get('atr_pct')
-        print(f"    atr_pct: {atr:.2f if atr is not None else 'N/A'}%")
+        print(f"    atr_pct: {atr:.2f}%" if atr is not None else "    atr_pct: N/A")
         
         vol_spike = f1d.get('volume_spike')
-        print(f"    volume_spike: {vol_spike:.2f if vol_spike is not None else 'N/A'}x")
+        print(f"    volume_spike: {vol_spike:.2f}x" if vol_spike is not None else "    volume_spike: N/A")
         
         dd = f1d.get('drawdown_from_ath')
-        print(f"    drawdown_from_ath: {dd:.2f if dd is not None else 'N/A'}%")
+        print(f"    drawdown_from_ath: {dd:.2f}%" if dd is not None else "    drawdown_from_ath: N/A")
         
         print(f"    hh_20: {f1d.get('hh_20')}")
         print(f"    base_detected: {f1d.get('base_detected')}")
@@ -94,10 +94,10 @@ for symbol, feat_data in features.items():
         print(f"    close: {f4h.get('close', 0):.2f}")
         
         ema20 = f4h.get('ema_20')
-        print(f"    ema_20: {ema20:.2f if ema20 is not None else 'N/A'}")
+        print(f"    ema_20: {ema20:.2f}" if ema20 is not None else "    ema_20: N/A")
         
         vol_spike = f4h.get('volume_spike')
-        print(f"    volume_spike: {vol_spike:.2f if vol_spike is not None else 'N/A'}x")
+        print(f"    volume_spike: {vol_spike:.2f}x" if vol_spike is not None else "    volume_spike: N/A")
 
 # Validation
 print("\n--- Validation ---")
