@@ -140,7 +140,7 @@ rm test_mexc.py && git add -A && git commit -m "Phase X complete" && git push or
 "Before I implement the filter, I need to see:
 1. sample_file.py (upload please)
 2. How your data structure looks in pipeline.py
-3. How your repo structure looks like (use Output from `tree -L 3`)
+3. How your repo structure looks like (use Output from tree -L 3)
 
 This ensures the code works on first try."
 ```
