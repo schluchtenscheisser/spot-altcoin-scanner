@@ -129,7 +129,7 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['price_usdt'] = None
     
         # Add coin name from CMC
-        mapping = mapper.map_symbol(symbol)
+        mapping = mapper.map_symbol(symbol, cmc_symbol_map)
         if mapping.mapped and mapping.cmc_data:
             features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
         else:
