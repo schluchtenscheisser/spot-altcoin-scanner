@@ -1,13 +1,22 @@
 name: 🗺️ Auto-Update Code Map with Call Graph
 
 on:
+  # Run after GPT Snapshot workflow completes
+  workflow_run:
+    workflows: ["gpt-snapshot"]
+    types: [completed]
+    branches: [main]
+  
+  # Also allow manual trigger
+  workflow_dispatch:
+  
+  # Trigger on direct changes to Python files (but not after auto-commits)
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'scanner/**/*.py'
       - 'tests/**/*.py'
       - 'scripts/update_codemap.py'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,21 +25,25 @@ jobs:
   update-codemap:
     runs-on: ubuntu-latest
     
-    # Prevent infinite loop
-    if: ${{ !contains(github.event.head_commit.message, 'Auto-update code map') }}
+    # Prevent infinite loop - skip if this is an auto-commit
+    if: |
+      !contains(github.event.head_commit.message, 'Auto-update code map') &&
+      !contains(github.event.head_commit.message, '[skip ci]')
     
     steps:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Use a token that can trigger other workflows if needed
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       
-      - name: 🔍 Verify Script Exists
+      - name: 📋 Verify Script Exists
         run: |
           if [ ! -f scripts/update_codemap.py ]; then
             echo "❌ scripts/update_codemap.py not found!"
@@ -72,35 +85,20 @@ jobs:
       
       - name: 📤 Commit and Push Changes
         if: steps.check_changes.outputs.changed == 'true'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add docs/code_map.md
-          git commit -m "🤖 Auto-update code map with call graph analysis"
-          
-          # Fetch latest and rebase to avoid conflicts
-          echo "📥 Fetching latest main..."
-          git fetch origin main
-          
-          echo "🔄 Rebasing onto latest main..."
-          git rebase origin/main || {
-            echo "⚠️  Rebase conflict detected"
-            echo "   Attempting to resolve..."
-            git rebase --skip || {
-              echo "❌ Could not resolve rebase conflict"
-              exit 1
-            }
-          }
-          
-          echo "🚀 Pushing to main..."
-          git push origin HEAD:main
-          
-          echo "✅ Code Map successfully updated and pushed"
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Auto-update code map with call graph analysis [skip ci]"
+          file_pattern: docs/code_map.md
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com
+          # Use force-with-lease to handle potential conflicts
+          push_options: '--force-with-lease'
+          skip_fetch: false
+          skip_checkout: false
       
       - name: 📊 Summary
         run: |
-          echo "════════════════════════════════════════════════════════════"
+          echo "╔════════════════════════════════════════════════════════════╗"
           if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
             echo "✅ Code Map has been updated with call graph analysis"
             echo ""
@@ -113,4 +111,4 @@ jobs:
             echo "✅ Code Map was already up to date"
             echo "   No changes needed"
           fi
-          echo "════════════════════════════════════════════════════════════"
+          echo "╚════════════════════════════════════════════════════════════╝"
