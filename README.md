@@ -23,5 +23,42 @@ For full technical specification, see `/docs/spec.md` and related documents.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts ctivate
 pip install -r requirements.txt
+```
+
+### 2. Configure environment
+
+Copy .env.example to .env and fill:
+
+```text
+CMC_API_KEY
+```
+
+Make sure your shell or tooling loads .env so the key is available.
+
+### 3. Configure scanner
+
+Edit config/config.yml if needed (filters, thresholds, etc.).
+
+### 4. Run scanner (local)
+
+```bash
+Code kopieren
+python -m scanner.main --mode standard
+```
+
+### Scheduling
+
+See .github/workflows/daily.yml for a GitHub Actions example.
+
+### Tests
+
+```bash
+Code kopieren
+pytest
+```
+
+### Documentation
+
+All specs and dev guides live in /docs.
