@@ -1,0 +1,155 @@
+name: Generate GPT Snapshot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scanner/**/*.py'
+      - 'docs/**/*.md'
+      - 'config/**/*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-snapshot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Create snapshot directory
+        run: mkdir -p snapshots/gpt
+      
+      - name: Get recent commits
+        id: commits
+        run: |
+          git log -5 --pretty=format:"- %s (%h)" --no-merges > /tmp/commits.txt
+          cat /tmp/commits.txt
+      
+      - name: Get changed files
+        id: files
+        run: |
+          git diff-tree --no-commit-id --name-only -r HEAD | head -20 > /tmp/files.txt
+          cat /tmp/files.txt
+      
+      - name: Generate snapshot
+        run: |
+          SNAPSHOT_DATE=$(date +%Y-%m-%d)
+          SNAPSHOT_TIME=$(date -u +"%H:%M UTC")
+          
+          cat > snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md << 'SNAPSHOT_EOF'
+          # GPT Snapshot - $(date +%Y-%m-%d)
+          
+          ## Status
+          **Type:** Automatic
+          **Generated:** $(date -u +"%H:%M UTC")
+          **Trigger:** Push to main
+          
+          ---
+          
+          ## Recent Changes
+          
+          ### Last 5 Commits
+          SNAPSHOT_EOF
+          
+          cat /tmp/commits.txt >> snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md
+          
+          cat >> snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md << 'SNAPSHOT_EOF'
+          
+          ### Changed Files
+          ```
+          SNAPSHOT_EOF
+          
+          cat /tmp/files.txt >> snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md
+          
+          cat >> snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md << 'SNAPSHOT_EOF'
+          ```
+          
+          ---
+          
+          ## Current Project State
+          
+          ### Development Status
+          - **Phase:** 6 Complete (MVP)
+          - **Code Map:** docs/code_map.md
+          - **Documentation:** Up to date
+          
+          ### Key Metrics
+          - Universe: 1837 MEXC USDT pairs
+          - Mapping Success: 88.4% (1624/1837)
+          - Pipeline Steps: 10
+          - Scoring Modules: 3 (Reversal, Breakout, Pullback)
+          
+          ---
+          
+          ## Open Tasks
+          
+          - [ ] Review changes in latest commit
+          - [ ] Run scanner to validate: `python -m scanner.main --mode fast`
+          - [ ] Check logs: `cat logs/scanner_$(date +%Y-%m-%d).log`
+          - [ ] Update documentation if needed
+          
+          ---
+          
+          ## For Next GPT Session
+          
+          ### Context to Remember
+          1. **Last Changes:** See commits above
+          2. **Current Focus:** MVP maintenance and monitoring
+          3. **Code Map Location:** `docs/code_map.md`
+          4. **Specifications:** `docs/spec.md`
+          
+          ### Before Making Changes
+          1. Read `docs/code_map.md` to understand structure
+          2. Read `docs/dev_guide.md` for workflow
+          3. Check latest snapshot (this file)
+          4. Review `docs/spec.md` for constraints
+          
+          ### Quick Commands
+          ```bash
+          # Run scanner
+          python -m scanner.main --mode fast
+          
+          # View latest report
+          cat reports/$(date +%Y-%m-%d).md
+          
+          # Check logs
+          tail -50 logs/scanner_$(date +%Y-%m-%d).log
+          ```
+          
+          ---
+          
+          ## End of Snapshot
+          
+          **Next Review:** Before next development session
+          **Status:** ✅ Stable
+          SNAPSHOT_EOF
+          
+          echo "✓ Snapshot created for ${SNAPSHOT_DATE}"
+      
+      - name: Commit snapshot
+        run: |
+          SNAPSHOT_DATE=$(date +%Y-%m-%d)
+          
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add snapshots/gpt/gpt_snapshot_${SNAPSHOT_DATE}.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "snapshots: add GPT snapshot for ${SNAPSHOT_DATE} [skip ci]"
+            git push
+          fi
