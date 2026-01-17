@@ -147,7 +147,7 @@ def scan_repository():
     print(f"🔍 Scanning {SRC_DIR}/ for Python modules...")
     
     for py_file in SRC_DIR.rglob("*.py"):
-        rel_path = py_file.relative_to(Path(__file__).parent.parent)
+        rel_path = py_file
         info = extract_module_info(py_file)
         
         if info:
