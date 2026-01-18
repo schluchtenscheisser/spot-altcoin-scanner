@@ -145,16 +145,26 @@ class FeatureEngine:
         features['atr_pct'] = self._calc_atr_pct(highs, lows, closes, period=14)
         
         # Volume
+        # Wenn kein SMA-Wert vorhanden oder dieser 0 ist, setze Volume-Spike = 0.0 (neutral)
         features['volume_sma_14'] = self._calc_sma(volumes, 14)
-        features['volume_spike'] = float((volumes[-1] / features['volume_sma_14'])) if features['volume_sma_14'] and features['volume_sma_14'] > 0 else 1.0
+        features['volume_spike'] = (
+            float(volumes[-1] / features['volume_sma_14'])
+            if features.get('volume_sma_14', 0) > 0
+            else 0.0
+        )
         
         # Higher High / Higher Low (trend structure) - convert to native bool
         features['hh_20'] = bool(self._detect_higher_high(highs, lookback=20))
         features['hl_20'] = bool(self._detect_higher_low(lows, lookback=20))
         
         # Breakout distance (distance to recent high)
-        features['breakout_dist_20'] = self._calc_breakout_distance(closes, highs, lookback=20)
-        features['breakout_dist_30'] = self._calc_breakout_distance(closes, highs, lookback=30)
+        # Fallback auf 0.0, falls zu wenig Daten oder NaN-Werte vorhanden sind
+        features['breakout_dist_20'] = (
+            self._calc_breakout_distance(closes, highs, lookback=20) or 0.0
+        )
+        features['breakout_dist_30'] = (
+            self._calc_breakout_distance(closes, highs, lookback=30) or 0.0
+        )
         
         # Drawdown from ATH
         features['drawdown_from_ath'] = self._calc_drawdown(closes)
