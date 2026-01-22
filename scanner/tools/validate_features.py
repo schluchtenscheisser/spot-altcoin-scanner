@@ -5,6 +5,7 @@ def validate_features(report_path: str):
     """
     Prüft, ob die im JSON-Report gespeicherten Feature- und Scoring-Werte
     numerisch, plausibel und nicht konstant sind.
+    Unterstützt Reports mit 'setups', 'data' oder 'results' als Hauptsektion.
     """
 
     if not os.path.exists(report_path):
@@ -14,11 +15,17 @@ def validate_features(report_path: str):
     with open(report_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    section_key = "results" if "results" in data else "data"
-    if section_key not in data:
-        print("❌ Ungültiges Report-Format – keine 'data' oder 'results'-Sektion gefunden.")
+    # Dynamisch den richtigen Abschnitt im Report finden
+    if "setups" in data:
+        section_key = "setups"
+    elif "data" in data:
+        section_key = "data"
+    elif "results" in data:
+        section_key = "results"
+    else:
+        print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
         return
-    
+
     results = data[section_key]
     if not results:
         print("⚠️ Keine Ergebnisse im Report.")
@@ -43,9 +50,6 @@ def validate_features(report_path: str):
             print(f"  [{setup_type}] {symbol}: {key} = {value}")
     else:
         print("✅ Alle Feature-Komponenten numerisch und plausibel.")
-
-# Beispiel-Aufruf:
-# validate_features("reports/2026-01-22.json")
 
 if __name__ == "__main__":
     import sys
