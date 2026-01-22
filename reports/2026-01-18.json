@@ -1,44 +1,89 @@
 {
   "meta": {
     "date": "2026-01-18",
-    "generated_at": "2026-01-18T06:29:13.119847Z",
+    "generated_at": "2026-01-18T13:58:06.793084Z",
     "version": "1.0"
   },
   "summary": {
-    "reversal_count": 54,
-    "breakout_count": 54,
-    "pullback_count": 54,
-    "total_scored": 162
+    "reversal_count": 53,
+    "breakout_count": 53,
+    "pullback_count": 53,
+    "total_scored": 159
   },
   "setups": {
     "reversals": [
       {
-        "symbol": "CAKEUSDT",
-        "price_usdt": 2.098,
-        "coin_name": "PancakeSwap",
-        "market_cap": 722540271.2691696,
-        "quote_volume_24h": 1740665.424,
-        "score": 77.5,
+        "symbol": "EGLDUSDT",
+        "price_usdt": 6.552,
+        "coin_name": "MultiversX",
+        "market_cap": 191420928.15238485,
+        "quote_volume_24h": 2090562.546,
+        "score": 76.95,
         "components": {
           "drawdown": 100.0,
-          "base": 100.0,
-          "reclaim": 90.0,
-          "volume": 0.0
+          "base": 80.0,
+          "reclaim": 60.0,
+          "volume": 59.73
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (51.9% from ATH)",
+          "Strong drawdown setup (54.5% from ATH)",
           "Clean base formation detected",
-          "Reclaimed EMAs ($0.6% above EMA50)"
+          "Partial reclaim in progress",
+          "Moderate volume (2.4x)"
+        ]
+      },
+      {
+        "symbol": "MEUSDT",
+        "price_usdt": 0.2912,
+        "coin_name": "Magic Eden",
+        "market_cap": 124936807.85269219,
+        "quote_volume_24h": 4032128.8684,
+        "score": 75.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (61.7% from ATH)",
+          "No base detected (still declining)",
+          "Reclaimed EMAs ($12.8% above EMA50)",
+          "Strong volume (4.7x average)"
+        ]
+      },
+      {
+        "symbol": "MANAUSDT",
+        "price_usdt": 0.1584,
+        "coin_name": "Decentraland",
+        "market_cap": 312370067.63869804,
+        "quote_volume_24h": 3412021.4242,
+        "score": 75.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (54.2% from ATH)",
+          "No base detected (still declining)",
+          "Reclaimed EMAs ($5.4% above EMA50)",
+          "Strong volume (3.0x average)"
         ]
       },
       {
         "symbol": "GALAUSDT",
-        "price_usdt": 0.007647,
+        "price_usdt": 0.007553,
         "coin_name": "Gala",
-        "market_cap": 360206280.5730513,
-        "quote_volume_24h": 3178440.981917,
+        "market_cap": 355537045.0093361,
+        "quote_volume_24h": 2743654.94597,
         "score": 72.5,
         "components": {
           "drawdown": 100.0,
@@ -49,82 +94,82 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (55.7% from ATH)",
+          "Strong drawdown setup (56.2% from ATH)",
           "Clean base formation detected",
-          "Reclaimed EMAs ($3.9% above EMA50)"
+          "Reclaimed EMAs ($2.7% above EMA50)"
         ]
       },
       {
-        "symbol": "EGLDUSDT",
-        "price_usdt": 6.748,
-        "coin_name": "MultiversX",
-        "market_cap": 195917351.15496227,
-        "quote_volume_24h": 2042291.504,
-        "score": 71.2,
-        "components": {
-          "drawdown": 100.0,
-          "base": 80.0,
-          "reclaim": 60.0,
-          "volume": 31.01
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (53.0% from ATH)",
-          "Clean base formation detected",
-          "Partial reclaim in progress",
-          "Moderate volume (2.0x)"
-        ]
-      },
-      {
-        "symbol": "MANAUSDT",
-        "price_usdt": 0.1601,
-        "coin_name": "Decentraland",
-        "market_cap": 315609892.06530714,
-        "quote_volume_24h": 3496913.9232,
-        "score": 67.43,
+        "symbol": "SANDUSDT",
+        "price_usdt": 0.146,
+        "coin_name": "The Sandbox",
+        "market_cap": 389862994.1930774,
+        "quote_volume_24h": 4681124.4294,
+        "score": 70.44,
         "components": {
           "drawdown": 100.0,
           "base": 0.0,
           "reclaim": 100.0,
-          "volume": 62.15
+          "volume": 77.21
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (53.7% from ATH)",
+          "Strong drawdown setup (50.2% from ATH)",
           "No base detected (still declining)",
-          "Reclaimed EMAs ($6.5% above EMA50)",
-          "Strong volume (2.4x average)"
+          "Reclaimed EMAs ($9.1% above EMA50)",
+          "Strong volume (2.7x average)"
         ]
       },
       {
-        "symbol": "CRVUSDT",
-        "price_usdt": 0.416,
-        "coin_name": "Curve DAO Token",
-        "market_cap": 605446831.9512286,
-        "quote_volume_24h": 1605897.3306,
-        "score": 65.44,
+        "symbol": "CAKEUSDT",
+        "price_usdt": 2.076,
+        "coin_name": "PancakeSwap",
+        "market_cap": 714895100.5113604,
+        "quote_volume_24h": 1617674.565,
+        "score": 67.5,
         "components": {
-          "drawdown": 84.79,
-          "base": 80.0,
-          "reclaim": 80.0,
+          "drawdown": 100.0,
+          "base": 100.0,
+          "reclaim": 50.0,
           "volume": 0.0
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (47.0% from ATH)",
+          "Strong drawdown setup (52.5% from ATH)",
           "Clean base formation detected",
-          "Reclaimed EMAs ($0.4% above EMA50)"
+          "Partial reclaim in progress"
+        ]
+      },
+      {
+        "symbol": "BERAUSDT",
+        "price_usdt": 0.866,
+        "coin_name": "Berachain",
+        "market_cap": 125920206.09152292,
+        "quote_volume_24h": 6281744.3692,
+        "score": 65.76,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 100.0,
+          "volume": 53.79
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (71.4% from ATH)",
+          "No base detected (still declining)",
+          "Reclaimed EMAs ($8.7% above EMA50)",
+          "Moderate volume (2.3x)"
         ]
       },
       {
         "symbol": "FILUSDT",
-        "price_usdt": 1.527,
+        "price_usdt": 1.526,
         "coin_name": "Filecoin",
-        "market_cap": 1128016773.8730848,
-        "quote_volume_24h": 4785295.903,
+        "market_cap": 1125759739.3984914,
+        "quote_volume_24h": 3896663.002,
         "score": 65.0,
         "components": {
           "drawdown": 100.0,
@@ -142,10 +187,10 @@
       },
       {
         "symbol": "IMXUSDT",
-        "price_usdt": 0.2882,
+        "price_usdt": 0.2876,
         "coin_name": "Immutable",
-        "market_cap": 573740608.2757392,
-        "quote_volume_24h": 1544201.0273,
+        "market_cap": 572673604.6896498,
+        "quote_volume_24h": 1257053.055,
         "score": 65.0,
         "components": {
           "drawdown": 100.0,
@@ -156,17 +201,17 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (63.8% from ATH)",
+          "Strong drawdown setup (63.9% from ATH)",
           "Clean base formation detected",
           "Partial reclaim in progress"
         ]
       },
       {
         "symbol": "BONKUSDT",
-        "price_usdt": 1.0362e-05,
+        "price_usdt": 1.0338e-05,
         "coin_name": "Bonk",
-        "market_cap": 911238961.9835559,
-        "quote_volume_24h": 1131008.11008282,
+        "market_cap": 910126984.0230187,
+        "quote_volume_24h": 1031295.074418703,
         "score": 65.0,
         "components": {
           "drawdown": 100.0,
@@ -177,166 +222,187 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (53.6% from ATH)",
+          "Strong drawdown setup (53.7% from ATH)",
           "Clean base formation detected",
           "Partial reclaim in progress"
-        ]
-      },
-      {
-        "symbol": "ARBUSDT",
-        "price_usdt": 0.2138,
-        "coin_name": "Arbitrum",
-        "market_cap": 1246435383.449672,
-        "quote_volume_24h": 3258190.5058,
-        "score": 57.5,
-        "components": {
-          "drawdown": 100.0,
-          "base": 80.0,
-          "reclaim": 30.0,
-          "volume": 0.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (55.5% from ATH)",
-          "Clean base formation detected",
-          "Below EMAs (no reclaim yet)"
-        ]
-      },
-      {
-        "symbol": "PENGUUSDT",
-        "price_usdt": 0.011738,
-        "coin_name": "Pudgy Penguins",
-        "market_cap": 737495031.5349119,
-        "quote_volume_24h": 2197008.286829,
-        "score": 57.5,
-        "components": {
-          "drawdown": 100.0,
-          "base": 80.0,
-          "reclaim": 30.0,
-          "volume": 0.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (65.4% from ATH)",
-          "Clean base formation detected",
-          "Below EMAs (no reclaim yet)"
         ]
       }
     ],
     "breakouts": [
       {
-        "symbol": "MANAUSDT",
-        "price_usdt": 0.1601,
-        "coin_name": "Decentraland",
-        "market_cap": 315609892.06530714,
-        "quote_volume_24h": 3496913.9232,
-        "score": 58.57,
+        "symbol": "SANDUSDT",
+        "price_usdt": 0.146,
+        "coin_name": "The Sandbox",
+        "market_cap": 389862994.1930774,
+        "quote_volume_24h": 4681124.4294,
+        "score": 65.0,
         "components": {
           "breakout": 0.0,
-          "volume": 93.22,
+          "volume": 100.0,
           "trend": 100.0,
-          "momentum": 70.66
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (2.7x average)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "MEUSDT",
+        "price_usdt": 0.2912,
+        "coin_name": "Magic Eden",
+        "market_cap": 124936807.85269219,
+        "quote_volume_24h": 4032128.8684,
+        "score": 65.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (4.7x average)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "MANAUSDT",
+        "price_usdt": 0.1584,
+        "coin_name": "Decentraland",
+        "market_cap": 312370067.63869804,
+        "quote_volume_24h": 3412021.4242,
+        "score": 59.69,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 100.0,
+          "momentum": 64.6
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (3.0x average)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "BERAUSDT",
+        "price_usdt": 0.866,
+        "coin_name": "Berachain",
+        "market_cap": 125920206.09152292,
+        "quote_volume_24h": 6281744.3692,
+        "score": 59.2,
+        "components": {
+          "breakout": 0.0,
+          "volume": 80.68,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (2.3x average)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "METUSDT",
+        "price_usdt": 0.2949,
+        "coin_name": "Meteora",
+        "market_cap": 145396183.1191157,
+        "quote_volume_24h": 3049683.2775,
+        "score": 57.23,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 90.0,
+          "momentum": 61.5
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (2.5x average)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "AXSUSDT",
+        "price_usdt": 1.8749,
+        "coin_name": "Axie Infinity",
+        "market_cap": 318204785.38078326,
+        "quote_volume_24h": 26856319.544,
+        "score": 55.79,
+        "components": {
+          "breakout": 0.0,
+          "volume": 69.29,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Moderate volume (2.2x)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "IPUSDT",
+        "price_usdt": 2.671,
+        "coin_name": "Story",
+        "market_cap": 936305472.2496678,
+        "quote_volume_24h": 5152848.926,
+        "score": 39.95,
+        "components": {
+          "breakout": 0.0,
+          "volume": 24.17,
+          "trend": 100.0,
+          "momentum": 84.68
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
+        ]
+      },
+      {
+        "symbol": "EGLDUSDT",
+        "price_usdt": 6.552,
+        "coin_name": "MultiversX",
+        "market_cap": 191420928.15238485,
+        "quote_volume_24h": 2090562.546,
+        "score": 38.68,
+        "components": {
+          "breakout": 0.0,
+          "volume": 89.6,
+          "trend": 40.0,
+          "momentum": 25.37
         },
         "penalties": {},
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
           "Strong volume (2.4x average)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "SANDUSDT",
-        "price_usdt": 0.1515,
-        "coin_name": "The Sandbox",
-        "market_cap": 406996651.06664747,
-        "quote_volume_24h": 5266768.0119,
-        "score": 39.63,
-        "components": {
-          "breakout": 0.0,
-          "volume": 15.43,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "METUSDT",
-        "price_usdt": 0.3225,
-        "coin_name": "Meteora",
-        "market_cap": 158105438.69881216,
-        "quote_volume_24h": 2426260.4345,
-        "score": 37.74,
-        "components": {
-          "breakout": 0.0,
-          "volume": 9.13,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "BERAUSDT",
-        "price_usdt": 0.9612,
-        "coin_name": "Berachain",
-        "market_cap": 138000714.76814613,
-        "quote_volume_24h": 7526831.3456,
-        "score": 35.92,
-        "components": {
-          "breakout": 0.0,
-          "volume": 3.07,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "AXSUSDT",
-        "price_usdt": 2.0354,
-        "coin_name": "Axie Infinity",
-        "market_cap": 344031160.1529496,
-        "quote_volume_24h": 32060782.0686,
-        "score": 35.0,
-        "components": {
-          "breakout": 0.0,
-          "volume": 0.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
+          "Neutral trend"
         ]
       },
       {
         "symbol": "DASHUSDT",
-        "price_usdt": 75.54,
+        "price_usdt": 84.76,
         "coin_name": "Dash",
-        "market_cap": 946272806.4681143,
-        "quote_volume_24h": 30205282.15,
+        "market_cap": 1057647045.775059,
+        "quote_volume_24h": 28010395.12,
         "score": 35.0,
         "components": {
           "breakout": 0.0,
@@ -354,73 +420,10 @@
       },
       {
         "symbol": "CHZUSDT",
-        "price_usdt": 0.06218,
+        "price_usdt": 0.0598,
         "coin_name": "Chiliz",
-        "market_cap": 637222710.2152278,
-        "quote_volume_24h": 26868254.17192,
-        "score": 35.0,
-        "components": {
-          "breakout": 0.0,
-          "volume": 0.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "ICPUSDT",
-        "price_usdt": 4.014,
-        "coin_name": "Internet Computer",
-        "market_cap": 2199514574.5604434,
-        "quote_volume_24h": 8845779.451,
-        "score": 35.0,
-        "components": {
-          "breakout": 0.0,
-          "volume": 0.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "ZENUSDT",
-        "price_usdt": 11.636,
-        "coin_name": "Horizen",
-        "market_cap": 205512302.2981546,
-        "quote_volume_24h": 6002192.142,
-        "score": 35.0,
-        "components": {
-          "breakout": 0.0,
-          "volume": 0.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "IPUSDT",
-        "price_usdt": 2.829,
-        "coin_name": "Story",
-        "market_cap": 1000573798.9384037,
-        "quote_volume_24h": 4549985.766,
+        "market_cap": 613444500.461353,
+        "quote_volume_24h": 21441713.06783,
         "score": 35.0,
         "components": {
           "breakout": 0.0,
@@ -439,74 +442,99 @@
     ],
     "pullbacks": [
       {
-        "symbol": "BERAUSDT",
-        "price_usdt": 0.9612,
-        "coin_name": "Berachain",
-        "market_cap": 138000714.76814613,
-        "quote_volume_24h": 7526831.3456,
-        "score": 64.61,
-        "components": {
-          "trend": 100.0,
-          "pullback": 20.0,
-          "rebound": 100.0,
-          "volume": 23.07
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong uptrend (19.9% above EMA50)",
-          "No clear pullback",
-          "Strong rebound (43.3% in 3d)"
-        ]
-      },
-      {
-        "symbol": "AXSUSDT",
-        "price_usdt": 2.0354,
-        "coin_name": "Axie Infinity",
-        "market_cap": 344031160.1529496,
-        "quote_volume_24h": 32060782.0686,
-        "score": 63.24,
-        "components": {
-          "trend": 100.0,
-          "pullback": 20.0,
-          "rebound": 100.0,
-          "volume": 16.18
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong uptrend (82.7% above EMA50)",
-          "No clear pullback",
-          "Strong rebound (87.2% in 3d)"
-        ]
-      },
-      {
-        "symbol": "METUSDT",
-        "price_usdt": 0.3225,
-        "coin_name": "Meteora",
-        "market_cap": 158105438.69881216,
-        "quote_volume_24h": 2426260.4345,
-        "score": 62.83,
+        "symbol": "MEUSDT",
+        "price_usdt": 0.2912,
+        "coin_name": "Magic Eden",
+        "market_cap": 124936807.85269219,
+        "quote_volume_24h": 4032128.8684,
+        "score": 77.0,
         "components": {
           "trend": 90.0,
           "pullback": 20.0,
           "rebound": 100.0,
-          "volume": 29.13
+          "volume": 100.0
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong uptrend (11.1% above EMA50)",
+          "Strong uptrend (12.8% above EMA50)",
           "No clear pullback",
-          "Strong rebound (28.4% in 3d)"
+          "Strong rebound (31.2% in 3d)",
+          "Strong volume (4.7x)"
         ]
       },
       {
-        "symbol": "MANAUSDT",
-        "price_usdt": 0.1601,
-        "coin_name": "Decentraland",
-        "market_cap": 315609892.06530714,
-        "quote_volume_24h": 3496913.9232,
+        "symbol": "METUSDT",
+        "price_usdt": 0.2949,
+        "coin_name": "Meteora",
+        "market_cap": 145396183.1191157,
+        "quote_volume_24h": 3049683.2775,
+        "score": 70.5,
+        "components": {
+          "trend": 60.0,
+          "pullback": 80.0,
+          "rebound": 50.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Moderate uptrend (1.9% above EMA50)",
+          "At support level (7.9% from EMA20)",
+          "Moderate rebound",
+          "Strong volume (2.5x)"
+        ]
+      },
+      {
+        "symbol": "AXSUSDT",
+        "price_usdt": 1.8749,
+        "coin_name": "Axie Infinity",
+        "market_cap": 318204785.38078326,
+        "quote_volume_24h": 26856319.544,
+        "score": 63.5,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 50.0,
+          "volume": 80.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (69.6% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (2.2x)"
+        ]
+      },
+      {
+        "symbol": "SANDUSDT",
+        "price_usdt": 0.146,
+        "coin_name": "The Sandbox",
+        "market_cap": 389862994.1930774,
+        "quote_volume_24h": 4681124.4294,
+        "score": 61.5,
+        "components": {
+          "trend": 80.0,
+          "pullback": 20.0,
+          "rebound": 50.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (9.1% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (2.7x)"
+        ]
+      },
+      {
+        "symbol": "BERAUSDT",
+        "price_usdt": 0.866,
+        "coin_name": "Berachain",
+        "market_cap": 125920206.09152292,
+        "quote_volume_24h": 6281744.3692,
         "score": 57.5,
         "components": {
           "trend": 80.0,
@@ -517,106 +545,106 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong uptrend (6.5% above EMA50)",
+          "Strong uptrend (8.7% above EMA50)",
           "No clear pullback",
           "Moderate rebound",
-          "Strong volume (2.4x)"
+          "Strong volume (2.3x)"
         ]
       },
       {
-        "symbol": "IPUSDT",
-        "price_usdt": 2.829,
-        "coin_name": "Story",
-        "market_cap": 1000573798.9384037,
-        "quote_volume_24h": 4549985.766,
-        "score": 57.0,
+        "symbol": "MANAUSDT",
+        "price_usdt": 0.1584,
+        "coin_name": "Decentraland",
+        "market_cap": 312370067.63869804,
+        "quote_volume_24h": 3412021.4242,
+        "score": 56.5,
         "components": {
-          "trend": 90.0,
+          "trend": 80.0,
           "pullback": 20.0,
-          "rebound": 100.0,
+          "rebound": 30.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (5.4% above EMA50)",
+          "No clear pullback",
+          "No rebound yet",
+          "Strong volume (3.0x)"
+        ]
+      },
+      {
+        "symbol": "DASHUSDT",
+        "price_usdt": 84.76,
+        "coin_name": "Dash",
+        "market_cap": 1057647045.775059,
+        "quote_volume_24h": 28010395.12,
+        "score": 55.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 80.0,
           "volume": 0.0
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong uptrend (12.0% above EMA50)",
+          "Strong uptrend (62.4% above EMA50)",
           "No clear pullback",
-          "Strong rebound (11.0% in 3d)"
-        ]
-      },
-      {
-        "symbol": "SANDUSDT",
-        "price_usdt": 0.1515,
-        "coin_name": "The Sandbox",
-        "market_cap": 406996651.06664747,
-        "quote_volume_24h": 5266768.0119,
-        "score": 51.59,
-        "components": {
-          "trend": 90.0,
-          "pullback": 20.0,
-          "rebound": 50.0,
-          "volume": 35.43
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong uptrend (13.0% above EMA50)",
-          "No clear pullback",
-          "Moderate rebound",
-          "Moderate volume (1.7x)"
-        ]
-      },
-      {
-        "symbol": "RONUSDT",
-        "price_usdt": 0.1709,
-        "coin_name": "Ronin",
-        "market_cap": 125079464.63575421,
-        "quote_volume_24h": 1006063.6525,
-        "score": 50.5,
-        "components": {
-          "trend": 60.0,
-          "pullback": 80.0,
-          "rebound": 50.0,
-          "volume": 0.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Moderate uptrend (1.7% above EMA50)",
-          "At support level (14.6% from EMA20)",
-          "Moderate rebound"
+          "Strong rebound (4.9% in 3d)"
         ]
       },
       {
         "symbol": "RIVERUSDT",
-        "price_usdt": 24.7765,
+        "price_usdt": 26.4267,
         "coin_name": "River",
-        "market_cap": 484703527.9377294,
-        "quote_volume_24h": 4109317.2453,
-        "score": 47.82,
+        "market_cap": 521378488.33936757,
+        "quote_volume_24h": 5033670.2486,
+        "score": 55.0,
         "components": {
           "trend": 100.0,
           "pullback": 20.0,
-          "rebound": 50.0,
-          "volume": 1.59
+          "rebound": 80.0,
+          "volume": 0.0
         },
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong uptrend (107.4% above EMA50)",
+          "Strong uptrend (119.6% above EMA50)",
           "No clear pullback",
-          "Moderate rebound"
+          "Strong rebound (5.6% in 3d)"
         ]
       },
       {
-        "symbol": "ZBCNUSDT",
-        "price_usdt": 0.0033433,
-        "coin_name": "Zebec Network",
-        "market_cap": 326302442.95005506,
-        "quote_volume_24h": 1472244.8521414,
-        "score": 47.0,
+        "symbol": "ACHUSDT",
+        "price_usdt": 0.012014,
+        "coin_name": "Alchemy Pay",
+        "market_cap": 118974137.58312532,
+        "quote_volume_24h": 1203507.271969,
+        "score": 55.0,
         "components": {
-          "trend": 90.0,
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 80.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (23.0% above EMA50)",
+          "No clear pullback",
+          "Strong rebound (5.4% in 3d)"
+        ]
+      },
+      {
+        "symbol": "ZENUSDT",
+        "price_usdt": 12.475,
+        "coin_name": "Horizen",
+        "market_cap": 219521756.0723277,
+        "quote_volume_24h": 5795453.616,
+        "score": 50.0,
+        "components": {
+          "trend": 100.0,
           "pullback": 20.0,
           "rebound": 60.0,
           "volume": 0.0
@@ -624,30 +652,9 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong uptrend (14.5% above EMA50)",
+          "Strong uptrend (24.2% above EMA50)",
           "No clear pullback",
           "Moderate rebound"
-        ]
-      },
-      {
-        "symbol": "PAXGUSDT",
-        "price_usdt": 4614.54,
-        "coin_name": "PAX Gold",
-        "market_cap": 1768883919.057181,
-        "quote_volume_24h": 2084726.57,
-        "score": 45.5,
-        "components": {
-          "trend": 60.0,
-          "pullback": 100.0,
-          "rebound": 10.0,
-          "volume": 0.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Moderate uptrend (4.6% above EMA50)",
-          "At support level (1.9% from EMA20)",
-          "No rebound yet"
         ]
       }
     ]
