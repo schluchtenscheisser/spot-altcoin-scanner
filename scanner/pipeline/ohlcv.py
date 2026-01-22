@@ -9,6 +9,13 @@ Supports multiple timeframes with caching.
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import pandas as pd
+
+# 🔹 Neu: Import der Speicherroutine
+try:
+    from scanner.utils.save_raw import save_raw_snapshot
+except ImportError:
+    save_raw_snapshot = None
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +117,29 @@ class OHLCVFetcher:
         
         logger.info(f"OHLCV fetch complete: {len(results)}/{total} symbols with complete data")
         
+        # 🔹 NEUER BLOCK: Rohdaten-Snapshot speichern
+        if save_raw_snapshot and results:
+            try:
+                # In ein einfaches DataFrame umwandeln
+                flat_records = []
+                for symbol, tf_data in results.items():
+                    for tf, candles in tf_data.items():
+                        for candle in candles:
+                            flat_records.append({
+                                "symbol": symbol,
+                                "timeframe": tf,
+                                "open_time": candle[0],
+                                "open": candle[1],
+                                "high": candle[2],
+                                "low": candle[3],
+                                "close": candle[4],
+                                "volume": candle[5],
+                            })
+                df = pd.DataFrame(flat_records)
+                save_raw_snapshot(df, source_name="ohlcv_snapshot")
+            except Exception as e:
+                logger.warning(f"Could not save raw OHLCV snapshot: {e}")
+
         return results
     
     def get_fetch_stats(
