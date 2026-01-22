@@ -45,3 +45,13 @@ def validate_features(report_path: str):
 
 # Beispiel-Aufruf:
 # validate_features("reports/2026-01-22.json")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
+        print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
+        sys.exit(1)
+
+    report_path = sys.argv[1]
+    validate_features(report_path)
