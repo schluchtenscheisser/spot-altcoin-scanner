@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-01-22 19:39 UTC  
+**Last Updated:** 2026-01-22 22:30 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 25
 - **Total Classes:** 15
-- **Total Functions:** 127
+- **Total Functions:** 128
 
 ---
 
@@ -128,9 +128,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `FeatureEngine`
 
-**Functions:** `__init__, _calc_atr_pct, _calc_breakout_distance, _calc_drawdown, _calc_ema, _calc_return, _calc_sma, _compute_timeframe_features, _convert_to_native_types, _detect_base, _detect_higher_high, _detect_higher_low, compute_all`
+**Functions:** `__init__, _calc_atr_pct, _calc_breakout_distance, _calc_drawdown, _calc_ema, _calc_return, _calc_sma, _calc_volume_spike, _compute_timeframe_features, _convert_to_native_types, _detect_base, _detect_higher_high, _detect_higher_low, compute_all`
 
-**Module Variables:** `alpha, ath, atr, base_result, closes, converted, current, ema, features, hc` _(+19 more)_
+**Module Variables:** `alpha, ath, atr, base_score, closes, converted, ema, f, highs, logger` _(+12 more)_
 
 **Imports:** `logging, numpy, typing`
 
@@ -184,9 +184,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_dist, breakout_score, dist, dist_ema20, dist_ema50, excess, f1d, f4h, final_score, flags` _(+20 more)_
+**Module Variables:** `breakout_dist, breakout_score, dist, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger` _(+18 more)_
 
-**Imports:** `logging, typing`
+**Imports:** `logging, numpy, typing`
 
 ---
 
@@ -379,12 +379,19 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `info` |
-| `_calc_atr_pct` | — | `append`, `array`, `mean` |
-| `_calc_sma` | — | `mean` |
-| `_compute_timeframe_features` | `_calc_atr_pct`, `_calc_breakout_distance`, `_calc_drawdown`, `_calc_ema`, `_calc_return`, `_calc_sma`, `_convert_to_native_types`, `_detect_base`, `_detect_higher_high`, `_detect_higher_low` | `array`, `get` |
-| `_convert_to_native_types` | — | `items` |
-| `_detect_base` | — | `mean` |
-| `compute_all` | `_compute_timeframe_features` | `debug`, `error`, `info`, `items` |
+| `_calc_atr_pct` | — | `mean`, `warning` |
+| `_calc_breakout_distance` | — | `error`, `nanmax`, `warning` |
+| `_calc_drawdown` | — | `nanmax` |
+| `_calc_ema` | — | `warning` |
+| `_calc_return` | — | `error`, `warning` |
+| `_calc_sma` | — | `nanmean` |
+| `_calc_volume_spike` | — | `isnan`, `warning` |
+| `_compute_timeframe_features` | `_calc_atr_pct`, `_calc_breakout_distance`, `_calc_drawdown`, `_calc_ema`, `_calc_return`, `_calc_sma`, `_calc_volume_spike`, `_convert_to_native_types`, `_detect_base`, `_detect_higher_high`, `_detect_higher_low` | `array`, `get`, `warning` |
+| `_convert_to_native_types` | — | `isnan`, `items` |
+| `_detect_base` | — | `nanmax`, `nanmean`, `nanmin`, `warning` |
+| `_detect_higher_high` | — | `nanmax` |
+| `_detect_higher_low` | — | `nanmin` |
+| `compute_all` | `_compute_timeframe_features` | `debug`, `error`, `get`, `info`, `items` |
 
 ### 📄 scanner/pipeline/filters.py
 
@@ -421,7 +428,7 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `info` |
 | `_generate_reasons` | — | `append`, `get` |
-| `_score_breakout` | — | `get` |
+| `_score_breakout` | — | `get`, `isnan` |
 | `_score_momentum` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
@@ -516,6 +523,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
+| `scanner/pipeline/features.py` | 12 | 29 | 41 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 0 | 32 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 25 | 29 | 🔴 High |
@@ -523,8 +531,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
-| `scanner/pipeline/features.py` | 11 | 13 | 24 | ⚠️ Medium |
-| `scanner/pipeline/scoring/breakout.py` | 6 | 17 | 23 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 6 | 18 | 24 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 6 | 17 | 23 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 6 | 17 | 23 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 18 | 19 | 🔴 High |
@@ -554,4 +561,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-01-22 19:39 UTC_
+_Generated by GitHub Actions • 2026-01-22 22:30 UTC_
