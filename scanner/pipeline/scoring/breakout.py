@@ -130,33 +130,37 @@ class BreakoutScorer:
     
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
         """
-        Score breakout distance (0-100).
-        
-        Ideal: 5-10% above recent high
+        Scales breakout distance (-5% … +3%) into a 0–100 score.
+        Professional definition:
+        - Below −5%: no breakout pressure
+        - −2 … 0%: pre-breakout compression
+        - 0 … +1%: breakout confirmation
+        - > +2%: overextended (score decays)
         """
-        dist = f1d.get('breakout_dist_20', -100)
-        
-        # Below high (no breakout)
-        if dist < self.min_breakout_pct:
+        import numpy as np
+        dist = f1d.get('breakout_dist_20', np.nan)
+        if np.isnan(dist):
+            return np.nan
+    
+        # Far below range high
+        if dist <= -5:
             return 0.0
-        
-        # Ideal range
-        if self.ideal_breakout_pct <= dist <= self.ideal_breakout_pct * 2:
-            return 100.0
-        
-        # Below ideal (linear scale)
-        if dist < self.ideal_breakout_pct:
-            ratio = (dist - self.min_breakout_pct) / (self.ideal_breakout_pct - self.min_breakout_pct)
-            return 50.0 + ratio * 50.0
-        
-        # Above ideal but not overextended
-        if dist < self.max_breakout_pct:
-            excess = dist - (self.ideal_breakout_pct * 2)
-            penalty = (excess / (self.max_breakout_pct - self.ideal_breakout_pct * 2)) * 30
-            return max(70.0 - penalty, 40.0)
-        
-        # Overextended
-        return 20.0
+    
+        # Pre-breakout buildup
+        if -5 < dist < 0:
+            return 70 * (1 + (dist / 5))  # rises from 0→70 as we near the high
+    
+        # Fresh breakout (0–1%)
+        if 0 <= dist <= 1:
+            return 70 + (30 * (dist / 1))  # scales to 100 at +1%
+    
+        # Overextended (1–3%)
+        if 1 < dist <= 3:
+            return max(90 - (dist - 1) * 10, 70)  # decays slightly
+    
+        # Beyond reasonable range
+        return 60.0
+
     
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
         """Score volume confirmation (0-100)."""
