@@ -11,14 +11,15 @@ Ziel:
 - Kein Code-Duplikat in den Clients oder Pipelines
 """
 
+import json
 import pandas as pd
 from typing import List, Dict, Any
 from scanner.utils.save_raw import save_raw_snapshot
 
 
-# ==========================================================
+# ===============================================================
 # OHLCV Snapshots
-# ==========================================================
+# ===============================================================
 
 def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
     """
@@ -51,30 +52,44 @@ def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
         return None
 
 
-# ==========================================================
+# ===============================================================
 # MarketCap Snapshots
-# ==========================================================
+# ===============================================================
 
 def collect_raw_marketcap(data: List[Dict[str, Any]]):
     """
     Speichert alle MarketCap-Daten (Listings) als Rohdaten-Snapshot.
     Erwartet die Ausgabe aus MarketCapClient.get_listings() oder get_all_listings().
+
+    Wichtig: CMC liefert verschachtelte Strukturen (z.B. quote -> USD -> ...).
+    Für Parquet müssen wir das in eine flache Tabelle umwandeln.
     """
     if not data:
         print("[WARN] No MarketCap data to snapshot.")
         return None
 
     try:
-        df = pd.DataFrame(data)
-        return save_raw_snapshot(df, source_name="marketcap_snapshot")
+        # Flach machen: quote.USD.* etc. -> quote__USD__*
+        df = pd.json_normalize(data, sep="__")
+
+        # Restliche dict/list Werte Parquet-sicher machen (als JSON-String)
+        for col in df.columns:
+            if df[col].dtype == "object":
+                if df[col].map(lambda v: isinstance(v, (dict, list))).any():
+                    df[col] = df[col].map(
+                        lambda v: json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v
+                    )
+
+        # Parquet ist hier zwingend (und sollte nach Normalisierung sauber durchlaufen)
+        return save_raw_snapshot(df, source_name="marketcap_snapshot", require_parquet=True)
     except Exception as e:
         print(f"[WARN] Could not collect MarketCap snapshot: {e}")
         return None
 
 
-# ==========================================================
+# ===============================================================
 # Feature Snapshots (optional für spätere Erweiterung)
-# ==========================================================
+# ===============================================================
 
 def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
     """
