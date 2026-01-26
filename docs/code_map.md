@@ -280,7 +280,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Module Variables:** `df, flat_records`
 
-**Imports:** `pandas, scanner.utils.save_raw, typing`
+**Imports:** `json, pandas, scanner.utils.save_raw, typing`
 
 ---
 
@@ -528,7 +528,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `collect_raw_features` | — | `save_raw_snapshot` |
-| `collect_raw_marketcap` | — | `DataFrame`, `save_raw_snapshot` |
+| `collect_raw_marketcap` | — | `dumps`, `json_normalize`, `save_raw_snapshot` |
 | `collect_raw_ohlcv` | — | `DataFrame`, `append`, `items`, `save_raw_snapshot` |
 
 ### 📄 scanner/utils/save_raw.py
@@ -574,9 +574,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 0 | 12 | 12 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
-| `scanner/utils/raw_collector.py` | 0 | 7 | 7 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 0 | 6 | 6 | 🔴 High |
 | `scanner/tools/validate_features.py` | 0 | 5 | 5 | 🔴 High |
 
