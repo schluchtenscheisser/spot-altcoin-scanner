@@ -21,6 +21,7 @@ try:
 except ImportError:
     collect_raw_marketcap = None
 
+
 logger = get_logger(__name__)
 
 
@@ -134,7 +135,16 @@ class MarketCapClient:
         if use_cache and cache_exists(cache_key):
             logger.info("Loading CMC listings from cache")
             cached = load_cache(cache_key)
-            return cached.get("data", [])
+            data = cached.get("data", []) if isinstance(cached, dict) else []
+
+            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+
+            return data
         
         logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
         
