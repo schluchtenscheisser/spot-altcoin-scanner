@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-01-26 20:17 UTC  
-**Commit:** `7a9455c` (7a9455c3cd47293c9101e86ea2a1f930e885b14f)  
+**Generated:** 2026-01-26 20:42 UTC  
+**Commit:** `0c9437e` (0c9437e73aa56470dac56286f32ebc672df8d8ec)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -497,7 +497,7 @@ logging:
 
 ### `.github/workflows/daily.yml`
 
-**SHA256:** `9a1e424a1bd3f35a727e5e11e8f4f5a09a6c3098ac6900eb22d387eef005bcf8`
+**SHA256:** `cf3fb728b03342bb1b9792dad6bf7358639fecfccb754d4a2846c16237cab276`
 
 ```yaml
 name: Daily Scanner Run
@@ -531,6 +531,8 @@ jobs:
     - name: Run scanner
       env:
         CMC_API_KEY: ${{ secrets.CMC_API_KEY }}
+        RAW_SNAPSHOT_BASEDIR: snapshots/raw
+        RAW_SNAPSHOT_CSV_GZIP: "1"
       run: |
         python -m scanner.main --mode standard
     
@@ -1288,7 +1290,7 @@ def save_cache(data: Any, cache_type: str, date: Optional[str] = None) -> None:
 
 ### `scanner/utils/raw_collector.py`
 
-**SHA256:** `e59a8a89cd7e30f14a26bbebc3225279520edcfc4f46ab9f63becbe4d7882e2e`
+**SHA256:** `e5d7f0568176525bd7972a0974da5218efec9cc7dcbd18dee4af5d254a8c6c04`
 
 ```python
 """
@@ -1304,14 +1306,15 @@ Ziel:
 - Kein Code-Duplikat in den Clients oder Pipelines
 """
 
+import json
 import pandas as pd
 from typing import List, Dict, Any
 from scanner.utils.save_raw import save_raw_snapshot
 
 
-# ==========================================================
+# ===============================================================
 # OHLCV Snapshots
-# ==========================================================
+# ===============================================================
 
 def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
     """
@@ -1344,30 +1347,44 @@ def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
         return None
 
 
-# ==========================================================
+# ===============================================================
 # MarketCap Snapshots
-# ==========================================================
+# ===============================================================
 
 def collect_raw_marketcap(data: List[Dict[str, Any]]):
     """
     Speichert alle MarketCap-Daten (Listings) als Rohdaten-Snapshot.
     Erwartet die Ausgabe aus MarketCapClient.get_listings() oder get_all_listings().
+
+    Wichtig: CMC liefert verschachtelte Strukturen (z.B. quote -> USD -> ...).
+    Für Parquet müssen wir das in eine flache Tabelle umwandeln.
     """
     if not data:
         print("[WARN] No MarketCap data to snapshot.")
         return None
 
     try:
-        df = pd.DataFrame(data)
-        return save_raw_snapshot(df, source_name="marketcap_snapshot")
+        # Flach machen: quote.USD.* etc. -> quote__USD__*
+        df = pd.json_normalize(data, sep="__")
+
+        # Restliche dict/list Werte Parquet-sicher machen (als JSON-String)
+        for col in df.columns:
+            if df[col].dtype == "object":
+                if df[col].map(lambda v: isinstance(v, (dict, list))).any():
+                    df[col] = df[col].map(
+                        lambda v: json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v
+                    )
+
+        # Parquet ist hier zwingend (und sollte nach Normalisierung sauber durchlaufen)
+        return save_raw_snapshot(df, source_name="marketcap_snapshot", require_parquet=True)
     except Exception as e:
         print(f"[WARN] Could not collect MarketCap snapshot: {e}")
         return None
 
 
-# ==========================================================
+# ===============================================================
 # Feature Snapshots (optional für spätere Erweiterung)
-# ==========================================================
+# ===============================================================
 
 def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
     """
@@ -3678,7 +3695,7 @@ class SymbolMapper:
 
 ### `scanner/clients/marketcap_client.py`
 
-**SHA256:** `032a85e0acbe035b524fab1338718f382293b4843930f6f639f9fbb2ac1bfeef`
+**SHA256:** `5d8072e16cc2f3388b6834d559c65d0c04b9557703ab5e62f2c8e7c1ffa03ace`
 
 ```python
 """
@@ -3703,6 +3720,7 @@ try:
     from scanner.utils.raw_collector import collect_raw_marketcap
 except ImportError:
     collect_raw_marketcap = None
+
 
 logger = get_logger(__name__)
 
@@ -3817,7 +3835,16 @@ class MarketCapClient:
         if use_cache and cache_exists(cache_key):
             logger.info("Loading CMC listings from cache")
             cached = load_cache(cache_key)
-            return cached.get("data", [])
+            data = cached.get("data", []) if isinstance(cached, dict) else []
+
+            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+
+            return data
         
         logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
         
@@ -6705,4 +6732,4 @@ v1 provides the structural foundation.
 
 ---
 
-_Generated by GitHub Actions • 2026-01-26 20:17 UTC_
+_Generated by GitHub Actions • 2026-01-26 20:42 UTC_
