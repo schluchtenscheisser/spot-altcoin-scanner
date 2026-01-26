@@ -29,6 +29,8 @@ jobs:
     - name: Run scanner
       env:
         CMC_API_KEY: ${{ secrets.CMC_API_KEY }}
+        RAW_SNAPSHOT_BASEDIR: snapshots/raw
+        RAW_SNAPSHOT_CSV_GZIP: "1"
       run: |
         python -m scanner.main --mode standard
     
