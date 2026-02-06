@@ -69,7 +69,7 @@ cat reports/$(date +%Y-%m-%d).json
 
 ## Automated Daily Runs
 
-The scanner runs automatically every day at **4:10 AM UTC** via GitHub Actions.
+The scanner runs automatically every day at **8:15 AM UTC** via GitHub Actions.
 
 **To trigger manually:**
 1. Go to **Actions** tab in GitHub
