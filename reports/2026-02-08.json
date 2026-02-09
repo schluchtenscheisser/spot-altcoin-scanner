@@ -1,0 +1,701 @@
+{
+  "meta": {
+    "date": "2026-02-08",
+    "generated_at": "2026-02-08T05:38:43.144978Z",
+    "version": "1.0"
+  },
+  "summary": {
+    "reversal_count": 47,
+    "breakout_count": 47,
+    "pullback_count": 47,
+    "total_scored": 141
+  },
+  "setups": {
+    "reversals": [
+      {
+        "symbol": "NIGHTUSDT",
+        "price_usdt": 0.05325,
+        "coin_name": "Midnight",
+        "market_cap": 886074368.6826627,
+        "quote_volume_24h": 1677427.24288,
+        "score": 35.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (52.6% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "HUSDT",
+        "price_usdt": 0.12421,
+        "coin_name": "Humanity Protocol",
+        "market_cap": 299792871.83495116,
+        "quote_volume_24h": 1528221.53751,
+        "score": 35.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (67.2% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.5714,
+        "coin_name": "Aster",
+        "market_cap": 1418028183.405018,
+        "quote_volume_24h": 6786847.1626,
+        "score": 32.5,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 10.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (62.0% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "PEPEUSDT",
+        "price_usdt": 3.808e-06,
+        "coin_name": "Pepe",
+        "market_cap": 1575687225.3413372,
+        "quote_volume_24h": 15516624.087792633,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.4% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "ENAUSDT",
+        "price_usdt": 0.1244,
+        "coin_name": "Ethena",
+        "market_cap": 1024245902.5366548,
+        "quote_volume_24h": 11806229.2651,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (75.6% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "price_usdt": 112.77,
+        "coin_name": "Aave",
+        "market_cap": 1727970242.6214767,
+        "quote_volume_24h": 8957302.02,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (56.8% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "UNIUSDT",
+        "price_usdt": 3.506,
+        "coin_name": "Uniswap",
+        "market_cap": 2223492716.4672933,
+        "quote_volume_24h": 8461706.592,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (62.4% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "FILUSDT",
+        "price_usdt": 0.965,
+        "coin_name": "Filecoin",
+        "market_cap": 725168771.5451378,
+        "quote_volume_24h": 7666719.895,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (71.6% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "DOTUSDT",
+        "price_usdt": 1.348,
+        "coin_name": "Polkadot",
+        "market_cap": 2242874832.0122213,
+        "quote_volume_24h": 5709589.192,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (60.1% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      },
+      {
+        "symbol": "ETCUSDT",
+        "price_usdt": 8.68,
+        "coin_name": "Ethereum Classic",
+        "market_cap": 1348809688.733842,
+        "quote_volume_24h": 5280125.49,
+        "score": 30.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.6% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)"
+        ]
+      }
+    ],
+    "breakouts": [
+      {
+        "symbol": "NIGHTUSDT",
+        "price_usdt": 0.05325,
+        "coin_name": "Midnight",
+        "market_cap": 886074368.6826627,
+        "quote_volume_24h": 1677427.24288,
+        "score": 10.01,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 66.73
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "HUSDT",
+        "price_usdt": 0.12421,
+        "coin_name": "Humanity Protocol",
+        "market_cap": 299792871.83495116,
+        "quote_volume_24h": 1528221.53751,
+        "score": 9.13,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 60.84
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.5714,
+        "coin_name": "Aster",
+        "market_cap": 1418028183.405018,
+        "quote_volume_24h": 6786847.1626,
+        "score": 5.06,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 33.74
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "ATOMUSDT",
+        "price_usdt": 1.978,
+        "coin_name": "Cosmos",
+        "market_cap": 971837393.1485375,
+        "quote_volume_24h": 1624001.5,
+        "score": 2.63,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 17.53
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "KASUSDT",
+        "price_usdt": 0.031362,
+        "coin_name": "Kaspa",
+        "market_cap": 852437762.9554079,
+        "quote_volume_24h": 1607165.19926,
+        "score": 1.54,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 10.27
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "XDCUSDT",
+        "price_usdt": 0.03701,
+        "coin_name": "XDC Network",
+        "market_cap": 706446384.5944343,
+        "quote_volume_24h": 1318219.48019,
+        "score": 1.13,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 7.54
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "BDXUSDT",
+        "price_usdt": 0.0801,
+        "coin_name": "Beldex",
+        "market_cap": 606438198.5857315,
+        "quote_volume_24h": 1327417.66185,
+        "score": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 6.65
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "WLDUSDT",
+        "price_usdt": 0.3961,
+        "coin_name": "Worldcoin",
+        "market_cap": 1110914535.35972,
+        "quote_volume_24h": 4058038.1847,
+        "score": 0.75,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 4.98
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "PEPEUSDT",
+        "price_usdt": 3.808e-06,
+        "coin_name": "Pepe",
+        "market_cap": 1575687225.3413372,
+        "quote_volume_24h": 15516624.087792633,
+        "score": 0.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "ENAUSDT",
+        "price_usdt": 0.1244,
+        "coin_name": "Ethena",
+        "market_cap": 1024245902.5366548,
+        "quote_volume_24h": 11806229.2651,
+        "score": 0.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 0.0,
+          "momentum": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In downtrend (below EMAs)"
+        ]
+      }
+    ],
+    "pullbacks": [
+      {
+        "symbol": "ZROUSDT",
+        "price_usdt": 1.659,
+        "coin_name": "LayerZero",
+        "market_cap": 487505012.460624,
+        "quote_volume_24h": 1393184.755,
+        "score": 16.25,
+        "components": {
+          "trend": 0.0,
+          "pullback": 80.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (-5.2% from EMA20)",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.5714,
+        "coin_name": "Aster",
+        "market_cap": 1418028183.405018,
+        "quote_volume_24h": 6786847.1626,
+        "score": 11.25,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 80.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Strong rebound (22.2% in 3d)",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "0GUSDT",
+        "price_usdt": 0.5441,
+        "coin_name": "0G",
+        "market_cap": 115797435.10251926,
+        "quote_volume_24h": 1280944.4872,
+        "score": 11.25,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 80.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Strong rebound (10.5% in 3d)",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "KASUSDT",
+        "price_usdt": 0.031362,
+        "coin_name": "Kaspa",
+        "market_cap": 852437762.9554079,
+        "quote_volume_24h": 1607165.19926,
+        "score": 8.75,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 60.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "PEPEUSDT",
+        "price_usdt": 3.808e-06,
+        "coin_name": "Pepe",
+        "market_cap": 1575687225.3413372,
+        "quote_volume_24h": 15516624.087792633,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "price_usdt": 112.77,
+        "coin_name": "Aave",
+        "market_cap": 1727970242.6214767,
+        "quote_volume_24h": 8957302.02,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "UNIUSDT",
+        "price_usdt": 3.506,
+        "coin_name": "Uniswap",
+        "market_cap": 2223492716.4672933,
+        "quote_volume_24h": 8461706.592,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "CHZUSDT",
+        "price_usdt": 0.04242,
+        "coin_name": "Chiliz",
+        "market_cap": 435442378.6345778,
+        "quote_volume_24h": 5696484.46982,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "ARBUSDT",
+        "price_usdt": 0.1186,
+        "coin_name": "Arbitrum",
+        "market_cap": 690132158.8474547,
+        "quote_volume_24h": 4282168.6748,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "WLDUSDT",
+        "price_usdt": 0.3961,
+        "coin_name": "Worldcoin",
+        "market_cap": 1110914535.35972,
+        "quote_volume_24h": 4058038.1847,
+        "score": 7.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 10.0,
+          "rebound": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      }
+    ]
+  }
+}
