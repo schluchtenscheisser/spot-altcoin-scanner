@@ -7,7 +7,7 @@ Orchestrates the full daily scanning pipeline.
 
 from __future__ import annotations
 import logging
-from datetime import datetime
+from ..utils.time_utils import utc_now, timestamp_to_ms
 
 from ..config import ScannerConfig
 from ..clients.mexc_client import MEXCClient
@@ -42,7 +42,14 @@ def run_pipeline(config: ScannerConfig) -> None:
     11. Write snapshot for backtests
     """
     run_mode = config.run_mode
-    run_date = datetime.utcnow().strftime('%Y-%m-%d')
+
+    # As-Of Timestamp (einmal pro Run)
+    asof_dt = utc_now()
+    asof_ts_ms = timestamp_to_ms(asof_dt)
+    asof_iso = asof_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    # Run-Date konsistent aus asof_dt
+    run_date = asof_dt.strftime('%Y-%m-%d')
     
     use_cache = run_mode in ['fast', 'standard']
     
@@ -116,7 +123,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     # Step 7: Compute features (1d + 4h)
     logger.info("\n[7/11] Computing features...")
     feature_engine = FeatureEngine(config.raw)
-    features = feature_engine.compute_all(ohlcv_data)
+    features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
     logger.info(f"✓ Features: {len(features)} symbols")
 
     # Step 8: Enrich features with price, coin name, market cap, and volume
@@ -172,7 +179,12 @@ def run_pipeline(config: ScannerConfig) -> None:
         reversal_results,
         breakout_results,
         pullback_results,
-        run_date
+        run_date,
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
+        }
     )
     logger.info(f"✓ Markdown: {report_paths['markdown']}")
     logger.info(f"✓ JSON: {report_paths['json']}")
@@ -191,7 +203,11 @@ def run_pipeline(config: ScannerConfig) -> None:
         reversal_scores=reversal_results,
         breakout_scores=breakout_results,
         pullback_scores=pullback_results,
-        metadata={'mode': run_mode}
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
+        }
     )
     logger.info(f"✓ Snapshot: {snapshot_path}")
     
