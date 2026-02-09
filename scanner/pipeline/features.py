@@ -28,7 +28,11 @@ class FeatureEngine:
     # -------------------------------------------------------------------------
     # Main entry point
     # -------------------------------------------------------------------------
-    def compute_all(self, ohlcv_data: Dict[str, Dict[str, List[List]]]) -> Dict[str, Dict[str, Any]]:
+    def compute_all(
+        self,
+        ohlcv_data: Dict[str, Dict[str, List[List]]],
+        asof_ts_ms: Optional[int] = None
+    ) -> Dict[str, Dict[str, Any]]:
         results = {}
         total = len(ohlcv_data)
         logger.info(f"Computing features for {total} symbols")
@@ -38,25 +42,88 @@ class FeatureEngine:
                 logger.debug(f"[{i}/{total}] Computing features for {symbol}")
                 symbol_features = {}
 
+                last_closed_idx_map: Dict[str, Optional[int]] = {}
+
                 if "1d" in tf_data:
-                    symbol_features["1d"] = self._compute_timeframe_features(tf_data["1d"], "1d", symbol)
+                    idx_1d = self._get_last_closed_idx(tf_data["1d"], asof_ts_ms)
+                    last_closed_idx_map["1d"] = idx_1d
+                    symbol_features["1d"] = self._compute_timeframe_features(
+                        tf_data["1d"], "1d", symbol, last_closed_idx=idx_1d
+                    )
+
                 if "4h" in tf_data:
-                    symbol_features["4h"] = self._compute_timeframe_features(tf_data["4h"], "4h", symbol)
+                    idx_4h = self._get_last_closed_idx(tf_data["4h"], asof_ts_ms)
+                    last_closed_idx_map["4h"] = idx_4h
+                    symbol_features["4h"] = self._compute_timeframe_features(
+                        tf_data["4h"], "4h", symbol, last_closed_idx=idx_4h
+                    )
+
+                last_update = None
+                if "1d" in tf_data:
+                    idx = last_closed_idx_map.get("1d")
+                    if isinstance(idx, int) and idx >= 0:
+                        last_update = int(tf_data["1d"][idx][0])
 
                 symbol_features["meta"] = {
                     "symbol": symbol,
-                    "last_update": int(tf_data.get("1d", [[None]])[-1][0]) if "1d" in tf_data else None,
+                    "asof_ts_ms": asof_ts_ms,
+                    "last_closed_idx": last_closed_idx_map,
+                    "last_update": last_update,
                 }
                 results[symbol] = symbol_features
             except Exception as e:
                 logger.error(f"Failed to compute features for {symbol}: {e}")
         logger.info(f"Features computed for {len(results)}/{total} symbols")
         return results
+        
+    # -------------------------------------------------------------------------
+    # Helper Funktion
+    # -------------------------------------------------------------------------    
+    def _get_last_closed_idx(self, klines: List[List], asof_ts_ms: Optional[int]) -> int:
+        """
+        Returns index of the last candle with closeTime <= asof_ts_ms.
+        Expected kline format includes closeTime at index 6.
+        """
+        if not klines:
+            return -1
+        if asof_ts_ms is None:
+            return len(klines) - 1
 
+        for i in range(len(klines) - 1, -1, -1):
+            k = klines[i]
+            if len(k) < 7:
+                continue
+            try:
+                close_time = int(float(k[6]))
+            except (TypeError, ValueError):
+                continue
+            if close_time <= asof_ts_ms:
+                return i
+
+        return -1
+        
     # -------------------------------------------------------------------------
     # Timeframe feature computation
     # -------------------------------------------------------------------------
-    def _compute_timeframe_features(self, klines: List[List], timeframe: str, symbol: str) -> Dict[str, Any]:
+    def _compute_timeframe_features(
+        self,
+        klines: List[List],
+        timeframe: str,
+        symbol: str,
+        last_closed_idx: Optional[int] = None
+    ) -> Dict[str, Any]:
+        if not klines:
+            return {}
+
+        if last_closed_idx is None:
+            last_closed_idx = len(klines) - 1
+
+        if last_closed_idx < 0:
+            logger.warning(f"[{symbol}] no closed candles found for timeframe={timeframe}")
+            return {}
+
+        # closed-only slice
+        klines = klines[: last_closed_idx + 1]    
         closes = np.array([k[4] for k in klines], dtype=float)
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
