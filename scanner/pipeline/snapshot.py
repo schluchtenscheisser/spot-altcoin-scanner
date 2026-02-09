@@ -96,7 +96,14 @@ class SnapshotManager:
         
         if metadata:
             snapshot['meta'].update(metadata)
-        
+            
+        # Safety: ensure as-of exists (for reproducibility)
+        if 'asof_ts_ms' not in snapshot['meta']:
+            snapshot['meta']['asof_ts_ms'] = int(datetime.utcnow().timestamp() * 1000)
+
+        if 'asof_iso' not in snapshot['meta']:
+            snapshot['meta']['asof_iso'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            
         # Save snapshot
         snapshot_path = self.snapshots_dir / f"{run_date}.json"
         
