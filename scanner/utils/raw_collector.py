@@ -35,15 +35,21 @@ def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
         for symbol, tf_data in results.items():
             for tf, candles in tf_data.items():
                 for candle in candles:
+                    if not isinstance(candle, (list, tuple)) or len(candle) < 6:
+                        print(f"[WARN] Skipping malformed candle for {symbol} {tf}: {candle}")
+                        continue
+
                     flat_records.append({
                         "symbol": symbol,
                         "timeframe": tf,
                         "open_time": candle[0],
+                        "close_time": candle[6] if len(candle) > 6 else None,
                         "open": candle[1],
                         "high": candle[2],
                         "low": candle[3],
                         "close": candle[4],
                         "volume": candle[5],
+                        "quote_volume": candle[7] if len(candle) > 7 else None,
                     })
         df = pd.DataFrame(flat_records)
         return save_raw_snapshot(df, source_name="ohlcv_snapshot")
