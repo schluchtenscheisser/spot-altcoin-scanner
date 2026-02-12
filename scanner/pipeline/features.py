@@ -202,8 +202,26 @@ class FeatureEngine:
         if len(highs) < period + 1:
             logger.warning(f"[{symbol}] insufficient candles for ATR{period}")
             return np.nan
-        tr = [max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1])) for i in range(1, len(highs))]
-        atr = np.mean(tr[-period:])
+
+        # Rulebook/Thema 5: Wilder ATR smoothing (not rolling SMA of last TR window).
+        tr = [
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+            for i in range(1, len(highs))
+        ]
+
+        # ATR[p] = mean(TR[1..p]), then recursive Wilder update.
+        atr = float(np.nanmean(tr[:period]))
+        for tr_val in tr[period:]:
+            atr = ((atr * (period - 1)) + tr_val) / period
+
+        if atr < 0:
+            logger.warning(f"[{symbol}] ATR computed negative ({atr}); returning NaN")
+            return np.nan
+
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
