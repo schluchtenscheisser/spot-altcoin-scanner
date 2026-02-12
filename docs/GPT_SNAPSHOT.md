@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-03 17:16 UTC  
-**Commit:** `e1aa635` (e1aa635038155e6b60d615454b16cc098640d232)  
+**Generated:** 2026-02-12 17:05 UTC  
+**Commit:** `e6be321` (e6be321f7b0254141dd6b6bccf02b61ddcc19713)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -933,6 +933,22 @@ if __name__ == "__main__":
 
 ```
 
+### `scanner/__init__.py`
+
+**SHA256:** `c6d8ea689789828672d38ce8d93859015f5cc8d69934f34f23366d6a1ddc8b84`
+
+```python
+# scanner/__init__.py
+
+"""
+Spot Altcoin Scanner package.
+
+See /docs/spec.md for the full technical specification.
+"""
+
+
+```
+
 ### `scanner/config.py`
 
 **SHA256:** `8929dbed8f8bd92be416aa823ff0deefa630b1ab4953baa95fde41b485facddd`
@@ -1097,17 +1113,1031 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
 ```
 
-### `scanner/__init__.py`
+### `scanner/clients/mexc_client.py`
 
-**SHA256:** `c6d8ea689789828672d38ce8d93859015f5cc8d69934f34f23366d6a1ddc8b84`
+**SHA256:** `8ed9807845616371013fd9ae0137e05a8bf2db2fdf306a41196e7f35aa57fd20`
 
 ```python
-# scanner/__init__.py
-
 """
-Spot Altcoin Scanner package.
+MEXC API Client for Spot market data.
 
-See /docs/spec.md for the full technical specification.
+Responsibilities:
+- Fetch spot symbol list (exchangeInfo)
+- Fetch 24h ticker data (bulk)
+- Fetch OHLCV (klines) for specific pairs
+
+API Docs: https://mexcdevelop.github.io/apidocs/spot_v3_en/
+"""
+
+import time
+from typing import Dict, List, Optional, Any
+import requests
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_cache, save_cache, cache_exists
+
+
+logger = get_logger(__name__)
+
+
+class MEXCClient:
+    """
+    MEXC Spot API client with rate-limit handling and caching.
+    """
+    
+    BASE_URL = "https://api.mexc.com"
+    
+    def __init__(
+        self,
+        max_retries: int = 3,
+        retry_backoff: float = 3.0,
+        timeout: int = 30
+    ):
+        """
+        Initialize MEXC client.
+        
+        Args:
+            max_retries: Maximum retry attempts on failure
+            retry_backoff: Seconds to wait between retries
+            timeout: Request timeout in seconds
+        """
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
+        self.timeout = timeout
+        self.session = requests.Session()
+        
+        # Rate limiting (conservative)
+        self.last_request_time = 0
+        self.min_request_interval = 0.1  # 100ms between requests
+    
+    def _rate_limit(self) -> None:
+        """Apply rate limiting between requests."""
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.min_request_interval:
+            time.sleep(self.min_request_interval - elapsed)
+        self.last_request_time = time.time()
+    
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make HTTP request with retry logic.
+        
+        Args:
+            method: HTTP method (GET, POST)
+            endpoint: API endpoint (e.g., '/api/v3/exchangeInfo')
+            params: Query parameters
+            
+        Returns:
+            JSON response
+            
+        Raises:
+            requests.RequestException: On persistent failure
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+        
+        for attempt in range(self.max_retries):
+            try:
+                self._rate_limit()
+                
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    timeout=self.timeout
+                )
+                
+                # Handle rate limit (429)
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get('Retry-After', self.retry_backoff))
+                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
+                    time.sleep(retry_after)
+                    continue
+                
+                response.raise_for_status()
+                return response.json()
+                
+            except requests.RequestException as e:
+                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_backoff * (attempt + 1))  # Exponential backoff
+                else:
+                    logger.error(f"Request failed after {self.max_retries} attempts")
+                    raise
+        
+        raise requests.RequestException("Unexpected error in retry loop")
+    
+    def get_exchange_info(self, use_cache: bool = True) -> Dict[str, Any]:
+        """
+        Get exchange info (symbols, trading rules).
+        
+        Args:
+            use_cache: Use cached data if available (today)
+            
+        Returns:
+            Exchange info dict with 'symbols' list
+        """
+        cache_key = "mexc_exchange_info"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading exchange info from cache")
+            return load_cache(cache_key)
+        
+        logger.info("Fetching exchange info from MEXC API")
+        data = self._request("GET", "/api/v3/exchangeInfo")
+        
+        save_cache(data, cache_key)
+        return data
+    
+    def get_spot_usdt_symbols(self, use_cache: bool = True) -> List[str]:
+        """
+        Get all Spot USDT trading pairs.
+        
+        Returns:
+            List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
+        """
+        exchange_info = self.get_exchange_info(use_cache=use_cache)
+        
+        symbols = []
+        for symbol_info in exchange_info.get("symbols", []):
+            # Filter: USDT quote, Spot, Trading status
+            # Note: MEXC uses status="1" for enabled (not "ENABLED")
+            if (
+                symbol_info.get("quoteAsset") == "USDT" and
+                symbol_info.get("isSpotTradingAllowed", False) and
+                symbol_info.get("status") == "1"
+            ):
+                symbols.append(symbol_info["symbol"])
+        
+        logger.info(f"Found {len(symbols)} USDT Spot pairs")
+        return symbols
+    
+    def get_24h_tickers(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get 24h ticker statistics for all symbols (bulk).
+        
+        Returns:
+            List of ticker dicts with keys:
+            - symbol
+            - lastPrice
+            - priceChangePercent
+            - quoteVolume
+            - volume
+            etc.
+        """
+        cache_key = "mexc_24h_tickers"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading 24h tickers from cache")
+            return load_cache(cache_key)
+        
+        logger.info("Fetching 24h tickers from MEXC API")
+        data = self._request("GET", "/api/v3/ticker/24hr")
+        
+        save_cache(data, cache_key)
+        logger.info(f"Fetched {len(data)} ticker entries")
+        return data
+    
+    def get_klines(
+        self,
+        symbol: str,
+        interval: str = "1d",
+        limit: int = 120,
+        use_cache: bool = True
+    ) -> List[List]:
+        """
+        Get candlestick/kline data for a symbol.
+        
+        Args:
+            symbol: Trading pair (e.g., 'BTCUSDT')
+            interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d, 1w)
+            limit: Number of candles (max 1000)
+            use_cache: Use cached data if available
+            
+        Returns:
+            List of klines, each kline is a list:
+            [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
+        """
+        cache_key = f"mexc_klines_{symbol}_{interval}"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.debug(f"Loading klines from cache: {symbol} {interval}")
+            return load_cache(cache_key)
+        
+        logger.debug(f"Fetching klines: {symbol} {interval} (limit={limit})")
+        
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": min(limit, 1000)  # API max is 1000
+        }
+        
+        data = self._request("GET", "/api/v3/klines", params=params)
+        
+        save_cache(data, cache_key)
+        return data
+    
+    def get_multiple_klines(
+        self,
+        symbols: List[str],
+        interval: str = "1d",
+        limit: int = 120,
+        use_cache: bool = True
+    ) -> Dict[str, List[List]]:
+        """
+        Get klines for multiple symbols (sequential, rate-limited).
+        
+        Args:
+            symbols: List of trading pairs
+            interval: Timeframe
+            limit: Candles per symbol
+            use_cache: Use cached data
+            
+        Returns:
+            Dict mapping symbol -> klines
+        """
+        results = {}
+        total = len(symbols)
+        
+        logger.info(f"Fetching klines for {total} symbols ({interval})")
+        
+        for i, symbol in enumerate(symbols, 1):
+            try:
+                results[symbol] = self.get_klines(symbol, interval, limit, use_cache)
+                
+                if i % 10 == 0:
+                    logger.info(f"Progress: {i}/{total} symbols")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch klines for {symbol}: {e}")
+                results[symbol] = []
+        
+        logger.info(f"Successfully fetched klines for {len(results)} symbols")
+        return results
+
+```
+
+### `scanner/clients/__init__.py`
+
+**SHA256:** `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
+
+```python
+
+
+```
+
+### `scanner/clients/marketcap_client.py`
+
+**SHA256:** `5d8072e16cc2f3388b6834d559c65d0c04b9557703ab5e62f2c8e7c1ffa03ace`
+
+```python
+"""
+CoinMarketCap API Client for market cap data.
+
+Responsibilities:
+- Fetch bulk cryptocurrency listings
+- Get market cap, rank, supply data
+- Cache daily for rate-limit efficiency
+
+API Docs: https://coinmarketcap.com/api/documentation/v1/
+"""
+
+import os
+from typing import Dict, List, Optional, Any
+import requests
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_cache, save_cache, cache_exists
+
+# 🔹 Neu: zentralisierte Rohdaten-Speicherung
+try:
+    from scanner.utils.raw_collector import collect_raw_marketcap
+except ImportError:
+    collect_raw_marketcap = None
+
+
+logger = get_logger(__name__)
+
+
+class MarketCapClient:
+    """
+    CoinMarketCap API client with caching and rate-limit protection.
+    """
+    
+    BASE_URL = "https://pro-api.coinmarketcap.com"
+    
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        timeout: int = 30
+    ):
+        """
+        Initialize CMC client.
+        
+        Args:
+            api_key: CMC API key (default: from CMC_API_KEY env var)
+            timeout: Request timeout in seconds
+        """
+        self.api_key = api_key or os.getenv("CMC_API_KEY")
+        self.timeout = timeout
+        
+        if not self.api_key:
+            logger.warning("CMC_API_KEY not set - client will fail on API calls")
+        
+        self.session = requests.Session()
+        self.session.headers.update({
+            "X-CMC_PRO_API_KEY": self.api_key or "",
+            "Accept": "application/json"
+        })
+    
+    def _request(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make API request.
+        
+        Args:
+            endpoint: API endpoint (e.g., '/v1/cryptocurrency/listings/latest')
+            params: Query parameters
+            
+        Returns:
+            API response data
+            
+        Raises:
+            requests.RequestException: On API failure
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+        
+        try:
+            response = self.session.get(
+                url,
+                params=params,
+                timeout=self.timeout
+            )
+            
+            # Handle rate limit
+            if response.status_code == 429:
+                logger.error("CMC rate limit hit - check your plan limits")
+                raise requests.RequestException("CMC rate limit exceeded")
+            
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # CMC wraps data in 'data' field
+            if "data" not in data:
+                logger.error(f"Unexpected CMC response structure: {data.keys()}")
+                raise ValueError("Invalid CMC response format")
+            
+            return data
+            
+        except requests.RequestException as e:
+            logger.error(f"CMC API request failed: {e}")
+            raise
+    
+    def get_listings(
+        self,
+        start: int = 1,
+        limit: int = 5000,
+        use_cache: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Get cryptocurrency listings with market cap data.
+        
+        Args:
+            start: Start rank (1-based)
+            limit: Number of results (max 5000)
+            use_cache: Use cached data if available (today)
+            
+        Returns:
+            List of cryptocurrency dicts with keys:
+            - id: CMC ID
+            - symbol: Ticker symbol
+            - name: Full name
+            - slug: URL slug
+            - cmc_rank: CMC rank
+            - quote.USD.market_cap: Market cap in USD
+            - quote.USD.price: Current price
+            - circulating_supply: Circulating supply
+            - total_supply: Total supply
+            - max_supply: Max supply
+        """
+        cache_key = f"cmc_listings_start{start}_limit{limit}"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading CMC listings from cache")
+            cached = load_cache(cache_key)
+            data = cached.get("data", []) if isinstance(cached, dict) else []
+
+            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+
+            return data
+        
+        logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
+        
+        params = {
+            "start": start,
+            "limit": min(limit, 5000),  # API max
+            "convert": "USD",
+            "sort": "market_cap",
+            "sort_dir": "desc"
+        }
+        
+        try:
+            response = self._request("/v1/cryptocurrency/listings/latest", params)
+            data = response.get("data", [])
+            
+            logger.info(f"Fetched {len(data)} listings from CMC")
+            
+            # Cache the full response
+            save_cache(response, cache_key)
+
+            # 🔹 Rohdaten-Snapshot über zentralen Collector speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch CMC listings: {e}")
+            return []
+    
+    def get_all_listings(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get all available listings (up to 5000).
+        
+        Returns:
+            List of all cryptocurrency dicts
+        """
+        return self.get_listings(start=1, limit=5000, use_cache=use_cache)
+    
+    def build_symbol_map(
+        self,
+        listings: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Build a symbol → data mapping for fast lookups.
+        
+        Args:
+            listings: CMC listings (default: fetch all)
+            
+        Returns:
+            Dict mapping symbol (uppercase) to full CMC data
+            
+        Note:
+            If multiple coins share a symbol, only the highest-ranked is kept.
+        """
+        if listings is None:
+            listings = self.get_all_listings()
+        
+        symbol_map = {}
+        collisions = []
+        
+        for item in listings:
+            symbol = item.get("symbol", "").upper()
+            
+            if not symbol:
+                continue
+            
+            # Collision detection
+            if symbol in symbol_map:
+                # Keep higher-ranked (lower cmc_rank number)
+                existing_rank = symbol_map[symbol].get("cmc_rank", float('inf'))
+                new_rank = item.get("cmc_rank", float('inf'))
+                
+                if new_rank < existing_rank:
+                    collisions.append({
+                        "symbol": symbol,
+                        "replaced": symbol_map[symbol].get("name"),
+                        "with": item.get("name")
+                    })
+                    symbol_map[symbol] = item
+                else:
+                    collisions.append({
+                        "symbol": symbol,
+                        "kept": symbol_map[symbol].get("name"),
+                        "ignored": item.get("name")
+                    })
+            else:
+                symbol_map[symbol] = item
+        
+        if collisions:
+            logger.warning(f"Found {len(collisions)} symbol collisions (kept higher-ranked)")
+            logger.debug(f"Collisions: {collisions[:10]}")  # Show first 10
+        
+        logger.info(f"Built symbol map with {len(symbol_map)} unique symbols")
+        return symbol_map
+    
+    def get_market_cap_for_symbol(
+        self,
+        symbol: str,
+        symbol_map: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Optional[float]:
+        """
+        Get market cap for a specific symbol.
+        
+        Args:
+            symbol: Ticker symbol (e.g., 'BTC')
+            symbol_map: Pre-built symbol map (default: build from listings)
+            
+        Returns:
+            Market cap in USD or None if not found
+        """
+        if symbol_map is None:
+            symbol_map = self.build_symbol_map()
+        
+        symbol = symbol.upper()
+        data = symbol_map.get(symbol)
+        
+        if not data:
+            return None
+        
+        try:
+            return data["quote"]["USD"]["market_cap"]
+        except (KeyError, TypeError):
+            return None
+
+```
+
+### `scanner/clients/mapping.py`
+
+**SHA256:** `02c9c16ef03964e8bcc92f905fbd0078203bec98cf6099509ae8fb5ffe1617e5`
+
+```python
+"""
+Mapping layer between MEXC symbols and CMC market cap data.
+
+Handles:
+- Symbol-based matching (primary)
+- Collision detection (multiple CMC assets per symbol)
+- Confidence scoring
+- Manual overrides
+- Mapping reports
+
+This is a CRITICAL component - incorrect mapping = corrupted scores.
+"""
+
+from typing import Dict, List, Optional, Tuple, Any
+from pathlib import Path
+import json
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_json, save_json
+
+
+logger = get_logger(__name__)
+
+
+class MappingResult:
+    """Result of a mapping operation."""
+    
+    def __init__(
+        self,
+        mexc_symbol: str,
+        cmc_data: Optional[Dict[str, Any]] = None,
+        confidence: str = "none",
+        method: str = "none",
+        collision: bool = False,
+        notes: Optional[str] = None
+    ):
+        self.mexc_symbol = mexc_symbol
+        self.cmc_data = cmc_data
+        self.confidence = confidence  # "high", "medium", "low", "none"
+        self.method = method
+        self.collision = collision
+        self.notes = notes
+    
+    @property
+    def mapped(self) -> bool:
+        """Check if mapping was successful."""
+        return self.cmc_data is not None
+    
+    @property
+    def base_asset(self) -> str:
+        """Extract base asset from MEXC symbol (e.g., BTCUSDT -> BTC)."""
+        # Remove USDT suffix
+        if self.mexc_symbol.endswith("USDT"):
+            return self.mexc_symbol[:-4]
+        return self.mexc_symbol
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for serialization."""
+        return {
+            "mexc_symbol": self.mexc_symbol,
+            "base_asset": self.base_asset,
+            "mapped": self.mapped,
+            "confidence": self.confidence,
+            "method": self.method,
+            "collision": self.collision,
+            "notes": self.notes,
+            "cmc_data": {
+                "id": self.cmc_data.get("id") if self.cmc_data else None,
+                "symbol": self.cmc_data.get("symbol") if self.cmc_data else None,
+                "name": self.cmc_data.get("name") if self.cmc_data else None,
+                "slug": self.cmc_data.get("slug") if self.cmc_data else None,
+                "market_cap": self._get_market_cap() if self.cmc_data else None,
+            }
+        }
+    
+    def _get_market_cap(self) -> Optional[float]:
+        """Extract market cap from CMC data."""
+        try:
+            return self.cmc_data["quote"]["USD"]["market_cap"]
+        except (KeyError, TypeError):
+            return None
+
+
+class SymbolMapper:
+    """
+    Maps MEXC symbols to CMC market cap data.
+    """
+    
+    def __init__(
+        self,
+        overrides_file: str = "config/mapping_overrides.json"
+    ):
+        """
+        Initialize mapper.
+        
+        Args:
+            overrides_file: Path to manual overrides JSON
+        """
+        self.overrides_file = Path(overrides_file)
+        self.overrides = self._load_overrides()
+        
+        # Statistics
+        self.stats = {
+            "total": 0,
+            "mapped": 0,
+            "unmapped": 0,
+            "collisions": 0,
+            "overrides_used": 0,
+            "confidence": {
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "none": 0
+            }
+        }
+    
+    def _load_overrides(self) -> Dict[str, Any]:
+        """Load manual mapping overrides."""
+        if not self.overrides_file.exists():
+            logger.info(f"No overrides file found at {self.overrides_file}")
+            return {}
+        
+        try:
+            overrides = load_json(self.overrides_file)
+            logger.info(f"Loaded {len(overrides)} mapping overrides")
+            return overrides
+        except Exception as e:
+            logger.error(f"Failed to load overrides: {e}")
+            return {}
+    
+    def map_symbol(
+        self,
+        mexc_symbol: str,
+        cmc_symbol_map: Dict[str, Dict[str, Any]]
+    ) -> MappingResult:
+        """
+        Map a single MEXC symbol to CMC data.
+        
+        Args:
+            mexc_symbol: MEXC trading pair (e.g., 'BTCUSDT')
+            cmc_symbol_map: Symbol -> CMC data mapping
+            
+        Returns:
+            MappingResult with confidence + collision info
+        """
+        # Extract base asset
+        base_asset = mexc_symbol[:-4] if mexc_symbol.endswith("USDT") else mexc_symbol
+        base_asset_upper = base_asset.upper()
+        
+        # Check overrides first
+        if base_asset_upper in self.overrides:
+            override = self.overrides[base_asset_upper]
+            
+            # Override can specify CMC symbol or "exclude"
+            if override == "exclude":
+                return MappingResult(
+                    mexc_symbol=mexc_symbol,
+                    cmc_data=None,
+                    confidence="none",
+                    method="override_exclude",
+                    notes="Manually excluded via overrides"
+                )
+            
+            # Try to find CMC data for override symbol
+            override_symbol = override.upper()
+            if override_symbol in cmc_symbol_map:
+                self.stats["overrides_used"] += 1
+                return MappingResult(
+                    mexc_symbol=mexc_symbol,
+                    cmc_data=cmc_symbol_map[override_symbol],
+                    confidence="high",
+                    method="override_match",
+                    notes=f"Overridden to {override_symbol}"
+                )
+        
+        # Direct symbol match
+        if base_asset_upper in cmc_symbol_map:
+            return MappingResult(
+                mexc_symbol=mexc_symbol,
+                cmc_data=cmc_symbol_map[base_asset_upper],
+                confidence="high",
+                method="symbol_exact_match"
+            )
+        
+        # No match found
+        return MappingResult(
+            mexc_symbol=mexc_symbol,
+            cmc_data=None,
+            confidence="none",
+            method="no_match",
+            notes=f"Symbol {base_asset_upper} not found in CMC data"
+        )
+    
+    def map_universe(
+        self,
+        mexc_symbols: List[str],
+        cmc_symbol_map: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, MappingResult]:
+        """
+        Map entire MEXC universe to CMC data.
+        
+        Args:
+            mexc_symbols: List of MEXC trading pairs
+            cmc_symbol_map: CMC symbol -> data mapping
+            
+        Returns:
+            Dict mapping mexc_symbol -> MappingResult
+        """
+        logger.info(f"Mapping {len(mexc_symbols)} MEXC symbols to CMC data")
+        
+        results = {}
+        self.stats["total"] = len(mexc_symbols)
+        
+        for symbol in mexc_symbols:
+            result = self.map_symbol(symbol, cmc_symbol_map)
+            results[symbol] = result
+            
+            # Update stats
+            if result.mapped:
+                self.stats["mapped"] += 1
+            else:
+                self.stats["unmapped"] += 1
+            
+            if result.collision:
+                self.stats["collisions"] += 1
+            
+            self.stats["confidence"][result.confidence] += 1
+        
+        # Log summary
+        logger.info(f"Mapping complete:")
+        logger.info(f"  Mapped: {self.stats['mapped']}/{self.stats['total']}")
+        logger.info(f"  Unmapped: {self.stats['unmapped']}")
+        logger.info(f"  Collisions: {self.stats['collisions']}")
+        logger.info(f"  Confidence: {self.stats['confidence']}")
+        logger.info(f"  Overrides used: {self.stats['overrides_used']}")
+        
+        return results
+    
+    def generate_reports(
+        self,
+        mapping_results: Dict[str, MappingResult],
+        output_dir: str = "reports"
+    ) -> None:
+        """
+        Generate mapping reports.
+        
+        Creates:
+        - unmapped_symbols.json: Symbols without CMC match
+        - mapping_collisions.json: Symbols with multiple CMC candidates
+        - mapping_stats.json: Overall statistics
+        """
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # Unmapped symbols
+        unmapped = [
+            {
+                "mexc_symbol": result.mexc_symbol,
+                "base_asset": result.base_asset,
+                "notes": result.notes
+            }
+            for result in mapping_results.values()
+            if not result.mapped
+        ]
+        
+        unmapped_file = output_path / "unmapped_symbols.json"
+        save_json(unmapped, unmapped_file)
+        logger.info(f"Saved {len(unmapped)} unmapped symbols to {unmapped_file}")
+        
+        # Collisions
+        collisions = [
+            result.to_dict()
+            for result in mapping_results.values()
+            if result.collision
+        ]
+        
+        collisions_file = output_path / "mapping_collisions.json"
+        save_json(collisions, collisions_file)
+        logger.info(f"Saved {len(collisions)} collisions to {collisions_file}")
+        
+        # Stats
+        stats_file = output_path / "mapping_stats.json"
+        save_json(self.stats, stats_file)
+        logger.info(f"Saved mapping stats to {stats_file}")
+    
+    def suggest_overrides(
+        self,
+        mapping_results: Dict[str, MappingResult],
+        output_file: str = "reports/suggested_overrides.json"
+    ) -> Dict[str, str]:
+        """
+        Generate suggested overrides for unmapped symbols.
+        
+        Returns:
+            Dict of base_asset -> "exclude" (user must review)
+        """
+        suggestions = {}
+        
+        for result in mapping_results.values():
+            if not result.mapped and result.base_asset not in self.overrides:
+                # Suggest exclusion (user can change to proper symbol)
+                suggestions[result.base_asset] = "exclude"
+        
+        if suggestions:
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            save_json(suggestions, output_path, indent=2)
+            logger.info(f"Generated {len(suggestions)} override suggestions: {output_file}")
+        
+        return suggestions
+
+```
+
+### `scanner/utils/logging_utils.py`
+
+**SHA256:** `16b928c91c236b53ca1e7a9d74f6ba890d50b3afb2ae508d3962c1fe44bb2e50`
+
+```python
+"""
+Logging utilities for the scanner.
+Provides centralized logging with file rotation and console output.
+"""
+
+import logging
+import sys
+from pathlib import Path
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+
+
+def setup_logger(
+    name: str = "scanner",
+    level: str = "INFO",
+    log_file: str | None = None,
+    log_to_console: bool = True,
+    log_to_file: bool = True,
+) -> logging.Logger:
+    """
+    Set up a logger with file and/or console handlers.
+    
+    Args:
+        name: Logger name
+        level: Log level (DEBUG, INFO, WARNING, ERROR)
+        log_file: Path to log file (default: logs/scanner_YYYY-MM-DD.log)
+        log_to_console: Enable console output
+        log_to_file: Enable file output
+        
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Remove existing handlers
+    logger.handlers.clear()
+    
+    # Format
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Console handler
+    if log_to_console:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+    
+    # File handler
+    if log_to_file:
+        if log_file is None:
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
+            log_file = log_dir / f"scanner_{datetime.utcnow().strftime('%Y-%m-%d')}.log"
+        
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
+def get_logger(name: str = "scanner") -> logging.Logger:
+    """Get existing logger or create default one."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        return setup_logger(name)
+    return logger
+
+```
+
+### `scanner/utils/time_utils.py`
+
+**SHA256:** `ed28e91229a8ee46f5154d1baa9ece921c37531327ee42ffd2ef635df7a456a0`
+
+```python
+"""
+Time and date utilities.
+All times are UTC-based for consistency.
+"""
+
+from datetime import datetime, timezone
+from typing import Optional
+
+
+def utc_now() -> datetime:
+    """Get current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
+
+def utc_timestamp() -> str:
+    """Get current UTC timestamp as ISO string (YYYY-MM-DDTHH:MM:SSZ)."""
+    return utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def utc_date() -> str:
+    """Get current UTC date as string (YYYY-MM-DD)."""
+    return utc_now().strftime("%Y-%m-%d")
+
+
+def parse_timestamp(ts: str) -> datetime:
+    """
+    Parse ISO timestamp to datetime.
+    
+    Args:
+        ts: ISO timestamp string (e.g., "2025-01-17T12:00:00Z")
+        
+    Returns:
+        Timezone-aware datetime object
+    """
+    # Handle both with and without 'Z'
+    if ts.endswith('Z'):
+        ts = ts[:-1] + '+00:00'
+    return datetime.fromisoformat(ts)
+
+
+def timestamp_to_ms(dt: datetime) -> int:
+    """Convert datetime to milliseconds since epoch (for APIs)."""
+    return int(dt.timestamp() * 1000)
+
+
+def ms_to_timestamp(ms: int) -> datetime:
+    """Convert milliseconds since epoch to datetime."""
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+
+```
+
+### `scanner/utils/__init__.py`
+
+**SHA256:** `f230bbd04291338e0d737b6ea6813a830bdbd2cfff379a1b6ce8ade07fc98021`
+
+```python
+"""
+Utility helpers for the scanner.
+
+Modules:
+- time_utils: time and date handling
+- logging_utils: logging configuration helpers
+- io_utils: file I/O helpers (JSON, Markdown, paths)
 """
 
 
@@ -1290,7 +2320,7 @@ def save_cache(data: Any, cache_type: str, date: Optional[str] = None) -> None:
 
 ### `scanner/utils/raw_collector.py`
 
-**SHA256:** `e5d7f0568176525bd7972a0974da5218efec9cc7dcbd18dee4af5d254a8c6c04`
+**SHA256:** `91cf6703951a3b0a678f39b3a7956cbc4b51c747e55a601c05e0ce95ce019482`
 
 ```python
 """
@@ -1330,15 +2360,21 @@ def collect_raw_ohlcv(results: Dict[str, Dict[str, Any]]):
         for symbol, tf_data in results.items():
             for tf, candles in tf_data.items():
                 for candle in candles:
+                    if not isinstance(candle, (list, tuple)) or len(candle) < 6:
+                        print(f"[WARN] Skipping malformed candle for {symbol} {tf}: {candle}")
+                        continue
+
                     flat_records.append({
                         "symbol": symbol,
                         "timeframe": tf,
                         "open_time": candle[0],
+                        "close_time": candle[6] if len(candle) > 6 else None,
                         "open": candle[1],
                         "high": candle[2],
                         "low": candle[3],
                         "close": candle[4],
                         "volume": candle[5],
+                        "quote_volume": candle[7] if len(candle) > 7 else None,
                     })
         df = pd.DataFrame(flat_records)
         return save_raw_snapshot(df, source_name="ohlcv_snapshot")
@@ -1403,442 +2439,294 @@ def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
 
 ```
 
-### `scanner/utils/time_utils.py`
+### `scanner/pipeline/shortlist.py`
 
-**SHA256:** `ed28e91229a8ee46f5154d1baa9ece921c37531327ee42ffd2ef635df7a456a0`
-
-```python
-"""
-Time and date utilities.
-All times are UTC-based for consistency.
-"""
-
-from datetime import datetime, timezone
-from typing import Optional
-
-
-def utc_now() -> datetime:
-    """Get current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
-
-
-def utc_timestamp() -> str:
-    """Get current UTC timestamp as ISO string (YYYY-MM-DDTHH:MM:SSZ)."""
-    return utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def utc_date() -> str:
-    """Get current UTC date as string (YYYY-MM-DD)."""
-    return utc_now().strftime("%Y-%m-%d")
-
-
-def parse_timestamp(ts: str) -> datetime:
-    """
-    Parse ISO timestamp to datetime.
-    
-    Args:
-        ts: ISO timestamp string (e.g., "2025-01-17T12:00:00Z")
-        
-    Returns:
-        Timezone-aware datetime object
-    """
-    # Handle both with and without 'Z'
-    if ts.endswith('Z'):
-        ts = ts[:-1] + '+00:00'
-    return datetime.fromisoformat(ts)
-
-
-def timestamp_to_ms(dt: datetime) -> int:
-    """Convert datetime to milliseconds since epoch (for APIs)."""
-    return int(dt.timestamp() * 1000)
-
-
-def ms_to_timestamp(ms: int) -> datetime:
-    """Convert milliseconds since epoch to datetime."""
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
-
-```
-
-### `scanner/utils/logging_utils.py`
-
-**SHA256:** `16b928c91c236b53ca1e7a9d74f6ba890d50b3afb2ae508d3962c1fe44bb2e50`
+**SHA256:** `bb87c2b8206482deb918d7c8cb374d43babe7dc2d60c7a48b4f32d14c98afa82`
 
 ```python
 """
-Logging utilities for the scanner.
-Provides centralized logging with file rotation and console output.
+Shortlist Selection (Cheap Pass)
+=================================
+
+Reduces filtered universe to a shortlist for expensive operations (OHLCV fetch).
+Uses cheap metrics (24h volume) to rank and select top N candidates.
 """
 
 import logging
-import sys
-from pathlib import Path
-from logging.handlers import RotatingFileHandler
-from datetime import datetime
-
-
-def setup_logger(
-    name: str = "scanner",
-    level: str = "INFO",
-    log_file: str | None = None,
-    log_to_console: bool = True,
-    log_to_file: bool = True,
-) -> logging.Logger:
-    """
-    Set up a logger with file and/or console handlers.
-    
-    Args:
-        name: Logger name
-        level: Log level (DEBUG, INFO, WARNING, ERROR)
-        log_file: Path to log file (default: logs/scanner_YYYY-MM-DD.log)
-        log_to_console: Enable console output
-        log_to_file: Enable file output
-        
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Remove existing handlers
-    logger.handlers.clear()
-    
-    # Format
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    
-    # Console handler
-    if log_to_console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-    
-    # File handler
-    if log_to_file:
-        if log_file is None:
-            log_dir = Path("logs")
-            log_dir.mkdir(exist_ok=True)
-            log_file = log_dir / f"scanner_{datetime.utcnow().strftime('%Y-%m-%d')}.log"
-        
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    
-    return logger
-
-
-def get_logger(name: str = "scanner") -> logging.Logger:
-    """Get existing logger or create default one."""
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        return setup_logger(name)
-    return logger
-
-```
-
-### `scanner/utils/__init__.py`
-
-**SHA256:** `f230bbd04291338e0d737b6ea6813a830bdbd2cfff379a1b6ce8ade07fc98021`
-
-```python
-"""
-Utility helpers for the scanner.
-
-Modules:
-- time_utils: time and date handling
-- logging_utils: logging configuration helpers
-- io_utils: file I/O helpers (JSON, Markdown, paths)
-"""
-
-
-```
-
-### `scanner/tools/validate_features.py`
-
-**SHA256:** `264fb1d5b7452097378602de2f49345275e153f664344a1e54dd6b7c5d20e1c3`
-
-```python
-import json
-import os
-
-def validate_features(report_path: str):
-    """
-    Prüft, ob die im JSON-Report gespeicherten Feature- und Scoring-Werte
-    numerisch, plausibel und nicht konstant sind.
-    Unterstützt Reports mit 'setups', 'data' oder 'results' als Hauptsektion.
-    """
-
-    if not os.path.exists(report_path):
-        print(f"❌ Report-Datei nicht gefunden: {report_path}")
-        return
-
-    with open(report_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # Dynamisch den richtigen Abschnitt im Report finden
-    if "setups" in data:
-        section_key = "setups"
-    elif "data" in data:
-        section_key = "data"
-    elif "results" in data:
-        section_key = "results"
-    else:
-        print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
-        return
-
-    results = data[section_key]
-    if not results:
-        print("⚠️ Keine Ergebnisse im Report.")
-        return
-
-    anomalies = []
-
-    for setup_type, setups in results.items():
-        for s in setups:
-            comps = s.get("components", {})
-            for key, value in comps.items():
-                # Prüfe auf None oder nicht-numerische Werte
-                if value is None or not isinstance(value, (int, float)):
-                    anomalies.append((setup_type, s.get("symbol"), key, value))
-                # Prüfe auf unrealistische Werte
-                elif not (0 <= value <= 150):
-                    anomalies.append((setup_type, s.get("symbol"), key, value))
-
-    if anomalies:
-        print("⚠️ Anomalien gefunden:")
-        for setup_type, symbol, key, value in anomalies:
-            print(f"  [{setup_type}] {symbol}: {key} = {value}")
-    else:
-        print("✅ Alle Feature-Komponenten numerisch und plausibel.")
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
-        print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
-        sys.exit(1)
-
-    report_path = sys.argv[1]
-    validate_features(report_path)
-
-
-```
-
-### `scanner/pipeline/backtest_runner.py`
-
-**SHA256:** `c7c6d86798768efd84a890760c6e05a356fb4ef089cdc1ef06b0428f9f7c4ac8`
-
-```python
-"""
-Backtest runner.
-
-Responsibilities:
-- Consume historical snapshots.
-- Compute forward returns for each setup:
-  - Breakout
-  - Pullback
-  - Reversal
-- Aggregate evaluation metrics:
-  - hit rate
-  - median/mean returns
-  - tail risk
-  - rank vs return behavior
-- Output backtest summaries (e.g. JSON / Markdown).
-
-Backtests must be deterministic and snapshot-driven.
-"""
-
-
-```
-
-### `scanner/pipeline/snapshot.py`
-
-**SHA256:** `f40940b649285ada7cc99a802467a2801cf5eb3357e049d7e572bdeabeaa4597`
-
-```python
-"""
-Snapshot System
-===============
-
-Creates deterministic daily snapshots for backtesting and reproducibility.
-Snapshots include all pipeline data at a specific point in time.
-"""
-
-import logging
-from typing import Dict, Any, List
-from datetime import datetime
-from pathlib import Path
-import json
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
 
-class SnapshotManager:
-    """Manages daily pipeline snapshots."""
+class ShortlistSelector:
+    """Selects top candidates based on volume for OHLCV processing."""
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize snapshot manager.
+        Initialize shortlist selector.
         
         Args:
-            config: Config dict with 'snapshots' section
+            config: Config dict with 'shortlist' section
         """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            snapshot_config = config.raw.get('snapshots', {})
-        else:
-            snapshot_config = config.get('snapshots', {})
+        self.config = config.get('shortlist', {})
         
-        self.snapshots_dir = Path(snapshot_config.get('runtime_dir', 'snapshots/runtime'))
+        # Default: Top 100 by volume
+        self.max_size = self.config.get('max_size', 100)
         
-        # Ensure directory exists
-        self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+        # Minimum size (even if fewer pass filters)
+        self.min_size = self.config.get('min_size', 10)
         
-        logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
+        logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
     
-    def create_snapshot(
+    def select(self, filtered_symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Select top N symbols by 24h volume.
+        
+        Args:
+            filtered_symbols: List of symbols that passed filters
+                Each dict must have:
+                - symbol: str
+                - base: str
+                - quote_volume_24h: float
+                - market_cap: float
+        
+        Returns:
+            Shortlist (top N by volume)
+        """
+        if not filtered_symbols:
+            logger.warning("No symbols to shortlist (empty input)")
+            return []
+        
+        # Sort by volume (descending)
+        sorted_symbols = sorted(
+            filtered_symbols,
+            key=lambda x: x.get('quote_volume_24h', 0),
+            reverse=True
+        )
+        
+        # Take top N
+        shortlist = sorted_symbols[:self.max_size]
+        
+        logger.info(f"Shortlist selected: {len(shortlist)} symbols from {len(filtered_symbols)} "
+                   f"(top {len(shortlist)/len(filtered_symbols)*100:.1f}% by volume)")
+        
+        # Log volume range
+        if shortlist:
+            max_vol = shortlist[0].get('quote_volume_24h', 0)
+            min_vol = shortlist[-1].get('quote_volume_24h', 0)
+            logger.info(f"Volume range: ${max_vol/1e6:.2f}M - ${min_vol/1e6:.2f}M")
+        
+        return shortlist
+    
+    def get_shortlist_stats(
         self,
-        run_date: str,
-        universe: List[Dict[str, Any]],
-        filtered: List[Dict[str, Any]],
-        shortlist: List[Dict[str, Any]],
-        features: Dict[str, Dict[str, Any]],
-        reversal_scores: List[Dict[str, Any]],
-        breakout_scores: List[Dict[str, Any]],
-        pullback_scores: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None
-    ) -> Path:
+        filtered_symbols: List[Dict[str, Any]],
+        shortlist: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Create a complete snapshot of the pipeline run.
+        Get statistics about shortlist selection.
         
         Args:
-            run_date: Date string (YYYY-MM-DD)
-            universe: Full MEXC universe
-            filtered: Post-filter universe
-            shortlist: Shortlisted symbols
-            features: Computed features
-            reversal_scores: Reversal scoring results
-            breakout_scores: Breakout scoring results
-            pullback_scores: Pullback scoring results
-            metadata: Optional metadata
-        
-        Returns:
-            Path to saved snapshot file
-        """
-        logger.info(f"Creating snapshot for {run_date}")
-        
-        snapshot = {
-            'meta': {
-                'date': run_date,
-                'created_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.0'
-            },
-            'pipeline': {
-                'universe_count': len(universe),
-                'filtered_count': len(filtered),
-                'shortlist_count': len(shortlist),
-                'features_count': len(features)
-            },
-            'data': {
-                'universe': universe,
-                'filtered': filtered,
-                'shortlist': shortlist,
-                'features': features
-            },
-            'scoring': {
-                'reversals': reversal_scores,
-                'breakouts': breakout_scores,
-                'pullbacks': pullback_scores
-            }
-        }
-        
-        if metadata:
-            snapshot['meta'].update(metadata)
-        
-        # Save snapshot
-        snapshot_path = self.snapshots_dir / f"{run_date}.json"
-        
-        with open(snapshot_path, 'w', encoding='utf-8') as f:
-            json.dump(snapshot, f, indent=2, ensure_ascii=False)
-        
-        # Get file size
-        size_mb = snapshot_path.stat().st_size / (1024 * 1024)
-        
-        logger.info(f"Snapshot saved: {snapshot_path} ({size_mb:.2f} MB)")
-        
-        return snapshot_path
-    
-    def load_snapshot(self, run_date: str) -> Dict[str, Any]:
-        """
-        Load a snapshot by date.
-        
-        Args:
-            run_date: Date string (YYYY-MM-DD)
-        
-        Returns:
-            Snapshot dict
-        
-        Raises:
-            FileNotFoundError: If snapshot doesn't exist
-        """
-        snapshot_path = self.snapshots_dir / f"{run_date}.json"
-        
-        if not snapshot_path.exists():
-            raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
-        
-        logger.info(f"Loading snapshot: {snapshot_path}")
-        
-        with open(snapshot_path, 'r', encoding='utf-8') as f:
-            snapshot = json.load(f)
-        
-        return snapshot
-    
-    def list_snapshots(self) -> List[str]:
-        """
-        List all available snapshot dates.
-        
-        Returns:
-            List of date strings (YYYY-MM-DD)
-        """
-        snapshots = []
-        
-        for path in self.snapshots_dir.glob("*.json"):
-            date = path.stem  # Filename without extension
-            snapshots.append(date)
-        
-        snapshots.sort()
-        
-        logger.info(f"Found {len(snapshots)} snapshots")
-        
-        return snapshots
-    
-    def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
-        """
-        Get statistics about a snapshot without loading full data.
-        
-        Args:
-            run_date: Date string
+            filtered_symbols: Input (post-filter)
+            shortlist: Output (post-shortlist)
         
         Returns:
             Stats dict
         """
-        snapshot = self.load_snapshot(run_date)
+        if not filtered_symbols:
+            return {
+                'input_count': 0,
+                'shortlist_count': 0,
+                'reduction_rate': '0%',
+                'volume_coverage': '0%'
+            }
+        
+        # Volume stats
+        total_volume = sum(s.get('quote_volume_24h', 0) for s in filtered_symbols)
+        shortlist_volume = sum(s.get('quote_volume_24h', 0) for s in shortlist)
+        
+        coverage = (shortlist_volume / total_volume * 100) if total_volume > 0 else 0
         
         return {
-            'date': snapshot['meta']['date'],
-            'created_at': snapshot['meta']['created_at'],
-            'universe_count': snapshot['pipeline']['universe_count'],
-            'filtered_count': snapshot['pipeline']['filtered_count'],
-            'shortlist_count': snapshot['pipeline']['shortlist_count'],
-            'features_count': snapshot['pipeline']['features_count'],
-            'reversal_count': len(snapshot['scoring']['reversals']),
-            'breakout_count': len(snapshot['scoring']['breakouts']),
-            'pullback_count': len(snapshot['scoring']['pullbacks'])
+            'input_count': len(filtered_symbols),
+            'shortlist_count': len(shortlist),
+            'reduction_rate': f"{(1 - len(shortlist)/len(filtered_symbols))*100:.1f}%",
+            'total_volume': f"${total_volume/1e6:.2f}M",
+            'shortlist_volume': f"${shortlist_volume/1e6:.2f}M",
+            'volume_coverage': f"{coverage:.1f}%"
+        }
+
+```
+
+### `scanner/pipeline/filters.py`
+
+**SHA256:** `63103cc1fa6aca7eb81ca58efc96e61ee4ab3c32ba1271d98f21d847d58c73e4`
+
+```python
+"""
+Universe Filtering
+==================
+
+Filters the MEXC universe to create a tradable shortlist:
+1. Market Cap Filter (100M - 3B USD)
+2. Liquidity Filter (minimum volume)
+3. Exclusions (stablecoins, wrapped tokens, leveraged tokens)
+"""
+
+import logging
+from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
+
+
+class UniverseFilters:
+    """Filters for reducing MEXC universe to tradable MidCaps."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize filters with config.
+        
+        Args:
+            config: Config dict with 'filters' section
+        """
+        self.config = config.get('filters', {})
+        
+        # Market Cap bounds (in USD)
+        self.mcap_min = self.config.get('mcap_min', 100_000_000)  # 100M
+        self.mcap_max = self.config.get('mcap_max', 3_000_000_000)  # 3B
+        
+        # Liquidity (24h volume in USDT)
+        self.min_volume_24h = self.config.get('min_volume_24h', 1_000_000)  # 1M
+        
+        # Exclusion patterns
+        self.exclusion_patterns = self.config.get('exclusion_patterns', [
+            'USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD',  # Stablecoins
+            'WBTC', 'WETH', 'WBNB',  # Wrapped tokens
+            'UP', 'DOWN', 'BULL', 'BEAR',  # Leveraged tokens
+        ])
+        
+        logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
+                   f"Min Volume {self.min_volume_24h/1e6:.1f}M")
+    
+    def apply_all(
+        self,
+        symbols_with_data: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply all filters in sequence.
+        
+        Args:
+            symbols_with_data: List of dicts with keys:
+                - symbol: str (e.g. "BTCUSDT")
+                - base: str (e.g. "BTC")
+                - quote_volume_24h: float
+                - market_cap: float (from CMC mapping)
+        
+        Returns:
+            Filtered list
+        """
+        original_count = len(symbols_with_data)
+        logger.info(f"Starting filters with {original_count} symbols")
+        
+        # Step 1: Market Cap filter
+        filtered = self._filter_mcap(symbols_with_data)
+        logger.info(f"After MCAP filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+        
+        # Step 2: Liquidity filter
+        filtered = self._filter_liquidity(filtered)
+        logger.info(f"After Liquidity filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+        
+        # Step 3: Exclusions
+        filtered = self._filter_exclusions(filtered)
+        logger.info(f"After Exclusions filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+        
+        logger.info(f"Final universe: {len(filtered)} symbols "
+                   f"(filtered out {original_count - len(filtered)})")
+        
+        return filtered
+    
+    def _filter_mcap(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by market cap range."""
+        filtered = []
+        
+        for sym_data in symbols:
+            mcap = sym_data.get('market_cap')
+            
+            # Skip if no market cap data
+            if mcap is None:
+                continue
+            
+            # Check bounds
+            if self.mcap_min <= mcap <= self.mcap_max:
+                filtered.append(sym_data)
+        
+        return filtered
+    
+    def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by minimum 24h volume."""
+        filtered = []
+        
+        for sym_data in symbols:
+            volume = sym_data.get('quote_volume_24h', 0)
+            
+            if volume >= self.min_volume_24h:
+                filtered.append(sym_data)
+        
+        return filtered
+    
+    def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Exclude stablecoins, wrapped tokens, leveraged tokens."""
+        filtered = []
+        
+        for sym_data in symbols:
+            base = sym_data.get('base', '')
+            
+            # Check if base matches any exclusion pattern
+            is_excluded = False
+            for pattern in self.exclusion_patterns:
+                if pattern in base.upper():
+                    is_excluded = True
+                    break
+            
+            if not is_excluded:
+                filtered.append(sym_data)
+        
+        return filtered
+    
+    def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Get statistics about what would be filtered.
+        
+        Args:
+            symbols: Input symbols
+        
+        Returns:
+            Dict with filter stats
+        """
+        total = len(symbols)
+        
+        # Count what passes each filter
+        mcap_pass = len(self._filter_mcap(symbols))
+        liquidity_pass = len(self._filter_liquidity(symbols))
+        exclusion_pass = len(self._filter_exclusions(symbols))
+        
+        # Full pipeline
+        final_pass = len(self.apply_all(symbols))
+        
+        return {
+            'total_input': total,
+            'mcap_pass': mcap_pass,
+            'mcap_fail': total - mcap_pass,
+            'liquidity_pass': liquidity_pass,
+            'liquidity_fail': total - liquidity_pass,
+            'exclusion_pass': exclusion_pass,
+            'exclusion_fail': total - exclusion_pass,
+            'final_pass': final_pass,
+            'final_fail': total - final_pass,
+            'filter_rate': f"{final_pass/total*100:.1f}%" if total > 0 else "0%"
         }
 
 ```
@@ -2144,9 +3032,249 @@ class ExcelReportGenerator:
 
 ```
 
+### `scanner/pipeline/__init__.py`
+
+**SHA256:** `0a33b689727c100e751cc922aab3250bebcb3cf1d3c53e1760d5d01b2b3168c5`
+
+```python
+"""
+Pipeline Orchestration
+======================
+
+Orchestrates the full daily scanning pipeline.
+"""
+
+from __future__ import annotations
+import logging
+from ..utils.time_utils import utc_now, timestamp_to_ms
+
+from ..config import ScannerConfig
+from ..clients.mexc_client import MEXCClient
+from ..clients.marketcap_client import MarketCapClient
+from ..clients.mapping import SymbolMapper
+from .filters import UniverseFilters
+from .shortlist import ShortlistSelector
+from .ohlcv import OHLCVFetcher
+from .features import FeatureEngine
+from .scoring.reversal import score_reversals
+from .scoring.breakout import score_breakouts
+from .scoring.pullback import score_pullbacks
+from .output import ReportGenerator
+from .snapshot import SnapshotManager
+
+logger = logging.getLogger(__name__)
+
+
+def run_pipeline(config: ScannerConfig) -> None:
+    """
+    Orchestrates the full daily pipeline:
+    1. Fetch universe (MEXC Spot USDT)
+    2. Fetch market cap listings
+    3. Run mapping layer
+    4. Apply hard filters (market cap, liquidity, exclusions)
+    5. Run cheap pass (shortlist)
+    6. Fetch OHLCV for shortlist
+    7. Compute features (1d + 4h)
+    8. Enrich features with price, name, market cap, and volume
+    9. Compute scores (breakout / pullback / reversal)
+    10. Write reports (Markdown + JSON + Excel)
+    11. Write snapshot for backtests
+    """
+    run_mode = config.run_mode
+
+    # As-Of Timestamp (einmal pro Run)
+    asof_dt = utc_now()
+    asof_ts_ms = timestamp_to_ms(asof_dt)
+    asof_iso = asof_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    # Run-Date konsistent aus asof_dt
+    run_date = asof_dt.strftime('%Y-%m-%d')
+    
+    use_cache = run_mode in ['fast', 'standard']
+    
+    logger.info("=" * 80)
+    logger.info(f"PIPELINE STARTING - {run_date}")
+    logger.info(f"Mode: {run_mode}")
+    logger.info("=" * 80)
+    
+    # Initialize clients
+    logger.info("\n[INIT] Initializing clients...")
+    mexc = MEXCClient()
+    cmc = MarketCapClient(api_key=config.cmc_api_key)
+    logger.info("✓ Clients initialized")
+    
+    # Step 1: Fetch universe (MEXC Spot USDT)
+    logger.info("\n[1/11] Fetching MEXC universe...")
+    universe = mexc.get_spot_usdt_symbols(use_cache=use_cache)
+    logger.info(f"✓ Universe: {len(universe)} USDT pairs")
+    
+    # Get 24h tickers
+    logger.info("  Fetching 24h tickers...")
+    tickers = mexc.get_24h_tickers(use_cache=use_cache)
+    ticker_map = {t['symbol']: t for t in tickers}
+    logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
+    
+    # Step 2 & 3: Fetch market cap + Run mapping layer
+    logger.info("\n[2-3/11] Fetching market cap & mapping...")
+    cmc_listings = cmc.get_listings(use_cache=use_cache)
+    cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
+    logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
+    
+    mapper = SymbolMapper()
+    mapping_results = mapper.map_universe(universe, cmc_symbol_map)
+    logger.info(f"✓ Mapped: {mapper.stats['mapped']}/{mapper.stats['total']} "
+               f"({mapper.stats['mapped']/mapper.stats['total']*100:.1f}%)")
+    
+    # Prepare data for filters
+    symbols_with_data = []
+    for symbol in universe:
+        result = mapping_results.get(symbol)
+        if not result or not result.mapped:
+            continue
+        
+        ticker = ticker_map.get(symbol, {})
+        
+        symbols_with_data.append({
+            'symbol': symbol,
+            'base': symbol.replace('USDT', ''),
+            'quote_volume_24h': float(ticker.get('quoteVolume', 0)),
+            'market_cap': result._get_market_cap()
+        })
+    
+    # Step 4: Apply hard filters
+    logger.info("\n[4/11] Applying universe filters...")
+    filters = UniverseFilters(config.raw)
+    filtered = filters.apply_all(symbols_with_data)
+    logger.info(f"✓ Filtered: {len(filtered)} symbols")
+    
+    # Step 5: Run cheap pass (shortlist)
+    logger.info("\n[5/11] Creating shortlist...")
+    selector = ShortlistSelector(config.raw)
+    shortlist = selector.select(filtered)
+    logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
+    
+    # Step 6: Fetch OHLCV for shortlist
+    logger.info("\n[6/11] Fetching OHLCV data...")
+    ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
+    ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
+    logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
+    
+    # Step 7: Compute features (1d + 4h)
+    logger.info("\n[7/11] Computing features...")
+    feature_engine = FeatureEngine(config.raw)
+    features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
+    logger.info(f"✓ Features: {len(features)} symbols")
+
+    # Step 8: Enrich features with price, coin name, market cap, and volume
+    logger.info("\n[8/11] Enriching features with price, name, market cap, and volume...")
+    for symbol in features.keys():
+        # Add current price from tickers
+        ticker = ticker_map.get(symbol)
+        if ticker:
+            features[symbol]['price_usdt'] = float(ticker.get('lastPrice', 0))
+        else:
+            features[symbol]['price_usdt'] = None
+    
+        # Add coin name from CMC
+        mapping = mapper.map_symbol(symbol, cmc_symbol_map)
+        if mapping.mapped and mapping.cmc_data:
+            features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
+        else:
+            features[symbol]['coin_name'] = 'Unknown'
+        
+        # Add market cap and volume from shortlist data
+        shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
+        if shortlist_entry:
+            features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
+            features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
+        else:
+            features[symbol]['market_cap'] = None
+            features[symbol]['quote_volume_24h'] = None
+
+    logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
+    
+    # Prepare volume map for scoring (backwards compatibility)
+    volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
+    
+    # Step 9: Compute scores (breakout / pullback / reversal)
+    logger.info("\n[9/11] Scoring setups...")
+    
+    logger.info("  Scoring Reversals...")
+    reversal_results = score_reversals(features, volume_map, config.raw)
+    logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
+    
+    logger.info("  Scoring Breakouts...")
+    breakout_results = score_breakouts(features, volume_map, config.raw)
+    logger.info(f"  ✓ Breakouts: {len(breakout_results)} scored")
+    
+    logger.info("  Scoring Pullbacks...")
+    pullback_results = score_pullbacks(features, volume_map, config.raw)
+    logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
+    
+    # Step 10: Write reports (Markdown + JSON + Excel)
+    logger.info("\n[10/11] Generating reports...")
+    report_gen = ReportGenerator(config.raw)
+    report_paths = report_gen.save_reports(
+        reversal_results,
+        breakout_results,
+        pullback_results,
+        run_date,
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
+        }
+    )
+    logger.info(f"✓ Markdown: {report_paths['markdown']}")
+    logger.info(f"✓ JSON: {report_paths['json']}")
+    if 'excel' in report_paths:
+        logger.info(f"✓ Excel: {report_paths['excel']}")
+    
+    # Step 11: Write snapshot for backtests
+    logger.info("\n[11/11] Creating snapshot...")
+    snapshot_mgr = SnapshotManager(config.raw)
+    snapshot_path = snapshot_mgr.create_snapshot(
+        run_date=run_date,
+        universe=[{'symbol': s} for s in universe],
+        filtered=filtered,
+        shortlist=shortlist,
+        features=features,
+        reversal_scores=reversal_results,
+        breakout_scores=breakout_results,
+        pullback_scores=pullback_results,
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
+        }
+    )
+    logger.info(f"✓ Snapshot: {snapshot_path}")
+    
+    # Summary
+    logger.info("\n" + "=" * 80)
+    logger.info("PIPELINE COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"Date: {run_date}")
+    logger.info(f"Universe: {len(universe)} symbols")
+    logger.info(f"Filtered: {len(filtered)} symbols")
+    logger.info(f"Shortlist: {len(shortlist)} symbols")
+    logger.info(f"Features: {len(features)} symbols")
+    logger.info(f"\nScored:")
+    logger.info(f"  Reversals: {len(reversal_results)}")
+    logger.info(f"  Breakouts: {len(breakout_results)}")
+    logger.info(f"  Pullbacks: {len(pullback_results)}")
+    logger.info(f"\nOutputs:")
+    logger.info(f"  Report: {report_paths['markdown']}")
+    if 'excel' in report_paths:
+        logger.info(f"  Excel: {report_paths['excel']}")
+    logger.info(f"  Snapshot: {snapshot_path}")
+    logger.info("=" * 80)
+
+```
+
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `9a7b5ee0dfcfe75c2f30c4f83ce38109c4cb6487508a54997c255120076c1dfc`
+**SHA256:** `3ab9e73e6c3ce67d15d808adeafbeb95d91dff3d79b804082ab75b32fb86797b`
 
 ```python
 """
@@ -2179,7 +3307,11 @@ class FeatureEngine:
     # -------------------------------------------------------------------------
     # Main entry point
     # -------------------------------------------------------------------------
-    def compute_all(self, ohlcv_data: Dict[str, Dict[str, List[List]]]) -> Dict[str, Dict[str, Any]]:
+    def compute_all(
+        self,
+        ohlcv_data: Dict[str, Dict[str, List[List]]],
+        asof_ts_ms: Optional[int] = None
+    ) -> Dict[str, Dict[str, Any]]:
         results = {}
         total = len(ohlcv_data)
         logger.info(f"Computing features for {total} symbols")
@@ -2189,25 +3321,88 @@ class FeatureEngine:
                 logger.debug(f"[{i}/{total}] Computing features for {symbol}")
                 symbol_features = {}
 
+                last_closed_idx_map: Dict[str, Optional[int]] = {}
+
                 if "1d" in tf_data:
-                    symbol_features["1d"] = self._compute_timeframe_features(tf_data["1d"], "1d", symbol)
+                    idx_1d = self._get_last_closed_idx(tf_data["1d"], asof_ts_ms)
+                    last_closed_idx_map["1d"] = idx_1d
+                    symbol_features["1d"] = self._compute_timeframe_features(
+                        tf_data["1d"], "1d", symbol, last_closed_idx=idx_1d
+                    )
+
                 if "4h" in tf_data:
-                    symbol_features["4h"] = self._compute_timeframe_features(tf_data["4h"], "4h", symbol)
+                    idx_4h = self._get_last_closed_idx(tf_data["4h"], asof_ts_ms)
+                    last_closed_idx_map["4h"] = idx_4h
+                    symbol_features["4h"] = self._compute_timeframe_features(
+                        tf_data["4h"], "4h", symbol, last_closed_idx=idx_4h
+                    )
+
+                last_update = None
+                if "1d" in tf_data:
+                    idx = last_closed_idx_map.get("1d")
+                    if isinstance(idx, int) and idx >= 0:
+                        last_update = int(tf_data["1d"][idx][0])
 
                 symbol_features["meta"] = {
                     "symbol": symbol,
-                    "last_update": int(tf_data.get("1d", [[None]])[-1][0]) if "1d" in tf_data else None,
+                    "asof_ts_ms": asof_ts_ms,
+                    "last_closed_idx": last_closed_idx_map,
+                    "last_update": last_update,
                 }
                 results[symbol] = symbol_features
             except Exception as e:
                 logger.error(f"Failed to compute features for {symbol}: {e}")
         logger.info(f"Features computed for {len(results)}/{total} symbols")
         return results
+        
+    # -------------------------------------------------------------------------
+    # Helper Funktion
+    # -------------------------------------------------------------------------    
+    def _get_last_closed_idx(self, klines: List[List], asof_ts_ms: Optional[int]) -> int:
+        """
+        Returns index of the last candle with closeTime <= asof_ts_ms.
+        Expected kline format includes closeTime at index 6.
+        """
+        if not klines:
+            return -1
+        if asof_ts_ms is None:
+            return len(klines) - 1
 
+        for i in range(len(klines) - 1, -1, -1):
+            k = klines[i]
+            if len(k) < 7:
+                continue
+            try:
+                close_time = int(float(k[6]))
+            except (TypeError, ValueError):
+                continue
+            if close_time <= asof_ts_ms:
+                return i
+
+        return -1
+        
     # -------------------------------------------------------------------------
     # Timeframe feature computation
     # -------------------------------------------------------------------------
-    def _compute_timeframe_features(self, klines: List[List], timeframe: str, symbol: str) -> Dict[str, Any]:
+    def _compute_timeframe_features(
+        self,
+        klines: List[List],
+        timeframe: str,
+        symbol: str,
+        last_closed_idx: Optional[int] = None
+    ) -> Dict[str, Any]:
+        if not klines:
+            return {}
+
+        if last_closed_idx is None:
+            last_closed_idx = len(klines) - 1
+
+        if last_closed_idx < 0:
+            logger.warning(f"[{symbol}] no closed candles found for timeframe={timeframe}")
+            return {}
+
+        # closed-only slice
+        klines = klines[: last_closed_idx + 1]    
         closes = np.array([k[4] for k in klines], dtype=float)
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
@@ -2347,6 +3542,200 @@ class FeatureEngine:
             else:
                 converted[k] = v
         return converted
+
+```
+
+### `scanner/pipeline/snapshot.py`
+
+**SHA256:** `d89156ff32aceb7b2123e1e1369138b66ed8ec0e98573cbf6162e6c913eade42`
+
+```python
+"""
+Snapshot System
+===============
+
+Creates deterministic daily snapshots for backtesting and reproducibility.
+Snapshots include all pipeline data at a specific point in time.
+"""
+
+import logging
+from typing import Dict, Any, List
+from datetime import datetime
+from pathlib import Path
+import json
+
+logger = logging.getLogger(__name__)
+
+
+class SnapshotManager:
+    """Manages daily pipeline snapshots."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize snapshot manager.
+        
+        Args:
+            config: Config dict with 'snapshots' section
+        """
+        # Handle both dict and ScannerConfig object
+        if hasattr(config, 'raw'):
+            snapshot_config = config.raw.get('snapshots', {})
+        else:
+            snapshot_config = config.get('snapshots', {})
+        
+        self.snapshots_dir = Path(snapshot_config.get('runtime_dir', 'snapshots/runtime'))
+        
+        # Ensure directory exists
+        self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
+    
+    def create_snapshot(
+        self,
+        run_date: str,
+        universe: List[Dict[str, Any]],
+        filtered: List[Dict[str, Any]],
+        shortlist: List[Dict[str, Any]],
+        features: Dict[str, Dict[str, Any]],
+        reversal_scores: List[Dict[str, Any]],
+        breakout_scores: List[Dict[str, Any]],
+        pullback_scores: List[Dict[str, Any]],
+        metadata: Dict[str, Any] = None
+    ) -> Path:
+        """
+        Create a complete snapshot of the pipeline run.
+        
+        Args:
+            run_date: Date string (YYYY-MM-DD)
+            universe: Full MEXC universe
+            filtered: Post-filter universe
+            shortlist: Shortlisted symbols
+            features: Computed features
+            reversal_scores: Reversal scoring results
+            breakout_scores: Breakout scoring results
+            pullback_scores: Pullback scoring results
+            metadata: Optional metadata
+        
+        Returns:
+            Path to saved snapshot file
+        """
+        logger.info(f"Creating snapshot for {run_date}")
+        
+        snapshot = {
+            'meta': {
+                'date': run_date,
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'version': '1.0'
+            },
+            'pipeline': {
+                'universe_count': len(universe),
+                'filtered_count': len(filtered),
+                'shortlist_count': len(shortlist),
+                'features_count': len(features)
+            },
+            'data': {
+                'universe': universe,
+                'filtered': filtered,
+                'shortlist': shortlist,
+                'features': features
+            },
+            'scoring': {
+                'reversals': reversal_scores,
+                'breakouts': breakout_scores,
+                'pullbacks': pullback_scores
+            }
+        }
+        
+        if metadata:
+            snapshot['meta'].update(metadata)
+            
+        # Safety: ensure as-of exists (for reproducibility)
+        if 'asof_ts_ms' not in snapshot['meta']:
+            snapshot['meta']['asof_ts_ms'] = int(datetime.utcnow().timestamp() * 1000)
+
+        if 'asof_iso' not in snapshot['meta']:
+            snapshot['meta']['asof_iso'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            
+        # Save snapshot
+        snapshot_path = self.snapshots_dir / f"{run_date}.json"
+        
+        with open(snapshot_path, 'w', encoding='utf-8') as f:
+            json.dump(snapshot, f, indent=2, ensure_ascii=False)
+        
+        # Get file size
+        size_mb = snapshot_path.stat().st_size / (1024 * 1024)
+        
+        logger.info(f"Snapshot saved: {snapshot_path} ({size_mb:.2f} MB)")
+        
+        return snapshot_path
+    
+    def load_snapshot(self, run_date: str) -> Dict[str, Any]:
+        """
+        Load a snapshot by date.
+        
+        Args:
+            run_date: Date string (YYYY-MM-DD)
+        
+        Returns:
+            Snapshot dict
+        
+        Raises:
+            FileNotFoundError: If snapshot doesn't exist
+        """
+        snapshot_path = self.snapshots_dir / f"{run_date}.json"
+        
+        if not snapshot_path.exists():
+            raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
+        
+        logger.info(f"Loading snapshot: {snapshot_path}")
+        
+        with open(snapshot_path, 'r', encoding='utf-8') as f:
+            snapshot = json.load(f)
+        
+        return snapshot
+    
+    def list_snapshots(self) -> List[str]:
+        """
+        List all available snapshot dates.
+        
+        Returns:
+            List of date strings (YYYY-MM-DD)
+        """
+        snapshots = []
+        
+        for path in self.snapshots_dir.glob("*.json"):
+            date = path.stem  # Filename without extension
+            snapshots.append(date)
+        
+        snapshots.sort()
+        
+        logger.info(f"Found {len(snapshots)} snapshots")
+        
+        return snapshots
+    
+    def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
+        """
+        Get statistics about a snapshot without loading full data.
+        
+        Args:
+            run_date: Date string
+        
+        Returns:
+            Stats dict
+        """
+        snapshot = self.load_snapshot(run_date)
+        
+        return {
+            'date': snapshot['meta']['date'],
+            'created_at': snapshot['meta']['created_at'],
+            'universe_count': snapshot['pipeline']['universe_count'],
+            'filtered_count': snapshot['pipeline']['filtered_count'],
+            'shortlist_count': snapshot['pipeline']['shortlist_count'],
+            'features_count': snapshot['pipeline']['features_count'],
+            'reversal_count': len(snapshot['scoring']['reversals']),
+            'breakout_count': len(snapshot['scoring']['breakouts']),
+            'pullback_count': len(snapshot['scoring']['pullbacks'])
+        }
 
 ```
 
@@ -2680,298 +4069,6 @@ class ReportGenerator:
 
 ```
 
-### `scanner/pipeline/filters.py`
-
-**SHA256:** `63103cc1fa6aca7eb81ca58efc96e61ee4ab3c32ba1271d98f21d847d58c73e4`
-
-```python
-"""
-Universe Filtering
-==================
-
-Filters the MEXC universe to create a tradable shortlist:
-1. Market Cap Filter (100M - 3B USD)
-2. Liquidity Filter (minimum volume)
-3. Exclusions (stablecoins, wrapped tokens, leveraged tokens)
-"""
-
-import logging
-from typing import List, Dict, Any
-
-logger = logging.getLogger(__name__)
-
-
-class UniverseFilters:
-    """Filters for reducing MEXC universe to tradable MidCaps."""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize filters with config.
-        
-        Args:
-            config: Config dict with 'filters' section
-        """
-        self.config = config.get('filters', {})
-        
-        # Market Cap bounds (in USD)
-        self.mcap_min = self.config.get('mcap_min', 100_000_000)  # 100M
-        self.mcap_max = self.config.get('mcap_max', 3_000_000_000)  # 3B
-        
-        # Liquidity (24h volume in USDT)
-        self.min_volume_24h = self.config.get('min_volume_24h', 1_000_000)  # 1M
-        
-        # Exclusion patterns
-        self.exclusion_patterns = self.config.get('exclusion_patterns', [
-            'USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD',  # Stablecoins
-            'WBTC', 'WETH', 'WBNB',  # Wrapped tokens
-            'UP', 'DOWN', 'BULL', 'BEAR',  # Leveraged tokens
-        ])
-        
-        logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
-                   f"Min Volume {self.min_volume_24h/1e6:.1f}M")
-    
-    def apply_all(
-        self,
-        symbols_with_data: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Apply all filters in sequence.
-        
-        Args:
-            symbols_with_data: List of dicts with keys:
-                - symbol: str (e.g. "BTCUSDT")
-                - base: str (e.g. "BTC")
-                - quote_volume_24h: float
-                - market_cap: float (from CMC mapping)
-        
-        Returns:
-            Filtered list
-        """
-        original_count = len(symbols_with_data)
-        logger.info(f"Starting filters with {original_count} symbols")
-        
-        # Step 1: Market Cap filter
-        filtered = self._filter_mcap(symbols_with_data)
-        logger.info(f"After MCAP filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 2: Liquidity filter
-        filtered = self._filter_liquidity(filtered)
-        logger.info(f"After Liquidity filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 3: Exclusions
-        filtered = self._filter_exclusions(filtered)
-        logger.info(f"After Exclusions filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-        
-        logger.info(f"Final universe: {len(filtered)} symbols "
-                   f"(filtered out {original_count - len(filtered)})")
-        
-        return filtered
-    
-    def _filter_mcap(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by market cap range."""
-        filtered = []
-        
-        for sym_data in symbols:
-            mcap = sym_data.get('market_cap')
-            
-            # Skip if no market cap data
-            if mcap is None:
-                continue
-            
-            # Check bounds
-            if self.mcap_min <= mcap <= self.mcap_max:
-                filtered.append(sym_data)
-        
-        return filtered
-    
-    def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by minimum 24h volume."""
-        filtered = []
-        
-        for sym_data in symbols:
-            volume = sym_data.get('quote_volume_24h', 0)
-            
-            if volume >= self.min_volume_24h:
-                filtered.append(sym_data)
-        
-        return filtered
-    
-    def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Exclude stablecoins, wrapped tokens, leveraged tokens."""
-        filtered = []
-        
-        for sym_data in symbols:
-            base = sym_data.get('base', '')
-            
-            # Check if base matches any exclusion pattern
-            is_excluded = False
-            for pattern in self.exclusion_patterns:
-                if pattern in base.upper():
-                    is_excluded = True
-                    break
-            
-            if not is_excluded:
-                filtered.append(sym_data)
-        
-        return filtered
-    
-    def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Get statistics about what would be filtered.
-        
-        Args:
-            symbols: Input symbols
-        
-        Returns:
-            Dict with filter stats
-        """
-        total = len(symbols)
-        
-        # Count what passes each filter
-        mcap_pass = len(self._filter_mcap(symbols))
-        liquidity_pass = len(self._filter_liquidity(symbols))
-        exclusion_pass = len(self._filter_exclusions(symbols))
-        
-        # Full pipeline
-        final_pass = len(self.apply_all(symbols))
-        
-        return {
-            'total_input': total,
-            'mcap_pass': mcap_pass,
-            'mcap_fail': total - mcap_pass,
-            'liquidity_pass': liquidity_pass,
-            'liquidity_fail': total - liquidity_pass,
-            'exclusion_pass': exclusion_pass,
-            'exclusion_fail': total - exclusion_pass,
-            'final_pass': final_pass,
-            'final_fail': total - final_pass,
-            'filter_rate': f"{final_pass/total*100:.1f}%" if total > 0 else "0%"
-        }
-
-```
-
-### `scanner/pipeline/shortlist.py`
-
-**SHA256:** `bb87c2b8206482deb918d7c8cb374d43babe7dc2d60c7a48b4f32d14c98afa82`
-
-```python
-"""
-Shortlist Selection (Cheap Pass)
-=================================
-
-Reduces filtered universe to a shortlist for expensive operations (OHLCV fetch).
-Uses cheap metrics (24h volume) to rank and select top N candidates.
-"""
-
-import logging
-from typing import List, Dict, Any
-
-logger = logging.getLogger(__name__)
-
-
-class ShortlistSelector:
-    """Selects top candidates based on volume for OHLCV processing."""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize shortlist selector.
-        
-        Args:
-            config: Config dict with 'shortlist' section
-        """
-        self.config = config.get('shortlist', {})
-        
-        # Default: Top 100 by volume
-        self.max_size = self.config.get('max_size', 100)
-        
-        # Minimum size (even if fewer pass filters)
-        self.min_size = self.config.get('min_size', 10)
-        
-        logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
-    
-    def select(self, filtered_symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Select top N symbols by 24h volume.
-        
-        Args:
-            filtered_symbols: List of symbols that passed filters
-                Each dict must have:
-                - symbol: str
-                - base: str
-                - quote_volume_24h: float
-                - market_cap: float
-        
-        Returns:
-            Shortlist (top N by volume)
-        """
-        if not filtered_symbols:
-            logger.warning("No symbols to shortlist (empty input)")
-            return []
-        
-        # Sort by volume (descending)
-        sorted_symbols = sorted(
-            filtered_symbols,
-            key=lambda x: x.get('quote_volume_24h', 0),
-            reverse=True
-        )
-        
-        # Take top N
-        shortlist = sorted_symbols[:self.max_size]
-        
-        logger.info(f"Shortlist selected: {len(shortlist)} symbols from {len(filtered_symbols)} "
-                   f"(top {len(shortlist)/len(filtered_symbols)*100:.1f}% by volume)")
-        
-        # Log volume range
-        if shortlist:
-            max_vol = shortlist[0].get('quote_volume_24h', 0)
-            min_vol = shortlist[-1].get('quote_volume_24h', 0)
-            logger.info(f"Volume range: ${max_vol/1e6:.2f}M - ${min_vol/1e6:.2f}M")
-        
-        return shortlist
-    
-    def get_shortlist_stats(
-        self,
-        filtered_symbols: List[Dict[str, Any]],
-        shortlist: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Get statistics about shortlist selection.
-        
-        Args:
-            filtered_symbols: Input (post-filter)
-            shortlist: Output (post-shortlist)
-        
-        Returns:
-            Stats dict
-        """
-        if not filtered_symbols:
-            return {
-                'input_count': 0,
-                'shortlist_count': 0,
-                'reduction_rate': '0%',
-                'volume_coverage': '0%'
-            }
-        
-        # Volume stats
-        total_volume = sum(s.get('quote_volume_24h', 0) for s in filtered_symbols)
-        shortlist_volume = sum(s.get('quote_volume_24h', 0) for s in shortlist)
-        
-        coverage = (shortlist_volume / total_volume * 100) if total_volume > 0 else 0
-        
-        return {
-            'input_count': len(filtered_symbols),
-            'shortlist_count': len(shortlist),
-            'reduction_rate': f"{(1 - len(shortlist)/len(filtered_symbols))*100:.1f}%",
-            'total_volume': f"${total_volume/1e6:.2f}M",
-            'shortlist_volume': f"${shortlist_volume/1e6:.2f}M",
-            'volume_coverage': f"{coverage:.1f}%"
-        }
-
-```
-
 ### `scanner/pipeline/ohlcv.py`
 
 **SHA256:** `f907114a23d31918243cb948d0cdc911f5b1f9d7c4f33be8fec6de699f394261`
@@ -3152,1101 +4249,456 @@ class OHLCVFetcher:
 
 ```
 
-### `scanner/pipeline/__init__.py`
+### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `74d98b032db4be97b60f26a9f882197e79dca484540877cd510795994650a52a`
+**SHA256:** `c7c6d86798768efd84a890760c6e05a356fb4ef089cdc1ef06b0428f9f7c4ac8`
 
 ```python
 """
-Pipeline Orchestration
-======================
+Backtest runner.
 
-Orchestrates the full daily scanning pipeline.
+Responsibilities:
+- Consume historical snapshots.
+- Compute forward returns for each setup:
+  - Breakout
+  - Pullback
+  - Reversal
+- Aggregate evaluation metrics:
+  - hit rate
+  - median/mean returns
+  - tail risk
+  - rank vs return behavior
+- Output backtest summaries (e.g. JSON / Markdown).
+
+Backtests must be deterministic and snapshot-driven.
 """
 
-from __future__ import annotations
-import logging
-from datetime import datetime
 
-from ..config import ScannerConfig
-from ..clients.mexc_client import MEXCClient
-from ..clients.marketcap_client import MarketCapClient
-from ..clients.mapping import SymbolMapper
-from .filters import UniverseFilters
-from .shortlist import ShortlistSelector
-from .ohlcv import OHLCVFetcher
-from .features import FeatureEngine
-from .scoring.reversal import score_reversals
-from .scoring.breakout import score_breakouts
-from .scoring.pullback import score_pullbacks
-from .output import ReportGenerator
-from .snapshot import SnapshotManager
+```
+
+### `scanner/tools/validate_features.py`
+
+**SHA256:** `264fb1d5b7452097378602de2f49345275e153f664344a1e54dd6b7c5d20e1c3`
+
+```python
+import json
+import os
+
+def validate_features(report_path: str):
+    """
+    Prüft, ob die im JSON-Report gespeicherten Feature- und Scoring-Werte
+    numerisch, plausibel und nicht konstant sind.
+    Unterstützt Reports mit 'setups', 'data' oder 'results' als Hauptsektion.
+    """
+
+    if not os.path.exists(report_path):
+        print(f"❌ Report-Datei nicht gefunden: {report_path}")
+        return
+
+    with open(report_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # Dynamisch den richtigen Abschnitt im Report finden
+    if "setups" in data:
+        section_key = "setups"
+    elif "data" in data:
+        section_key = "data"
+    elif "results" in data:
+        section_key = "results"
+    else:
+        print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
+        return
+
+    results = data[section_key]
+    if not results:
+        print("⚠️ Keine Ergebnisse im Report.")
+        return
+
+    anomalies = []
+
+    for setup_type, setups in results.items():
+        for s in setups:
+            comps = s.get("components", {})
+            for key, value in comps.items():
+                # Prüfe auf None oder nicht-numerische Werte
+                if value is None or not isinstance(value, (int, float)):
+                    anomalies.append((setup_type, s.get("symbol"), key, value))
+                # Prüfe auf unrealistische Werte
+                elif not (0 <= value <= 150):
+                    anomalies.append((setup_type, s.get("symbol"), key, value))
+
+    if anomalies:
+        print("⚠️ Anomalien gefunden:")
+        for setup_type, symbol, key, value in anomalies:
+            print(f"  [{setup_type}] {symbol}: {key} = {value}")
+    else:
+        print("✅ Alle Feature-Komponenten numerisch und plausibel.")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
+        print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
+        sys.exit(1)
+
+    report_path = sys.argv[1]
+    validate_features(report_path)
+
+
+```
+
+### `scanner/pipeline/scoring/breakout.py`
+
+**SHA256:** `11b047c2bf7c8ba58547ea5ca082bb4ab55f4683af35932e283620b45aeb08dd`
+
+```python
+"""
+Breakout Setup Scoring
+======================
+
+Identifies range breakouts with volume confirmation.
+
+Scoring Components:
+1. Breakout Distance (35%) - How far above recent high
+2. Volume Confirmation (30%) - Volume spike on breakout
+3. Trend Context (20%) - Uptrend vs range
+4. Momentum (15%) - Recent price action strength
+
+Penalties:
+- Overextension (too far, too fast)
+- Low liquidity
+"""
+
+import logging
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline(config: ScannerConfig) -> None:
-    """
-    Orchestrates the full daily pipeline:
-    1. Fetch universe (MEXC Spot USDT)
-    2. Fetch market cap listings
-    3. Run mapping layer
-    4. Apply hard filters (market cap, liquidity, exclusions)
-    5. Run cheap pass (shortlist)
-    6. Fetch OHLCV for shortlist
-    7. Compute features (1d + 4h)
-    8. Enrich features with price, name, market cap, and volume
-    9. Compute scores (breakout / pullback / reversal)
-    10. Write reports (Markdown + JSON + Excel)
-    11. Write snapshot for backtests
-    """
-    run_mode = config.run_mode
-    run_date = datetime.utcnow().strftime('%Y-%m-%d')
+class BreakoutScorer:
+    """Scores breakout setups (range break + volume)."""
     
-    use_cache = run_mode in ['fast', 'standard']
-    
-    logger.info("=" * 80)
-    logger.info(f"PIPELINE STARTING - {run_date}")
-    logger.info(f"Mode: {run_mode}")
-    logger.info("=" * 80)
-    
-    # Initialize clients
-    logger.info("\n[INIT] Initializing clients...")
-    mexc = MEXCClient()
-    cmc = MarketCapClient(api_key=config.cmc_api_key)
-    logger.info("✓ Clients initialized")
-    
-    # Step 1: Fetch universe (MEXC Spot USDT)
-    logger.info("\n[1/11] Fetching MEXC universe...")
-    universe = mexc.get_spot_usdt_symbols(use_cache=use_cache)
-    logger.info(f"✓ Universe: {len(universe)} USDT pairs")
-    
-    # Get 24h tickers
-    logger.info("  Fetching 24h tickers...")
-    tickers = mexc.get_24h_tickers(use_cache=use_cache)
-    ticker_map = {t['symbol']: t for t in tickers}
-    logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
-    
-    # Step 2 & 3: Fetch market cap + Run mapping layer
-    logger.info("\n[2-3/11] Fetching market cap & mapping...")
-    cmc_listings = cmc.get_listings(use_cache=use_cache)
-    cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
-    logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
-    
-    mapper = SymbolMapper()
-    mapping_results = mapper.map_universe(universe, cmc_symbol_map)
-    logger.info(f"✓ Mapped: {mapper.stats['mapped']}/{mapper.stats['total']} "
-               f"({mapper.stats['mapped']/mapper.stats['total']*100:.1f}%)")
-    
-    # Prepare data for filters
-    symbols_with_data = []
-    for symbol in universe:
-        result = mapping_results.get(symbol)
-        if not result or not result.mapped:
-            continue
-        
-        ticker = ticker_map.get(symbol, {})
-        
-        symbols_with_data.append({
-            'symbol': symbol,
-            'base': symbol.replace('USDT', ''),
-            'quote_volume_24h': float(ticker.get('quoteVolume', 0)),
-            'market_cap': result._get_market_cap()
-        })
-    
-    # Step 4: Apply hard filters
-    logger.info("\n[4/11] Applying universe filters...")
-    filters = UniverseFilters(config.raw)
-    filtered = filters.apply_all(symbols_with_data)
-    logger.info(f"✓ Filtered: {len(filtered)} symbols")
-    
-    # Step 5: Run cheap pass (shortlist)
-    logger.info("\n[5/11] Creating shortlist...")
-    selector = ShortlistSelector(config.raw)
-    shortlist = selector.select(filtered)
-    logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
-    
-    # Step 6: Fetch OHLCV for shortlist
-    logger.info("\n[6/11] Fetching OHLCV data...")
-    ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
-    ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
-    logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
-    
-    # Step 7: Compute features (1d + 4h)
-    logger.info("\n[7/11] Computing features...")
-    feature_engine = FeatureEngine(config.raw)
-    features = feature_engine.compute_all(ohlcv_data)
-    logger.info(f"✓ Features: {len(features)} symbols")
-
-    # Step 8: Enrich features with price, coin name, market cap, and volume
-    logger.info("\n[8/11] Enriching features with price, name, market cap, and volume...")
-    for symbol in features.keys():
-        # Add current price from tickers
-        ticker = ticker_map.get(symbol)
-        if ticker:
-            features[symbol]['price_usdt'] = float(ticker.get('lastPrice', 0))
-        else:
-            features[symbol]['price_usdt'] = None
-    
-        # Add coin name from CMC
-        mapping = mapper.map_symbol(symbol, cmc_symbol_map)
-        if mapping.mapped and mapping.cmc_data:
-            features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
-        else:
-            features[symbol]['coin_name'] = 'Unknown'
-        
-        # Add market cap and volume from shortlist data
-        shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
-        if shortlist_entry:
-            features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
-            features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
-        else:
-            features[symbol]['market_cap'] = None
-            features[symbol]['quote_volume_24h'] = None
-
-    logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
-    
-    # Prepare volume map for scoring (backwards compatibility)
-    volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
-    
-    # Step 9: Compute scores (breakout / pullback / reversal)
-    logger.info("\n[9/11] Scoring setups...")
-    
-    logger.info("  Scoring Reversals...")
-    reversal_results = score_reversals(features, volume_map, config.raw)
-    logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
-    
-    logger.info("  Scoring Breakouts...")
-    breakout_results = score_breakouts(features, volume_map, config.raw)
-    logger.info(f"  ✓ Breakouts: {len(breakout_results)} scored")
-    
-    logger.info("  Scoring Pullbacks...")
-    pullback_results = score_pullbacks(features, volume_map, config.raw)
-    logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
-    
-    # Step 10: Write reports (Markdown + JSON + Excel)
-    logger.info("\n[10/11] Generating reports...")
-    report_gen = ReportGenerator(config.raw)
-    report_paths = report_gen.save_reports(
-        reversal_results,
-        breakout_results,
-        pullback_results,
-        run_date
-    )
-    logger.info(f"✓ Markdown: {report_paths['markdown']}")
-    logger.info(f"✓ JSON: {report_paths['json']}")
-    if 'excel' in report_paths:
-        logger.info(f"✓ Excel: {report_paths['excel']}")
-    
-    # Step 11: Write snapshot for backtests
-    logger.info("\n[11/11] Creating snapshot...")
-    snapshot_mgr = SnapshotManager(config.raw)
-    snapshot_path = snapshot_mgr.create_snapshot(
-        run_date=run_date,
-        universe=[{'symbol': s} for s in universe],
-        filtered=filtered,
-        shortlist=shortlist,
-        features=features,
-        reversal_scores=reversal_results,
-        breakout_scores=breakout_results,
-        pullback_scores=pullback_results,
-        metadata={'mode': run_mode}
-    )
-    logger.info(f"✓ Snapshot: {snapshot_path}")
-    
-    # Summary
-    logger.info("\n" + "=" * 80)
-    logger.info("PIPELINE COMPLETE")
-    logger.info("=" * 80)
-    logger.info(f"Date: {run_date}")
-    logger.info(f"Universe: {len(universe)} symbols")
-    logger.info(f"Filtered: {len(filtered)} symbols")
-    logger.info(f"Shortlist: {len(shortlist)} symbols")
-    logger.info(f"Features: {len(features)} symbols")
-    logger.info(f"\nScored:")
-    logger.info(f"  Reversals: {len(reversal_results)}")
-    logger.info(f"  Breakouts: {len(breakout_results)}")
-    logger.info(f"  Pullbacks: {len(pullback_results)}")
-    logger.info(f"\nOutputs:")
-    logger.info(f"  Report: {report_paths['markdown']}")
-    if 'excel' in report_paths:
-        logger.info(f"  Excel: {report_paths['excel']}")
-    logger.info(f"  Snapshot: {snapshot_path}")
-    logger.info("=" * 80)
-
-```
-
-### `scanner/clients/mapping.py`
-
-**SHA256:** `02c9c16ef03964e8bcc92f905fbd0078203bec98cf6099509ae8fb5ffe1617e5`
-
-```python
-"""
-Mapping layer between MEXC symbols and CMC market cap data.
-
-Handles:
-- Symbol-based matching (primary)
-- Collision detection (multiple CMC assets per symbol)
-- Confidence scoring
-- Manual overrides
-- Mapping reports
-
-This is a CRITICAL component - incorrect mapping = corrupted scores.
-"""
-
-from typing import Dict, List, Optional, Tuple, Any
-from pathlib import Path
-import json
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_json, save_json
-
-
-logger = get_logger(__name__)
-
-
-class MappingResult:
-    """Result of a mapping operation."""
-    
-    def __init__(
-        self,
-        mexc_symbol: str,
-        cmc_data: Optional[Dict[str, Any]] = None,
-        confidence: str = "none",
-        method: str = "none",
-        collision: bool = False,
-        notes: Optional[str] = None
-    ):
-        self.mexc_symbol = mexc_symbol
-        self.cmc_data = cmc_data
-        self.confidence = confidence  # "high", "medium", "low", "none"
-        self.method = method
-        self.collision = collision
-        self.notes = notes
-    
-    @property
-    def mapped(self) -> bool:
-        """Check if mapping was successful."""
-        return self.cmc_data is not None
-    
-    @property
-    def base_asset(self) -> str:
-        """Extract base asset from MEXC symbol (e.g., BTCUSDT -> BTC)."""
-        # Remove USDT suffix
-        if self.mexc_symbol.endswith("USDT"):
-            return self.mexc_symbol[:-4]
-        return self.mexc_symbol
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization."""
-        return {
-            "mexc_symbol": self.mexc_symbol,
-            "base_asset": self.base_asset,
-            "mapped": self.mapped,
-            "confidence": self.confidence,
-            "method": self.method,
-            "collision": self.collision,
-            "notes": self.notes,
-            "cmc_data": {
-                "id": self.cmc_data.get("id") if self.cmc_data else None,
-                "symbol": self.cmc_data.get("symbol") if self.cmc_data else None,
-                "name": self.cmc_data.get("name") if self.cmc_data else None,
-                "slug": self.cmc_data.get("slug") if self.cmc_data else None,
-                "market_cap": self._get_market_cap() if self.cmc_data else None,
-            }
-        }
-    
-    def _get_market_cap(self) -> Optional[float]:
-        """Extract market cap from CMC data."""
-        try:
-            return self.cmc_data["quote"]["USD"]["market_cap"]
-        except (KeyError, TypeError):
-            return None
-
-
-class SymbolMapper:
-    """
-    Maps MEXC symbols to CMC market cap data.
-    """
-    
-    def __init__(
-        self,
-        overrides_file: str = "config/mapping_overrides.json"
-    ):
+    def __init__(self, config: Dict[str, Any]):
         """
-        Initialize mapper.
+        Initialize breakout scorer.
         
         Args:
-            overrides_file: Path to manual overrides JSON
+            config: Config dict with 'scoring' section
         """
-        self.overrides_file = Path(overrides_file)
-        self.overrides = self._load_overrides()
+        # Handle both dict and ScannerConfig object
+        if hasattr(config, 'raw'):
+            scoring_config = config.raw.get('scoring', {}).get('breakout', {})
+        else:
+            scoring_config = config.get('scoring', {}).get('breakout', {})
         
-        # Statistics
-        self.stats = {
-            "total": 0,
-            "mapped": 0,
-            "unmapped": 0,
-            "collisions": 0,
-            "overrides_used": 0,
-            "confidence": {
-                "high": 0,
-                "medium": 0,
-                "low": 0,
-                "none": 0
-            }
+        # Thresholds
+        self.min_breakout_pct = scoring_config.get('min_breakout_pct', 2)  # >2% above high
+        self.ideal_breakout_pct = scoring_config.get('ideal_breakout_pct', 5)  # 5-10% ideal
+        self.max_breakout_pct = scoring_config.get('max_breakout_pct', 20)  # >20% = overextended
+        
+        self.min_volume_spike = scoring_config.get('min_volume_spike', 1.5)  # 1.5x normal
+        self.ideal_volume_spike = scoring_config.get('ideal_volume_spike', 2.5)  # 2.5x+
+        
+        # Component weights
+        self.weights = {
+            'breakout': 0.35,
+            'volume': 0.30,
+            'trend': 0.20,
+            'momentum': 0.15
         }
-    
-    def _load_overrides(self) -> Dict[str, Any]:
-        """Load manual mapping overrides."""
-        if not self.overrides_file.exists():
-            logger.info(f"No overrides file found at {self.overrides_file}")
-            return {}
         
-        try:
-            overrides = load_json(self.overrides_file)
-            logger.info(f"Loaded {len(overrides)} mapping overrides")
-            return overrides
-        except Exception as e:
-            logger.error(f"Failed to load overrides: {e}")
-            return {}
+        logger.info("Breakout Scorer initialized")
     
-    def map_symbol(
+    def score(
         self,
-        mexc_symbol: str,
-        cmc_symbol_map: Dict[str, Dict[str, Any]]
-    ) -> MappingResult:
+        symbol: str,
+        features: Dict[str, Any],
+        quote_volume_24h: float
+    ) -> Dict[str, Any]:
         """
-        Map a single MEXC symbol to CMC data.
+        Score a single symbol for breakout setup.
         
         Args:
-            mexc_symbol: MEXC trading pair (e.g., 'BTCUSDT')
-            cmc_symbol_map: Symbol -> CMC data mapping
-            
+            symbol: Trading pair
+            features: Feature dict with '1d' and '4h'
+            quote_volume_24h: 24h volume in USDT
+        
         Returns:
-            MappingResult with confidence + collision info
+            Score dict
         """
-        # Extract base asset
-        base_asset = mexc_symbol[:-4] if mexc_symbol.endswith("USDT") else mexc_symbol
-        base_asset_upper = base_asset.upper()
+        f1d = features.get('1d', {})
+        f4h = features.get('4h', {})
         
-        # Check overrides first
-        if base_asset_upper in self.overrides:
-            override = self.overrides[base_asset_upper]
-            
-            # Override can specify CMC symbol or "exclude"
-            if override == "exclude":
-                return MappingResult(
-                    mexc_symbol=mexc_symbol,
-                    cmc_data=None,
-                    confidence="none",
-                    method="override_exclude",
-                    notes="Manually excluded via overrides"
-                )
-            
-            # Try to find CMC data for override symbol
-            override_symbol = override.upper()
-            if override_symbol in cmc_symbol_map:
-                self.stats["overrides_used"] += 1
-                return MappingResult(
-                    mexc_symbol=mexc_symbol,
-                    cmc_data=cmc_symbol_map[override_symbol],
-                    confidence="high",
-                    method="override_match",
-                    notes=f"Overridden to {override_symbol}"
-                )
+        # Components
+        breakout_score = self._score_breakout(f1d)
+        volume_score = self._score_volume(f1d, f4h)
+        trend_score = self._score_trend(f1d)
+        momentum_score = self._score_momentum(f1d)
         
-        # Direct symbol match
-        if base_asset_upper in cmc_symbol_map:
-            return MappingResult(
-                mexc_symbol=mexc_symbol,
-                cmc_data=cmc_symbol_map[base_asset_upper],
-                confidence="high",
-                method="symbol_exact_match"
-            )
-        
-        # No match found
-        return MappingResult(
-            mexc_symbol=mexc_symbol,
-            cmc_data=None,
-            confidence="none",
-            method="no_match",
-            notes=f"Symbol {base_asset_upper} not found in CMC data"
+        # Weighted total
+        raw_score = (
+            breakout_score * self.weights['breakout'] +
+            volume_score * self.weights['volume'] +
+            trend_score * self.weights['trend'] +
+            momentum_score * self.weights['momentum']
         )
-    
-    def map_universe(
-        self,
-        mexc_symbols: List[str],
-        cmc_symbol_map: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, MappingResult]:
-        """
-        Map entire MEXC universe to CMC data.
         
-        Args:
-            mexc_symbols: List of MEXC trading pairs
-            cmc_symbol_map: CMC symbol -> data mapping
-            
-        Returns:
-            Dict mapping mexc_symbol -> MappingResult
-        """
-        logger.info(f"Mapping {len(mexc_symbols)} MEXC symbols to CMC data")
+        # Penalties & Flags
+        penalties = []
+        flags = []
         
-        results = {}
-        self.stats["total"] = len(mexc_symbols)
+        # Overextension penalty
+        breakout_dist = f1d.get('breakout_dist_20', 0)
+        if breakout_dist > self.max_breakout_pct:
+            penalties.append(('overextension', 0.6))
+            flags.append('overextended')
         
-        for symbol in mexc_symbols:
-            result = self.map_symbol(symbol, cmc_symbol_map)
-            results[symbol] = result
-            
-            # Update stats
-            if result.mapped:
-                self.stats["mapped"] += 1
-            else:
-                self.stats["unmapped"] += 1
-            
-            if result.collision:
-                self.stats["collisions"] += 1
-            
-            self.stats["confidence"][result.confidence] += 1
+        # Low liquidity
+        if quote_volume_24h < 500_000:
+            penalties.append(('low_liquidity', 0.8))
+            flags.append('low_liquidity')
         
-        # Log summary
-        logger.info(f"Mapping complete:")
-        logger.info(f"  Mapped: {self.stats['mapped']}/{self.stats['total']}")
-        logger.info(f"  Unmapped: {self.stats['unmapped']}")
-        logger.info(f"  Collisions: {self.stats['collisions']}")
-        logger.info(f"  Confidence: {self.stats['confidence']}")
-        logger.info(f"  Overrides used: {self.stats['overrides_used']}")
+        # Apply penalties
+        final_score = raw_score
+        for name, factor in penalties:
+            final_score *= factor
         
-        return results
-    
-    def generate_reports(
-        self,
-        mapping_results: Dict[str, MappingResult],
-        output_dir: str = "reports"
-    ) -> None:
-        """
-        Generate mapping reports.
+        # Reasons
+        reasons = self._generate_reasons(
+            breakout_score, volume_score, trend_score, momentum_score,
+            f1d, f4h, flags
+        )
         
-        Creates:
-        - unmapped_symbols.json: Symbols without CMC match
-        - mapping_collisions.json: Symbols with multiple CMC candidates
-        - mapping_stats.json: Overall statistics
-        """
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        # Unmapped symbols
-        unmapped = [
-            {
-                "mexc_symbol": result.mexc_symbol,
-                "base_asset": result.base_asset,
-                "notes": result.notes
-            }
-            for result in mapping_results.values()
-            if not result.mapped
-        ]
-        
-        unmapped_file = output_path / "unmapped_symbols.json"
-        save_json(unmapped, unmapped_file)
-        logger.info(f"Saved {len(unmapped)} unmapped symbols to {unmapped_file}")
-        
-        # Collisions
-        collisions = [
-            result.to_dict()
-            for result in mapping_results.values()
-            if result.collision
-        ]
-        
-        collisions_file = output_path / "mapping_collisions.json"
-        save_json(collisions, collisions_file)
-        logger.info(f"Saved {len(collisions)} collisions to {collisions_file}")
-        
-        # Stats
-        stats_file = output_path / "mapping_stats.json"
-        save_json(self.stats, stats_file)
-        logger.info(f"Saved mapping stats to {stats_file}")
-    
-    def suggest_overrides(
-        self,
-        mapping_results: Dict[str, MappingResult],
-        output_file: str = "reports/suggested_overrides.json"
-    ) -> Dict[str, str]:
-        """
-        Generate suggested overrides for unmapped symbols.
-        
-        Returns:
-            Dict of base_asset -> "exclude" (user must review)
-        """
-        suggestions = {}
-        
-        for result in mapping_results.values():
-            if not result.mapped and result.base_asset not in self.overrides:
-                # Suggest exclusion (user can change to proper symbol)
-                suggestions[result.base_asset] = "exclude"
-        
-        if suggestions:
-            output_path = Path(output_file)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            save_json(suggestions, output_path, indent=2)
-            logger.info(f"Generated {len(suggestions)} override suggestions: {output_file}")
-        
-        return suggestions
-
-```
-
-### `scanner/clients/marketcap_client.py`
-
-**SHA256:** `5d8072e16cc2f3388b6834d559c65d0c04b9557703ab5e62f2c8e7c1ffa03ace`
-
-```python
-"""
-CoinMarketCap API Client for market cap data.
-
-Responsibilities:
-- Fetch bulk cryptocurrency listings
-- Get market cap, rank, supply data
-- Cache daily for rate-limit efficiency
-
-API Docs: https://coinmarketcap.com/api/documentation/v1/
-"""
-
-import os
-from typing import Dict, List, Optional, Any
-import requests
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_cache, save_cache, cache_exists
-
-# 🔹 Neu: zentralisierte Rohdaten-Speicherung
-try:
-    from scanner.utils.raw_collector import collect_raw_marketcap
-except ImportError:
-    collect_raw_marketcap = None
-
-
-logger = get_logger(__name__)
-
-
-class MarketCapClient:
-    """
-    CoinMarketCap API client with caching and rate-limit protection.
-    """
-    
-    BASE_URL = "https://pro-api.coinmarketcap.com"
-    
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        timeout: int = 30
-    ):
-        """
-        Initialize CMC client.
-        
-        Args:
-            api_key: CMC API key (default: from CMC_API_KEY env var)
-            timeout: Request timeout in seconds
-        """
-        self.api_key = api_key or os.getenv("CMC_API_KEY")
-        self.timeout = timeout
-        
-        if not self.api_key:
-            logger.warning("CMC_API_KEY not set - client will fail on API calls")
-        
-        self.session = requests.Session()
-        self.session.headers.update({
-            "X-CMC_PRO_API_KEY": self.api_key or "",
-            "Accept": "application/json"
-        })
-    
-    def _request(
-        self,
-        endpoint: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Make API request.
-        
-        Args:
-            endpoint: API endpoint (e.g., '/v1/cryptocurrency/listings/latest')
-            params: Query parameters
-            
-        Returns:
-            API response data
-            
-        Raises:
-            requests.RequestException: On API failure
-        """
-        url = f"{self.BASE_URL}{endpoint}"
-        
-        try:
-            response = self.session.get(
-                url,
-                params=params,
-                timeout=self.timeout
-            )
-            
-            # Handle rate limit
-            if response.status_code == 429:
-                logger.error("CMC rate limit hit - check your plan limits")
-                raise requests.RequestException("CMC rate limit exceeded")
-            
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # CMC wraps data in 'data' field
-            if "data" not in data:
-                logger.error(f"Unexpected CMC response structure: {data.keys()}")
-                raise ValueError("Invalid CMC response format")
-            
-            return data
-            
-        except requests.RequestException as e:
-            logger.error(f"CMC API request failed: {e}")
-            raise
-    
-    def get_listings(
-        self,
-        start: int = 1,
-        limit: int = 5000,
-        use_cache: bool = True
-    ) -> List[Dict[str, Any]]:
-        """
-        Get cryptocurrency listings with market cap data.
-        
-        Args:
-            start: Start rank (1-based)
-            limit: Number of results (max 5000)
-            use_cache: Use cached data if available (today)
-            
-        Returns:
-            List of cryptocurrency dicts with keys:
-            - id: CMC ID
-            - symbol: Ticker symbol
-            - name: Full name
-            - slug: URL slug
-            - cmc_rank: CMC rank
-            - quote.USD.market_cap: Market cap in USD
-            - quote.USD.price: Current price
-            - circulating_supply: Circulating supply
-            - total_supply: Total supply
-            - max_supply: Max supply
-        """
-        cache_key = f"cmc_listings_start{start}_limit{limit}"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading CMC listings from cache")
-            cached = load_cache(cache_key)
-            data = cached.get("data", []) if isinstance(cached, dict) else []
-
-            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
-            if collect_raw_marketcap and data:
-                try:
-                    collect_raw_marketcap(data)
-                except Exception as e:
-                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
-
-            return data
-        
-        logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
-        
-        params = {
-            "start": start,
-            "limit": min(limit, 5000),  # API max
-            "convert": "USD",
-            "sort": "market_cap",
-            "sort_dir": "desc"
+        return {
+            'score': round(final_score, 2),
+            'components': {
+                'breakout': round(breakout_score, 2),
+                'volume': round(volume_score, 2),
+                'trend': round(trend_score, 2),
+                'momentum': round(momentum_score, 2)
+            },
+            'penalties': {name: factor for name, factor in penalties},
+            'flags': flags,
+            'reasons': reasons
         }
+    
+    def _score_breakout(self, f1d: Dict[str, Any]) -> float:
+        """
+        Scales breakout distance (-5% … +3%) into a 0–100 score.
+        Professional definition:
+        - Below −5%: no breakout pressure
+        - −2 … 0%: pre-breakout compression
+        - 0 … +1%: breakout confirmation
+        - > +2%: overextended (score decays)
+        """
+        import numpy as np
+        dist = f1d.get('breakout_dist_20', np.nan)
+        if np.isnan(dist):
+            return np.nan
+    
+        # Far below range high
+        if dist <= -5:
+            return 0.0
+    
+        # Pre-breakout buildup
+        if -5 < dist < 0:
+            return 70 * (1 + (dist / 5))  # rises from 0→70 as we near the high
+    
+        # Fresh breakout (0–1%)
+        if 0 <= dist <= 1:
+            return 70 + (30 * (dist / 1))  # scales to 100 at +1%
+    
+        # Overextended (1–3%)
+        if 1 < dist <= 3:
+            return max(90 - (dist - 1) * 10, 70)  # decays slightly
+    
+        # Beyond reasonable range
+        return 60.0
+
+    
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        """Score volume confirmation (0-100)."""
+        vol_1d = f1d.get('volume_spike', 1.0)
+        vol_4h = f4h.get('volume_spike', 1.0)
+        
+        max_spike = max(vol_1d, vol_4h)
+        
+        # Below minimum
+        if max_spike < self.min_volume_spike:
+            return 0.0
+        
+        # Ideal or above
+        if max_spike >= self.ideal_volume_spike:
+            return 100.0
+        
+        # Linear scale
+        ratio = (max_spike - self.min_volume_spike) / (self.ideal_volume_spike - self.min_volume_spike)
+        return ratio * 100.0
+    
+    def _score_trend(self, f1d: Dict[str, Any]) -> float:
+        """
+        Score trend context (0-100).
+        
+        Better if already in uptrend (above EMAs).
+        """
+        score = 0.0
+        
+        dist_ema20 = f1d.get('dist_ema20_pct')
+        dist_ema50 = f1d.get('dist_ema50_pct')
+        
+        # Above EMA20
+        if dist_ema20 and dist_ema20 > 0:
+            score += 40
+            if dist_ema20 > 5:
+                score += 10
+        
+        # Above EMA50
+        if dist_ema50 and dist_ema50 > 0:
+            score += 40
+            if dist_ema50 > 5:
+                score += 10
+        
+        return min(score, 100.0)
+    
+    def _score_momentum(self, f1d: Dict[str, Any]) -> float:
+        """
+        Score recent momentum (0-100).
+        
+        Based on recent returns.
+        """
+        r7 = f1d.get('r_7', 0)
+        
+        if r7 <= 0:
+            return 0.0
+        
+        if r7 >= 20:  # >20% in 7 days
+            return 100.0
+        
+        # Linear scale 0-20%
+        return (r7 / 20) * 100.0
+    
+    def _generate_reasons(
+        self,
+        breakout_score: float,
+        volume_score: float,
+        trend_score: float,
+        momentum_score: float,
+        f1d: Dict[str, Any],
+        f4h: Dict[str, Any],
+        flags: List[str]
+    ) -> List[str]:
+        """Generate human-readable reasons."""
+        reasons = []
+        
+        # Breakout
+        dist = f1d.get('breakout_dist_20', 0)
+        if breakout_score > 70:
+            reasons.append(f"Strong breakout ({dist:.1f}% above 20d high)")
+        elif breakout_score > 30:
+            reasons.append(f"Moderate breakout ({dist:.1f}% above high)")
+        elif dist > 0:
+            reasons.append(f"Early breakout ({dist:.1f}% above high)")
+        else:
+            reasons.append("No breakout (below recent high)")
+        
+        # Volume
+        vol_spike = max(f1d.get('volume_spike', 1.0), f4h.get('volume_spike', 1.0))
+        if volume_score > 70:
+            reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
+        elif volume_score > 30:
+            reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
+        else:
+            reasons.append("Low volume (no confirmation)")
+        
+        # Trend
+        if trend_score > 70:
+            reasons.append("In uptrend (above EMAs)")
+        elif trend_score > 30:
+            reasons.append("Neutral trend")
+        else:
+            reasons.append("In downtrend (below EMAs)")
+        
+        # Flags
+        if 'overextended' in flags:
+            reasons.append(f"⚠️ Overextended ({dist:.1f}% above high)")
+        
+        if 'low_liquidity' in flags:
+            reasons.append("⚠️ Low liquidity")
+        
+        return reasons
+
+
+def score_breakouts(
+    features_data: Dict[str, Dict[str, Any]],
+    volumes: Dict[str, float],
+    config: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    Score all symbols for breakout setups and return ranked list.
+    
+    Args:
+        features_data: Dict mapping symbol -> features
+        volumes: Dict mapping symbol -> 24h volume
+        config: Config dict
+    
+    Returns:
+        List of scored symbols, sorted by score (descending)
+    """
+    scorer = BreakoutScorer(config)
+    results = []
+    
+    logger.info(f"Scoring {len(features_data)} symbols for breakout setups")
+    
+    for symbol, features in features_data.items():
+        volume = volumes.get(symbol, 0)
         
         try:
-            response = self._request("/v1/cryptocurrency/listings/latest", params)
-            data = response.get("data", [])
+            score_result = scorer.score(symbol, features, volume)
             
-            logger.info(f"Fetched {len(data)} listings from CMC")
-            
-            # Cache the full response
-            save_cache(response, cache_key)
-
-            # 🔹 Rohdaten-Snapshot über zentralen Collector speichern
-            if collect_raw_marketcap and data:
-                try:
-                    collect_raw_marketcap(data)
-                except Exception as e:
-                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
-            
-            return data
+            results.append({
+                'symbol': symbol,
+                'price_usdt': features.get('price_usdt'),
+                'coin_name': features.get('coin_name'),
+                'market_cap': features.get('market_cap'),
+                'quote_volume_24h': features.get('quote_volume_24h'),
+                'score': score_result['score'],
+                'components': score_result['components'],
+                'penalties': score_result['penalties'],
+                'flags': score_result['flags'],
+                'reasons': score_result['reasons']
+            })
             
         except Exception as e:
-            logger.error(f"Failed to fetch CMC listings: {e}")
-            return []
+            logger.error(f"Failed to score {symbol}: {e}")
+            continue
     
-    def get_all_listings(self, use_cache: bool = True) -> List[Dict[str, Any]]:
-        """
-        Get all available listings (up to 5000).
-        
-        Returns:
-            List of all cryptocurrency dicts
-        """
-        return self.get_listings(start=1, limit=5000, use_cache=use_cache)
+    # Sort by score (descending)
+    results.sort(key=lambda x: x['score'], reverse=True)
     
-    def build_symbol_map(
-        self,
-        listings: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Build a symbol → data mapping for fast lookups.
-        
-        Args:
-            listings: CMC listings (default: fetch all)
-            
-        Returns:
-            Dict mapping symbol (uppercase) to full CMC data
-            
-        Note:
-            If multiple coins share a symbol, only the highest-ranked is kept.
-        """
-        if listings is None:
-            listings = self.get_all_listings()
-        
-        symbol_map = {}
-        collisions = []
-        
-        for item in listings:
-            symbol = item.get("symbol", "").upper()
-            
-            if not symbol:
-                continue
-            
-            # Collision detection
-            if symbol in symbol_map:
-                # Keep higher-ranked (lower cmc_rank number)
-                existing_rank = symbol_map[symbol].get("cmc_rank", float('inf'))
-                new_rank = item.get("cmc_rank", float('inf'))
-                
-                if new_rank < existing_rank:
-                    collisions.append({
-                        "symbol": symbol,
-                        "replaced": symbol_map[symbol].get("name"),
-                        "with": item.get("name")
-                    })
-                    symbol_map[symbol] = item
-                else:
-                    collisions.append({
-                        "symbol": symbol,
-                        "kept": symbol_map[symbol].get("name"),
-                        "ignored": item.get("name")
-                    })
-            else:
-                symbol_map[symbol] = item
-        
-        if collisions:
-            logger.warning(f"Found {len(collisions)} symbol collisions (kept higher-ranked)")
-            logger.debug(f"Collisions: {collisions[:10]}")  # Show first 10
-        
-        logger.info(f"Built symbol map with {len(symbol_map)} unique symbols")
-        return symbol_map
+    logger.info(f"Breakout scoring complete: {len(results)} symbols scored")
     
-    def get_market_cap_for_symbol(
-        self,
-        symbol: str,
-        symbol_map: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> Optional[float]:
-        """
-        Get market cap for a specific symbol.
-        
-        Args:
-            symbol: Ticker symbol (e.g., 'BTC')
-            symbol_map: Pre-built symbol map (default: build from listings)
-            
-        Returns:
-            Market cap in USD or None if not found
-        """
-        if symbol_map is None:
-            symbol_map = self.build_symbol_map()
-        
-        symbol = symbol.upper()
-        data = symbol_map.get(symbol)
-        
-        if not data:
-            return None
-        
-        try:
-            return data["quote"]["USD"]["market_cap"]
-        except (KeyError, TypeError):
-            return None
+    return results
 
 ```
 
-### `scanner/clients/mexc_client.py`
+### `scanner/pipeline/scoring/__init__.py`
 
-**SHA256:** `8ed9807845616371013fd9ae0137e05a8bf2db2fdf306a41196e7f35aa57fd20`
+**SHA256:** `85d37b09e745ca99fd4ceeca2844c758866fa7f247ded2d4a2b9a8284d6c51b4`
 
 ```python
 """
-MEXC API Client for Spot market data.
+Scoring package.
 
-Responsibilities:
-- Fetch spot symbol list (exchangeInfo)
-- Fetch 24h ticker data (bulk)
-- Fetch OHLCV (klines) for specific pairs
+Contains three independent scoring modules:
+- breakout.py
+- pullback.py
+- reversal.py
 
-API Docs: https://mexcdevelop.github.io/apidocs/spot_v3_en/
+Each module:
+- consumes features
+- applies setup-specific logic
+- outputs normalized scores, components, penalties and flags.
 """
-
-import time
-from typing import Dict, List, Optional, Any
-import requests
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_cache, save_cache, cache_exists
-
-
-logger = get_logger(__name__)
-
-
-class MEXCClient:
-    """
-    MEXC Spot API client with rate-limit handling and caching.
-    """
-    
-    BASE_URL = "https://api.mexc.com"
-    
-    def __init__(
-        self,
-        max_retries: int = 3,
-        retry_backoff: float = 3.0,
-        timeout: int = 30
-    ):
-        """
-        Initialize MEXC client.
-        
-        Args:
-            max_retries: Maximum retry attempts on failure
-            retry_backoff: Seconds to wait between retries
-            timeout: Request timeout in seconds
-        """
-        self.max_retries = max_retries
-        self.retry_backoff = retry_backoff
-        self.timeout = timeout
-        self.session = requests.Session()
-        
-        # Rate limiting (conservative)
-        self.last_request_time = 0
-        self.min_request_interval = 0.1  # 100ms between requests
-    
-    def _rate_limit(self) -> None:
-        """Apply rate limiting between requests."""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.min_request_interval:
-            time.sleep(self.min_request_interval - elapsed)
-        self.last_request_time = time.time()
-    
-    def _request(
-        self,
-        method: str,
-        endpoint: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Make HTTP request with retry logic.
-        
-        Args:
-            method: HTTP method (GET, POST)
-            endpoint: API endpoint (e.g., '/api/v3/exchangeInfo')
-            params: Query parameters
-            
-        Returns:
-            JSON response
-            
-        Raises:
-            requests.RequestException: On persistent failure
-        """
-        url = f"{self.BASE_URL}{endpoint}"
-        
-        for attempt in range(self.max_retries):
-            try:
-                self._rate_limit()
-                
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    timeout=self.timeout
-                )
-                
-                # Handle rate limit (429)
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get('Retry-After', self.retry_backoff))
-                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
-                    time.sleep(retry_after)
-                    continue
-                
-                response.raise_for_status()
-                return response.json()
-                
-            except requests.RequestException as e:
-                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
-                
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_backoff * (attempt + 1))  # Exponential backoff
-                else:
-                    logger.error(f"Request failed after {self.max_retries} attempts")
-                    raise
-        
-        raise requests.RequestException("Unexpected error in retry loop")
-    
-    def get_exchange_info(self, use_cache: bool = True) -> Dict[str, Any]:
-        """
-        Get exchange info (symbols, trading rules).
-        
-        Args:
-            use_cache: Use cached data if available (today)
-            
-        Returns:
-            Exchange info dict with 'symbols' list
-        """
-        cache_key = "mexc_exchange_info"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading exchange info from cache")
-            return load_cache(cache_key)
-        
-        logger.info("Fetching exchange info from MEXC API")
-        data = self._request("GET", "/api/v3/exchangeInfo")
-        
-        save_cache(data, cache_key)
-        return data
-    
-    def get_spot_usdt_symbols(self, use_cache: bool = True) -> List[str]:
-        """
-        Get all Spot USDT trading pairs.
-        
-        Returns:
-            List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
-        """
-        exchange_info = self.get_exchange_info(use_cache=use_cache)
-        
-        symbols = []
-        for symbol_info in exchange_info.get("symbols", []):
-            # Filter: USDT quote, Spot, Trading status
-            # Note: MEXC uses status="1" for enabled (not "ENABLED")
-            if (
-                symbol_info.get("quoteAsset") == "USDT" and
-                symbol_info.get("isSpotTradingAllowed", False) and
-                symbol_info.get("status") == "1"
-            ):
-                symbols.append(symbol_info["symbol"])
-        
-        logger.info(f"Found {len(symbols)} USDT Spot pairs")
-        return symbols
-    
-    def get_24h_tickers(self, use_cache: bool = True) -> List[Dict[str, Any]]:
-        """
-        Get 24h ticker statistics for all symbols (bulk).
-        
-        Returns:
-            List of ticker dicts with keys:
-            - symbol
-            - lastPrice
-            - priceChangePercent
-            - quoteVolume
-            - volume
-            etc.
-        """
-        cache_key = "mexc_24h_tickers"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading 24h tickers from cache")
-            return load_cache(cache_key)
-        
-        logger.info("Fetching 24h tickers from MEXC API")
-        data = self._request("GET", "/api/v3/ticker/24hr")
-        
-        save_cache(data, cache_key)
-        logger.info(f"Fetched {len(data)} ticker entries")
-        return data
-    
-    def get_klines(
-        self,
-        symbol: str,
-        interval: str = "1d",
-        limit: int = 120,
-        use_cache: bool = True
-    ) -> List[List]:
-        """
-        Get candlestick/kline data for a symbol.
-        
-        Args:
-            symbol: Trading pair (e.g., 'BTCUSDT')
-            interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d, 1w)
-            limit: Number of candles (max 1000)
-            use_cache: Use cached data if available
-            
-        Returns:
-            List of klines, each kline is a list:
-            [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
-        """
-        cache_key = f"mexc_klines_{symbol}_{interval}"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.debug(f"Loading klines from cache: {symbol} {interval}")
-            return load_cache(cache_key)
-        
-        logger.debug(f"Fetching klines: {symbol} {interval} (limit={limit})")
-        
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "limit": min(limit, 1000)  # API max is 1000
-        }
-        
-        data = self._request("GET", "/api/v3/klines", params=params)
-        
-        save_cache(data, cache_key)
-        return data
-    
-    def get_multiple_klines(
-        self,
-        symbols: List[str],
-        interval: str = "1d",
-        limit: int = 120,
-        use_cache: bool = True
-    ) -> Dict[str, List[List]]:
-        """
-        Get klines for multiple symbols (sequential, rate-limited).
-        
-        Args:
-            symbols: List of trading pairs
-            interval: Timeframe
-            limit: Candles per symbol
-            use_cache: Use cached data
-            
-        Returns:
-            Dict mapping symbol -> klines
-        """
-        results = {}
-        total = len(symbols)
-        
-        logger.info(f"Fetching klines for {total} symbols ({interval})")
-        
-        for i, symbol in enumerate(symbols, 1):
-            try:
-                results[symbol] = self.get_klines(symbol, interval, limit, use_cache)
-                
-                if i % 10 == 0:
-                    logger.info(f"Progress: {i}/{total} symbols")
-                    
-            except Exception as e:
-                logger.error(f"Failed to fetch klines for {symbol}: {e}")
-                results[symbol] = []
-        
-        logger.info(f"Successfully fetched klines for {len(results)} symbols")
-        return results
-
-```
-
-### `scanner/clients/__init__.py`
-
-**SHA256:** `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
-
-```python
 
 
 ```
@@ -4613,340 +5065,6 @@ def score_pullbacks(
 
 ```
 
-### `scanner/pipeline/scoring/breakout.py`
-
-**SHA256:** `11b047c2bf7c8ba58547ea5ca082bb4ab55f4683af35932e283620b45aeb08dd`
-
-```python
-"""
-Breakout Setup Scoring
-======================
-
-Identifies range breakouts with volume confirmation.
-
-Scoring Components:
-1. Breakout Distance (35%) - How far above recent high
-2. Volume Confirmation (30%) - Volume spike on breakout
-3. Trend Context (20%) - Uptrend vs range
-4. Momentum (15%) - Recent price action strength
-
-Penalties:
-- Overextension (too far, too fast)
-- Low liquidity
-"""
-
-import logging
-from typing import Dict, Any, Optional, List
-
-logger = logging.getLogger(__name__)
-
-
-class BreakoutScorer:
-    """Scores breakout setups (range break + volume)."""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize breakout scorer.
-        
-        Args:
-            config: Config dict with 'scoring' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            scoring_config = config.raw.get('scoring', {}).get('breakout', {})
-        else:
-            scoring_config = config.get('scoring', {}).get('breakout', {})
-        
-        # Thresholds
-        self.min_breakout_pct = scoring_config.get('min_breakout_pct', 2)  # >2% above high
-        self.ideal_breakout_pct = scoring_config.get('ideal_breakout_pct', 5)  # 5-10% ideal
-        self.max_breakout_pct = scoring_config.get('max_breakout_pct', 20)  # >20% = overextended
-        
-        self.min_volume_spike = scoring_config.get('min_volume_spike', 1.5)  # 1.5x normal
-        self.ideal_volume_spike = scoring_config.get('ideal_volume_spike', 2.5)  # 2.5x+
-        
-        # Component weights
-        self.weights = {
-            'breakout': 0.35,
-            'volume': 0.30,
-            'trend': 0.20,
-            'momentum': 0.15
-        }
-        
-        logger.info("Breakout Scorer initialized")
-    
-    def score(
-        self,
-        symbol: str,
-        features: Dict[str, Any],
-        quote_volume_24h: float
-    ) -> Dict[str, Any]:
-        """
-        Score a single symbol for breakout setup.
-        
-        Args:
-            symbol: Trading pair
-            features: Feature dict with '1d' and '4h'
-            quote_volume_24h: 24h volume in USDT
-        
-        Returns:
-            Score dict
-        """
-        f1d = features.get('1d', {})
-        f4h = features.get('4h', {})
-        
-        # Components
-        breakout_score = self._score_breakout(f1d)
-        volume_score = self._score_volume(f1d, f4h)
-        trend_score = self._score_trend(f1d)
-        momentum_score = self._score_momentum(f1d)
-        
-        # Weighted total
-        raw_score = (
-            breakout_score * self.weights['breakout'] +
-            volume_score * self.weights['volume'] +
-            trend_score * self.weights['trend'] +
-            momentum_score * self.weights['momentum']
-        )
-        
-        # Penalties & Flags
-        penalties = []
-        flags = []
-        
-        # Overextension penalty
-        breakout_dist = f1d.get('breakout_dist_20', 0)
-        if breakout_dist > self.max_breakout_pct:
-            penalties.append(('overextension', 0.6))
-            flags.append('overextended')
-        
-        # Low liquidity
-        if quote_volume_24h < 500_000:
-            penalties.append(('low_liquidity', 0.8))
-            flags.append('low_liquidity')
-        
-        # Apply penalties
-        final_score = raw_score
-        for name, factor in penalties:
-            final_score *= factor
-        
-        # Reasons
-        reasons = self._generate_reasons(
-            breakout_score, volume_score, trend_score, momentum_score,
-            f1d, f4h, flags
-        )
-        
-        return {
-            'score': round(final_score, 2),
-            'components': {
-                'breakout': round(breakout_score, 2),
-                'volume': round(volume_score, 2),
-                'trend': round(trend_score, 2),
-                'momentum': round(momentum_score, 2)
-            },
-            'penalties': {name: factor for name, factor in penalties},
-            'flags': flags,
-            'reasons': reasons
-        }
-    
-    def _score_breakout(self, f1d: Dict[str, Any]) -> float:
-        """
-        Scales breakout distance (-5% … +3%) into a 0–100 score.
-        Professional definition:
-        - Below −5%: no breakout pressure
-        - −2 … 0%: pre-breakout compression
-        - 0 … +1%: breakout confirmation
-        - > +2%: overextended (score decays)
-        """
-        import numpy as np
-        dist = f1d.get('breakout_dist_20', np.nan)
-        if np.isnan(dist):
-            return np.nan
-    
-        # Far below range high
-        if dist <= -5:
-            return 0.0
-    
-        # Pre-breakout buildup
-        if -5 < dist < 0:
-            return 70 * (1 + (dist / 5))  # rises from 0→70 as we near the high
-    
-        # Fresh breakout (0–1%)
-        if 0 <= dist <= 1:
-            return 70 + (30 * (dist / 1))  # scales to 100 at +1%
-    
-        # Overextended (1–3%)
-        if 1 < dist <= 3:
-            return max(90 - (dist - 1) * 10, 70)  # decays slightly
-    
-        # Beyond reasonable range
-        return 60.0
-
-    
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """Score volume confirmation (0-100)."""
-        vol_1d = f1d.get('volume_spike', 1.0)
-        vol_4h = f4h.get('volume_spike', 1.0)
-        
-        max_spike = max(vol_1d, vol_4h)
-        
-        # Below minimum
-        if max_spike < self.min_volume_spike:
-            return 0.0
-        
-        # Ideal or above
-        if max_spike >= self.ideal_volume_spike:
-            return 100.0
-        
-        # Linear scale
-        ratio = (max_spike - self.min_volume_spike) / (self.ideal_volume_spike - self.min_volume_spike)
-        return ratio * 100.0
-    
-    def _score_trend(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score trend context (0-100).
-        
-        Better if already in uptrend (above EMAs).
-        """
-        score = 0.0
-        
-        dist_ema20 = f1d.get('dist_ema20_pct')
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        
-        # Above EMA20
-        if dist_ema20 and dist_ema20 > 0:
-            score += 40
-            if dist_ema20 > 5:
-                score += 10
-        
-        # Above EMA50
-        if dist_ema50 and dist_ema50 > 0:
-            score += 40
-            if dist_ema50 > 5:
-                score += 10
-        
-        return min(score, 100.0)
-    
-    def _score_momentum(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score recent momentum (0-100).
-        
-        Based on recent returns.
-        """
-        r7 = f1d.get('r_7', 0)
-        
-        if r7 <= 0:
-            return 0.0
-        
-        if r7 >= 20:  # >20% in 7 days
-            return 100.0
-        
-        # Linear scale 0-20%
-        return (r7 / 20) * 100.0
-    
-    def _generate_reasons(
-        self,
-        breakout_score: float,
-        volume_score: float,
-        trend_score: float,
-        momentum_score: float,
-        f1d: Dict[str, Any],
-        f4h: Dict[str, Any],
-        flags: List[str]
-    ) -> List[str]:
-        """Generate human-readable reasons."""
-        reasons = []
-        
-        # Breakout
-        dist = f1d.get('breakout_dist_20', 0)
-        if breakout_score > 70:
-            reasons.append(f"Strong breakout ({dist:.1f}% above 20d high)")
-        elif breakout_score > 30:
-            reasons.append(f"Moderate breakout ({dist:.1f}% above high)")
-        elif dist > 0:
-            reasons.append(f"Early breakout ({dist:.1f}% above high)")
-        else:
-            reasons.append("No breakout (below recent high)")
-        
-        # Volume
-        vol_spike = max(f1d.get('volume_spike', 1.0), f4h.get('volume_spike', 1.0))
-        if volume_score > 70:
-            reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
-        elif volume_score > 30:
-            reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
-        else:
-            reasons.append("Low volume (no confirmation)")
-        
-        # Trend
-        if trend_score > 70:
-            reasons.append("In uptrend (above EMAs)")
-        elif trend_score > 30:
-            reasons.append("Neutral trend")
-        else:
-            reasons.append("In downtrend (below EMAs)")
-        
-        # Flags
-        if 'overextended' in flags:
-            reasons.append(f"⚠️ Overextended ({dist:.1f}% above high)")
-        
-        if 'low_liquidity' in flags:
-            reasons.append("⚠️ Low liquidity")
-        
-        return reasons
-
-
-def score_breakouts(
-    features_data: Dict[str, Dict[str, Any]],
-    volumes: Dict[str, float],
-    config: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    Score all symbols for breakout setups and return ranked list.
-    
-    Args:
-        features_data: Dict mapping symbol -> features
-        volumes: Dict mapping symbol -> 24h volume
-        config: Config dict
-    
-    Returns:
-        List of scored symbols, sorted by score (descending)
-    """
-    scorer = BreakoutScorer(config)
-    results = []
-    
-    logger.info(f"Scoring {len(features_data)} symbols for breakout setups")
-    
-    for symbol, features in features_data.items():
-        volume = volumes.get(symbol, 0)
-        
-        try:
-            score_result = scorer.score(symbol, features, volume)
-            
-            results.append({
-                'symbol': symbol,
-                'price_usdt': features.get('price_usdt'),
-                'coin_name': features.get('coin_name'),
-                'market_cap': features.get('market_cap'),
-                'quote_volume_24h': features.get('quote_volume_24h'),
-                'score': score_result['score'],
-                'components': score_result['components'],
-                'penalties': score_result['penalties'],
-                'flags': score_result['flags'],
-                'reasons': score_result['reasons']
-            })
-            
-        except Exception as e:
-            logger.error(f"Failed to score {symbol}: {e}")
-            continue
-    
-    # Sort by score (descending)
-    results.sort(key=lambda x: x['score'], reverse=True)
-    
-    logger.info(f"Breakout scoring complete: {len(results)} symbols scored")
-    
-    return results
-
-```
-
 ### `scanner/pipeline/scoring/reversal.py`
 
 **SHA256:** `5cdf49fc3bda91babf545b14a5965fd2b889c1d042b429ad213579b63bebe898`
@@ -5305,28 +5423,6 @@ def score_reversals(
     logger.info(f"Reversal scoring complete: {len(results)} symbols scored")
     
     return results
-
-```
-
-### `scanner/pipeline/scoring/__init__.py`
-
-**SHA256:** `85d37b09e745ca99fd4ceeca2844c758866fa7f247ded2d4a2b9a8284d6c51b4`
-
-```python
-"""
-Scoring package.
-
-Contains three independent scoring modules:
-- breakout.py
-- pullback.py
-- reversal.py
-
-Each module:
-- consumes features
-- applies setup-specific logic
-- outputs normalized scores, components, penalties and flags.
-"""
-
 
 ```
 
@@ -6732,4 +6828,4 @@ v1 provides the structural foundation.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-03 17:16 UTC_
+_Generated by GitHub Actions • 2026-02-12 17:05 UTC_
