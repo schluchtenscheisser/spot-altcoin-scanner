@@ -36,6 +36,15 @@ Optional future timeframes:
 
 Timeframes must not be mixed in the same feature without explicit definition.
 
+### Time-index convention (closed candles)
+
+All feature values are computed from the **last closed candle** `T` (not blindly from the latest array row).
+
+- `T = max(i where closeTime[i] <= asof_ts_ms)`
+- If no `asof_ts_ms` is provided, current runtime uses the last available kline index.
+
+This convention prevents intrabar drift and keeps snapshots replayable.
+
 ---
 
 ## 3. Lookback Requirements
@@ -52,6 +61,8 @@ Minimum recommended lookbacks:
 | ATR Volatility | 14–30 days |
 
 Lookbacks must be configurable via `config.yml`.
+
+For volume baseline features (e.g. `volume_sma_14` used for `volume_spike`), the baseline is computed excluding the current candle: `mean(volume[t-14 .. t-1])`.
 
 ---
 
@@ -105,6 +116,16 @@ low_n = min(low[t-n .. t])
 
 Used for breakout logic + pullbacks + context.
 
+**Baseline convention (Thema 6):**
+For breakout baselines, resistance/support windows are computed **excluding the current candle** (`t`).
+
+```
+prior_high_n = max(high[t-n .. t-1])
+prior_low_n  = min(low[t-n .. t-1])
+```
+
+This avoids look-ahead bias in baseline features such as breakout distance.
+
 ---
 
 ### 5.3 ATH + Drawdown (Context)
@@ -147,6 +168,10 @@ Compute:
 
 On both 1d and 4h.
 
+Implementation convention (current):
+- EMA initialization starts with `SMA(period)` (not first-value bootstrap)
+- then recursive EMA update is applied over the remaining candles
+
 Trend inference:
 
 ```
@@ -178,6 +203,10 @@ Volatility measured via ATR:
 atr = ATR(14)
 atr_pct = atr / close
 ```
+
+Implementation convention (current):
+- ATR uses **Wilder smoothing** after ATR initialization
+- `atr_pct` is derived from this Wilder ATR and is expected to be non-negative
 
 Used for:
 - breakout context
@@ -356,6 +385,17 @@ Feature Engine feeds:
 - snapshots
 
 It does not pull data from scoring.
+
+---
+
+## 18. Quote Volume (Thema 7)
+
+If Kline `quoteVolume` is present, compute:
+- `volume_quote`
+- `volume_quote_sma_14` (baseline excludes current candle)
+- `volume_quote_spike`
+
+If unavailable, quote-volume keys are omitted.
 
 ---
 

@@ -165,6 +165,17 @@ und begründet, warum diese Struktur optimal ist für einen Stil wie:
 
 > „kurzfristig, opportunistisch, technisch, liquiditätsbewusst, asymmetrisch“  
 
+## 14. Datenkonsistenz (Operational Rules)
+
+Für die tägliche Nutzbarkeit sind folgende Regeln wichtig:
+
+- Signale basieren auf **geschlossenen Kerzen** (keine offenen Intraday-Werte).
+- Baselines (z. B. Volume-/Breakout-Baselines) nutzen Fenster **ohne aktuelle Kerze**.
+- EMA/ATR folgen stabilen Standarddefinitionen (EMA mit SMA-Start, ATR nach Wilder), damit Reports über Zeit vergleichbar bleiben.
+- Quote-Volume aus Klines wird bevorzugt genutzt, falls vorhanden; fehlt es, bleibt das System robust.
+
+Diese Regeln reduzieren Wackler im Tagesvergleich und verbessern die Review-Qualität.
+
 ---
 
 ## Ende von `context.md`

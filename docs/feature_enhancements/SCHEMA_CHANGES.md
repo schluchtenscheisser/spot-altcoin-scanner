@@ -53,3 +53,72 @@ Dieses Dokument protokolliert alle Änderungen an:
 
 ## Historie
 *(Neue Einträge kommen hier darunter)*
+
+### 2026-02-12 — schema_version v1.1 → v1.2 — QuoteVolume-Features ergänzt
+**PR:** (branch-local, Thema 7)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Feature-Output pro Timeframe ergänzt um:
+  - `volume_quote`
+  - `volume_quote_sma_14`
+  - `volume_quote_spike`
+- Semantik:
+  - Baseline exklusive aktuelle Kerze (`t-14 .. t-1`)
+  - Wenn `quoteVolume` in Klines fehlt, werden diese Keys nicht ausgegeben (kein Crash).
+
+#### Warum?
+- Volume-/Liquidity-Signale sollen auf QuoteVolume basieren, wenn vorhanden (Thema 7).
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder, bestehende Keys unverändert).
+
+#### Migration / Vorgehen
+- Consumer können die neuen Keys optional lesen.
+- Alte Snapshots/Outputs ohne diese Keys bleiben weiterhin nutzbar.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.2",
+  "1d": {
+    "volume_quote": 205905.0,
+    "volume_quote_sma_14": 179745.0,
+    "volume_quote_spike": 1.1455
+  }
+}
+```
+
+### 2026-02-12 — schema_version v1.0 → v1.1 — Closed-candle meta + replay fields
+**PR:** (historischer Themenblock 2/3)  
+**Typ:** semantisch + additiv
+
+#### Was hat sich geändert?
+- Feature-Meta enthält closed-candle/replay-relevante Felder:
+  - `asof_ts_ms`
+  - `last_closed_idx`
+- Raw OHLCV-Snapshots enthalten zusätzlich:
+  - `close_time`
+  - `quote_volume` (falls von MEXC geliefert)
+
+#### Warum?
+- Reproduzierbarkeit mit As-Of-Zeit und saubere closed-candle Bestimmung.
+- Bessere Replay-Fähigkeit von historischen Läufen.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder).
+
+#### Migration / Vorgehen
+- Consumer können neue Felder optional auslesen.
+- Fehlen die Felder in alten Daten, gelten Legacy-Interpretationen.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.1",
+  "meta": {
+    "asof_ts_ms": 1700000000000,
+    "last_closed_idx": {"1d": 59, "4h": 59}
+  }
+}
+```

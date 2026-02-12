@@ -128,6 +128,7 @@ class FeatureEngine:
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
         volumes = np.array([k[5] for k in klines], dtype=float)
+        quote_volumes = np.array([k[7] if len(k) > 7 else np.nan for k in klines], dtype=float)
 
         if len(closes) < 50:
             logger.warning(f"[{symbol}] insufficient candles ({len(closes)}) for timeframe {timeframe}")
@@ -147,8 +148,15 @@ class FeatureEngine:
         f["dist_ema50_pct"] = ((closes[-1] / f["ema_50"]) - 1) * 100 if f.get("ema_50") else np.nan
 
         f["atr_pct"] = self._calc_atr_pct(symbol, highs, lows, closes, 14)
-        f["volume_sma_14"] = self._calc_sma(volumes, 14)
+        # Baseline-Konvention (Thema 6): baseline-Fenster schließt current candle aus.
+        # Für volume_sma_14 bedeutet das: mean(volume[T-14 .. T-1]).
+        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
         f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
+
+        # Thema 7: QuoteVolume-Features (falls im Kline-Datensatz vorhanden)
+        quote_features = self._calc_quote_volume_features(symbol, quote_volumes)
+        if quote_features:
+            f.update(quote_features)
 
         # Trend structure
         f["hh_20"] = bool(self._detect_higher_high(highs, 20))
@@ -187,14 +195,33 @@ class FeatureEngine:
             ema = alpha * val + (1 - alpha) * ema
         return float(ema)
 
-    def _calc_sma(self, data: np.ndarray, period: int) -> Optional[float]:
-        return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
+    def _calc_sma(self, data: np.ndarray, period: int, include_current: bool = True) -> Optional[float]:
+        if include_current:
+            return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
+        # Baseline exklusive current candle: [T-period .. T-1]
+        return float(np.nanmean(data[-period-1:-1])) if len(data) >= (period + 1) else np.nan
 
     def _calc_volume_spike(self, symbol: str, volumes: np.ndarray, sma: Optional[float]) -> float:
         if sma is None or np.isnan(sma) or sma == 0:
             logger.warning(f"[{symbol}] volume_spike skipped (SMA invalid)")
             return np.nan
         return float(volumes[-1] / sma)
+
+
+    def _calc_quote_volume_features(self, symbol: str, quote_volumes: np.ndarray) -> Dict[str, Optional[float]]:
+        """Compute quote-volume features if quoteVolume exists; otherwise return empty dict."""
+        if len(quote_volumes) == 0 or np.all(np.isnan(quote_volumes)):
+            return {}
+
+        volume_quote = float(quote_volumes[-1]) if not np.isnan(quote_volumes[-1]) else np.nan
+        volume_quote_sma_14 = self._calc_sma(quote_volumes, 14, include_current=False)
+        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma_14)
+
+        return {
+            "volume_quote": volume_quote,
+            "volume_quote_sma_14": volume_quote_sma_14,
+            "volume_quote_spike": volume_quote_spike,
+        }
 
     def _calc_atr_pct(self, symbol: str, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> Optional[float]:
         if len(highs) < period + 1:
@@ -205,12 +232,14 @@ class FeatureEngine:
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
-        if len(highs) < lookback:
+        # Resistance-Baseline exklusive current candle:
+        # prior_high = max(high[T-lookback .. T-1])
+        if len(highs) < lookback + 1:
             logger.warning(f"[{symbol}] insufficient candles for breakout_dist_{lookback}")
             return np.nan
         try:
-            recent_high = np.nanmax(highs[-lookback:])
-            return float(((closes[-1] / recent_high) - 1) * 100)
+            prior_high = np.nanmax(highs[-lookback-1:-1])
+            return float(((closes[-1] / prior_high) - 1) * 100)
         except Exception as e:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan

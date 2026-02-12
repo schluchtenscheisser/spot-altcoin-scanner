@@ -187,6 +187,13 @@ Recommended lookbacks:
 | breakout highs | 20–30d |
 | volume smoothing | 7–14d |
 
+Implementation conventions for current feature engine:
+- feature index uses last closed candle (`closeTime <= asof_ts_ms`)
+- baseline windows (e.g. volume/breakout baselines) exclude the current candle (`t-1` as window end)
+- EMA uses SMA initialization
+- ATR uses Wilder smoothing
+- quoteVolume-based features are computed when kline `quoteVolume` is available
+
 ---
 
 ## 10. Setup Taxonomy (Core Requirement)
