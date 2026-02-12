@@ -10,7 +10,8 @@ Dieses Dokument ist als **Eingangspost für neue Chats** gedacht, in denen **Cha
 ## 1) Was zu jedem Thema dazugehört:
 1) **Dieses Dokument** (Roadmap/Anweisung)  
 2) **`improvements_existing_data.md`** (verbindliche Ergänzungen/Änderungen) im Repo im Ordner docs/feature_enhancements 
-3) **`SCHEMA_CHANGES.md`** (separates Dokument für Schema-/Output‑Änderungen) im Repo im Ordner docs/feature_enhancements 
+3) **`SCHEMA_CHANGES.md`** (separates Dokument für Schema-/Output‑Änderungen) im Repo im Ordner docs/feature_enhancements
+4) **`FEATURE_RULEBOOK.md`** separates Dokument im Repo im Ordner docs/feature_enhancements
 
 ---
 
