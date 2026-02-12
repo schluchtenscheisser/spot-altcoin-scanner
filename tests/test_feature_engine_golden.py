@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import numpy as np
 
 from scanner.pipeline.features import FeatureEngine
 
@@ -126,3 +127,18 @@ def test_feature_engine_golden() -> None:
         assert tf in actual["TESTUSDT"]
 
     _assert_close(actual, expected)
+
+
+def test_calc_ema_uses_sma_initialization() -> None:
+    """Thema 4 mini reference check: EMA starts from SMA(period), not first value."""
+    engine = FeatureEngine(config={})
+
+    # Hand-checkable series
+    # period=3 -> SMA init at t=2: (10 + 11 + 13) / 3 = 11.3333333333
+    # alpha = 2/(3+1)=0.5
+    # t=3: ema = 0.5*12 + 0.5*11.3333333333 = 11.6666666667
+    # t=4: ema = 0.5*14 + 0.5*11.6666666667 = 12.8333333333
+    data = np.array([10.0, 11.0, 13.0, 12.0, 14.0], dtype=float)
+    ema = engine._calc_ema('TESTUSDT', data, 3)
+
+    assert ema == pytest.approx(12.833333333333334, rel=1e-12, abs=1e-12)
