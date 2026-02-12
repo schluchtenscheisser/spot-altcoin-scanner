@@ -147,7 +147,9 @@ class FeatureEngine:
         f["dist_ema50_pct"] = ((closes[-1] / f["ema_50"]) - 1) * 100 if f.get("ema_50") else np.nan
 
         f["atr_pct"] = self._calc_atr_pct(symbol, highs, lows, closes, 14)
-        f["volume_sma_14"] = self._calc_sma(volumes, 14)
+        # Baseline-Konvention (Thema 6): baseline-Fenster schließt current candle aus.
+        # Für volume_sma_14 bedeutet das: mean(volume[T-14 .. T-1]).
+        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
         f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
 
         # Trend structure
@@ -189,8 +191,11 @@ class FeatureEngine:
             ema = alpha * val + (1 - alpha) * ema
         return float(ema)
 
-    def _calc_sma(self, data: np.ndarray, period: int) -> Optional[float]:
-        return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
+    def _calc_sma(self, data: np.ndarray, period: int, include_current: bool = True) -> Optional[float]:
+        if include_current:
+            return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
+        # Baseline exklusive current candle: [T-period .. T-1]
+        return float(np.nanmean(data[-period-1:-1])) if len(data) >= (period + 1) else np.nan
 
     def _calc_volume_spike(self, symbol: str, volumes: np.ndarray, sma: Optional[float]) -> float:
         if sma is None or np.isnan(sma) or sma == 0:
@@ -225,12 +230,14 @@ class FeatureEngine:
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
-        if len(highs) < lookback:
+        # Resistance-Baseline exklusive current candle:
+        # prior_high = max(high[T-lookback .. T-1])
+        if len(highs) < lookback + 1:
             logger.warning(f"[{symbol}] insufficient candles for breakout_dist_{lookback}")
             return np.nan
         try:
-            recent_high = np.nanmax(highs[-lookback:])
-            return float(((closes[-1] / recent_high) - 1) * 100)
+            prior_high = np.nanmax(highs[-lookback-1:-1])
+            return float(((closes[-1] / prior_high) - 1) * 100)
         except Exception as e:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
