@@ -128,6 +128,7 @@ class FeatureEngine:
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
         volumes = np.array([k[5] for k in klines], dtype=float)
+        quote_volumes = np.array([k[7] if len(k) > 7 else np.nan for k in klines], dtype=float)
 
         if len(closes) < 50:
             logger.warning(f"[{symbol}] insufficient candles ({len(closes)}) for timeframe {timeframe}")
@@ -151,6 +152,11 @@ class FeatureEngine:
         # Für volume_sma_14 bedeutet das: mean(volume[T-14 .. T-1]).
         f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
         f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
+
+        # Thema 7: QuoteVolume-Features (falls im Kline-Datensatz vorhanden)
+        quote_features = self._calc_quote_volume_features(symbol, quote_volumes)
+        if quote_features:
+            f.update(quote_features)
 
         # Trend structure
         f["hh_20"] = bool(self._detect_higher_high(highs, 20))
@@ -202,6 +208,22 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] volume_spike skipped (SMA invalid)")
             return np.nan
         return float(volumes[-1] / sma)
+
+
+    def _calc_quote_volume_features(self, symbol: str, quote_volumes: np.ndarray) -> Dict[str, Optional[float]]:
+        """Compute quote-volume features if quoteVolume exists; otherwise return empty dict."""
+        if len(quote_volumes) == 0 or np.all(np.isnan(quote_volumes)):
+            return {}
+
+        volume_quote = float(quote_volumes[-1]) if not np.isnan(quote_volumes[-1]) else np.nan
+        volume_quote_sma_14 = self._calc_sma(quote_volumes, 14, include_current=False)
+        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma_14)
+
+        return {
+            "volume_quote": volume_quote,
+            "volume_quote_sma_14": volume_quote_sma_14,
+            "volume_quote_spike": volume_quote_spike,
+        }
 
     def _calc_atr_pct(self, symbol: str, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> Optional[float]:
         if len(highs) < period + 1:

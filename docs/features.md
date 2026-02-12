@@ -371,4 +371,15 @@ It does not pull data from scoring.
 
 ---
 
+## 18. Quote Volume (Thema 7)
+
+If Kline `quoteVolume` is present, compute:
+- `volume_quote`
+- `volume_quote_sma_14` (baseline excludes current candle)
+- `volume_quote_spike`
+
+If unavailable, quote-volume keys are omitted.
+
+---
+
 ## End of `features.md`
