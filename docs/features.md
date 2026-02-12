@@ -36,15 +36,6 @@ Optional future timeframes:
 
 Timeframes must not be mixed in the same feature without explicit definition.
 
-### Time-index convention (closed candles)
-
-All feature values are computed from the **last closed candle** `T` (not blindly from the latest array row).
-
-- `T = max(i where closeTime[i] <= asof_ts_ms)`
-- If no `asof_ts_ms` is provided, current runtime uses the last available kline index.
-
-This convention prevents intrabar drift and keeps snapshots replayable.
-
 ---
 
 ## 3. Lookback Requirements
@@ -168,10 +159,6 @@ Compute:
 
 On both 1d and 4h.
 
-Implementation convention (current):
-- EMA initialization starts with `SMA(period)` (not first-value bootstrap)
-- then recursive EMA update is applied over the remaining candles
-
 Trend inference:
 
 ```
@@ -203,10 +190,6 @@ Volatility measured via ATR:
 atr = ATR(14)
 atr_pct = atr / close
 ```
-
-Implementation convention (current):
-- ATR uses **Wilder smoothing** after ATR initialization
-- `atr_pct` is derived from this Wilder ATR and is expected to be non-negative
 
 Used for:
 - breakout context
