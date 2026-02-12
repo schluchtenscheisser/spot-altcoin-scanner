@@ -80,6 +80,20 @@ Reports are automatically committed to the repository.
 
 ---
 
+## Pull Request CI
+
+A dedicated GitHub Actions workflow (`.github/workflows/pr-ci.yml`) runs on every pull request targeting `main`.
+
+Current PR gate:
+- `pytest -q`
+
+Recommended repository setting (GitHub → Settings → Branches → `main`):
+- Enable **Require status checks to pass before merging**
+- Mark the **PR CI / pytest** check as required
+- (Optional) Enable **Require branches to be up to date before merging**
+
+---
+
 ## Example Output
 ```markdown
 # Spot Altcoin Scanner Report

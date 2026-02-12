@@ -167,6 +167,11 @@ This ensures the code works on first try."
 - Clean, descriptive commit messages
 - Format: `"Phase X: Feature description"`
 
+**PR Validation:**
+- Pull requests to `main` are validated by GitHub Actions workflow `.github/workflows/pr-ci.yml`
+- Required CI gate: `pytest -q`
+- Recommended branch rule: require status checks and up-to-date branches before merge
+
 **Future:**
 - Feature branches (after Phase 4)
 - Will be documented when activated

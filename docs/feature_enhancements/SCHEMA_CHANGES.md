@@ -53,3 +53,38 @@ Dieses Dokument protokolliert alle Änderungen an:
 
 ## Historie
 *(Neue Einträge kommen hier darunter)*
+
+### 2026-02-12 — schema_version v1.1 → v1.2 — QuoteVolume-Features ergänzt
+**PR:** (branch-local, Thema 7)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Feature-Output pro Timeframe ergänzt um:
+  - `volume_quote`
+  - `volume_quote_sma_14`
+  - `volume_quote_spike`
+- Semantik:
+  - Baseline exklusive aktuelle Kerze (`t-14 .. t-1`)
+  - Wenn `quoteVolume` in Klines fehlt, werden die Keys mit `NaN`/`None` ausgegeben.
+
+#### Warum?
+- Volume-/Liquidity-Signale sollen auf QuoteVolume basieren, wenn vorhanden (Thema 7).
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder, bestehende Keys unverändert).
+
+#### Migration / Vorgehen
+- Consumer können die neuen Keys optional lesen.
+- Alte Snapshots/Outputs ohne diese Keys bleiben weiterhin nutzbar.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.2",
+  "1d": {
+    "volume_quote": 205905.0,
+    "volume_quote_sma_14": 179745.0,
+    "volume_quote_spike": 1.1455
+  }
+}
+```
