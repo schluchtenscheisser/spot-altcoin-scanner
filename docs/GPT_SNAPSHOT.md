@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-12 17:05 UTC  
-**Commit:** `e6be321` (e6be321f7b0254141dd6b6bccf02b61ddcc19713)  
+**Generated:** 2026-02-12 17:44 UTC  
+**Commit:** `749938b` (749938b9ffb0b5e59792d22f2681cdb93345cc97)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -43,6 +43,7 @@
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
+| `scanner/pipeline/runtime_market_meta.py` | `RuntimeMarketMetaExporter` | - |
 | `scanner/pipeline/scoring/__init__.py` | - | - |
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
@@ -58,8 +59,8 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 27
-- Total Classes: 15
+- Total Modules: 28
+- Total Classes: 16
 - Total Functions: 27
 
 ---
@@ -3034,7 +3035,7 @@ class ExcelReportGenerator:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `0a33b689727c100e751cc922aab3250bebcb3cf1d3c53e1760d5d01b2b3168c5`
+**SHA256:** `e07633302865b89b2f25f0dd6904fb8a55e0776808c129c2169f022d2f71d812`
 
 ```python
 """
@@ -3061,6 +3062,7 @@ from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .snapshot import SnapshotManager
+from .runtime_market_meta import RuntimeMarketMetaExporter
 
 logger = logging.getLogger(__name__)
 
@@ -3105,17 +3107,30 @@ def run_pipeline(config: ScannerConfig) -> None:
     
     # Step 1: Fetch universe (MEXC Spot USDT)
     logger.info("\n[1/11] Fetching MEXC universe...")
-    universe = mexc.get_spot_usdt_symbols(use_cache=use_cache)
+    exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    exchange_info = mexc.get_exchange_info(use_cache=use_cache)
+
+    universe = []
+    for symbol_info in exchange_info.get("symbols", []):
+        if (
+            symbol_info.get("quoteAsset") == "USDT"
+            and symbol_info.get("isSpotTradingAllowed", False)
+            and symbol_info.get("status") == "1"
+        ):
+            universe.append(symbol_info["symbol"])
+
     logger.info(f"✓ Universe: {len(universe)} USDT pairs")
     
     # Get 24h tickers
     logger.info("  Fetching 24h tickers...")
+    tickers_24h_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     tickers = mexc.get_24h_tickers(use_cache=use_cache)
     ticker_map = {t['symbol']: t for t in tickers}
     logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
     
     # Step 2 & 3: Fetch market cap + Run mapping layer
     logger.info("\n[2-3/11] Fetching market cap & mapping...")
+    cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     cmc_listings = cmc.get_listings(use_cache=use_cache)
     cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
     logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
@@ -3249,6 +3264,23 @@ def run_pipeline(config: ScannerConfig) -> None:
         }
     )
     logger.info(f"✓ Snapshot: {snapshot_path}")
+
+    runtime_meta_exporter = RuntimeMarketMetaExporter(config)
+    runtime_meta_path = runtime_meta_exporter.export(
+        run_date=run_date,
+        asof_iso=asof_iso,
+        run_id=str(asof_ts_ms),
+        filtered_symbols=[entry['symbol'] for entry in filtered],
+        mapping_results=mapping_results,
+        exchange_info=exchange_info,
+        ticker_map=ticker_map,
+        features=features,
+        ohlcv_data=ohlcv_data,
+        exchange_info_ts_utc=exchange_info_ts_utc,
+        tickers_24h_ts_utc=tickers_24h_ts_utc,
+        listings_ts_utc=cmc_listings_ts_utc,
+    )
+    logger.info(f"✓ Runtime Market Meta: {runtime_meta_path}")
     
     # Summary
     logger.info("\n" + "=" * 80)
@@ -3268,6 +3300,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     if 'excel' in report_paths:
         logger.info(f"  Excel: {report_paths['excel']}")
     logger.info(f"  Snapshot: {snapshot_path}")
+    logger.info(f"  Runtime Market Meta: {runtime_meta_path}")
     logger.info("=" * 80)
 
 ```
@@ -4273,6 +4306,276 @@ Responsibilities:
 Backtests must be deterministic and snapshot-driven.
 """
 
+
+```
+
+### `scanner/pipeline/runtime_market_meta.py`
+
+**SHA256:** `141820c4f9c0998fbcb5580cb89b09a76922183ded4d24a59841428e81dee150`
+
+```python
+"""Runtime market metadata export for each pipeline run."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from ..clients.mapping import MappingResult
+from ..config import ScannerConfig
+from ..utils.io_utils import save_json
+from ..utils.time_utils import utc_now
+
+logger = logging.getLogger(__name__)
+
+
+class RuntimeMarketMetaExporter:
+    """Builds and writes runtime market metadata export JSON."""
+
+    def __init__(self, config: ScannerConfig | Dict[str, Any]):
+        if hasattr(config, "raw"):
+            self.config = config
+            snapshots_config = config.raw.get("snapshots", {})
+        else:
+            self.config = ScannerConfig(raw=config)
+            snapshots_config = config.get("snapshots", {})
+
+        self.runtime_dir = Path(snapshots_config.get("runtime_dir", "snapshots/runtime"))
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _to_float(value: Any) -> Optional[float]:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _to_int(value: Any) -> Optional[int]:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _build_exchange_symbol_map(exchange_info: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        return {
+            symbol_info.get("symbol"): symbol_info
+            for symbol_info in exchange_info.get("symbols", [])
+            if symbol_info.get("symbol")
+        }
+
+    @staticmethod
+    def _extract_filter_value(symbol_info: Dict[str, Any], filter_type: str, field: str) -> Any:
+        for item in symbol_info.get("filters", []):
+            if item.get("filterType") == filter_type:
+                return item.get(field)
+        return None
+
+    def _build_identity(self, mapping: MappingResult) -> Dict[str, Any]:
+        cmc_data = mapping.cmc_data or {}
+        quote_usd = cmc_data.get("quote", {}).get("USD", {})
+
+        market_cap = self._to_float(quote_usd.get("market_cap"))
+        fdv = self._to_float(quote_usd.get("fully_diluted_market_cap"))
+
+        platform = cmc_data.get("platform")
+        platform_obj = None
+        if isinstance(platform, dict):
+            token_address = platform.get("token_address")
+            platform_obj = {
+                "name": platform.get("name"),
+                "symbol": platform.get("symbol"),
+                "token_address": token_address,
+            }
+        else:
+            token_address = None
+
+        fdv_to_mcap = None
+        if fdv is not None and market_cap not in (None, 0):
+            fdv_to_mcap = fdv / market_cap
+
+        return {
+            "cmc_id": cmc_data.get("id"),
+            "name": cmc_data.get("name"),
+            "symbol": cmc_data.get("symbol"),
+            "slug": cmc_data.get("slug"),
+            "category": cmc_data.get("category"),
+            "tags": cmc_data.get("tags"),
+            "platform": platform_obj,
+            "is_token": bool(token_address),
+            "market_cap_usd": market_cap,
+            "circulating_supply": self._to_float(cmc_data.get("circulating_supply")),
+            "total_supply": self._to_float(cmc_data.get("total_supply")),
+            "max_supply": self._to_float(cmc_data.get("max_supply")),
+            "fdv_usd": fdv,
+            "fdv_to_mcap": fdv_to_mcap,
+            "rank": self._to_int(cmc_data.get("cmc_rank")),
+        }
+
+    def _build_symbol_info(self, symbol: str, exchange_symbol: Dict[str, Any]) -> Dict[str, Any]:
+        tick_size = self._extract_filter_value(exchange_symbol, "PRICE_FILTER", "tickSize")
+        step_size = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "stepSize")
+        min_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "minQty")
+        max_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "maxQty")
+
+        min_notional = self._extract_filter_value(exchange_symbol, "MIN_NOTIONAL", "minNotional")
+        max_notional = self._extract_filter_value(exchange_symbol, "NOTIONAL", "maxNotional")
+
+
+        return {
+            "mexc_symbol": symbol,
+            "base_asset": exchange_symbol.get("baseAsset"),
+            "quote_asset": exchange_symbol.get("quoteAsset"),
+            "status": exchange_symbol.get("status"),
+            "price_precision": self._to_int(exchange_symbol.get("quotePrecision") or exchange_symbol.get("priceScale")),
+            "quantity_precision": self._to_int(exchange_symbol.get("baseAssetPrecision") or exchange_symbol.get("quantityScale")),
+            "tick_size": tick_size,
+            "step_size": step_size,
+            "min_qty": self._to_float(min_qty),
+            "max_qty": self._to_float(max_qty),
+            "min_notional": self._to_float(min_notional),
+            "max_notional": self._to_float(max_notional),
+        }
+
+    def _build_ticker(self, ticker: Dict[str, Any]) -> Dict[str, Any]:
+        bid = self._to_float(ticker.get("bidPrice"))
+        ask = self._to_float(ticker.get("askPrice"))
+        mid = None
+        spread_pct = None
+
+        if bid is not None and ask is not None:
+            mid = (bid + ask) / 2
+            if mid != 0:
+                spread_pct = ((ask - bid) / mid) * 100
+
+        return {
+            "last_price": self._to_float(ticker.get("lastPrice")),
+            "high_24h": self._to_float(ticker.get("highPrice")),
+            "low_24h": self._to_float(ticker.get("lowPrice")),
+            "quote_volume_24h": self._to_float(ticker.get("quoteVolume")),
+            "price_change_pct_24h": self._to_float(ticker.get("priceChangePercent")),
+            "bid_price": bid,
+            "ask_price": ask,
+            "spread_pct": spread_pct,
+            "mid_price": mid,
+            "trades_24h": self._to_int(ticker.get("count")),
+            "base_volume_24h": self._to_float(ticker.get("volume")),
+        }
+
+    def _build_quality(
+        self,
+        symbol: str,
+        identity: Dict[str, Any],
+        symbol_info: Dict[str, Any],
+        has_scanner_features: bool,
+        has_ohlcv: bool,
+    ) -> Dict[str, Any]:
+        missing_fields: List[str] = []
+
+        if symbol_info.get("tick_size") in (None, ""):
+            missing_fields.append("tick_size")
+        if symbol_info.get("min_notional") is None:
+            missing_fields.append("min_notional")
+        if identity.get("platform") and not identity["platform"].get("token_address"):
+            missing_fields.append("token_address")
+
+        return {
+            "has_scanner_features": has_scanner_features,
+            "has_ohlcv": has_ohlcv,
+            "missing_fields": missing_fields,
+            "notes": None,
+        }
+
+    def export(
+        self,
+        run_date: str,
+        asof_iso: str,
+        run_id: str,
+        filtered_symbols: List[str],
+        mapping_results: Dict[str, MappingResult],
+        exchange_info: Dict[str, Any],
+        ticker_map: Dict[str, Dict[str, Any]],
+        features: Dict[str, Dict[str, Any]],
+        ohlcv_data: Dict[str, Dict[str, Any]],
+        exchange_info_ts_utc: str,
+        tickers_24h_ts_utc: str,
+        listings_ts_utc: str,
+    ) -> Path:
+        """Create and save runtime market metadata export."""
+        exchange_symbol_map = self._build_exchange_symbol_map(exchange_info)
+
+        coins: Dict[str, Dict[str, Any]] = {}
+        symbols = sorted(filtered_symbols)
+
+        for symbol in symbols:
+            mapping = mapping_results.get(symbol)
+            if not mapping or not mapping.mapped:
+                continue
+
+            exchange_symbol = exchange_symbol_map.get(symbol, {})
+            ticker = ticker_map.get(symbol, {})
+
+            identity = self._build_identity(mapping)
+            symbol_info = self._build_symbol_info(symbol, exchange_symbol)
+            ticker_24h = self._build_ticker(ticker)
+
+            quality = self._build_quality(
+                symbol=symbol,
+                identity=identity,
+                symbol_info=symbol_info,
+                has_scanner_features=symbol in features,
+                has_ohlcv=symbol in ohlcv_data,
+            )
+
+            coins[symbol] = {
+                "identity": identity,
+                "mexc": {
+                    "symbol_info": symbol_info,
+                    "ticker_24h": ticker_24h,
+                },
+                "quality": quality,
+            }
+
+        payload = {
+            "meta": {
+                "run_id": run_id,
+                "asof_utc": asof_iso,
+                "generated_at_utc": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "mexc": {
+                    "api_base": "https://api.mexc.com",
+                    "exchange_info_ts_utc": exchange_info_ts_utc,
+                    "tickers_24h_ts_utc": tickers_24h_ts_utc,
+                },
+                "cmc": {
+                    "listings_ts_utc": listings_ts_utc,
+                    "source": "CoinMarketCap",
+                },
+                "config": {
+                    "mcap_min_usd": self.config.market_cap_min,
+                    "mcap_max_usd": self.config.market_cap_max,
+                    "min_quote_volume_24h_usdt": self.config.min_quote_volume_24h,
+                },
+            },
+            "universe": {
+                "count": len(coins),
+                "symbols": list(coins.keys()),
+            },
+            "coins": coins,
+        }
+
+        output_path = self.runtime_dir / f"runtime_market_meta_{run_date}.json"
+        save_json(payload, output_path)
+
+        logger.info("Runtime market meta export saved: %s", output_path)
+        logger.info("Runtime market meta universe count: %s", payload["universe"]["count"])
+
+        return output_path
 
 ```
 
@@ -6828,4 +7131,4 @@ v1 provides the structural foundation.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-12 17:05 UTC_
+_Generated by GitHub Actions • 2026-02-12 17:44 UTC_
