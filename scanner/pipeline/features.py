@@ -181,9 +181,11 @@ class FeatureEngine:
         if len(data) < period:
             logger.warning(f"[{symbol}] insufficient data for EMA{period}")
             return np.nan
+
+        # Rulebook/Thema 4: EMA with SMA(period) initialization to reduce start bias.
         alpha = 2 / (period + 1)
-        ema = data[0]
-        for val in data[1:]:
+        ema = float(np.nanmean(data[:period]))
+        for val in data[period:]:
             ema = alpha * val + (1 - alpha) * ema
         return float(ema)
 
