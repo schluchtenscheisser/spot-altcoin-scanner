@@ -9,9 +9,7 @@ def test_quote_volume_features_return_nan_when_unavailable() -> None:
 
     actual = engine._calc_quote_volume_features("TESTUSDT", qv)
 
-    assert actual["volume_quote"] is None or np.isnan(actual["volume_quote"])
-    assert actual["volume_quote_sma_14"] is None or np.isnan(actual["volume_quote_sma_14"])
-    assert actual["volume_quote_spike"] is None or np.isnan(actual["volume_quote_spike"])
+    assert actual == {}
 
 
 def test_quote_volume_features_use_baseline_excluding_current() -> None:

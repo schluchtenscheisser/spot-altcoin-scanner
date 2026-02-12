@@ -371,14 +371,14 @@ It does not pull data from scoring.
 
 ---
 
-## 11. Quote Volume (Thema 7)
+## 18. Quote Volume (Thema 7)
 
 If Kline `quoteVolume` is present, compute:
 - `volume_quote`
 - `volume_quote_sma_14` (baseline excludes current candle)
 - `volume_quote_spike`
 
-If unavailable, emit `NaN`/`None` keys.
+If unavailable, quote-volume keys are omitted.
 
 ---
 

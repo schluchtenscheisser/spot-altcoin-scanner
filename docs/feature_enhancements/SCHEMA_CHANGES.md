@@ -65,7 +65,7 @@ Dieses Dokument protokolliert alle Änderungen an:
   - `volume_quote_spike`
 - Semantik:
   - Baseline exklusive aktuelle Kerze (`t-14 .. t-1`)
-  - Wenn `quoteVolume` in Klines fehlt, werden die Keys mit `NaN`/`None` ausgegeben.
+  - Wenn `quoteVolume` in Klines fehlt, werden diese Keys nicht ausgegeben (kein Crash).
 
 #### Warum?
 - Volume-/Liquidity-Signale sollen auf QuoteVolume basieren, wenn vorhanden (Thema 7).

@@ -154,7 +154,9 @@ class FeatureEngine:
         f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
 
         # Thema 7: QuoteVolume-Features (falls im Kline-Datensatz vorhanden)
-        f.update(self._calc_quote_volume_features(symbol, quote_volumes))
+        quote_features = self._calc_quote_volume_features(symbol, quote_volumes)
+        if quote_features:
+            f.update(quote_features)
 
         # Trend structure
         f["hh_20"] = bool(self._detect_higher_high(highs, 20))
@@ -207,13 +209,9 @@ class FeatureEngine:
 
 
     def _calc_quote_volume_features(self, symbol: str, quote_volumes: np.ndarray) -> Dict[str, Optional[float]]:
-        """Compute quote-volume features; return NaN-based placeholders if quoteVolume is unavailable."""
+        """Compute quote-volume features if quoteVolume exists; otherwise return empty dict."""
         if len(quote_volumes) == 0 or np.all(np.isnan(quote_volumes)):
-            return {
-                "volume_quote": np.nan,
-                "volume_quote_sma_14": np.nan,
-                "volume_quote_spike": np.nan,
-            }
+            return {}
 
         volume_quote = float(quote_volumes[-1]) if not np.isnan(quote_volumes[-1]) else np.nan
         volume_quote_sma_14 = self._calc_sma(quote_volumes, 14, include_current=False)

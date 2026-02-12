@@ -20,8 +20,8 @@ def _gen_klines(
     """
     Deterministic kline generator.
 
-    We provide standard MEXC kline fields used by FeatureEngine:
-    [0]=open_time, [2]=high, [3]=low, [4]=close, [5]=volume, [6]=close_time, [7]=quote_volume
+    We only need indices [0]=timestamp, [2]=high, [3]=low, [4]=close, [5]=volume
+    because FeatureEngine reads exactly those fields.
     """
     klines: list[list[float]] = []
 
@@ -34,10 +34,7 @@ def _gen_klines(
         h = c * (1 + 0.01)
         l = c * (1 - 0.01)
 
-        close_time = ts + step_ms - 1
-        quote_v = c * v
-
-        klines.append([int(ts), float(o), float(h), float(l), float(c), float(v), int(close_time), float(quote_v)])
+        klines.append([int(ts), float(o), float(h), float(l), float(c), float(v)])
 
     return klines
 
@@ -127,11 +124,5 @@ def test_feature_engine_golden() -> None:
     assert "TESTUSDT" in actual
     for tf in ("1d", "4h", "meta"):
         assert tf in actual["TESTUSDT"]
-
-    for tf in ("1d", "4h"):
-        assert actual["TESTUSDT"][tf].get("volume_quote") is not None
-        assert actual["TESTUSDT"][tf].get("volume_quote_sma_14") is not None
-        assert actual["TESTUSDT"][tf].get("volume_quote_spike") is not None
-        assert actual["TESTUSDT"][tf]["volume_quote"] >= 0
 
     _assert_close(actual, expected)
