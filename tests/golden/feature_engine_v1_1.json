@@ -45,6 +45,11 @@
       "volume_spike": 1.042622950819672
     },
     "meta": {
+      "asof_ts_ms": null,
+      "last_closed_idx": {
+        "1d": 59,
+        "4h": 59
+      },
       "last_update": 1705097600000,
       "symbol": "TESTUSDT"
     }

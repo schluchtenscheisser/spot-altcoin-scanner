@@ -22,6 +22,7 @@ from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .snapshot import SnapshotManager
+from .runtime_market_meta import RuntimeMarketMetaExporter
 
 logger = logging.getLogger(__name__)
 
@@ -66,17 +67,30 @@ def run_pipeline(config: ScannerConfig) -> None:
     
     # Step 1: Fetch universe (MEXC Spot USDT)
     logger.info("\n[1/11] Fetching MEXC universe...")
-    universe = mexc.get_spot_usdt_symbols(use_cache=use_cache)
+    exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    exchange_info = mexc.get_exchange_info(use_cache=use_cache)
+
+    universe = []
+    for symbol_info in exchange_info.get("symbols", []):
+        if (
+            symbol_info.get("quoteAsset") == "USDT"
+            and symbol_info.get("isSpotTradingAllowed", False)
+            and symbol_info.get("status") == "1"
+        ):
+            universe.append(symbol_info["symbol"])
+
     logger.info(f"✓ Universe: {len(universe)} USDT pairs")
     
     # Get 24h tickers
     logger.info("  Fetching 24h tickers...")
+    tickers_24h_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     tickers = mexc.get_24h_tickers(use_cache=use_cache)
     ticker_map = {t['symbol']: t for t in tickers}
     logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
     
     # Step 2 & 3: Fetch market cap + Run mapping layer
     logger.info("\n[2-3/11] Fetching market cap & mapping...")
+    cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     cmc_listings = cmc.get_listings(use_cache=use_cache)
     cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
     logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
@@ -210,6 +224,23 @@ def run_pipeline(config: ScannerConfig) -> None:
         }
     )
     logger.info(f"✓ Snapshot: {snapshot_path}")
+
+    runtime_meta_exporter = RuntimeMarketMetaExporter(config)
+    runtime_meta_path = runtime_meta_exporter.export(
+        run_date=run_date,
+        asof_iso=asof_iso,
+        run_id=str(asof_ts_ms),
+        filtered_symbols=[entry['symbol'] for entry in filtered],
+        mapping_results=mapping_results,
+        exchange_info=exchange_info,
+        ticker_map=ticker_map,
+        features=features,
+        ohlcv_data=ohlcv_data,
+        exchange_info_ts_utc=exchange_info_ts_utc,
+        tickers_24h_ts_utc=tickers_24h_ts_utc,
+        listings_ts_utc=cmc_listings_ts_utc,
+    )
+    logger.info(f"✓ Runtime Market Meta: {runtime_meta_path}")
     
     # Summary
     logger.info("\n" + "=" * 80)
@@ -229,4 +260,5 @@ def run_pipeline(config: ScannerConfig) -> None:
     if 'excel' in report_paths:
         logger.info(f"  Excel: {report_paths['excel']}")
     logger.info(f"  Snapshot: {snapshot_path}")
+    logger.info(f"  Runtime Market Meta: {runtime_meta_path}")
     logger.info("=" * 80)
