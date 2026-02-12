@@ -53,6 +53,8 @@ Minimum recommended lookbacks:
 
 Lookbacks must be configurable via `config.yml`.
 
+For volume baseline features (e.g. `volume_sma_14` used for `volume_spike`), the baseline is computed excluding the current candle: `mean(volume[t-14 .. t-1])`.
+
 ---
 
 ## 4. Input Data Requirements
@@ -104,6 +106,16 @@ low_n = min(low[t-n .. t])
 ```
 
 Used for breakout logic + pullbacks + context.
+
+**Baseline convention (Thema 6):**
+For breakout baselines, resistance/support windows are computed **excluding the current candle** (`t`).
+
+```
+prior_high_n = max(high[t-n .. t-1])
+prior_low_n  = min(low[t-n .. t-1])
+```
+
+This avoids look-ahead bias in baseline features such as breakout distance.
 
 ---
 
