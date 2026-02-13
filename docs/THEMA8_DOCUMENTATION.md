@@ -25,5 +25,5 @@ Diese Datei bündelt die für Thema 8 bestätigten Konventionen in kompakter For
 - Wenn nicht vorhanden, bleiben diese keys im Feature-Output aus.
 
 ## 5) Schema-/Historienhinweis
-- Historische Schema-/Semantikänderungen sind in `docs/feature_enhancements/SCHEMA_CHANGES.md` dokumentiert.
+- Historische Schema-/Semantikänderungen sind in `docs/SCHEMA_CHANGES.md` dokumentiert.
 - Diese Thema-8-Datei dient als kompakte, konfliktarme Referenz für die laufende Entwicklung.
