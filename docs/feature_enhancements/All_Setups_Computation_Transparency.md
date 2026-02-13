@@ -67,9 +67,11 @@ HL_20 = min(L\_(t-4:t)) \> min(L\_(t-20:t-5))
 
 ## 2.6 Drawdown
 
-ATH_t = max(C_1 ... C_t)
+Lookback L = config.features.drawdown_lookback_days (default 365)
 
-Drawdown = ((C_t / ATH_t) - 1) \* 100
+ATH_t = max(C_(t-L+1) ... C_t)
+
+Drawdown = ((C_t / ATH_t) - 1) * 100
 
 ------------------------------------------------------------------------
 
@@ -81,12 +83,19 @@ drawdown = 0.30 base = 0.25 reclaim = 0.25 volume = 0.20
 
 Raw:
 
-S_raw = 0.30 \* DrawdownScore + 0.25 \* BaseScore + 0.25 \*
-ReclaimScore + 0.20 \* VolumeScore
+S_raw = 0.30 * DrawdownScore + 0.25 * BaseScore + 0.25 * ReclaimScore + 0.20 * VolumeScore
+
+BaseScore source:
+
+BaseScore = clamp(feature_engine.base_score, 0, 100)
 
 Penalties:
 
-DistEMA50 \> 15 → *0.7 quote_volume_24h \< 500000 → *0.8
+DistEMA50 > config.scoring.reversal.penalties.overextension_threshold_pct
+→ *config.scoring.reversal.penalties.overextension_factor
+
+quote_volume_24h < config.scoring.reversal.penalties.low_liquidity_threshold
+→ *config.scoring.reversal.penalties.low_liquidity_factor
 
 Final:
 
@@ -102,12 +111,15 @@ range = 0.30 break_strength = 0.30 volume = 0.20 momentum = 0.20
 
 Raw:
 
-S_raw = 0.30 \* RangeScore + 0.30 \* BreakStrengthScore + 0.20 \*
-VolumeScore + 0.20 \* MomentumScore
+S_raw = 0.30 * RangeScore + 0.30 * BreakStrengthScore + 0.20 * VolumeScore + 0.20 * MomentumScore
 
-Penalty:
+MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
 
-DistEMA50 \> 20 → \*0.7
+Penalties (config-driven):
+
+overextension -> *config.scoring.breakout.penalties.overextension_factor
+
+low liquidity -> *config.scoring.breakout.penalties.low_liquidity_factor
 
 Final:
 
@@ -123,12 +135,17 @@ trend = 0.30 depth = 0.30 structure = 0.20 reacceleration = 0.20
 
 Raw:
 
-S_raw = 0.30 \* TrendScore + 0.30 \* DepthScore + 0.20 \*
-StructureScore + 0.20 \* ReaccelerationScore
+S_raw = 0.30 * TrendScore + 0.30 * DepthScore + 0.20 * StructureScore + 0.20 * ReaccelerationScore
 
-Penalty:
+Reacceleration momentum component uses continuous scaling:
 
-VolumeSpike \< 1.0 → \*0.8
+MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
+
+Penalties (config-driven):
+
+broken trend -> *config.scoring.pullback.penalties.broken_trend_factor
+
+low liquidity -> *config.scoring.pullback.penalties.low_liquidity_factor
 
 Final:
 

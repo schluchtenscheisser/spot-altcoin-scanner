@@ -115,10 +115,10 @@ Small, readable, deterministic.
 **Good:**
 
 ```
-Status: Reversal score implemented, backtest pending.
-Open tasks: add volume penalties.
-Decision pending: ATR threshold calibration.
-Warnings: breakout late-stage penalty too weak.
+Status: Current branch goal and completion level.
+Open tasks: explicit TODO list with owners/priority.
+Decision pending: unresolved threshold/logic decisions.
+Warnings: known risks and reproducibility caveats.
 ```
 
 **Bad:**

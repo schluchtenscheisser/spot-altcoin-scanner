@@ -2,7 +2,7 @@
 
 ## Global (gilt für alle Features)
 - **Nur geschlossene Kerzen verwenden**
-  - `T = last_index_where(closeTime < snapshotTime)` (nicht stumpf `[-1]`)
+  - `T = last_index_where(closeTime <= snapshotTime)` (nicht stumpf `[-1]`)
   - Bei Snapshot `04:10 UTC`: i.d.R. `4h`-Kerze bis `04:00 UTC` geschlossen; `1d`-Kerze vom Vortag (`00:00 UTC`) geschlossen.
 - **Kline-Felder erweitern (ohne neue Quelle)**: `open`, `closeTime`, ggf. `quoteVolume` aus der Kline-Response mitziehen (laut API vorhanden, aktuell nicht genutzt).
 - **Rolling-24h Ticker-Daten nicht mit Candle-„Day“ verwechseln**

@@ -26,6 +26,20 @@ There is **no global fused score**.
 
 ---
 
+## 1.1 Canonical v1.3 Notes
+
+The canonical implementation is in:
+- `scanner/pipeline/scoring/breakout.py`
+- `scanner/pipeline/scoring/pullback.py`
+- `scanner/pipeline/scoring/reversal.py`
+
+Critical canonical rules:
+- Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
+- Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
+- Penalties/thresholds are config-driven via `scoring.*.penalties` and `scoring.*.momentum`.
+
+---
+
 ## 2. Shared Scoring Principles
 
 ### 2.1 Independence
