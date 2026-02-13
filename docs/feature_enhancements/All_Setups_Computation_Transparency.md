@@ -112,12 +112,14 @@ range = 0.30 break_strength = 0.30 volume = 0.20 momentum = 0.20
 Raw:
 
 S_raw = 0.30 * RangeScore + 0.30 * BreakStrengthScore + 0.20 * VolumeScore + 0.20 * MomentumScore
-
+ 
 MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
 
-Penalty:
+Penalties (config-driven):
 
-DistEMA50 \> 20 → \*0.7
+overextension -> *config.scoring.breakout.penalties.overextension_factor
+
+low liquidity -> *config.scoring.breakout.penalties.low_liquidity_factor
 
 Final:
 
@@ -139,9 +141,9 @@ Reacceleration momentum component uses continuous scaling:
 
 MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
 
-Penalty:
-
-VolumeSpike \< 1.0 → \*0.8
+Penalties (config-driven):
+- broken trend -> *config.scoring.pullback.penalties.broken_trend_factor
+- low liquidity -> *config.scoring.pullback.penalties.low_liquidity_factor
 
 Final:
 

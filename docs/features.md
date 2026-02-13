@@ -85,9 +85,9 @@ r_n = close[t] / close[t-n] - 1
 ```
 
 v1 windows:
-- `r_1d`
-- `r_3d`
-- `r_7d`
+- `r_1`
+- `r_3`
+- `r_7`
 
 Optional future:
 - `r_14d`, `r_30d`
@@ -245,6 +245,21 @@ Rebound detected via HH/HL + volume + EMA recapture.
 ## 10. Reversal Features
 
 Reversal decomposed into:
+
+Bounded Drawdown (canonical):
+
+```
+L = config.features.drawdown_lookback_days  # default: 365
+ath_L = max(close[t-L+1 .. t])
+drawdown_from_ath = (close[t] / ath_L - 1) * 100
+```
+
+Canonical Reversal base input:
+
+```
+base_score = clamp(feature_engine_base_score, 0, 100)
+```
+
 
 1. **Drawdown Context**  
    coin must be down significantly from ATH
