@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-13 12:28 UTC  
+**Last Updated:** 2026-02-13 13:17 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 28
 - **Total Classes:** 16
-- **Total Functions:** 144
+- **Total Functions:** 145
 
 ---
 
@@ -128,9 +128,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `FeatureEngine`
 
-**Functions:** `__init__, _calc_atr_pct, _calc_breakout_distance, _calc_drawdown, _calc_ema, _calc_quote_volume_features, _calc_return, _calc_sma, _calc_volume_spike, _compute_timeframe_features, _convert_to_native_types, _detect_base, _detect_higher_high, _detect_higher_low, _get_last_closed_idx, compute_all`
+**Functions:** `__init__, _calc_atr_pct, _calc_breakout_distance, _calc_drawdown, _calc_ema, _calc_quote_volume_features, _calc_return, _calc_sma, _calc_volume_spike, _compute_timeframe_features, _config_get, _convert_to_native_types, _detect_base, _detect_higher_high, _detect_higher_low, _get_last_closed_idx, compute_all`
 
-**Module Variables:** `alpha, ath, atr, base_score, close_time, closes, converted, ema, f, highs` _(+25 more)_
+**Module Variables:** `alpha, ath, atr, base_score, close_time, closes, converted, current, drawdown_lookback, ema` _(+30 more)_
 
 **Imports:** `logging, numpy, typing`
 
@@ -196,9 +196,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_dist, breakout_score, dist, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger` _(+18 more)_
+**Module Variables:** `breakout_curve, breakout_dist, breakout_score, dist, dist_ema20, dist_ema50, f1d, f4h, final_score, flags` _(+20 more)_
 
-**Imports:** `logging, numpy, typing`
+**Imports:** `logging, typing`
 
 ---
 
@@ -208,7 +208,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
 
-**Module Variables:** `dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, max_spike, penalties, pullback_score` _(+17 more)_
+**Module Variables:** `dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, max_spike, momentum_cfg, penalties` _(+19 more)_
 
 **Imports:** `logging, typing`
 
@@ -220,7 +220,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _generate_reasons, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
 
-**Module Variables:** `atr, base_detected, base_score, dd, dd_pct, dist_ema20, dist_ema50, drawdown_score, excess, f1d` _(+22 more)_
+**Module Variables:** `base_score, dd, dd_pct, dist_ema20, dist_ema50, drawdown_score, excess, f1d, f4h, final_score` _(+23 more)_
 
 **Imports:** `logging, typing`
 
@@ -419,7 +419,8 @@ _This section shows which functions call which other functions, helping identify
 | `_calc_return` | — | `error`, `warning` |
 | `_calc_sma` | — | `nanmean` |
 | `_calc_volume_spike` | — | `isnan`, `warning` |
-| `_compute_timeframe_features` | `_calc_atr_pct`, `_calc_breakout_distance`, `_calc_drawdown`, `_calc_ema`, `_calc_quote_volume_features`, `_calc_return`, `_calc_sma`, `_calc_volume_spike`, `_convert_to_native_types`, `_detect_base`, `_detect_higher_high`, `_detect_higher_low` | `array`, `get`, `update`, `warning` |
+| `_compute_timeframe_features` | `_calc_atr_pct`, `_calc_breakout_distance`, `_calc_drawdown`, `_calc_ema`, `_calc_quote_volume_features`, `_calc_return`, `_calc_sma`, `_calc_volume_spike`, `_config_get`, `_convert_to_native_types`, `_detect_base`, `_detect_higher_high`, `_detect_higher_low` | `array`, `get`, `update`, `warning` |
+| `_config_get` | — | `get` |
 | `_convert_to_native_types` | — | `isnan`, `items` |
 | `_detect_base` | — | `nanmax`, `nanmean`, `nanmin`, `warning` |
 | `_detect_higher_high` | — | `nanmax` |
@@ -472,40 +473,40 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `get`, `info` |
+| `__init__` | — | `get` |
 | `_generate_reasons` | — | `append`, `get` |
-| `_score_breakout` | — | `get`, `isnan` |
+| `_score_breakout` | — | `get` |
 | `_score_momentum` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get` |
-| `score_breakouts` | `score` | `BreakoutScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+| `score_breakouts` | `score` | `BreakoutScorer`, `append`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/pullback.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `get`, `info` |
+| `__init__` | — | `get` |
 | `_generate_reasons` | — | `append`, `get` |
 | `_score_pullback` | — | `get` |
 | `_score_rebound` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get` |
-| `score_pullbacks` | `score` | `PullbackScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+| `score_pullbacks` | `score` | `PullbackScorer`, `append`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/reversal.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `get`, `info` |
+| `__init__` | — | `get` |
 | `_generate_reasons` | — | `append`, `get` |
 | `_score_base` | — | `get` |
 | `_score_drawdown` | — | `get` |
 | `_score_reclaim` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get` |
-| `score_reversals` | `score` | `ReversalScorer`, `append`, `error`, `get`, `info`, `items`, `sort` |
+| `score_reversals` | `score` | `ReversalScorer`, `append`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/shortlist.py
 
@@ -583,7 +584,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/pipeline/features.py` | 16 | 32 | 48 | 🔴 High |
+| `scanner/pipeline/features.py` | 17 | 33 | 50 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 0 | 35 | 35 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
@@ -592,9 +593,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
-| `scanner/pipeline/scoring/breakout.py` | 6 | 18 | 24 | 🔴 High |
-| `scanner/pipeline/scoring/pullback.py` | 6 | 17 | 23 | 🔴 High |
-| `scanner/pipeline/scoring/reversal.py` | 6 | 17 | 23 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 6 | 15 | 21 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 6 | 15 | 21 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 6 | 15 | 21 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 20 | 21 | 🔴 High |
 | `scanner/pipeline/filters.py` | 7 | 10 | 17 | ⚠️ Medium |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
@@ -624,4 +625,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-13 12:28 UTC_
+_Generated by GitHub Actions • 2026-02-13 13:17 UTC_
