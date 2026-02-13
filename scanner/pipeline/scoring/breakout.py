@@ -30,7 +30,28 @@ class BreakoutScorer:
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
-        self.weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+        default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+        self.weights = self._load_weights(scoring_cfg, default_weights)
+
+
+    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
+        cfg_weights = scoring_cfg.get("weights")
+        if not cfg_weights:
+            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
+            return default_weights
+
+        mapped = {
+            "breakout": cfg_weights.get("breakout", cfg_weights.get("price_break")),
+            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
+            "trend": cfg_weights.get("trend", cfg_weights.get("volatility_context")),
+            "momentum": cfg_weights.get("momentum"),
+        }
+        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
+        total = sum(merged.values())
+        if total <= 0:
+            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
+            return default_weights
+        return {k: v / total for k, v in merged.items()}
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -60,15 +81,18 @@ class BreakoutScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
-        final_score = raw_score
+        penalty_multiplier = 1.0
         for _, factor in penalties:
-            final_score *= factor
-        final_score = max(0.0, min(100.0, final_score))
+            penalty_multiplier *= factor
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags)
 
         return {
             "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
             "components": {
                 "breakout": round(breakout_score, 2),
                 "volume": round(volume_score, 2),
