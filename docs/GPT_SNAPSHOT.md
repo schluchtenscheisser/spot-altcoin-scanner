@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-13 20:24 UTC  
-**Commit:** `385de9c` (385de9c492fd03bc2e23adbd549a0c391ab0897c)  
+**Generated:** 2026-02-13 21:39 UTC  
+**Commit:** `7deef3b` (7deef3b000b9501bb68355e8b66f5f92e9023dea)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -2488,7 +2488,7 @@ def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
 
 ### `scanner/pipeline/shortlist.py`
 
-**SHA256:** `bb87c2b8206482deb918d7c8cb374d43babe7dc2d60c7a48b4f32d14c98afa82`
+**SHA256:** `c1d072e6fad5550b342acbad20e3abbf02d01a41ba4d2059754cb51f2da0c4f0`
 
 ```python
 """
@@ -2516,9 +2516,10 @@ class ShortlistSelector:
             config: Config dict with 'shortlist' section
         """
         self.config = config.get('shortlist', {})
-        
+        general_cfg = config.get('general', {})
+
         # Default: Top 100 by volume
-        self.max_size = self.config.get('max_size', 100)
+        self.max_size = int(general_cfg.get('shortlist_size', self.config.get('max_size', 100)))
         
         # Minimum size (even if fewer pass filters)
         self.min_size = self.config.get('min_size', 10)
@@ -2607,7 +2608,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `63103cc1fa6aca7eb81ca58efc96e61ee4ab3c32ba1271d98f21d847d58c73e4`
+**SHA256:** `c98f26ac6b9b5a38848ce7d5fa4620376e7b2dba1408b754694ad563cf4aef48`
 
 ```python
 """
@@ -2636,21 +2637,46 @@ class UniverseFilters:
         Args:
             config: Config dict with 'filters' section
         """
-        self.config = config.get('filters', {})
-        
+        legacy_filters = config.get('filters', {})
+        universe_cfg = config.get('universe_filters', {})
+        exclusions_cfg = config.get('exclusions', {})
+
+        mcap_cfg = universe_cfg.get('market_cap', {})
+        volume_cfg = universe_cfg.get('volume', {})
+        history_cfg = universe_cfg.get('history', {})
+
         # Market Cap bounds (in USD)
-        self.mcap_min = self.config.get('mcap_min', 100_000_000)  # 100M
-        self.mcap_max = self.config.get('mcap_max', 3_000_000_000)  # 3B
-        
+        self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
+        self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
+
         # Liquidity (24h volume in USDT)
-        self.min_volume_24h = self.config.get('min_volume_24h', 1_000_000)  # 1M
-        
-        # Exclusion patterns
-        self.exclusion_patterns = self.config.get('exclusion_patterns', [
-            'USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD',  # Stablecoins
-            'WBTC', 'WETH', 'WBNB',  # Wrapped tokens
-            'UP', 'DOWN', 'BULL', 'BEAR',  # Leveraged tokens
-        ])
+        self.min_volume_24h = volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 1_000_000))
+
+        # Minimum 1d history used by OHLCV filtering step.
+        self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
+
+        self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
+
+        default_patterns = {
+            'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
+            'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
+            'leveraged_patterns': ['UP', 'DOWN', 'BULL', 'BEAR'],
+            'synthetic_patterns': [],
+        }
+
+        if legacy_filters.get('exclusion_patterns'):
+            self.exclusion_patterns = [str(p).upper() for p in legacy_filters['exclusion_patterns']]
+        else:
+            self.exclusion_patterns = []
+            if exclusions_cfg.get('exclude_stablecoins', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+            if exclusions_cfg.get('exclude_wrapped_tokens', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+            if exclusions_cfg.get('exclude_leveraged_tokens', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
+                self.exclusion_patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            self.exclusion_patterns = [str(p).upper() for p in self.exclusion_patterns]
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
@@ -3353,7 +3379,7 @@ def run_pipeline(config: ScannerConfig) -> None:
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `3cef1cf5ad3358267d7f88ae27875f01c944c4d1934afdf531786fc7e7dcc5bc`
+**SHA256:** `3c3aeb814350adf794ef1ff63900b987b98d7b97e6a24feabd625eb836883796`
 
 ```python
 """
@@ -3376,6 +3402,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureEngine:
     """Computes technical features from OHLCV data (v1.3 – critical findings remediation)."""
 
@@ -3394,6 +3421,20 @@ class FeatureEngine:
             if current is None:
                 return default
         return current
+
+    def _get_volume_period_for_timeframe(self, timeframe: str) -> int:
+        periods_cfg = self._config_get(["features", "volume_sma_periods"], None)
+        if isinstance(periods_cfg, dict):
+            tf_period = periods_cfg.get(timeframe)
+            if tf_period is not None:
+                return int(tf_period)
+
+        legacy_period = self._config_get(["features", "volume_sma_period"], None)
+        if legacy_period is not None:
+            return int(legacy_period)
+
+        logger.warning("Using legacy default volume_sma_period=14; please define config.features.volume_sma_periods")
+        return 14
 
     # -------------------------------------------------------------------------
     # Main entry point
@@ -3445,10 +3486,10 @@ class FeatureEngine:
                 logger.error(f"Failed to compute features for {symbol}: {e}")
         logger.info(f"Features computed for {len(results)}/{total} symbols")
         return results
-        
+
     # -------------------------------------------------------------------------
     # Helper Funktion
-    # -------------------------------------------------------------------------    
+    # -------------------------------------------------------------------------
     def _get_last_closed_idx(self, klines: List[List], asof_ts_ms: Optional[int]) -> int:
         """
         Returns index of the last candle with closeTime <= asof_ts_ms.
@@ -3471,7 +3512,7 @@ class FeatureEngine:
                 return i
 
         return -1
-        
+
     # -------------------------------------------------------------------------
     # Timeframe feature computation
     # -------------------------------------------------------------------------
@@ -3492,8 +3533,7 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] no closed candles found for timeframe={timeframe}")
             return {}
 
-        # closed-only slice
-        klines = klines[: last_closed_idx + 1]    
+        klines = klines[: last_closed_idx + 1]
         closes = np.array([k[4] for k in klines], dtype=float)
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
@@ -3518,15 +3558,18 @@ class FeatureEngine:
         f["dist_ema50_pct"] = ((closes[-1] / f["ema_50"]) - 1) * 100 if f.get("ema_50") else np.nan
 
         f["atr_pct"] = self._calc_atr_pct(symbol, highs, lows, closes, 14)
-        # Baseline-Konvention (Thema 6): baseline-Fenster schließt current candle aus.
-        # Für volume_sma_14 bedeutet das: mean(volume[T-14 .. T-1]).
-        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
-        f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
 
-        # Thema 7: QuoteVolume-Features (falls im Kline-Datensatz vorhanden)
-        quote_features = self._calc_quote_volume_features(symbol, quote_volumes)
-        if quote_features:
-            f.update(quote_features)
+        # Phase 1: timeframe-specific volume baseline period (include_current=False baseline)
+        volume_period = self._get_volume_period_for_timeframe(timeframe)
+        f["volume_sma"] = self._calc_sma(volumes, volume_period, include_current=False)
+        f["volume_sma_period"] = int(volume_period)
+        f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma"])
+
+        # Backward compatibility keys
+        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
+
+        # Quote volume features (with same period by timeframe + legacy key)
+        f.update(self._calc_quote_volume_features(symbol, quote_volumes, volume_period))
 
         # Trend structure
         f["hh_20"] = bool(self._detect_higher_high(highs, 20))
@@ -3538,8 +3581,12 @@ class FeatureEngine:
         drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
         f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
 
-        # Base detection
-        f["base_score"] = self._detect_base(symbol, closes, lows, 30) if timeframe == "1d" else np.nan
+        # Phase 2: Base detection (1d only, config-driven)
+        if timeframe == "1d":
+            base_features = self._detect_base(symbol, closes, lows)
+            f.update(base_features)
+        else:
+            f["base_score"] = np.nan
 
         return self._convert_to_native_types(f)
 
@@ -3561,7 +3608,6 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] insufficient data for EMA{period}")
             return np.nan
 
-        # Rulebook/Thema 4: EMA with SMA(period) initialization to reduce start bias.
         alpha = 2 / (period + 1)
         ema = float(np.nanmean(data[:period]))
         for val in data[period:]:
@@ -3571,29 +3617,38 @@ class FeatureEngine:
     def _calc_sma(self, data: np.ndarray, period: int, include_current: bool = True) -> Optional[float]:
         if include_current:
             return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
-        # Baseline exklusive current candle: [T-period .. T-1]
         return float(np.nanmean(data[-period-1:-1])) if len(data) >= (period + 1) else np.nan
 
     def _calc_volume_spike(self, symbol: str, volumes: np.ndarray, sma: Optional[float]) -> float:
         if sma is None or np.isnan(sma) or sma == 0:
-            logger.warning(f"[{symbol}] volume_spike skipped (SMA invalid)")
-            return np.nan
+            logger.warning(f"[{symbol}] volume_spike fallback=1.0 (SMA invalid)")
+            return 1.0
         return float(volumes[-1] / sma)
 
-
-    def _calc_quote_volume_features(self, symbol: str, quote_volumes: np.ndarray) -> Dict[str, Optional[float]]:
-        """Compute quote-volume features if quoteVolume exists; otherwise return empty dict."""
+    def _calc_quote_volume_features(
+        self,
+        symbol: str,
+        quote_volumes: np.ndarray,
+        period: int,
+    ) -> Dict[str, Optional[float]]:
         if len(quote_volumes) == 0 or np.all(np.isnan(quote_volumes)):
-            return {}
+            return {
+                "volume_quote": None,
+                "volume_quote_sma": None,
+                "volume_quote_spike": None,
+                "volume_quote_sma_14": None,
+            }
 
         volume_quote = float(quote_volumes[-1]) if not np.isnan(quote_volumes[-1]) else np.nan
+        volume_quote_sma = self._calc_sma(quote_volumes, period, include_current=False)
+        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma)
         volume_quote_sma_14 = self._calc_sma(quote_volumes, 14, include_current=False)
-        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma_14)
 
         return {
             "volume_quote": volume_quote,
-            "volume_quote_sma_14": volume_quote_sma_14,
+            "volume_quote_sma": volume_quote_sma,
             "volume_quote_spike": volume_quote_spike,
+            "volume_quote_sma_14": volume_quote_sma_14,
         }
 
     def _calc_atr_pct(self, symbol: str, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> Optional[float]:
@@ -3601,7 +3656,6 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] insufficient candles for ATR{period}")
             return np.nan
 
-        # Rulebook/Thema 5: Wilder ATR smoothing (not rolling SMA of last TR window).
         tr = [
             max(
                 highs[i] - lows[i],
@@ -3611,7 +3665,6 @@ class FeatureEngine:
             for i in range(1, len(highs))
         ]
 
-        # ATR[p] = mean(TR[1..p]), then recursive Wilder update.
         atr = float(np.nanmean(tr[:period]))
         for tr_val in tr[period:]:
             atr = ((atr * (period - 1)) + tr_val) / period
@@ -3623,8 +3676,6 @@ class FeatureEngine:
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
-        # Resistance-Baseline exklusive current candle:
-        # prior_high = max(high[T-lookback .. T-1])
         if len(highs) < lookback + 1:
             logger.warning(f"[{symbol}] insufficient candles for breakout_dist_{lookback}")
             return np.nan
@@ -3656,17 +3707,61 @@ class FeatureEngine:
             return False
         return bool(np.nanmin(lows[-5:]) > np.nanmin(lows[-lookback:-5]))
 
-    def _detect_base(self, symbol: str, closes: np.ndarray, lows: np.ndarray, lookback: int = 30) -> Optional[float]:
-        if len(closes) < lookback:
+    def _detect_base(self, symbol: str, closes: np.ndarray, lows: np.ndarray) -> Dict[str, Optional[float]]:
+        lookback = int(self._config_get(["scoring", "reversal", "base_lookback_days"], 45))
+        recent_days = int(self._config_get(["scoring", "reversal", "min_base_days_without_new_low"], 10))
+        max_new_low_pct = float(
+            self._config_get(["scoring", "reversal", "max_allowed_new_low_percent_vs_base_low"], 3.0)
+        )
+
+        if lookback <= 0 or recent_days <= 0 or recent_days >= lookback:
+            logger.warning(
+                f"[{symbol}] invalid base config (lookback={lookback}, recent_days={recent_days}); using defaults"
+            )
+            lookback = 45
+            recent_days = 10
+            max_new_low_pct = 3.0
+
+        if len(closes) < lookback or len(lows) < lookback:
             logger.warning(f"[{symbol}] insufficient candles for base detection")
-            return np.nan
-        recent_low = np.nanmin(lows[-lookback//3:])
-        prior_low = np.nanmin(lows[-lookback:-lookback//3])
-        no_new_lows = recent_low >= prior_low
-        price_range = (np.nanmax(closes[-lookback:]) - np.nanmin(closes[-lookback:])) / np.nanmean(closes[-lookback:]) * 100
-        stability_score = max(0.0, 100.0 - price_range)
-        base_score = stability_score if no_new_lows else stability_score / 2
-        return float(base_score)
+            return {
+                "base_score": np.nan,
+                "base_low": np.nan,
+                "base_recent_low": np.nan,
+                "base_range_pct": np.nan,
+                "base_no_new_lows_pass": np.nan,
+            }
+
+        window_closes = closes[-lookback:]
+        window_lows = lows[-lookback:]
+
+        older_lows = window_lows[:-recent_days]
+        recent_lows = window_lows[-recent_days:]
+        recent_closes = window_closes[-recent_days:]
+
+        base_low = float(np.nanmin(older_lows))
+        recent_low = float(np.nanmin(recent_lows))
+
+        tol = max_new_low_pct / 100.0
+        no_new_lows_pass = bool(recent_low >= (base_low * (1 - tol)))
+
+        recent_close_min = float(np.nanmin(recent_closes))
+        recent_close_max = float(np.nanmax(recent_closes))
+        if recent_close_min <= 0:
+            range_pct = np.nan
+        else:
+            range_pct = float(((recent_close_max - recent_close_min) / recent_close_min) * 100.0)
+
+        stability_score = 0.0 if np.isnan(range_pct) else max(0.0, 100.0 - range_pct)
+        base_score = stability_score if no_new_lows_pass else 0.0
+
+        return {
+            "base_score": float(base_score),
+            "base_low": base_low,
+            "base_recent_low": recent_low,
+            "base_range_pct": range_pct,
+            "base_no_new_lows_pass": no_new_lows_pass,
+        }
 
     # -------------------------------------------------------------------------
     # Utility
@@ -4214,7 +4309,7 @@ class ReportGenerator:
 
 ### `scanner/pipeline/ohlcv.py`
 
-**SHA256:** `f907114a23d31918243cb948d0cdc911f5b1f9d7c4f33be8fec6de699f394261`
+**SHA256:** `62b13a3d12db52a87562feaf50c15b72d195e9ce265ab0aad9cb5e92bc489749`
 
 ```python
 """
@@ -4226,11 +4321,9 @@ Supports multiple timeframes with caching.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
-import pandas as pd
 
-# 🔹 Neu: zentralisierte Rohdaten-Speicherung
 try:
     from scanner.utils.raw_collector import collect_raw_ohlcv
 except ImportError:
@@ -4241,102 +4334,82 @@ logger = logging.getLogger(__name__)
 
 class OHLCVFetcher:
     """Fetches and caches OHLCV data for symbols."""
-    
+
     def __init__(self, mexc_client, config: Dict[str, Any]):
-        """
-        Initialize OHLCV fetcher.
-        
-        Args:
-            mexc_client: Instance of MEXCClient
-            config: Config dict with 'ohlcv' section OR ScannerConfig object
-        """
         self.mexc = mexc_client
-        
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            # It's a ScannerConfig object
-            self.timeframes = config.raw.get('ohlcv', {}).get('timeframes', ['1d', '4h'])
-            self.lookback = config.raw.get('ohlcv', {}).get('lookback', {'1d': 120, '4h': 180})
-            self.min_candles = config.raw.get('ohlcv', {}).get('min_candles', {'1d': 60, '4h': 90})
-        else:
-            # It's a dict
-            ohlcv_config = config.get('ohlcv', {})
-            self.timeframes = ohlcv_config.get('timeframes', ['1d', '4h'])
-            self.lookback = ohlcv_config.get('lookback', {'1d': 120, '4h': 180})
-            self.min_candles = ohlcv_config.get('min_candles', {'1d': 60, '4h': 90})
-        
-        logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}")
-    
-    def fetch_all(
-        self,
-        shortlist: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Fetch OHLCV for all symbols in shortlist.
-        
-        Args:
-            shortlist: List of symbol dicts with 'symbol' key
-        
-        Returns:
-            Dict mapping symbol -> timeframe -> OHLCV data
-            {
-                'BTCUSDT': {
-                    '1d': [...],
-                    '4h': [...]
-                },
-                ...
-            }
-        """
+        root = config.raw if hasattr(config, 'raw') else config
+
+        ohlcv_config = root.get('ohlcv', {})
+        general_cfg = root.get('general', {})
+        history_cfg = root.get('universe_filters', {}).get('history', {})
+
+        self.timeframes = ohlcv_config.get('timeframes', ['1d', '4h'])
+
+        lookback_1d = int(general_cfg.get('lookback_days_1d', 120))
+        lookback_4h = int(general_cfg.get('lookback_days_4h', 30)) * 6
+        self.lookback = {
+            '1d': lookback_1d,
+            '4h': lookback_4h,
+            **ohlcv_config.get('lookback', {}),
+        }
+
+        self.min_candles = ohlcv_config.get('min_candles', {'1d': 50, '4h': 50})
+        self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
+
+        logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}, lookback={self.lookback}")
+
+    def fetch_all(self, shortlist: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         results = {}
         total = len(shortlist)
-        
+
         logger.info(f"Fetching OHLCV for {total} symbols across {len(self.timeframes)} timeframes")
-        
+
         for i, sym_data in enumerate(shortlist, 1):
             symbol = sym_data['symbol']
-            
             logger.info(f"[{i}/{total}] Fetching {symbol}...")
-            
+
             symbol_ohlcv = {}
             failed = False
-            
-            # Fetch each timeframe
+
             for tf in self.timeframes:
-                limit = self.lookback.get(tf, 120)
-                
+                limit = int(self.lookback.get(tf, 120))
+
                 try:
                     klines = self.mexc.get_klines(symbol, tf, limit=limit)
-                    
+
                     if not klines:
                         logger.warning(f"  {symbol} {tf}: No data returned")
                         failed = True
                         break
-                    
-                    # Check minimum candles
-                    min_required = self.min_candles.get(tf, 60)
+
+                    min_required = int(self.min_candles.get(tf, 50))
                     if len(klines) < min_required:
-                        logger.warning(f"  {symbol} {tf}: Insufficient data "
-                                     f"({len(klines)} < {min_required} candles)")
+                        logger.warning(f"  {symbol} {tf}: Insufficient data ({len(klines)} < {min_required} candles)")
                         failed = True
                         break
-                    
+
+                    if tf == '1d' and len(klines) < self.min_history_days_1d:
+                        logger.warning(
+                            f"  {symbol} {tf}: Below history threshold ({len(klines)} < {self.min_history_days_1d} days)"
+                        )
+                        failed = True
+                        break
+
                     symbol_ohlcv[tf] = klines
                     logger.info(f"  ✓ {symbol} {tf}: {len(klines)} candles")
-                    
+
                 except Exception as e:
                     logger.error(f"  ✗ {symbol} {tf}: {e}")
                     failed = True
                     break
-            
-            # Only include if all timeframes succeeded
+
             if not failed:
                 results[symbol] = symbol_ohlcv
             else:
                 logger.warning(f"  Skipping {symbol} (incomplete data)")
-        
+
         logger.info(f"OHLCV fetch complete: {len(results)}/{total} symbols with complete data")
-        
-        # 🔹 Rohdaten-Snapshot über zentralen Collector speichern
+
         if collect_raw_ohlcv and results:
             try:
                 collect_raw_ohlcv(results)
@@ -4344,50 +4417,31 @@ class OHLCVFetcher:
                 logger.warning(f"Could not collect raw OHLCV snapshot: {e}")
 
         return results
-    
-    def get_fetch_stats(
-        self,
-        ohlcv_data: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Get statistics about fetched OHLCV data.
-        
-        Args:
-            ohlcv_data: Output from fetch_all()
-        
-        Returns:
-            Stats dict
-        """
+
+    def get_fetch_stats(self, ohlcv_data: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         if not ohlcv_data:
-            return {
-                'symbols_count': 0,
-                'timeframes': [],
-                'total_candles': 0
-            }
-        
-        # Count candles
+            return {'symbols_count': 0, 'timeframes': [], 'total_candles': 0}
+
         total_candles = 0
         for symbol_data in ohlcv_data.values():
             for tf_data in symbol_data.values():
                 total_candles += len(tf_data)
-        
-        # Get date range (from 1d data)
+
         date_range = None
-        if ohlcv_data:
-            first_symbol = list(ohlcv_data.keys())[0]
-            if '1d' in ohlcv_data[first_symbol]:
-                candles = ohlcv_data[first_symbol]['1d']
-                if candles:
-                    oldest = datetime.fromtimestamp(candles[0][0] / 1000).strftime('%Y-%m-%d')
-                    newest = datetime.fromtimestamp(candles[-1][0] / 1000).strftime('%Y-%m-%d')
-                    date_range = f"{oldest} to {newest}"
-        
+        first_symbol = list(ohlcv_data.keys())[0]
+        if '1d' in ohlcv_data[first_symbol]:
+            candles = ohlcv_data[first_symbol]['1d']
+            if candles:
+                oldest = datetime.fromtimestamp(candles[0][0] / 1000).strftime('%Y-%m-%d')
+                newest = datetime.fromtimestamp(candles[-1][0] / 1000).strftime('%Y-%m-%d')
+                date_range = f"{oldest} to {newest}"
+
         return {
             'symbols_count': len(ohlcv_data),
             'timeframes': self.timeframes,
             'total_candles': total_candles,
             'avg_candles_per_symbol': total_candles / len(ohlcv_data) if ohlcv_data else 0,
-            'date_range': date_range
+            'date_range': date_range,
         }
 
 ```
@@ -4762,7 +4816,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `cf2dd1ba1eed3907d625b5d57ba79676133eb3ca623fd8291fce9c49fa4ee58b`
+**SHA256:** `32bcaf740af1ff85c77b4565e617da20811d4bb3c20ae2f01b129ea42d0d982b`
 
 ```python
 """Breakout scoring."""
@@ -4797,7 +4851,28 @@ class BreakoutScorer:
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
-        self.weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+        default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+        self.weights = self._load_weights(scoring_cfg, default_weights)
+
+
+    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
+        cfg_weights = scoring_cfg.get("weights")
+        if not cfg_weights:
+            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
+            return default_weights
+
+        mapped = {
+            "breakout": cfg_weights.get("breakout", cfg_weights.get("price_break")),
+            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
+            "trend": cfg_weights.get("trend", cfg_weights.get("volatility_context")),
+            "momentum": cfg_weights.get("momentum"),
+        }
+        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
+        total = sum(merged.values())
+        if total <= 0:
+            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
+            return default_weights
+        return {k: v / total for k, v in merged.items()}
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -4827,15 +4902,18 @@ class BreakoutScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
-        final_score = raw_score
+        penalty_multiplier = 1.0
         for _, factor in penalties:
-            final_score *= factor
-        final_score = max(0.0, min(100.0, final_score))
+            penalty_multiplier *= factor
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags)
 
         return {
             "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
             "components": {
                 "breakout": round(breakout_score, 2),
                 "volume": round(volume_score, 2),
@@ -4980,7 +5058,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `7632b0861faf246850272eda1086a47c5ebe863107d4d1bf7165a04381f2f48d`
+**SHA256:** `7b447872b78f4973ef93dc88cd4991ee4bac1a03ecc15ff0c12142333bc36a6a`
 
 ```python
 """Pullback scoring."""
@@ -5008,7 +5086,27 @@ class PullbackScorer:
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
-        self.weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
+        default_weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
+        self.weights = self._load_weights(scoring_cfg, default_weights)
+
+    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
+        cfg_weights = scoring_cfg.get("weights")
+        if not cfg_weights:
+            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
+            return default_weights
+
+        mapped = {
+            "trend": cfg_weights.get("trend", cfg_weights.get("trend_quality")),
+            "pullback": cfg_weights.get("pullback", cfg_weights.get("pullback_quality")),
+            "rebound": cfg_weights.get("rebound", cfg_weights.get("rebound_signal")),
+            "volume": cfg_weights.get("volume"),
+        }
+        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
+        total = sum(merged.values())
+        if total <= 0:
+            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
+            return default_weights
+        return {k: v / total for k, v in merged.items()}
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5038,15 +5136,18 @@ class PullbackScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
-        final_score = raw_score
+        penalty_multiplier = 1.0
         for _, factor in penalties:
-            final_score *= factor
-        final_score = max(0.0, min(100.0, final_score))
+            penalty_multiplier *= factor
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(trend_score, pullback_score, rebound_score, volume_score, f1d, f4h, flags)
 
         return {
             "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
             "components": {
                 "trend": round(trend_score, 2),
                 "pullback": round(pullback_score, 2),
@@ -5202,7 +5303,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `6973e6d77348a2b55f478efc246eb7c8acd770c2cf1c6b1351040d62e77a9652`
+**SHA256:** `390e672d4d7588079448d497930a731f7130cacee71090e1363296d3997a69e1`
 
 ```python
 """
@@ -5236,12 +5337,32 @@ class ReversalScorer:
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
-        self.weights = {
+        default_weights = {
             "drawdown": 0.30,
             "base": 0.25,
             "reclaim": 0.25,
             "volume": 0.20,
         }
+        self.weights = self._load_weights(scoring_cfg, default_weights)
+
+    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
+        cfg_weights = scoring_cfg.get("weights")
+        if not cfg_weights:
+            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
+            return default_weights
+
+        mapped = {
+            "drawdown": cfg_weights.get("drawdown"),
+            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
+            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
+            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
+        }
+        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
+        total = sum(merged.values())
+        if total <= 0:
+            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
+            return default_weights
+        return {k: v / total for k, v in merged.items()}
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5271,16 +5392,19 @@ class ReversalScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
-        final_score = raw_score
+        penalty_multiplier = 1.0
         for _, factor in penalties:
-            final_score *= factor
+            penalty_multiplier *= factor
 
-        final_score = max(0.0, min(100.0, final_score))
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(drawdown_score, base_score, reclaim_score, volume_score, f1d, f4h, flags)
 
         return {
             "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
             "components": {
                 "drawdown": round(drawdown_score, 2),
                 "base": round(base_score, 2),
@@ -5336,8 +5460,8 @@ class ReversalScorer:
         return min(score, 100.0)
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        vol_spike_1d = f1d.get("volume_spike", 1.0)
-        vol_spike_4h = f4h.get("volume_spike", 1.0)
+        vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
         max_spike = max(vol_spike_1d, vol_spike_4h)
 
         if max_spike < self.min_volume_spike:
@@ -5791,7 +5915,7 @@ Constraints:
 
 ### `docs/features.md`
 
-**SHA256:** `86e1e8b1df38c63d8d578309760436ff502f1b39d20f52fbce8cfc51d5672b28`
+**SHA256:** `433fa512759518abf99a8a938bc1708e2becbeec472ae6230d03bd2a27bfd640`
 
 ```markdown
 # Feature Engine Specification
@@ -6186,20 +6310,57 @@ It does not pull data from scoring.
 
 If Kline `quoteVolume` is present, compute:
 - `volume_quote`
-- `volume_quote_sma_14` (baseline excludes current candle)
+- `volume_quote_sma`
 - `volume_quote_spike`
+- legacy compatibility key: `volume_quote_sma_14`
 
-If unavailable, quote-volume keys are omitted.
+If quote-volume is unavailable, these keys remain present with `null` values for schema stability.
+
+---
+
+## 19. Volume Baseline per Timeframe
+
+- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
+- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
+- Baseline uses `include_current=False` (current candle excluded).
+- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
+- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+
+
+## Reversal Base Features (Phase 2)
+
+For timeframe `1d`, base detection is config-driven via:
+- `scoring.reversal.base_lookback_days`
+- `scoring.reversal.min_base_days_without_new_low`
+- `scoring.reversal.max_allowed_new_low_percent_vs_base_low`
+
+Additional output fields:
+- `base_low`
+- `base_recent_low`
+- `base_range_pct`
+- `base_no_new_lows_pass`
+
+`base_score` is `None` if insufficient candles for the configured lookback.
+
 
 ---
 
 ## End of `features.md`
 
+
+## Volume Baseline per Timeframe
+
+- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
+- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
+- Baseline uses `include_current=False` (current candle excluded).
+- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
+- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+
 ```
 
 ### `docs/scoring.md`
 
-**SHA256:** `a6f45fb93a9520a272734a519f589bfca626797dc0d9fdaa84a3c7600b1826a2`
+**SHA256:** `5ae3204f512819b063295fc306b2f21b09dba8f79554122c66737e5f74ecfd2d`
 
 ```markdown
 # Scoring Modules Specification
@@ -6614,6 +6775,18 @@ v1 provides the structural foundation.
 
 ---
 
+## 11. Reversal Score Transparency
+
+Reversal scorer outputs include:
+- `raw_score`
+- `penalty_multiplier`
+- `final_score` (same numeric value as `score`, before display rounding differences)
+
+Volume component prefers `volume_quote_spike` if available; otherwise it falls back to `volume_spike`.
+
+
+---
+
 ## End of `scoring.md`
 
 ```
@@ -6629,4 +6802,4 @@ v1 provides the structural foundation.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-13 20:24 UTC_
+_Generated by GitHub Actions • 2026-02-13 21:39 UTC_
