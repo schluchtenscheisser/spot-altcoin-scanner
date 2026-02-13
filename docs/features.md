@@ -398,3 +398,12 @@ If unavailable, quote-volume keys are omitted.
 ---
 
 ## End of `features.md`
+
+
+## Volume Baseline per Timeframe
+
+- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
+- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
+- Baseline uses `include_current=False` (current candle excluded).
+- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
+- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.

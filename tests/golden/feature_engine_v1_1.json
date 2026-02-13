@@ -19,7 +19,13 @@
       "r_3": 1.171875,
       "r_7": 2.777777777777768,
       "volume": 1590.0,
+      "volume_quote": null,
+      "volume_quote_sma": null,
+      "volume_quote_sma_14": null,
+      "volume_quote_spike": null,
+      "volume_sma": 1515.0,
       "volume_sma_14": 1515.0,
+      "volume_sma_period": 14,
       "volume_spike": 1.0495049504950495
     },
     "4h": {
@@ -41,7 +47,13 @@
       "r_3": 1.1718749999999778,
       "r_7": 2.777777777777768,
       "volume": 318.0,
+      "volume_quote": null,
+      "volume_quote_sma": null,
+      "volume_quote_sma_14": null,
+      "volume_quote_spike": null,
+      "volume_sma": 303.0,
       "volume_sma_14": 303.0,
+      "volume_sma_period": 14,
       "volume_spike": 1.0495049504950495
     },
     "meta": {

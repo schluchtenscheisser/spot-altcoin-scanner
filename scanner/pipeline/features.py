@@ -18,6 +18,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureEngine:
     """Computes technical features from OHLCV data (v1.3 – critical findings remediation)."""
 
@@ -36,6 +37,20 @@ class FeatureEngine:
             if current is None:
                 return default
         return current
+
+    def _get_volume_period_for_timeframe(self, timeframe: str) -> int:
+        periods_cfg = self._config_get(["features", "volume_sma_periods"], None)
+        if isinstance(periods_cfg, dict):
+            tf_period = periods_cfg.get(timeframe)
+            if tf_period is not None:
+                return int(tf_period)
+
+        legacy_period = self._config_get(["features", "volume_sma_period"], None)
+        if legacy_period is not None:
+            return int(legacy_period)
+
+        logger.warning("Using legacy default volume_sma_period=14; please define config.features.volume_sma_periods")
+        return 14
 
     # -------------------------------------------------------------------------
     # Main entry point
@@ -87,10 +102,10 @@ class FeatureEngine:
                 logger.error(f"Failed to compute features for {symbol}: {e}")
         logger.info(f"Features computed for {len(results)}/{total} symbols")
         return results
-        
+
     # -------------------------------------------------------------------------
     # Helper Funktion
-    # -------------------------------------------------------------------------    
+    # -------------------------------------------------------------------------
     def _get_last_closed_idx(self, klines: List[List], asof_ts_ms: Optional[int]) -> int:
         """
         Returns index of the last candle with closeTime <= asof_ts_ms.
@@ -113,7 +128,7 @@ class FeatureEngine:
                 return i
 
         return -1
-        
+
     # -------------------------------------------------------------------------
     # Timeframe feature computation
     # -------------------------------------------------------------------------
@@ -134,8 +149,7 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] no closed candles found for timeframe={timeframe}")
             return {}
 
-        # closed-only slice
-        klines = klines[: last_closed_idx + 1]    
+        klines = klines[: last_closed_idx + 1]
         closes = np.array([k[4] for k in klines], dtype=float)
         highs = np.array([k[2] for k in klines], dtype=float)
         lows = np.array([k[3] for k in klines], dtype=float)
@@ -160,15 +174,18 @@ class FeatureEngine:
         f["dist_ema50_pct"] = ((closes[-1] / f["ema_50"]) - 1) * 100 if f.get("ema_50") else np.nan
 
         f["atr_pct"] = self._calc_atr_pct(symbol, highs, lows, closes, 14)
-        # Baseline-Konvention (Thema 6): baseline-Fenster schließt current candle aus.
-        # Für volume_sma_14 bedeutet das: mean(volume[T-14 .. T-1]).
-        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
-        f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma_14"])
 
-        # Thema 7: QuoteVolume-Features (falls im Kline-Datensatz vorhanden)
-        quote_features = self._calc_quote_volume_features(symbol, quote_volumes)
-        if quote_features:
-            f.update(quote_features)
+        # Phase 1: timeframe-specific volume baseline period (include_current=False baseline)
+        volume_period = self._get_volume_period_for_timeframe(timeframe)
+        f["volume_sma"] = self._calc_sma(volumes, volume_period, include_current=False)
+        f["volume_sma_period"] = int(volume_period)
+        f["volume_spike"] = self._calc_volume_spike(symbol, volumes, f["volume_sma"])
+
+        # Backward compatibility keys
+        f["volume_sma_14"] = self._calc_sma(volumes, 14, include_current=False)
+
+        # Quote volume features (with same period by timeframe + legacy key)
+        f.update(self._calc_quote_volume_features(symbol, quote_volumes, volume_period))
 
         # Trend structure
         f["hh_20"] = bool(self._detect_higher_high(highs, 20))
@@ -203,7 +220,6 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] insufficient data for EMA{period}")
             return np.nan
 
-        # Rulebook/Thema 4: EMA with SMA(period) initialization to reduce start bias.
         alpha = 2 / (period + 1)
         ema = float(np.nanmean(data[:period]))
         for val in data[period:]:
@@ -213,29 +229,38 @@ class FeatureEngine:
     def _calc_sma(self, data: np.ndarray, period: int, include_current: bool = True) -> Optional[float]:
         if include_current:
             return float(np.nanmean(data[-period:])) if len(data) >= period else np.nan
-        # Baseline exklusive current candle: [T-period .. T-1]
         return float(np.nanmean(data[-period-1:-1])) if len(data) >= (period + 1) else np.nan
 
     def _calc_volume_spike(self, symbol: str, volumes: np.ndarray, sma: Optional[float]) -> float:
         if sma is None or np.isnan(sma) or sma == 0:
-            logger.warning(f"[{symbol}] volume_spike skipped (SMA invalid)")
-            return np.nan
+            logger.warning(f"[{symbol}] volume_spike fallback=1.0 (SMA invalid)")
+            return 1.0
         return float(volumes[-1] / sma)
 
-
-    def _calc_quote_volume_features(self, symbol: str, quote_volumes: np.ndarray) -> Dict[str, Optional[float]]:
-        """Compute quote-volume features if quoteVolume exists; otherwise return empty dict."""
+    def _calc_quote_volume_features(
+        self,
+        symbol: str,
+        quote_volumes: np.ndarray,
+        period: int,
+    ) -> Dict[str, Optional[float]]:
         if len(quote_volumes) == 0 or np.all(np.isnan(quote_volumes)):
-            return {}
+            return {
+                "volume_quote": None,
+                "volume_quote_sma": None,
+                "volume_quote_spike": None,
+                "volume_quote_sma_14": None,
+            }
 
         volume_quote = float(quote_volumes[-1]) if not np.isnan(quote_volumes[-1]) else np.nan
+        volume_quote_sma = self._calc_sma(quote_volumes, period, include_current=False)
+        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma)
         volume_quote_sma_14 = self._calc_sma(quote_volumes, 14, include_current=False)
-        volume_quote_spike = self._calc_volume_spike(symbol, quote_volumes, volume_quote_sma_14)
 
         return {
             "volume_quote": volume_quote,
-            "volume_quote_sma_14": volume_quote_sma_14,
+            "volume_quote_sma": volume_quote_sma,
             "volume_quote_spike": volume_quote_spike,
+            "volume_quote_sma_14": volume_quote_sma_14,
         }
 
     def _calc_atr_pct(self, symbol: str, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> Optional[float]:
@@ -243,7 +268,6 @@ class FeatureEngine:
             logger.warning(f"[{symbol}] insufficient candles for ATR{period}")
             return np.nan
 
-        # Rulebook/Thema 5: Wilder ATR smoothing (not rolling SMA of last TR window).
         tr = [
             max(
                 highs[i] - lows[i],
@@ -253,7 +277,6 @@ class FeatureEngine:
             for i in range(1, len(highs))
         ]
 
-        # ATR[p] = mean(TR[1..p]), then recursive Wilder update.
         atr = float(np.nanmean(tr[:period]))
         for tr_val in tr[period:]:
             atr = ((atr * (period - 1)) + tr_val) / period
@@ -265,8 +288,6 @@ class FeatureEngine:
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
-        # Resistance-Baseline exklusive current candle:
-        # prior_high = max(high[T-lookback .. T-1])
         if len(highs) < lookback + 1:
             logger.warning(f"[{symbol}] insufficient candles for breakout_dist_{lookback}")
             return np.nan
