@@ -142,10 +142,8 @@ Reacceleration momentum component uses continuous scaling:
 MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
 
 Penalties (config-driven):
-
-broken trend -> *config.scoring.pullback.penalties.broken_trend_factor
-
-low liquidity -> *config.scoring.pullback.penalties.low_liquidity_factor
+- broken trend -> *config.scoring.pullback.penalties.broken_trend_factor
+- low liquidity -> *config.scoring.pullback.penalties.low_liquidity_factor
 
 Final:
 
