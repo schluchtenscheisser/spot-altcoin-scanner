@@ -19,11 +19,23 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 class FeatureEngine:
-    """Computes technical features from OHLCV data (v1.1 – integrity upgrade)."""
+    """Computes technical features from OHLCV data (v1.3 – critical findings remediation)."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        logger.info("Feature Engine v1.1 initialized")
+        logger.info("Feature Engine v1.3 initialized")
+
+    def _config_get(self, path: List[str], default: Any) -> Any:
+        """Read config path from either dict or ScannerConfig.raw."""
+        root = self.config.raw if hasattr(self.config, "raw") else self.config
+        current: Any = root
+        for key in path:
+            if not isinstance(current, dict):
+                return default
+            current = current.get(key)
+            if current is None:
+                return default
+        return current
 
     # -------------------------------------------------------------------------
     # Main entry point
@@ -165,7 +177,8 @@ class FeatureEngine:
         # Structural metrics
         f["breakout_dist_20"] = self._calc_breakout_distance(symbol, closes, highs, 20)
         f["breakout_dist_30"] = self._calc_breakout_distance(symbol, closes, highs, 30)
-        f["drawdown_from_ath"] = self._calc_drawdown(closes)
+        drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
+        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
 
         # Base detection
         f["base_score"] = self._detect_base(symbol, closes, lows, 30) if timeframe == "1d" else np.nan
@@ -264,10 +277,12 @@ class FeatureEngine:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
 
-    def _calc_drawdown(self, closes: np.ndarray) -> Optional[float]:
+    def _calc_drawdown(self, closes: np.ndarray, lookback_days: int = 365) -> Optional[float]:
         if len(closes) == 0:
             return np.nan
-        ath = np.nanmax(closes)
+        lookback = max(1, int(lookback_days))
+        window = closes[-lookback:]
+        ath = np.nanmax(window)
         return float(((closes[-1] / ath) - 1) * 100)
 
     # -------------------------------------------------------------------------
