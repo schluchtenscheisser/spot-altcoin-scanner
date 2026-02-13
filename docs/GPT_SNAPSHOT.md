@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-13 12:28 UTC  
-**Commit:** `b44cb68` (b44cb68d8822a7d1100a42b459cfa11b9b64c528)  
+**Generated:** 2026-02-13 13:17 UTC  
+**Commit:** `392b567` (392b567fe7a11e9bf33e598820f090a102cd32d6)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -396,7 +396,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `0102124caf8099e55046f0c5eddf6d40cb96547beb9c122bef1fd3e4acf6fcde`
+**SHA256:** `253661e87764774419a0db2bb2ea64ccc0ddd5e5fc306ebd7a89512fb4f40633`
 
 ```yaml
 version:
@@ -462,6 +462,21 @@ features:
 scoring:
   breakout:
     enabled: true
+    min_breakout_pct: 2
+    ideal_breakout_pct: 5
+    max_breakout_pct: 20
+    min_volume_spike: 1.5
+    ideal_volume_spike: 2.5
+    breakout_curve:
+      floor_pct: -5
+      fresh_cap_pct: 1
+      overextended_cap_pct: 3
+    momentum:
+      r7_divisor: 10
+    penalties:
+      overextension_factor: 0.6
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
     high_lookback_days: 30
     min_volume_spike_factor: 1.5
     max_overextension_ema20_percent: 25
@@ -472,6 +487,15 @@ scoring:
 
   pullback:
     enabled: true
+    min_trend_strength: 5
+    min_rebound: 3
+    min_volume_spike: 1.3
+    momentum:
+      r7_divisor: 10
+    penalties:
+      broken_trend_factor: 0.5
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
     max_pullback_from_high_percent: 25
     min_trend_days: 10
     ema_trend_period_days: 20
@@ -482,6 +506,15 @@ scoring:
 
   reversal:
     enabled: true
+    min_drawdown_pct: 40
+    ideal_drawdown_min: 50
+    ideal_drawdown_max: 80
+    min_volume_spike: 1.5
+    penalties:
+      overextension_threshold_pct: 15
+      overextension_factor: 0.7
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
     min_drawdown_from_ath_percent: 40
     max_drawdown_from_ath_percent: 90
     base_lookback_days: 45
@@ -506,7 +539,6 @@ logging:
   level: "INFO"
   file: "logs/scanner.log"
   log_to_file: true
-
 
 ```
 
@@ -3321,7 +3353,7 @@ def run_pipeline(config: ScannerConfig) -> None:
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `5667a4a4355e090151c11d75bdabc1a8a93fc82aa5d752c92af38d9afebd0628`
+**SHA256:** `3cef1cf5ad3358267d7f88ae27875f01c944c4d1934afdf531786fc7e7dcc5bc`
 
 ```python
 """
@@ -3345,11 +3377,23 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 class FeatureEngine:
-    """Computes technical features from OHLCV data (v1.1 – integrity upgrade)."""
+    """Computes technical features from OHLCV data (v1.3 – critical findings remediation)."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        logger.info("Feature Engine v1.1 initialized")
+        logger.info("Feature Engine v1.3 initialized")
+
+    def _config_get(self, path: List[str], default: Any) -> Any:
+        """Read config path from either dict or ScannerConfig.raw."""
+        root = self.config.raw if hasattr(self.config, "raw") else self.config
+        current: Any = root
+        for key in path:
+            if not isinstance(current, dict):
+                return default
+            current = current.get(key)
+            if current is None:
+                return default
+        return current
 
     # -------------------------------------------------------------------------
     # Main entry point
@@ -3491,7 +3535,8 @@ class FeatureEngine:
         # Structural metrics
         f["breakout_dist_20"] = self._calc_breakout_distance(symbol, closes, highs, 20)
         f["breakout_dist_30"] = self._calc_breakout_distance(symbol, closes, highs, 30)
-        f["drawdown_from_ath"] = self._calc_drawdown(closes)
+        drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
+        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
 
         # Base detection
         f["base_score"] = self._detect_base(symbol, closes, lows, 30) if timeframe == "1d" else np.nan
@@ -3590,10 +3635,12 @@ class FeatureEngine:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
 
-    def _calc_drawdown(self, closes: np.ndarray) -> Optional[float]:
+    def _calc_drawdown(self, closes: np.ndarray, lookback_days: int = 365) -> Optional[float]:
         if len(closes) == 0:
             return np.nan
-        ath = np.nanmax(closes)
+        lookback = max(1, int(lookback_days))
+        window = closes[-lookback:]
+        ath = np.nanmax(window)
         return float(((closes[-1] / ath) - 1) * 100)
 
     # -------------------------------------------------------------------------
@@ -4715,249 +4762,139 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `11b047c2bf7c8ba58547ea5ca082bb4ab55f4683af35932e283620b45aeb08dd`
+**SHA256:** `cf2dd1ba1eed3907d625b5d57ba79676133eb3ca623fd8291fce9c49fa4ee58b`
 
 ```python
-"""
-Breakout Setup Scoring
-======================
-
-Identifies range breakouts with volume confirmation.
-
-Scoring Components:
-1. Breakout Distance (35%) - How far above recent high
-2. Volume Confirmation (30%) - Volume spike on breakout
-3. Trend Context (20%) - Uptrend vs range
-4. Momentum (15%) - Recent price action strength
-
-Penalties:
-- Overextension (too far, too fast)
-- Low liquidity
-"""
+"""Breakout scoring."""
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 
 class BreakoutScorer:
-    """Scores breakout setups (range break + volume)."""
-    
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize breakout scorer.
-        
-        Args:
-            config: Config dict with 'scoring' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            scoring_config = config.raw.get('scoring', {}).get('breakout', {})
-        else:
-            scoring_config = config.get('scoring', {}).get('breakout', {})
-        
-        # Thresholds
-        self.min_breakout_pct = scoring_config.get('min_breakout_pct', 2)  # >2% above high
-        self.ideal_breakout_pct = scoring_config.get('ideal_breakout_pct', 5)  # 5-10% ideal
-        self.max_breakout_pct = scoring_config.get('max_breakout_pct', 20)  # >20% = overextended
-        
-        self.min_volume_spike = scoring_config.get('min_volume_spike', 1.5)  # 1.5x normal
-        self.ideal_volume_spike = scoring_config.get('ideal_volume_spike', 2.5)  # 2.5x+
-        
-        # Component weights
-        self.weights = {
-            'breakout': 0.35,
-            'volume': 0.30,
-            'trend': 0.20,
-            'momentum': 0.15
-        }
-        
-        logger.info("Breakout Scorer initialized")
-    
-    def score(
-        self,
-        symbol: str,
-        features: Dict[str, Any],
-        quote_volume_24h: float
-    ) -> Dict[str, Any]:
-        """
-        Score a single symbol for breakout setup.
-        
-        Args:
-            symbol: Trading pair
-            features: Feature dict with '1d' and '4h'
-            quote_volume_24h: 24h volume in USDT
-        
-        Returns:
-            Score dict
-        """
-        f1d = features.get('1d', {})
-        f4h = features.get('4h', {})
-        
-        # Components
+        root = config.raw if hasattr(config, "raw") else config
+        scoring_cfg = root.get("scoring", {}).get("breakout", {})
+
+        self.min_breakout_pct = float(scoring_cfg.get("min_breakout_pct", 2.0))
+        self.ideal_breakout_pct = float(scoring_cfg.get("ideal_breakout_pct", 5.0))
+        self.max_breakout_pct = float(scoring_cfg.get("max_breakout_pct", 20.0))
+        breakout_curve = scoring_cfg.get("breakout_curve", {})
+        self.breakout_floor_pct = float(breakout_curve.get("floor_pct", -5.0))
+        self.breakout_fresh_cap_pct = float(breakout_curve.get("fresh_cap_pct", 1.0))
+        self.breakout_overextended_cap_pct = float(breakout_curve.get("overextended_cap_pct", 3.0))
+
+        self.min_volume_spike = float(scoring_cfg.get("min_volume_spike", 1.5))
+        self.ideal_volume_spike = float(scoring_cfg.get("ideal_volume_spike", 2.5))
+
+        momentum_cfg = scoring_cfg.get("momentum", {})
+        self.momentum_divisor = float(momentum_cfg.get("r7_divisor", 10.0))
+
+        penalties_cfg = scoring_cfg.get("penalties", {})
+        self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.6))
+        self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
+        self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+
+        self.weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+
+    def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
+        f1d = features.get("1d", {})
+        f4h = features.get("4h", {})
+
         breakout_score = self._score_breakout(f1d)
         volume_score = self._score_volume(f1d, f4h)
         trend_score = self._score_trend(f1d)
         momentum_score = self._score_momentum(f1d)
-        
-        # Weighted total
+
         raw_score = (
-            breakout_score * self.weights['breakout'] +
-            volume_score * self.weights['volume'] +
-            trend_score * self.weights['trend'] +
-            momentum_score * self.weights['momentum']
+            breakout_score * self.weights["breakout"]
+            + volume_score * self.weights["volume"]
+            + trend_score * self.weights["trend"]
+            + momentum_score * self.weights["momentum"]
         )
-        
-        # Penalties & Flags
+
         penalties = []
         flags = []
-        
-        # Overextension penalty
-        breakout_dist = f1d.get('breakout_dist_20', 0)
+
+        breakout_dist = f1d.get("breakout_dist_20", 0)
         if breakout_dist > self.max_breakout_pct:
-            penalties.append(('overextension', 0.6))
-            flags.append('overextended')
-        
-        # Low liquidity
-        if quote_volume_24h < 500_000:
-            penalties.append(('low_liquidity', 0.8))
-            flags.append('low_liquidity')
-        
-        # Apply penalties
+            penalties.append(("overextension", self.overextension_factor))
+            flags.append("overextended")
+
+        if quote_volume_24h < self.low_liquidity_threshold:
+            penalties.append(("low_liquidity", self.low_liquidity_factor))
+            flags.append("low_liquidity")
+
         final_score = raw_score
-        for name, factor in penalties:
+        for _, factor in penalties:
             final_score *= factor
-        
-        # Reasons
-        reasons = self._generate_reasons(
-            breakout_score, volume_score, trend_score, momentum_score,
-            f1d, f4h, flags
-        )
-        
+        final_score = max(0.0, min(100.0, final_score))
+
+        reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags)
+
         return {
-            'score': round(final_score, 2),
-            'components': {
-                'breakout': round(breakout_score, 2),
-                'volume': round(volume_score, 2),
-                'trend': round(trend_score, 2),
-                'momentum': round(momentum_score, 2)
+            "score": round(final_score, 2),
+            "components": {
+                "breakout": round(breakout_score, 2),
+                "volume": round(volume_score, 2),
+                "trend": round(trend_score, 2),
+                "momentum": round(momentum_score, 2),
             },
-            'penalties': {name: factor for name, factor in penalties},
-            'flags': flags,
-            'reasons': reasons
+            "penalties": {name: factor for name, factor in penalties},
+            "flags": flags,
+            "reasons": reasons,
         }
-    
+
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
-        """
-        Scales breakout distance (-5% … +3%) into a 0–100 score.
-        Professional definition:
-        - Below −5%: no breakout pressure
-        - −2 … 0%: pre-breakout compression
-        - 0 … +1%: breakout confirmation
-        - > +2%: overextended (score decays)
-        """
-        import numpy as np
-        dist = f1d.get('breakout_dist_20', np.nan)
-        if np.isnan(dist):
-            return np.nan
-    
-        # Far below range high
-        if dist <= -5:
+        dist = f1d.get("breakout_dist_20")
+        if dist is None:
             return 0.0
-    
-        # Pre-breakout buildup
-        if -5 < dist < 0:
-            return 70 * (1 + (dist / 5))  # rises from 0→70 as we near the high
-    
-        # Fresh breakout (0–1%)
-        if 0 <= dist <= 1:
-            return 70 + (30 * (dist / 1))  # scales to 100 at +1%
-    
-        # Overextended (1–3%)
-        if 1 < dist <= 3:
-            return max(90 - (dist - 1) * 10, 70)  # decays slightly
-    
-        # Beyond reasonable range
+        if dist <= self.breakout_floor_pct:
+            return 0.0
+        if self.breakout_floor_pct < dist < 0:
+            return 70 * (1 + (dist / abs(self.breakout_floor_pct)))
+        if 0 <= dist <= self.breakout_fresh_cap_pct:
+            return 70 + (30 * (dist / self.breakout_fresh_cap_pct))
+        if self.breakout_fresh_cap_pct < dist <= self.breakout_overextended_cap_pct:
+            return max(90 - (dist - self.breakout_fresh_cap_pct) * 10, 70)
         return 60.0
 
-    
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """Score volume confirmation (0-100)."""
-        vol_1d = f1d.get('volume_spike', 1.0)
-        vol_4h = f4h.get('volume_spike', 1.0)
-        
-        max_spike = max(vol_1d, vol_4h)
-        
-        # Below minimum
+        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
         if max_spike < self.min_volume_spike:
             return 0.0
-        
-        # Ideal or above
         if max_spike >= self.ideal_volume_spike:
             return 100.0
-        
-        # Linear scale
         ratio = (max_spike - self.min_volume_spike) / (self.ideal_volume_spike - self.min_volume_spike)
         return ratio * 100.0
-    
+
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score trend context (0-100).
-        
-        Better if already in uptrend (above EMAs).
-        """
         score = 0.0
-        
-        dist_ema20 = f1d.get('dist_ema20_pct')
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        
-        # Above EMA20
-        if dist_ema20 and dist_ema20 > 0:
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        dist_ema50 = f1d.get("dist_ema50_pct")
+
+        if dist_ema20 is not None and dist_ema20 > 0:
             score += 40
             if dist_ema20 > 5:
                 score += 10
-        
-        # Above EMA50
-        if dist_ema50 and dist_ema50 > 0:
+        if dist_ema50 is not None and dist_ema50 > 0:
             score += 40
             if dist_ema50 > 5:
                 score += 10
-        
         return min(score, 100.0)
-    
+
     def _score_momentum(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score recent momentum (0-100).
-        
-        Based on recent returns.
-        """
-        r7 = f1d.get('r_7', 0)
-        
-        if r7 <= 0:
+        r7 = f1d.get("r_7")
+        if r7 is None or self.momentum_divisor <= 0:
             return 0.0
-        
-        if r7 >= 20:  # >20% in 7 days
-            return 100.0
-        
-        # Linear scale 0-20%
-        return (r7 / 20) * 100.0
-    
-    def _generate_reasons(
-        self,
-        breakout_score: float,
-        volume_score: float,
-        trend_score: float,
-        momentum_score: float,
-        f1d: Dict[str, Any],
-        f4h: Dict[str, Any],
-        flags: List[str]
-    ) -> List[str]:
-        """Generate human-readable reasons."""
+        return max(0.0, min(100.0, (float(r7) / self.momentum_divisor) * 100.0))
+
+    def _generate_reasons(self, breakout_score: float, volume_score: float, trend_score: float, momentum_score: float,
+                          f1d: Dict[str, Any], f4h: Dict[str, Any], flags: List[str]) -> List[str]:
         reasons = []
-        
-        # Breakout
-        dist = f1d.get('breakout_dist_20', 0)
+        dist = f1d.get("breakout_dist_20", 0)
         if breakout_score > 70:
             reasons.append(f"Strong breakout ({dist:.1f}% above 20d high)")
         elif breakout_score > 30:
@@ -4966,83 +4903,55 @@ class BreakoutScorer:
             reasons.append(f"Early breakout ({dist:.1f}% above high)")
         else:
             reasons.append("No breakout (below recent high)")
-        
-        # Volume
-        vol_spike = max(f1d.get('volume_spike', 1.0), f4h.get('volume_spike', 1.0))
+
+        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
         if volume_score > 70:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif volume_score > 30:
             reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
         else:
             reasons.append("Low volume (no confirmation)")
-        
-        # Trend
+
         if trend_score > 70:
             reasons.append("In uptrend (above EMAs)")
         elif trend_score > 30:
             reasons.append("Neutral trend")
         else:
             reasons.append("In downtrend (below EMAs)")
-        
-        # Flags
-        if 'overextended' in flags:
+
+        if "overextended" in flags:
             reasons.append(f"⚠️ Overextended ({dist:.1f}% above high)")
-        
-        if 'low_liquidity' in flags:
+        if "low_liquidity" in flags:
             reasons.append("⚠️ Low liquidity")
-        
         return reasons
 
 
-def score_breakouts(
-    features_data: Dict[str, Dict[str, Any]],
-    volumes: Dict[str, float],
-    config: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    Score all symbols for breakout setups and return ranked list.
-    
-    Args:
-        features_data: Dict mapping symbol -> features
-        volumes: Dict mapping symbol -> 24h volume
-        config: Config dict
-    
-    Returns:
-        List of scored symbols, sorted by score (descending)
-    """
+def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = BreakoutScorer(config)
     results = []
-    
-    logger.info(f"Scoring {len(features_data)} symbols for breakout setups")
-    
     for symbol, features in features_data.items():
         volume = volumes.get(symbol, 0)
-        
         try:
             score_result = scorer.score(symbol, features, volume)
-            
-            results.append({
-                'symbol': symbol,
-                'price_usdt': features.get('price_usdt'),
-                'coin_name': features.get('coin_name'),
-                'market_cap': features.get('market_cap'),
-                'quote_volume_24h': features.get('quote_volume_24h'),
-                'score': score_result['score'],
-                'components': score_result['components'],
-                'penalties': score_result['penalties'],
-                'flags': score_result['flags'],
-                'reasons': score_result['reasons']
-            })
-            
+            results.append(
+                {
+                    "symbol": symbol,
+                    "price_usdt": features.get("price_usdt"),
+                    "coin_name": features.get("coin_name"),
+                    "market_cap": features.get("market_cap"),
+                    "quote_volume_24h": features.get("quote_volume_24h"),
+                    "score": score_result["score"],
+                    "components": score_result["components"],
+                    "penalties": score_result["penalties"],
+                    "flags": score_result["flags"],
+                    "reasons": score_result["reasons"],
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to score {symbol}: {e}")
             continue
-    
-    # Sort by score (descending)
-    results.sort(key=lambda x: x['score'], reverse=True)
-    
-    logger.info(f"Breakout scoring complete: {len(results)} symbols scored")
-    
+
+    results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
 ```
@@ -5071,155 +4980,91 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `c44ab6a578156880267b5d91f552c2ecb5a9c7d44a5ea0fe0ec2f1bc14e533bb`
+**SHA256:** `7632b0861faf246850272eda1086a47c5ebe863107d4d1bf7165a04381f2f48d`
 
 ```python
-"""
-Pullback Setup Scoring
-======================
-
-Identifies trend continuation after retracement (pullback to support).
-
-Scoring Components:
-1. Trend Strength (30%) - Established uptrend (above EMA50)
-2. Pullback Depth (25%) - Healthy retracement to EMA20/50
-3. Rebound Strength (25%) - Recovery from pullback
-4. Volume Pattern (20%) - Volume decrease on pullback, increase on rebound
-
-Penalties:
-- Broken trend (below EMA50)
-- Low liquidity
-"""
+"""Pullback scoring."""
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 
 class PullbackScorer:
-    """Scores pullback setups (trend continuation)."""
-    
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize pullback scorer.
-        
-        Args:
-            config: Config dict with 'scoring' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            scoring_config = config.raw.get('scoring', {}).get('pullback', {})
-        else:
-            scoring_config = config.get('scoring', {}).get('pullback', {})
-        
-        # Thresholds
-        self.min_trend_strength = scoring_config.get('min_trend_strength', 5)  # >5% above EMA50
-        self.ideal_pullback_depth = scoring_config.get('ideal_pullback_depth', 5)  # 5-10% from EMA20
-        self.max_pullback_depth = scoring_config.get('max_pullback_depth', 15)  # <15% (not too deep)
-        
-        self.min_rebound = scoring_config.get('min_rebound', 3)  # >3% bounce
-        self.min_volume_spike = scoring_config.get('min_volume_spike', 1.3)  # 1.3x on rebound
-        
-        # Component weights
-        self.weights = {
-            'trend': 0.30,
-            'pullback': 0.25,
-            'rebound': 0.25,
-            'volume': 0.20
-        }
-        
-        logger.info("Pullback Scorer initialized")
-    
-    def score(
-        self,
-        symbol: str,
-        features: Dict[str, Any],
-        quote_volume_24h: float
-    ) -> Dict[str, Any]:
-        """
-        Score a single symbol for pullback setup.
-        
-        Args:
-            symbol: Trading pair
-            features: Feature dict with '1d' and '4h'
-            quote_volume_24h: 24h volume in USDT
-        
-        Returns:
-            Score dict
-        """
-        f1d = features.get('1d', {})
-        f4h = features.get('4h', {})
-        
-        # Components
+        root = config.raw if hasattr(config, "raw") else config
+        scoring_cfg = root.get("scoring", {}).get("pullback", {})
+
+        self.min_trend_strength = float(scoring_cfg.get("min_trend_strength", 5.0))
+        self.min_rebound = float(scoring_cfg.get("min_rebound", 3.0))
+        self.min_volume_spike = float(scoring_cfg.get("min_volume_spike", 1.3))
+
+        momentum_cfg = scoring_cfg.get("momentum", {})
+        self.momentum_divisor = float(momentum_cfg.get("r7_divisor", 10.0))
+
+        penalties_cfg = scoring_cfg.get("penalties", {})
+        self.broken_trend_factor = float(penalties_cfg.get("broken_trend_factor", 0.5))
+        self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
+        self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+
+        self.weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
+
+    def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
+        f1d = features.get("1d", {})
+        f4h = features.get("4h", {})
+
         trend_score = self._score_trend(f1d)
         pullback_score = self._score_pullback(f1d)
         rebound_score = self._score_rebound(f1d, f4h)
         volume_score = self._score_volume(f1d, f4h)
-        
-        # Weighted total
+
         raw_score = (
-            trend_score * self.weights['trend'] +
-            pullback_score * self.weights['pullback'] +
-            rebound_score * self.weights['rebound'] +
-            volume_score * self.weights['volume']
+            trend_score * self.weights["trend"]
+            + pullback_score * self.weights["pullback"]
+            + rebound_score * self.weights["rebound"]
+            + volume_score * self.weights["volume"]
         )
-        
-        # Penalties & Flags
+
         penalties = []
         flags = []
-        
-        # Broken trend penalty
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        if dist_ema50 and dist_ema50 < 0:
-            penalties.append(('broken_trend', 0.5))
-            flags.append('broken_trend')
-        
-        # Low liquidity
-        if quote_volume_24h < 500_000:
-            penalties.append(('low_liquidity', 0.8))
-            flags.append('low_liquidity')
-        
-        # Apply penalties
+
+        dist_ema50 = f1d.get("dist_ema50_pct")
+        if dist_ema50 is not None and dist_ema50 < 0:
+            penalties.append(("broken_trend", self.broken_trend_factor))
+            flags.append("broken_trend")
+
+        if quote_volume_24h < self.low_liquidity_threshold:
+            penalties.append(("low_liquidity", self.low_liquidity_factor))
+            flags.append("low_liquidity")
+
         final_score = raw_score
-        for name, factor in penalties:
+        for _, factor in penalties:
             final_score *= factor
-        
-        # Reasons
-        reasons = self._generate_reasons(
-            trend_score, pullback_score, rebound_score, volume_score,
-            f1d, f4h, flags
-        )
-        
+        final_score = max(0.0, min(100.0, final_score))
+
+        reasons = self._generate_reasons(trend_score, pullback_score, rebound_score, volume_score, f1d, f4h, flags)
+
         return {
-            'score': round(final_score, 2),
-            'components': {
-                'trend': round(trend_score, 2),
-                'pullback': round(pullback_score, 2),
-                'rebound': round(rebound_score, 2),
-                'volume': round(volume_score, 2)
+            "score": round(final_score, 2),
+            "components": {
+                "trend": round(trend_score, 2),
+                "pullback": round(pullback_score, 2),
+                "rebound": round(rebound_score, 2),
+                "volume": round(volume_score, 2),
             },
-            'penalties': {name: factor for name, factor in penalties},
-            'flags': flags,
-            'reasons': reasons
+            "penalties": {name: factor for name, factor in penalties},
+            "flags": flags,
+            "reasons": reasons,
         }
-    
+
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score trend strength (0-100).
-        
-        Strong trend = well above EMA50, higher highs.
-        """
         score = 0.0
-        
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        
-        # Must be above EMA50
-        if not dist_ema50 or dist_ema50 < 0:
+        dist_ema50 = f1d.get("dist_ema50_pct")
+        if dist_ema50 is None or dist_ema50 < 0:
             return 0.0
-        
-        # Distance score
-        if dist_ema50 >= 15:  # >15% above
+
+        if dist_ema50 >= 15:
             score += 60
         elif dist_ema50 >= 10:
             score += 50
@@ -5227,213 +5072,137 @@ class PullbackScorer:
             score += 40
         else:
             score += 20
-        
-        # Higher highs
-        if f1d.get('hh_20'):
+
+        if f1d.get("hh_20"):
             score += 40
-        
         return min(score, 100.0)
-    
+
     def _score_pullback(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score pullback depth (0-100).
-        
-        Ideal: Pullback to EMA20/50 support.
-        """
-        dist_ema20 = f1d.get('dist_ema20_pct', 100)
-        dist_ema50 = f1d.get('dist_ema50_pct', 100)
-        
-        # Currently near EMA20 (ideal pullback level)
-        if -2 <= dist_ema20 <= 2:  # Within 2% of EMA20
+        dist_ema20 = f1d.get("dist_ema20_pct", 100)
+        dist_ema50 = f1d.get("dist_ema50_pct", 100)
+
+        if -2 <= dist_ema20 <= 2:
             return 100.0
-        
-        # Near EMA50 (deeper pullback)
         if -2 <= dist_ema50 <= 2:
             return 80.0
-        
-        # Between EMAs (healthy pullback)
         if dist_ema20 < 0 and dist_ema50 > 0:
             return 60.0
-        
-        # Above both (no pullback yet)
         if dist_ema20 > 5:
             return 20.0
-        
-        # Below both (too deep)
         if dist_ema50 < -5:
             return 10.0
-        
         return 40.0
-    
+
     def _score_rebound(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """
-        Score rebound strength (0-100).
-        
-        Recent bounce from pullback low.
-        """
         score = 0.0
-        
-        # 1d momentum
-        r3 = f1d.get('r_3', 0)
-        
-        if r3 >= 10:  # >10% in 3 days
+        r3 = f1d.get("r_3", 0)
+        if r3 >= 10:
             score += 50
         elif r3 >= self.min_rebound:
             score += 30
         elif r3 > 0:
             score += 10
-        
-        # 4h momentum (recent)
-        r3_4h = f4h.get('r_3', 0)
-        
+
+        r3_4h = f4h.get("r_3", 0)
         if r3_4h >= 5:
             score += 50
         elif r3_4h >= 2:
             score += 30
         elif r3_4h > 0:
             score += 10
-        
+
+        r7 = f1d.get("r_7")
+        if r7 is not None and self.momentum_divisor > 0:
+            score = 0.8 * score + 0.2 * max(0.0, min(100.0, (float(r7) / self.momentum_divisor) * 100.0))
+
         return min(score, 100.0)
-    
+
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """
-        Score volume pattern (0-100).
-        
-        Ideal: Volume spike on rebound.
-        """
-        vol_spike_1d = f1d.get('volume_spike', 1.0)
-        vol_spike_4h = f4h.get('volume_spike', 1.0)
-        
-        max_spike = max(vol_spike_1d, vol_spike_4h)
-        
+        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
         if max_spike < self.min_volume_spike:
             return 0.0
-        
-        # Strong volume
         if max_spike >= 2.5:
             return 100.0
-        
-        # Moderate volume
         if max_spike >= 2.0:
             return 80.0
-        
-        # Linear scale
         ratio = (max_spike - self.min_volume_spike) / (2.0 - self.min_volume_spike)
         return ratio * 70.0
-    
-    def _generate_reasons(
-        self,
-        trend_score: float,
-        pullback_score: float,
-        rebound_score: float,
-        volume_score: float,
-        f1d: Dict[str, Any],
-        f4h: Dict[str, Any],
-        flags: List[str]
-    ) -> List[str]:
-        """Generate human-readable reasons."""
+
+    def _generate_reasons(self, trend_score: float, pullback_score: float, rebound_score: float, volume_score: float,
+                          f1d: Dict[str, Any], f4h: Dict[str, Any], flags: List[str]) -> List[str]:
         reasons = []
-        
-        # Trend
-        dist_ema50 = f1d.get('dist_ema50_pct', 0)
+
+        dist_ema50 = f1d.get("dist_ema50_pct", 0)
         if trend_score > 70:
             reasons.append(f"Strong uptrend ({dist_ema50:.1f}% above EMA50)")
         elif trend_score > 30:
             reasons.append(f"Moderate uptrend ({dist_ema50:.1f}% above EMA50)")
         else:
             reasons.append("Weak/no uptrend")
-        
-        # Pullback
-        dist_ema20 = f1d.get('dist_ema20_pct', 0)
+
+        dist_ema20 = f1d.get("dist_ema20_pct", 0)
         if pullback_score > 70:
             reasons.append(f"At support level ({dist_ema20:.1f}% from EMA20)")
         elif pullback_score > 40:
             reasons.append("Healthy pullback depth")
         else:
             reasons.append("No clear pullback")
-        
-        # Rebound
-        r3 = f1d.get('r_3', 0)
+
+        r3 = f1d.get("r_3", 0)
         if rebound_score > 60:
             reasons.append(f"Strong rebound ({r3:.1f}% in 3d)")
         elif rebound_score > 30:
             reasons.append("Moderate rebound")
         else:
             reasons.append("No rebound yet")
-        
-        # Volume
-        vol_spike = max(f1d.get('volume_spike', 1.0), f4h.get('volume_spike', 1.0))
+
+        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
         if volume_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x)")
         elif volume_score > 30:
             reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
-        
-        # Flags
-        if 'broken_trend' in flags:
+
+        if "broken_trend" in flags:
             reasons.append("⚠️ Below EMA50 (trend broken)")
-        
-        if 'low_liquidity' in flags:
+        if "low_liquidity" in flags:
             reasons.append("⚠️ Low liquidity")
-        
+
         return reasons
 
 
-def score_pullbacks(
-    features_data: Dict[str, Dict[str, Any]],
-    volumes: Dict[str, float],
-    config: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    Score all symbols for pullback setups and return ranked list.
-    
-    Args:
-        features_data: Dict mapping symbol -> features
-        volumes: Dict mapping symbol -> 24h volume
-        config: Config dict
-    
-    Returns:
-        List of scored symbols, sorted by score (descending)
-    """
+def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = PullbackScorer(config)
     results = []
-    
-    logger.info(f"Scoring {len(features_data)} symbols for pullback setups")
-    
     for symbol, features in features_data.items():
         volume = volumes.get(symbol, 0)
-        
         try:
             score_result = scorer.score(symbol, features, volume)
-            
-            results.append({
-                'symbol': symbol,
-                'price_usdt': features.get('price_usdt'),
-                'coin_name': features.get('coin_name'),
-                'market_cap': features.get('market_cap'),
-                'quote_volume_24h': features.get('quote_volume_24h'),
-                'score': score_result['score'],
-                'components': score_result['components'],
-                'penalties': score_result['penalties'],
-                'flags': score_result['flags'],
-                'reasons': score_result['reasons']
-            })
-            
+            results.append(
+                {
+                    "symbol": symbol,
+                    "price_usdt": features.get("price_usdt"),
+                    "coin_name": features.get("coin_name"),
+                    "market_cap": features.get("market_cap"),
+                    "quote_volume_24h": features.get("quote_volume_24h"),
+                    "score": score_result["score"],
+                    "components": score_result["components"],
+                    "penalties": score_result["penalties"],
+                    "flags": score_result["flags"],
+                    "reasons": score_result["reasons"],
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to score {symbol}: {e}")
             continue
-    
-    # Sort by score (descending)
-    results.sort(key=lambda x: x['score'], reverse=True)
-    
-    logger.info(f"Pullback scoring complete: {len(results)} symbols scored")
-    
+
+    results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
 ```
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `5cdf49fc3bda91babf545b14a5965fd2b889c1d042b429ad213579b63bebe898`
+**SHA256:** `6973e6d77348a2b55f478efc246eb7c8acd770c2cf1c6b1351040d62e77a9652`
 
 ```python
 """
@@ -5441,250 +5210,143 @@ Reversal Setup Scoring
 ======================
 
 Identifies downtrend → base → reclaim setups.
-
-Scoring Components:
-1. Drawdown Context (30%) - Deep enough pullback from ATH
-2. Base Quality (25%) - Consolidation without new lows
-3. Reclaim Strength (25%) - Breaking back above EMAs with momentum
-4. Volume Confirmation (20%) - Volume expansion on reclaim
-
-Penalties:
-- Overextension (too far above EMAs)
-- Low liquidity
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 
 class ReversalScorer:
     """Scores reversal setups (downtrend → base → reclaim)."""
-    
+
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize reversal scorer.
-        
-        Args:
-            config: Config dict with 'scoring' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            scoring_config = config.raw.get('scoring', {}).get('reversal', {})
-        else:
-            scoring_config = config.get('scoring', {}).get('reversal', {})
-        
-        # Thresholds
-        self.min_drawdown = scoring_config.get('min_drawdown_pct', 40)  # Min 40% drawdown
-        self.ideal_drawdown_min = scoring_config.get('ideal_drawdown_min', 50)  # 50-80% ideal
-        self.ideal_drawdown_max = scoring_config.get('ideal_drawdown_max', 80)
-        
-        self.min_base_days = scoring_config.get('min_base_days', 10)  # Min consolidation
-        self.min_volume_spike = scoring_config.get('min_volume_spike', 1.5)  # 1.5x normal
-        
-        self.overextension_threshold = scoring_config.get('overextension_threshold', 15)  # >15% above EMA50
-        
-        # Component weights
+        root = config.raw if hasattr(config, "raw") else config
+        scoring_cfg = root.get("scoring", {}).get("reversal", {})
+
+        self.min_drawdown = float(scoring_cfg.get("min_drawdown_pct", 40.0))
+        self.ideal_drawdown_min = float(scoring_cfg.get("ideal_drawdown_min", 50.0))
+        self.ideal_drawdown_max = float(scoring_cfg.get("ideal_drawdown_max", 80.0))
+        self.min_volume_spike = float(scoring_cfg.get("min_volume_spike", 1.5))
+
+        penalties_cfg = scoring_cfg.get("penalties", {})
+        self.overextension_threshold = float(penalties_cfg.get("overextension_threshold_pct", 15.0))
+        self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.7))
+        self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
+        self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+
         self.weights = {
-            'drawdown': 0.30,
-            'base': 0.25,
-            'reclaim': 0.25,
-            'volume': 0.20
+            "drawdown": 0.30,
+            "base": 0.25,
+            "reclaim": 0.25,
+            "volume": 0.20,
         }
-        
-        logger.info("Reversal Scorer initialized")
-    
-    def score(
-        self,
-        symbol: str,
-        features: Dict[str, Any],
-        quote_volume_24h: float
-    ) -> Dict[str, Any]:
-        """
-        Score a single symbol for reversal setup.
-        
-        Args:
-            symbol: Trading pair (e.g., 'BTCUSDT')
-            features: Feature dict with '1d' and '4h' sub-dicts
-            quote_volume_24h: 24h volume in USDT
-        
-        Returns:
-            Score dict with:
-            - score: float (0-100)
-            - components: dict of component scores
-            - flags: list of condition flags
-            - reasons: list of human-readable reasons
-        """
-        f1d = features.get('1d', {})
-        f4h = features.get('4h', {})
-        
-        # Components
+
+    def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
+        f1d = features.get("1d", {})
+        f4h = features.get("4h", {})
+
         drawdown_score = self._score_drawdown(f1d)
         base_score = self._score_base(f1d)
-        reclaim_score = self._score_reclaim(f1d, f4h)
+        reclaim_score = self._score_reclaim(f1d)
         volume_score = self._score_volume(f1d, f4h)
-        
-        # Weighted total
+
         raw_score = (
-            drawdown_score * self.weights['drawdown'] +
-            base_score * self.weights['base'] +
-            reclaim_score * self.weights['reclaim'] +
-            volume_score * self.weights['volume']
+            drawdown_score * self.weights["drawdown"]
+            + base_score * self.weights["base"]
+            + reclaim_score * self.weights["reclaim"]
+            + volume_score * self.weights["volume"]
         )
-        
-        # Penalties & Flags
+
         penalties = []
         flags = []
-        
-        # Overextension penalty
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        if dist_ema50 and dist_ema50 > self.overextension_threshold:
-            penalties.append(('overextension', 0.7))
-            flags.append('overextended')
-        
-        # Low liquidity penalty
-        if quote_volume_24h < 500_000:  # <500K USDT
-            penalties.append(('low_liquidity', 0.8))
-            flags.append('low_liquidity')
-        
-        # Apply penalties (multiplicative)
+
+        dist_ema50 = f1d.get("dist_ema50_pct")
+        if dist_ema50 is not None and dist_ema50 > self.overextension_threshold:
+            penalties.append(("overextension", self.overextension_factor))
+            flags.append("overextended")
+
+        if quote_volume_24h < self.low_liquidity_threshold:
+            penalties.append(("low_liquidity", self.low_liquidity_factor))
+            flags.append("low_liquidity")
+
         final_score = raw_score
-        for name, factor in penalties:
+        for _, factor in penalties:
             final_score *= factor
-        
-        # Reasons
-        reasons = self._generate_reasons(
-            drawdown_score, base_score, reclaim_score, volume_score,
-            f1d, f4h, flags
-        )
-        
+
+        final_score = max(0.0, min(100.0, final_score))
+
+        reasons = self._generate_reasons(drawdown_score, base_score, reclaim_score, volume_score, f1d, f4h, flags)
+
         return {
-            'score': round(final_score, 2),
-            'components': {
-                'drawdown': round(drawdown_score, 2),
-                'base': round(base_score, 2),
-                'reclaim': round(reclaim_score, 2),
-                'volume': round(volume_score, 2)
+            "score": round(final_score, 2),
+            "components": {
+                "drawdown": round(drawdown_score, 2),
+                "base": round(base_score, 2),
+                "reclaim": round(reclaim_score, 2),
+                "volume": round(volume_score, 2),
             },
-            'penalties': {name: factor for name, factor in penalties},
-            'flags': flags,
-            'reasons': reasons
+            "penalties": {name: factor for name, factor in penalties},
+            "flags": flags,
+            "reasons": reasons,
         }
-    
+
     def _score_drawdown(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score drawdown context (0-100).
-        
-        Ideal: 50-80% drawdown from ATH
-        """
-        dd = f1d.get('drawdown_from_ath')
+        dd = f1d.get("drawdown_from_ath")
         if dd is None or dd >= 0:
             return 0.0
-        
+
         dd_pct = abs(dd)
-        
-        # Below minimum
         if dd_pct < self.min_drawdown:
             return 0.0
-        
-        # Ideal range
         if self.ideal_drawdown_min <= dd_pct <= self.ideal_drawdown_max:
             return 100.0
-        
-        # Below ideal (linear scale)
         if dd_pct < self.ideal_drawdown_min:
             ratio = (dd_pct - self.min_drawdown) / (self.ideal_drawdown_min - self.min_drawdown)
             return 50.0 + ratio * 50.0
-        
-        # Above ideal (diminishing returns)
-        if dd_pct > self.ideal_drawdown_max:
-            excess = dd_pct - self.ideal_drawdown_max
-            penalty = min(excess / 20, 0.5)  # Max 50% penalty
-            return 100.0 * (1 - penalty)
-        
-        return 50.0
-    
+
+        excess = dd_pct - self.ideal_drawdown_max
+        penalty = min(excess / 20, 0.5)
+        return 100.0 * (1 - penalty)
+
     def _score_base(self, f1d: Dict[str, Any]) -> float:
-        """
-        Score base formation quality (0-100).
-        
-        Good base = consolidation without new lows.
-        """
-        base_detected = f1d.get('base_detected')
-        
-        if base_detected is None:
+        base_score = f1d.get("base_score")
+        if base_score is None:
             return 0.0
-        
-        if base_detected:
-            # Check volatility (ATR)
-            atr = f1d.get('atr_pct')
-            if atr and atr < 5:  # Very tight base
-                return 100.0
-            elif atr and atr < 10:  # Good base
-                return 80.0
-            else:
-                return 60.0
-        else:
-            # No base detected
-            return 0.0
-    
-    def _score_reclaim(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """
-        Score reclaim strength (0-100).
-        
-        Strong reclaim:
-        - Price above EMA20 and EMA50
-        - Recent higher high
-        - Positive momentum
-        """
+        return max(0.0, min(100.0, float(base_score)))
+
+    def _score_reclaim(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
-        
-        # 1d reclaim
-        dist_ema20 = f1d.get('dist_ema20_pct')
-        dist_ema50 = f1d.get('dist_ema50_pct')
-        
-        # Above both EMAs
-        if dist_ema20 and dist_ema20 > 0:
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        dist_ema50 = f1d.get("dist_ema50_pct")
+
+        if dist_ema20 is not None and dist_ema20 > 0:
             score += 30
-        if dist_ema50 and dist_ema50 > 0:
+        if dist_ema50 is not None and dist_ema50 > 0:
             score += 30
-        
-        # Higher high detected
-        if f1d.get('hh_20'):
+        if f1d.get("hh_20"):
             score += 20
-        
-        # Momentum (recent returns)
-        r7 = f1d.get('r_7')
-        if r7 and r7 > 10:  # >10% in 7 days
-            score += 20
-        elif r7 and r7 > 5:
-            score += 10
-        
+
+        r7 = f1d.get("r_7")
+        if r7 is not None:
+            momentum_score = max(0.0, min(100.0, (float(r7) / 10.0) * 100.0))
+            score += 0.2 * momentum_score
+
         return min(score, 100.0)
-    
+
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        """
-        Score volume confirmation (0-100).
-        
-        Strong volume = spike on reclaim.
-        """
-        vol_spike_1d = f1d.get('volume_spike', 1.0)
-        vol_spike_4h = f4h.get('volume_spike', 1.0)
-        
-        # Use higher of the two
+        vol_spike_1d = f1d.get("volume_spike", 1.0)
+        vol_spike_4h = f4h.get("volume_spike", 1.0)
         max_spike = max(vol_spike_1d, vol_spike_4h)
-        
+
         if max_spike < self.min_volume_spike:
             return 0.0
-        
-        # Linear scale from min to 3x
         if max_spike >= 3.0:
             return 100.0
-        
         ratio = (max_spike - self.min_volume_spike) / (3.0 - self.min_volume_spike)
         return ratio * 100.0
-    
+
     def _generate_reasons(
         self,
         dd_score: float,
@@ -5693,101 +5355,72 @@ class ReversalScorer:
         vol_score: float,
         f1d: Dict[str, Any],
         f4h: Dict[str, Any],
-        flags: List[str]
+        flags: List[str],
     ) -> List[str]:
-        """Generate human-readable reasons for the score."""
         reasons = []
-        
-        # Drawdown
-        dd = f1d.get('drawdown_from_ath')
+
+        dd = f1d.get("drawdown_from_ath")
         if dd and dd < 0:
             dd_pct = abs(dd)
             if dd_score > 70:
                 reasons.append(f"Strong drawdown setup ({dd_pct:.1f}% from ATH)")
             elif dd_score > 30:
                 reasons.append(f"Moderate drawdown ({dd_pct:.1f}% from ATH)")
-        
-        # Base
+
         if base_score > 60:
             reasons.append("Clean base formation detected")
         elif base_score == 0:
             reasons.append("No base detected (still declining)")
-        
-        # Reclaim
-        dist_ema50 = f1d.get('dist_ema50_pct')
+
+        dist_ema50 = f1d.get("dist_ema50_pct")
         if reclaim_score > 60:
-            reasons.append(f"Reclaimed EMAs (${dist_ema50:.1f}% above EMA50)")
+            reasons.append(f"Reclaimed EMAs ({dist_ema50:.1f}% above EMA50)")
         elif reclaim_score > 30:
             reasons.append("Partial reclaim in progress")
         else:
             reasons.append("Below EMAs (no reclaim yet)")
-        
-        # Volume
-        vol_spike = max(f1d.get('volume_spike', 1.0), f4h.get('volume_spike', 1.0))
+
+        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
         if vol_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif vol_score > 30:
             reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
-        
-        # Flags
-        if 'overextended' in flags:
+
+        if "overextended" in flags:
             reasons.append(f"⚠️ Overextended ({dist_ema50:.1f}% above EMA50)")
-        
-        if 'low_liquidity' in flags:
+        if "low_liquidity" in flags:
             reasons.append("⚠️ Low liquidity")
-        
+
         return reasons
 
 
-def score_reversals(
-    features_data: Dict[str, Dict[str, Any]],
-    volumes: Dict[str, float],
-    config: Dict[str, Any]
-) -> List[Dict[str, Any]]:
-    """
-    Score all symbols for reversal setups and return ranked list.
-    
-    Args:
-        features_data: Dict mapping symbol -> features
-        volumes: Dict mapping symbol -> 24h volume
-        config: Config dict
-    
-    Returns:
-        List of scored symbols, sorted by score (descending)
-    """
+def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = ReversalScorer(config)
     results = []
-    
-    logger.info(f"Scoring {len(features_data)} symbols for reversal setups")
-    
+
     for symbol, features in features_data.items():
         volume = volumes.get(symbol, 0)
-        
         try:
             score_result = scorer.score(symbol, features, volume)
-            
-            results.append({
-                'symbol': symbol,
-                'price_usdt': features.get('price_usdt'),
-                'coin_name': features.get('coin_name'),
-                'market_cap': features.get('market_cap'),
-                'quote_volume_24h': features.get('quote_volume_24h'),
-                'score': score_result['score'],
-                'components': score_result['components'],
-                'penalties': score_result['penalties'],
-                'flags': score_result['flags'],
-                'reasons': score_result['reasons']
-            })
-            
+            results.append(
+                {
+                    "symbol": symbol,
+                    "price_usdt": features.get("price_usdt"),
+                    "coin_name": features.get("coin_name"),
+                    "market_cap": features.get("market_cap"),
+                    "quote_volume_24h": features.get("quote_volume_24h"),
+                    "score": score_result["score"],
+                    "components": score_result["components"],
+                    "penalties": score_result["penalties"],
+                    "flags": score_result["flags"],
+                    "reasons": score_result["reasons"],
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to score {symbol}: {e}")
             continue
-    
-    # Sort by score (descending)
-    results.sort(key=lambda x: x['score'], reverse=True)
-    
-    logger.info(f"Reversal scoring complete: {len(results)} symbols scored")
-    
+
+    results.sort(key=lambda x: x["score"], reverse=True)
     return results
 
 ```
@@ -7222,4 +6855,4 @@ v1 provides the structural foundation.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-13 12:28 UTC_
+_Generated by GitHub Actions • 2026-02-13 13:17 UTC_
