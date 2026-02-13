@@ -410,10 +410,7 @@ v1 provides the structural foundation.
 
 ---
 
-## End of `scoring.md`
-
-
-## Reversal Score Transparency
+## 11. Reversal Score Transparency
 
 Reversal scorer outputs include:
 - `raw_score`
@@ -421,3 +418,8 @@ Reversal scorer outputs include:
 - `final_score` (same numeric value as `score`, before display rounding differences)
 
 Volume component prefers `volume_quote_spike` if available; otherwise it falls back to `volume_spike`.
+
+
+---
+
+## End of `scoring.md`

@@ -390,17 +390,15 @@ It does not pull data from scoring.
 
 If Kline `quoteVolume` is present, compute:
 - `volume_quote`
-- `volume_quote_sma_14` (baseline excludes current candle)
+- `volume_quote_sma`
 - `volume_quote_spike`
+- legacy compatibility key: `volume_quote_sma_14`
 
-If unavailable, quote-volume keys are omitted.
+If quote-volume is unavailable, these keys remain present with `null` values for schema stability.
 
 ---
 
-## End of `features.md`
-
-
-## Volume Baseline per Timeframe
+## 19. Volume Baseline per Timeframe
 
 - Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
 - Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
@@ -423,3 +421,8 @@ Additional output fields:
 - `base_no_new_lows_pass`
 
 `base_score` is `None` if insufficient candles for the configured lookback.
+
+
+---
+
+## End of `features.md`
