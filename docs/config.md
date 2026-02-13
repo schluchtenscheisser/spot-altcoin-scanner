@@ -174,55 +174,66 @@ Feature parameters affect scoring.
 
 ## 10. Scoring
 
-### 10.1 Breakout
+> Note: The project currently contains some legacy keys for backward compatibility.
+> The canonical scorer keys are those consumed in code (`scanner/pipeline/scoring/*.py`).
+
+### 10.1 Breakout (canonical)
 
 ```yaml
 scoring:
   breakout:
     enabled: true
-    high_lookback_days: 30
-    min_volume_spike_factor: 1.5
-    max_overextension_ema20_percent: 25
-    weights:
-      price_break: 0.40
-      volume_confirmation: 0.40
-      volatility_context: 0.20
+    min_breakout_pct: 2
+    ideal_breakout_pct: 5
+    max_breakout_pct: 20
+    min_volume_spike: 1.5
+    ideal_volume_spike: 2.5
+    breakout_curve:
+      floor_pct: -5
+      fresh_cap_pct: 1
+      overextended_cap_pct: 3
+    momentum:
+      r7_divisor: 10
+    penalties:
+      overextension_factor: 0.6
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
 ```
 
 ---
 
-### 10.2 Pullback
+### 10.2 Pullback (canonical)
 
 ```yaml
   pullback:
     enabled: true
-    max_pullback_from_high_percent: 25
-    min_trend_days: 10
-    ema_trend_period_days: 20
-    weights:
-      trend_quality: 0.40
-      pullback_quality: 0.40
-      rebound_signal: 0.20
+    min_trend_strength: 5
+    min_rebound: 3
+    min_volume_spike: 1.3
+    momentum:
+      r7_divisor: 10
+    penalties:
+      broken_trend_factor: 0.5
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
 ```
 
 ---
 
-### 10.3 Reversal
+### 10.3 Reversal (canonical)
 
 ```yaml
   reversal:
     enabled: true
-    min_drawdown_from_ath_percent: 40
-    max_drawdown_from_ath_percent: 90
-    base_lookback_days: 45
-    min_base_days_without_new_low: 10
-    max_allowed_new_low_percent_vs_base_low: 3
-    min_reclaim_above_ema_days: 1
-    min_volume_spike_factor: 1.5
-    weights:
-      base_structure: 0.30
-      reclaim_signal: 0.40
-      volume_confirmation: 0.30
+    min_drawdown_pct: 40
+    ideal_drawdown_min: 50
+    ideal_drawdown_max: 80
+    min_volume_spike: 1.5
+    penalties:
+      overextension_threshold_pct: 15
+      overextension_factor: 0.7
+      low_liquidity_threshold: 500000
+      low_liquidity_factor: 0.8
 ```
 
 ---

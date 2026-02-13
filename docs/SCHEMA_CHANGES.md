@@ -88,3 +88,35 @@ Dieses Dokument protokolliert alle Änderungen an:
   }
 }
 ```
+
+### 2026-02-13 — schema_version v1.2 → v1.3 — Drawdown- und Scoring-Semantik korrigiert (Critical Findings)
+**PR:** (branch-local, Critical Findings Remediation)  
+**Typ:** semantisch
+
+#### Was hat sich geändert?
+- Semantik von `drawdown_from_ath` geändert: ATH wird nun auf ein konfigurierbares Fenster begrenzt (`features.drawdown_lookback_days`, Default 365) statt Full-History.
+- Reversal-Base-Bewertung verwendet ausschließlich `base_score` aus der FeatureEngine (keine separate ATR-Bucket-Base-Logik mehr im Scorer).
+- Momentum in Breakout/Pullback nutzt kontinuierliche Skalierung `clamp((r_7 / 10) * 100, 0, 100)` statt diskreter Sprünge.
+- Relevante Scoring-Schwellen/Penalties wurden in Config-Strukturen überführt.
+
+#### Warum?
+- Behebung der dokumentierten Critical Findings für mathematische Konsistenz und konfigurierbares Verhalten.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Teilweise (Feldnamen gleich, aber Werte/Interpretation ändern sich semantisch).
+- Betroffen: Alle Consumer, die `drawdown_from_ath`, Reversal-Base-Scoring oder Momentum-Komponenten historisch vergleichen.
+
+#### Migration / Vorgehen
+- Für Zeitreihenvergleiche alte Läufe als `schema_version=v1.2` behandeln.
+- Neue Läufe als `schema_version=v1.3` kennzeichnen; Metriken nicht direkt über Versionen mischen.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.3",
+  "features": {
+    "drawdown_from_ath": -12.4,
+    "base_score": 67.8
+  }
+}
+```

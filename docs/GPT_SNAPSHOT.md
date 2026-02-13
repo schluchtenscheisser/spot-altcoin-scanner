@@ -298,7 +298,7 @@ scanner/
 ### For Developers:
 - **docs/dev_guide.md** - Development workflow
 - **docs/spec.md** - Technical specification
-- **docs/project_phases.md** - Development roadmap
+- **docs/archive/project_phases.md** - Development roadmap (historical)
 - **docs/scoring.md** - Scoring algorithms
 - **snapshots/gpt/** - Session snapshots
 
