@@ -112,7 +112,7 @@ range = 0.30 break_strength = 0.30 volume = 0.20 momentum = 0.20
 Raw:
 
 S_raw = 0.30 * RangeScore + 0.30 * BreakStrengthScore + 0.20 * VolumeScore + 0.20 * MomentumScore
-
+ 
 MomentumScore = clamp((r_7 / 10) * 100, 0, 100)
 
 Penalties (config-driven):
