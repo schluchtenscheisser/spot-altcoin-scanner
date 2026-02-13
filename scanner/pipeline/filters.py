@@ -24,21 +24,46 @@ class UniverseFilters:
         Args:
             config: Config dict with 'filters' section
         """
-        self.config = config.get('filters', {})
-        
+        legacy_filters = config.get('filters', {})
+        universe_cfg = config.get('universe_filters', {})
+        exclusions_cfg = config.get('exclusions', {})
+
+        mcap_cfg = universe_cfg.get('market_cap', {})
+        volume_cfg = universe_cfg.get('volume', {})
+        history_cfg = universe_cfg.get('history', {})
+
         # Market Cap bounds (in USD)
-        self.mcap_min = self.config.get('mcap_min', 100_000_000)  # 100M
-        self.mcap_max = self.config.get('mcap_max', 3_000_000_000)  # 3B
-        
+        self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
+        self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
+
         # Liquidity (24h volume in USDT)
-        self.min_volume_24h = self.config.get('min_volume_24h', 1_000_000)  # 1M
-        
-        # Exclusion patterns
-        self.exclusion_patterns = self.config.get('exclusion_patterns', [
-            'USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD',  # Stablecoins
-            'WBTC', 'WETH', 'WBNB',  # Wrapped tokens
-            'UP', 'DOWN', 'BULL', 'BEAR',  # Leveraged tokens
-        ])
+        self.min_volume_24h = volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 1_000_000))
+
+        # Minimum 1d history used by OHLCV filtering step.
+        self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
+
+        self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
+
+        default_patterns = {
+            'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
+            'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
+            'leveraged_patterns': ['UP', 'DOWN', 'BULL', 'BEAR'],
+            'synthetic_patterns': [],
+        }
+
+        if legacy_filters.get('exclusion_patterns'):
+            self.exclusion_patterns = [str(p).upper() for p in legacy_filters['exclusion_patterns']]
+        else:
+            self.exclusion_patterns = []
+            if exclusions_cfg.get('exclude_stablecoins', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+            if exclusions_cfg.get('exclude_wrapped_tokens', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+            if exclusions_cfg.get('exclude_leveraged_tokens', True):
+                self.exclusion_patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
+                self.exclusion_patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            self.exclusion_patterns = [str(p).upper() for p in self.exclusion_patterns]
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
