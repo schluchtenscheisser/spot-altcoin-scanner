@@ -11,12 +11,11 @@ repository reflects mathematically correct implementation.
 
 Only address Critical Findings. Do NOT implement Improvement Proposals.
 
-## Mandatory Inputs
+## Mandatory additional Inputs
 
 -   All_Setups_Computation_Transparency.md
 -   All_Setups_Critical_Findings.md
 -   All_Setups_Improvement_Proposals.md
--   Roadmap document
 
 ## Required Fixes
 
