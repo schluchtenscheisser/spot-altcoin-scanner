@@ -197,8 +197,12 @@ class FeatureEngine:
         drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
         f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
 
-        # Base detection
-        f["base_score"] = self._detect_base(symbol, closes, lows, 30) if timeframe == "1d" else np.nan
+        # Phase 2: Base detection (1d only, config-driven)
+        if timeframe == "1d":
+            base_features = self._detect_base(symbol, closes, lows)
+            f.update(base_features)
+        else:
+            f["base_score"] = np.nan
 
         return self._convert_to_native_types(f)
 
@@ -319,17 +323,61 @@ class FeatureEngine:
             return False
         return bool(np.nanmin(lows[-5:]) > np.nanmin(lows[-lookback:-5]))
 
-    def _detect_base(self, symbol: str, closes: np.ndarray, lows: np.ndarray, lookback: int = 30) -> Optional[float]:
-        if len(closes) < lookback:
+    def _detect_base(self, symbol: str, closes: np.ndarray, lows: np.ndarray) -> Dict[str, Optional[float]]:
+        lookback = int(self._config_get(["scoring", "reversal", "base_lookback_days"], 45))
+        recent_days = int(self._config_get(["scoring", "reversal", "min_base_days_without_new_low"], 10))
+        max_new_low_pct = float(
+            self._config_get(["scoring", "reversal", "max_allowed_new_low_percent_vs_base_low"], 3.0)
+        )
+
+        if lookback <= 0 or recent_days <= 0 or recent_days >= lookback:
+            logger.warning(
+                f"[{symbol}] invalid base config (lookback={lookback}, recent_days={recent_days}); using defaults"
+            )
+            lookback = 45
+            recent_days = 10
+            max_new_low_pct = 3.0
+
+        if len(closes) < lookback or len(lows) < lookback:
             logger.warning(f"[{symbol}] insufficient candles for base detection")
-            return np.nan
-        recent_low = np.nanmin(lows[-lookback//3:])
-        prior_low = np.nanmin(lows[-lookback:-lookback//3])
-        no_new_lows = recent_low >= prior_low
-        price_range = (np.nanmax(closes[-lookback:]) - np.nanmin(closes[-lookback:])) / np.nanmean(closes[-lookback:]) * 100
-        stability_score = max(0.0, 100.0 - price_range)
-        base_score = stability_score if no_new_lows else stability_score / 2
-        return float(base_score)
+            return {
+                "base_score": np.nan,
+                "base_low": np.nan,
+                "base_recent_low": np.nan,
+                "base_range_pct": np.nan,
+                "base_no_new_lows_pass": np.nan,
+            }
+
+        window_closes = closes[-lookback:]
+        window_lows = lows[-lookback:]
+
+        older_lows = window_lows[:-recent_days]
+        recent_lows = window_lows[-recent_days:]
+        recent_closes = window_closes[-recent_days:]
+
+        base_low = float(np.nanmin(older_lows))
+        recent_low = float(np.nanmin(recent_lows))
+
+        tol = max_new_low_pct / 100.0
+        no_new_lows_pass = bool(recent_low >= (base_low * (1 - tol)))
+
+        recent_close_min = float(np.nanmin(recent_closes))
+        recent_close_max = float(np.nanmax(recent_closes))
+        if recent_close_min <= 0:
+            range_pct = np.nan
+        else:
+            range_pct = float(((recent_close_max - recent_close_min) / recent_close_min) * 100.0)
+
+        stability_score = 0.0 if np.isnan(range_pct) else max(0.0, 100.0 - range_pct)
+        base_score = stability_score if no_new_lows_pass else 0.0
+
+        return {
+            "base_score": float(base_score),
+            "base_low": base_low,
+            "base_recent_low": recent_low,
+            "base_range_pct": range_pct,
+            "base_no_new_lows_pass": no_new_lows_pass,
+        }
 
     # -------------------------------------------------------------------------
     # Utility
