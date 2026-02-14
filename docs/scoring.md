@@ -410,22 +410,11 @@ v1 provides the structural foundation.
 
 ---
 
-## 11. Reversal Score Transparency
-
-Reversal scorer outputs include:
-- `raw_score`
-- `penalty_multiplier`
-- `final_score` (same numeric value as `score`, before display rounding differences)
-
-Volume component prefers `volume_quote_spike` if available; otherwise it falls back to `volume_spike`.
-
-
 ---
 
-## 12. Phase 3 Deterministic Scoring Curves
+## 11. Phase Appendix Reference
 
-- Breakout component `breakout_dist_20` uses explicit piecewise mapping with
-  `breakout_curve.floor_pct`, `min_breakout_pct`, `ideal_breakout_pct`, and `max_breakout_pct`.
-- Breakout adds info flag `overextended_breakout_zone` if `breakout_dist_20 > breakout_curve.overextended_cap_pct`.
-- Breakout overextension penalty is tied to `dist_ema20_pct > penalties.max_overextension_ema20_percent`.
-- Breakout and Pullback volume components prefer `volume_quote_spike` over `volume_spike` whenever available.
+Phase-specific scoring additions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
+
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.
