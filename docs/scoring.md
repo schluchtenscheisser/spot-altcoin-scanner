@@ -410,16 +410,11 @@ v1 provides the structural foundation.
 
 ---
 
-## 11. Reversal Score Transparency
-
-Reversal scorer outputs include:
-- `raw_score`
-- `penalty_multiplier`
-- `final_score` (same numeric value as `score`, before display rounding differences)
-
-Volume component prefers `volume_quote_spike` if available; otherwise it falls back to `volume_spike`.
-
-
 ---
 
-## End of `scoring.md`
+## 11. Phase Appendix Reference
+
+Phase-specific scoring additions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
+
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.

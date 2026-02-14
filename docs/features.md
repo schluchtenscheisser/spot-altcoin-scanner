@@ -386,52 +386,11 @@ It does not pull data from scoring.
 
 ---
 
-## 18. Quote Volume (Thema 7)
-
-If Kline `quoteVolume` is present, compute:
-- `volume_quote`
-- `volume_quote_sma`
-- `volume_quote_spike`
-- legacy compatibility key: `volume_quote_sma_14`
-
-If quote-volume is unavailable, these keys remain present with `null` values for schema stability.
-
 ---
 
-## 19. Volume Baseline per Timeframe
+## 18. Phase Appendix Reference
 
-- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
-- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
-- Baseline uses `include_current=False` (current candle excluded).
-- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
-- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+Phase-specific feature conventions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
 
-
-## Reversal Base Features (Phase 2)
-
-For timeframe `1d`, base detection is config-driven via:
-- `scoring.reversal.base_lookback_days`
-- `scoring.reversal.min_base_days_without_new_low`
-- `scoring.reversal.max_allowed_new_low_percent_vs_base_low`
-
-Additional output fields:
-- `base_low`
-- `base_recent_low`
-- `base_range_pct`
-- `base_no_new_lows_pass`
-
-`base_score` is `None` if insufficient candles for the configured lookback.
-
-
----
-
-## End of `features.md`
-
-
-## Volume Baseline per Timeframe
-
-- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
-- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
-- Baseline uses `include_current=False` (current candle excluded).
-- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
-- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.

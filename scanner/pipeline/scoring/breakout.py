@@ -27,6 +27,9 @@ class BreakoutScorer:
 
         penalties_cfg = scoring_cfg.get("penalties", {})
         self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.6))
+        self.max_overextension_ema20_percent = float(
+            penalties_cfg.get("max_overextension_ema20_percent", scoring_cfg.get("max_overextension_ema20_percent", 25.0))
+        )
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
@@ -73,7 +76,11 @@ class BreakoutScorer:
         flags = []
 
         breakout_dist = f1d.get("breakout_dist_20", 0)
-        if breakout_dist > self.max_breakout_pct:
+        if breakout_dist is not None and breakout_dist > self.breakout_overextended_cap_pct:
+            flags.append("overextended_breakout_zone")
+
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        if dist_ema20 is not None and dist_ema20 > self.max_overextension_ema20_percent:
             penalties.append(("overextension", self.overextension_factor))
             flags.append("overextended")
 
@@ -111,15 +118,27 @@ class BreakoutScorer:
         if dist <= self.breakout_floor_pct:
             return 0.0
         if self.breakout_floor_pct < dist < 0:
-            return 70 * (1 + (dist / abs(self.breakout_floor_pct)))
-        if 0 <= dist <= self.breakout_fresh_cap_pct:
-            return 70 + (30 * (dist / self.breakout_fresh_cap_pct))
-        if self.breakout_fresh_cap_pct < dist <= self.breakout_overextended_cap_pct:
-            return max(90 - (dist - self.breakout_fresh_cap_pct) * 10, 70)
-        return 60.0
+            return 30.0 * (dist - self.breakout_floor_pct) / (0 - self.breakout_floor_pct)
+        if 0 <= dist < self.min_breakout_pct:
+            if self.min_breakout_pct <= 0:
+                return 70.0
+            return 30.0 + 40.0 * (dist / self.min_breakout_pct)
+        if self.min_breakout_pct <= dist <= self.ideal_breakout_pct:
+            denom = self.ideal_breakout_pct - self.min_breakout_pct
+            if denom <= 0:
+                return 100.0
+            return 70.0 + 30.0 * ((dist - self.min_breakout_pct) / denom)
+        if self.ideal_breakout_pct < dist <= self.max_breakout_pct:
+            denom = self.max_breakout_pct - self.ideal_breakout_pct
+            if denom <= 0:
+                return 0.0
+            return 100.0 * (1.0 - ((dist - self.ideal_breakout_pct) / denom))
+        return 0.0
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        max_spike = max(spike_1d, spike_4h)
         if max_spike < self.min_volume_spike:
             return 0.0
         if max_spike >= self.ideal_volume_spike:
@@ -161,7 +180,9 @@ class BreakoutScorer:
         else:
             reasons.append("No breakout (below recent high)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        vol_spike = max(spike_1d, spike_4h)
         if volume_score > 70:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif volume_score > 30:
@@ -176,8 +197,10 @@ class BreakoutScorer:
         else:
             reasons.append("In downtrend (below EMAs)")
 
+        if "overextended_breakout_zone" in flags:
+            reasons.append(f"⚠️ Breakout in overextended zone ({dist:.1f}% above high)")
         if "overextended" in flags:
-            reasons.append(f"⚠️ Overextended ({dist:.1f}% above high)")
+            reasons.append("⚠️ Overextended vs EMA20")
         if "low_liquidity" in flags:
             reasons.append("⚠️ Low liquidity")
         return reasons

@@ -156,7 +156,9 @@ class PullbackScorer:
         return min(score, 100.0)
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        max_spike = max(spike_1d, spike_4h)
         if max_spike < self.min_volume_spike:
             return 0.0
         if max_spike >= 2.5:
@@ -194,7 +196,9 @@ class PullbackScorer:
         else:
             reasons.append("No rebound yet")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        vol_spike = max(spike_1d, spike_4h)
         if volume_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x)")
         elif volume_score > 30:
