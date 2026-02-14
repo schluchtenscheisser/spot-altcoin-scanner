@@ -422,7 +422,3 @@ Additional output fields:
 
 `base_score` is `None` if insufficient candles for the configured lookback.
 
-
----
-
-## End of `features.md`
