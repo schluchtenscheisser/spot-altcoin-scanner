@@ -162,7 +162,10 @@ features:
     breakout: 30
     reversal: 60
 
-  volume_sma_period: 7
+  volume_sma_periods:
+    "1d": 14
+    "4h": 7
+  volume_sma_period: 7  # legacy fallback for all timeframes
   volume_spike_threshold: 1.5
 
   drawdown_lookback_days: 365

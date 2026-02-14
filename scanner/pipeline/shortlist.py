@@ -23,9 +23,10 @@ class ShortlistSelector:
             config: Config dict with 'shortlist' section
         """
         self.config = config.get('shortlist', {})
-        
+        general_cfg = config.get('general', {})
+
         # Default: Top 100 by volume
-        self.max_size = self.config.get('max_size', 100)
+        self.max_size = int(general_cfg.get('shortlist_size', self.config.get('max_size', 100)))
         
         # Minimum size (even if fewer pass filters)
         self.min_size = self.config.get('min_size', 10)

@@ -29,12 +29,32 @@ class ReversalScorer:
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
-        self.weights = {
+        default_weights = {
             "drawdown": 0.30,
             "base": 0.25,
             "reclaim": 0.25,
             "volume": 0.20,
         }
+        self.weights = self._load_weights(scoring_cfg, default_weights)
+
+    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
+        cfg_weights = scoring_cfg.get("weights")
+        if not cfg_weights:
+            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
+            return default_weights
+
+        mapped = {
+            "drawdown": cfg_weights.get("drawdown"),
+            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
+            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
+            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
+        }
+        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
+        total = sum(merged.values())
+        if total <= 0:
+            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
+            return default_weights
+        return {k: v / total for k, v in merged.items()}
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -64,16 +84,19 @@ class ReversalScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
-        final_score = raw_score
+        penalty_multiplier = 1.0
         for _, factor in penalties:
-            final_score *= factor
+            penalty_multiplier *= factor
 
-        final_score = max(0.0, min(100.0, final_score))
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(drawdown_score, base_score, reclaim_score, volume_score, f1d, f4h, flags)
 
         return {
             "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
             "components": {
                 "drawdown": round(drawdown_score, 2),
                 "base": round(base_score, 2),
@@ -129,8 +152,8 @@ class ReversalScorer:
         return min(score, 100.0)
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        vol_spike_1d = f1d.get("volume_spike", 1.0)
-        vol_spike_4h = f4h.get("volume_spike", 1.0)
+        vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
         max_spike = max(vol_spike_1d, vol_spike_4h)
 
         if max_spike < self.min_volume_spike:

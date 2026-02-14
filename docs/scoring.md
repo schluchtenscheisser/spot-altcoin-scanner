@@ -410,4 +410,11 @@ v1 provides the structural foundation.
 
 ---
 
-## End of `scoring.md`
+---
+
+## 11. Phase Appendix Reference
+
+Phase-specific scoring additions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
+
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.

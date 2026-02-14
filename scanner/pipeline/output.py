@@ -157,11 +157,20 @@ class ReportGenerator:
         symbol = data.get('symbol', 'UNKNOWN')
         coin_name = data.get('coin_name', 'Unknown')
         score = data.get('score', 0)
+        raw_score = data.get('raw_score')
+        penalty_multiplier = data.get('penalty_multiplier')
         price = data.get('price_usdt')
         
         # Header with rank, symbol, name, and score
         lines.append(f"### {rank}. {symbol} ({coin_name}) - Score: {score:.1f}")
         lines.append("")
+
+        # Score transparency
+        if raw_score is not None or penalty_multiplier is not None:
+            raw_display = f"{float(raw_score):.2f}" if raw_score is not None else "n/a"
+            pm_display = f"{float(penalty_multiplier):.4f}" if penalty_multiplier is not None else "n/a"
+            lines.append(f"**Score Details:** score={float(score):.2f}, raw_score={raw_display}, penalty_multiplier={pm_display}")
+            lines.append("")
         
         # Price
         if price is not None:
