@@ -51,3 +51,15 @@ Volume component prefers `volume_quote_spike` if available; otherwise it falls b
 - Breakout adds info flag `overextended_breakout_zone` if `breakout_dist_20 > breakout_curve.overextended_cap_pct`.
 - Breakout overextension penalty is tied to `dist_ema20_pct > penalties.max_overextension_ema20_percent`.
 - Breakout and Pullback volume components prefer `volume_quote_spike` over `volume_spike` whenever available.
+
+
+---
+
+## Phase 4 output/validation additions
+
+- Markdown/JSON setup results include score transparency fields: `score`, `raw_score`, `penalty_multiplier`.
+- `scanner.tools.validate_features` validates:
+  - `score` in `[0,100]`
+  - `raw_score` in `[0,100]`
+  - each `components.*` in `[0,100]`
+  - `penalty_multiplier` in `(0,1]`.
