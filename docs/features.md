@@ -407,7 +407,7 @@ If quote-volume is unavailable, these keys remain present with `null` values for
 - Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
 
 
-## Reversal Base Features (Phase 2)
+## 20. Reversal Base Features (Phase 2)
 
 For timeframe `1d`, base detection is config-driven via:
 - `scoring.reversal.base_lookback_days`
