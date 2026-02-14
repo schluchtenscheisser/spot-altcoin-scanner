@@ -1,48 +1,26 @@
 {
   "meta": {
     "date": "2026-02-14",
-    "generated_at": "2026-02-14T05:14:29.956612Z",
+    "generated_at": "2026-02-14T10:33:48.884717Z",
     "version": "1.0",
     "mode": "standard",
-    "asof_ts_ms": 1771046047832,
-    "asof_iso": "2026-02-14T05:14:07Z"
+    "asof_ts_ms": 1771065207846,
+    "asof_iso": "2026-02-14T10:33:27Z"
   },
   "summary": {
-    "reversal_count": 53,
-    "breakout_count": 53,
-    "pullback_count": 53,
-    "total_scored": 159
+    "reversal_count": 54,
+    "breakout_count": 54,
+    "pullback_count": 54,
+    "total_scored": 162
   },
   "setups": {
     "reversals": [
       {
-        "symbol": "AXSUSDT",
-        "price_usdt": 1.4616,
-        "coin_name": "Axie Infinity",
-        "market_cap": 246026891.12388378,
-        "quote_volume_24h": 2437839.8277,
-        "score": 65.19,
-        "components": {
-          "drawdown": 100.0,
-          "base": 75.63,
-          "reclaim": 5.13,
-          "volume": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (52.0% from ATH)",
-          "Clean base formation detected",
-          "Below EMAs (no reclaim yet)",
-          "Strong volume (4.7x average)"
-        ]
-      },
-      {
         "symbol": "COMPUSDT",
-        "price_usdt": 20.16,
+        "price_usdt": 19.88,
         "coin_name": "Compound",
-        "market_cap": 200350687.46793234,
-        "quote_volume_24h": 6906703.81,
+        "market_cap": 198075385.96280807,
+        "quote_volume_24h": 7416796.82,
         "score": 56.63,
         "components": {
           "drawdown": 78.75,
@@ -61,10 +39,10 @@
       },
       {
         "symbol": "BERAUSDT",
-        "price_usdt": 0.6899,
+        "price_usdt": 0.7022,
         "coin_name": "Berachain",
-        "market_cap": 147471060.4752302,
-        "quote_volume_24h": 3067299.018,
+        "market_cap": 150754582.81598788,
+        "quote_volume_24h": 2922183.6742,
         "score": 53.85,
         "components": {
           "drawdown": 100.0,
@@ -81,33 +59,11 @@
         ]
       },
       {
-        "symbol": "CTCUSDT",
-        "price_usdt": 0.1964,
-        "coin_name": "Creditcoin",
-        "market_cap": 102897076.49689057,
-        "quote_volume_24h": 1661005.443,
-        "score": 51.04,
-        "components": {
-          "drawdown": 100.0,
-          "base": 0.0,
-          "reclaim": 15.88,
-          "volume": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (65.5% from ATH)",
-          "No base detected (still declining)",
-          "Below EMAs (no reclaim yet)",
-          "Strong volume (5.1x average)"
-        ]
-      },
-      {
         "symbol": "ASTERUSDT",
-        "price_usdt": 0.7193,
+        "price_usdt": 0.7159,
         "coin_name": "Aster",
-        "market_cap": 1778156777.398648,
-        "quote_volume_24h": 6124583.7909,
+        "market_cap": 1770298771.6736596,
+        "quote_volume_24h": 5941235.2661,
         "score": 50.83,
         "components": {
           "drawdown": 86.91,
@@ -124,33 +80,11 @@
         ]
       },
       {
-        "symbol": "ENSUSDT",
-        "price_usdt": 6.669,
-        "coin_name": "Ethereum Name Service",
-        "market_cap": 255780841.63942096,
-        "quote_volume_24h": 2772411.05,
-        "score": 49.78,
-        "components": {
-          "drawdown": 100.0,
-          "base": 0.0,
-          "reclaim": 11.78,
-          "volume": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Strong drawdown setup (60.3% from ATH)",
-          "No base detected (still declining)",
-          "Below EMAs (no reclaim yet)",
-          "Strong volume (2.8x average)"
-        ]
-      },
-      {
         "symbol": "DEEPUSDT",
-        "price_usdt": 0.028927,
+        "price_usdt": 0.029925,
         "coin_name": "DeepBook Protocol",
-        "market_cap": 138307020.75298664,
-        "quote_volume_24h": 2696638.899468,
+        "market_cap": 142735846.65555954,
+        "quote_volume_24h": 2457992.846295,
         "score": 48.89,
         "components": {
           "drawdown": 100.0,
@@ -169,10 +103,10 @@
       },
       {
         "symbol": "HUSDT",
-        "price_usdt": 0.22563,
+        "price_usdt": 0.21036,
         "coin_name": "Humanity Protocol",
-        "market_cap": 540573412.6079597,
-        "quote_volume_24h": 10464745.84174,
+        "market_cap": 508524250.56626654,
+        "quote_volume_24h": 9156641.39548,
         "score": 47.01,
         "components": {
           "drawdown": 57.68,
@@ -195,11 +129,11 @@
         ]
       },
       {
-        "symbol": "TIAUSDT",
-        "price_usdt": 0.3424,
-        "coin_name": "Celestia",
-        "market_cap": 300491620.4359078,
-        "quote_volume_24h": 1551848.836,
+        "symbol": "PENDLEUSDT",
+        "price_usdt": 1.276,
+        "coin_name": "Pendle",
+        "market_cap": 210781902.3081916,
+        "quote_volume_24h": 1689239.561,
         "score": 46.15,
         "components": {
           "drawdown": 100.0,
@@ -210,18 +144,40 @@
         "penalties": {},
         "flags": [],
         "reasons": [
-          "Strong drawdown setup (68.6% from ATH)",
+          "Strong drawdown setup (65.7% from ATH)",
           "No base detected (still declining)",
           "Below EMAs (no reclaim yet)",
-          "Strong volume (15.6x average)"
+          "Strong volume (4.3x average)"
+        ]
+      },
+      {
+        "symbol": "BONKUSDT",
+        "price_usdt": 6.392e-06,
+        "coin_name": "Bonk",
+        "market_cap": 562357055.9709901,
+        "quote_volume_24h": 1480329.371300188,
+        "score": 46.15,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 0.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (59.1% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (6.4x average)"
         ]
       },
       {
         "symbol": "BSVUSDT",
         "price_usdt": 16.62,
         "coin_name": "Bitcoin SV",
-        "market_cap": 332047580.00350845,
-        "quote_volume_24h": 1933223.2,
+        "market_cap": 332072883.3856021,
+        "quote_volume_24h": 1831298.3,
         "score": 44.62,
         "components": {
           "drawdown": 0.0,
@@ -236,15 +192,56 @@
           "Reclaimed EMAs (-2.2% above EMA50)",
           "Strong volume (4.3x average)"
         ]
+      },
+      {
+        "symbol": "ENSUSDT",
+        "price_usdt": 6.886,
+        "coin_name": "Ethereum Name Service",
+        "market_cap": 264999136.26113737,
+        "quote_volume_24h": 3144049.023,
+        "score": 44.04,
+        "components": {
+          "drawdown": 100.0,
+          "base": 0.0,
+          "reclaim": 11.78,
+          "volume": 75.14
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (60.3% from ATH)",
+          "No base detected (still declining)",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (2.4x average)"
+        ]
+      },
+      {
+        "symbol": "ZROUSDT",
+        "price_usdt": 1.875,
+        "coin_name": "LayerZero",
+        "market_cap": 554211125.3412637,
+        "quote_volume_24h": 3963771.269,
+        "score": 43.58,
+        "components": {
+          "drawdown": 0.0,
+          "base": 55.52,
+          "reclaim": 100.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Reclaimed EMAs (9.2% above EMA50)"
+        ]
       }
     ],
     "breakouts": [
       {
         "symbol": "COMPUSDT",
-        "price_usdt": 20.16,
+        "price_usdt": 19.88,
         "coin_name": "Compound",
-        "market_cap": 200350687.46793234,
-        "quote_volume_24h": 6906703.81,
+        "market_cap": 198075385.96280807,
+        "quote_volume_24h": 7416796.82,
         "score": 56.52,
         "components": {
           "breakout": 0.0,
@@ -256,7 +253,7 @@
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (18.2x average)",
+          "Strong volume (22.0x average)",
           "Neutral trend"
         ]
       },
@@ -264,8 +261,8 @@
         "symbol": "BSVUSDT",
         "price_usdt": 16.62,
         "coin_name": "Bitcoin SV",
-        "market_cap": 332047580.00350845,
-        "quote_volume_24h": 1933223.2,
+        "market_cap": 332072883.3856021,
+        "quote_volume_24h": 1831298.3,
         "score": 56.52,
         "components": {
           "breakout": 0.0,
@@ -277,84 +274,16 @@
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (4.3x average)",
+          "Strong volume (5.1x average)",
           "Neutral trend"
         ]
       },
       {
-        "symbol": "HUSDT",
-        "price_usdt": 0.22563,
-        "coin_name": "Humanity Protocol",
-        "market_cap": 540573412.6079597,
-        "quote_volume_24h": 10464745.84174,
-        "score": 51.65,
-        "components": {
-          "breakout": 60.0,
-          "volume": 100.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {
-          "overextension": 0.6
-        },
-        "flags": [
-          "overextended"
-        ],
-        "reasons": [
-          "Moderate breakout (29.6% above high)",
-          "Strong volume (3.0x average)",
-          "In uptrend (above EMAs)",
-          "⚠️ Overextended (29.6% above high)"
-        ]
-      },
-      {
-        "symbol": "PIPPINUSDT",
-        "price_usdt": 0.608892,
-        "coin_name": "pippin",
-        "market_cap": 611380439.435877,
-        "quote_volume_24h": 4948676.730109,
-        "score": 51.3,
-        "components": {
-          "breakout": 60.0,
-          "volume": 0.0,
-          "trend": 100.0,
-          "momentum": 100.0
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "Moderate breakout (5.0% above high)",
-          "Low volume (no confirmation)",
-          "In uptrend (above EMAs)"
-        ]
-      },
-      {
-        "symbol": "CTCUSDT",
-        "price_usdt": 0.1964,
-        "coin_name": "Creditcoin",
-        "market_cap": 102897076.49689057,
-        "quote_volume_24h": 1661005.443,
-        "score": 45.14,
-        "components": {
-          "breakout": 0.0,
-          "volume": 100.0,
-          "trend": 0.0,
-          "momentum": 79.41
-        },
-        "penalties": {},
-        "flags": [],
-        "reasons": [
-          "No breakout (below recent high)",
-          "Strong volume (5.1x average)",
-          "In downtrend (below EMAs)"
-        ]
-      },
-      {
         "symbol": "ENSUSDT",
-        "price_usdt": 6.669,
+        "price_usdt": 6.886,
         "coin_name": "Ethereum Name Service",
-        "market_cap": 255780841.63942096,
-        "quote_volume_24h": 2772411.05,
+        "market_cap": 264999136.26113737,
+        "quote_volume_24h": 3144049.023,
         "score": 42.46,
         "components": {
           "breakout": 0.0,
@@ -366,16 +295,16 @@
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (2.8x average)",
+          "Strong volume (2.6x average)",
           "In downtrend (below EMAs)"
         ]
       },
       {
         "symbol": "DEEPUSDT",
-        "price_usdt": 0.028927,
+        "price_usdt": 0.029925,
         "coin_name": "DeepBook Protocol",
-        "market_cap": 138307020.75298664,
-        "quote_volume_24h": 2696638.899468,
+        "market_cap": 142735846.65555954,
+        "quote_volume_24h": 2457992.846295,
         "score": 40.58,
         "components": {
           "breakout": 0.0,
@@ -387,22 +316,78 @@
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (3.4x average)",
+          "Strong volume (3.9x average)",
           "In downtrend (below EMAs)"
         ]
       },
       {
-        "symbol": "AXSUSDT",
-        "price_usdt": 1.4616,
-        "coin_name": "Axie Infinity",
-        "market_cap": 246026891.12388378,
-        "quote_volume_24h": 2437839.8277,
-        "score": 38.13,
+        "symbol": "HUSDT",
+        "price_usdt": 0.21036,
+        "coin_name": "Humanity Protocol",
+        "market_cap": 508524250.56626654,
+        "quote_volume_24h": 9156641.39548,
+        "score": 39.13,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {
+          "overextension": 0.6
+        },
+        "flags": [
+          "overextended_breakout_zone",
+          "overextended"
+        ],
+        "reasons": [
+          "Early breakout (29.6% above high)",
+          "Strong volume (4.2x average)",
+          "In uptrend (above EMAs)",
+          "⚠️ Breakout in overextended zone (29.6% above high)",
+          "⚠️ Overextended vs EMA20"
+        ]
+      },
+      {
+        "symbol": "PIPPINUSDT",
+        "price_usdt": 0.63048,
+        "coin_name": "pippin",
+        "market_cap": 629993352.9769915,
+        "quote_volume_24h": 5677853.80843,
+        "score": 39.06,
+        "components": {
+          "breakout": 99.68,
+          "volume": 0.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {
+          "overextension": 0.6
+        },
+        "flags": [
+          "overextended_breakout_zone",
+          "overextended"
+        ],
+        "reasons": [
+          "Strong breakout (5.0% above 20d high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)",
+          "⚠️ Breakout in overextended zone (5.0% above high)",
+          "⚠️ Overextended vs EMA20"
+        ]
+      },
+      {
+        "symbol": "PENDLEUSDT",
+        "price_usdt": 1.276,
+        "coin_name": "Pendle",
+        "market_cap": 210781902.3081916,
+        "quote_volume_24h": 1689239.561,
+        "score": 34.78,
         "components": {
           "breakout": 0.0,
           "volume": 100.0,
           "trend": 0.0,
-          "momentum": 25.67
+          "momentum": 0.0
         },
         "penalties": {},
         "flags": [],
@@ -413,11 +398,11 @@
         ]
       },
       {
-        "symbol": "ETCUSDT",
-        "price_usdt": 8.67,
-        "coin_name": "Ethereum Classic",
-        "market_cap": 1344303334.2069023,
-        "quote_volume_24h": 3242374.86,
+        "symbol": "BONKUSDT",
+        "price_usdt": 6.392e-06,
+        "coin_name": "Bonk",
+        "market_cap": 562357055.9709901,
+        "quote_volume_24h": 1480329.371300188,
         "score": 34.78,
         "components": {
           "breakout": 0.0,
@@ -429,44 +414,65 @@
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (2.8x average)",
+          "Strong volume (6.6x average)",
           "In downtrend (below EMAs)"
         ]
       },
       {
-        "symbol": "TIAUSDT",
-        "price_usdt": 0.3424,
-        "coin_name": "Celestia",
-        "market_cap": 300491620.4359078,
-        "quote_volume_24h": 1551848.836,
-        "score": 34.78,
+        "symbol": "TAOUSDT",
+        "price_usdt": 198.94,
+        "coin_name": "Bittensor",
+        "market_cap": 2124877188.5961554,
+        "quote_volume_24h": 12314762.68,
+        "score": 30.86,
         "components": {
           "breakout": 0.0,
-          "volume": 100.0,
+          "volume": 78.21,
           "trend": 0.0,
-          "momentum": 0.0
+          "momentum": 28.05
         },
         "penalties": {},
         "flags": [],
         "reasons": [
           "No breakout (below recent high)",
-          "Strong volume (15.6x average)",
+          "Strong volume (2.3x average)",
           "In downtrend (below EMAs)"
+        ]
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.7159,
+        "coin_name": "Aster",
+        "market_cap": 1770298771.6736596,
+        "quote_volume_24h": 5941235.2661,
+        "score": 30.76,
+        "components": {
+          "breakout": 0.93,
+          "volume": 0.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
         ]
       }
     ],
     "pullbacks": [
       {
         "symbol": "HUSDT",
-        "price_usdt": 0.22563,
+        "price_usdt": 0.21036,
         "coin_name": "Humanity Protocol",
-        "market_cap": 540573412.6079597,
-        "quote_volume_24h": 10464745.84174,
-        "score": 73.33,
+        "market_cap": 508524250.56626654,
+        "quote_volume_24h": 9156641.39548,
+        "score": 66.67,
         "components": {
           "trend": 100.0,
           "pullback": 20.0,
-          "rebound": 100.0,
+          "rebound": 60.0,
           "volume": 100.0
         },
         "penalties": {},
@@ -474,16 +480,16 @@
         "reasons": [
           "Strong uptrend (46.9% above EMA50)",
           "No clear pullback",
-          "Strong rebound (47.9% in 3d)",
-          "Strong volume (3.0x)"
+          "Moderate rebound",
+          "Strong volume (4.2x)"
         ]
       },
       {
         "symbol": "PIPPINUSDT",
-        "price_usdt": 0.608892,
+        "price_usdt": 0.63048,
         "coin_name": "pippin",
-        "market_cap": 611380439.435877,
-        "quote_volume_24h": 4948676.730109,
+        "market_cap": 629993352.9769915,
+        "quote_volume_24h": 5677853.80843,
         "score": 56.67,
         "components": {
           "trend": 100.0,
@@ -501,15 +507,15 @@
       },
       {
         "symbol": "BERAUSDT",
-        "price_usdt": 0.6899,
+        "price_usdt": 0.7022,
         "coin_name": "Berachain",
-        "market_cap": 147471060.4752302,
-        "quote_volume_24h": 3067299.018,
-        "score": 53.33,
+        "market_cap": 150754582.81598788,
+        "quote_volume_24h": 2922183.6742,
+        "score": 48.0,
         "components": {
           "trend": 90.0,
           "pullback": 20.0,
-          "rebound": 100.0,
+          "rebound": 68.0,
           "volume": 0.0
         },
         "penalties": {},
@@ -522,32 +528,31 @@
       },
       {
         "symbol": "ZROUSDT",
-        "price_usdt": 1.814,
+        "price_usdt": 1.875,
         "coin_name": "LayerZero",
-        "market_cap": 540136857.4352248,
-        "quote_volume_24h": 3901364.362,
-        "score": 53.3,
+        "market_cap": 554211125.3412637,
+        "quote_volume_24h": 3963771.269,
+        "score": 47.33,
         "components": {
           "trend": 80.0,
           "pullback": 40.0,
           "rebound": 44.0,
-          "volume": 35.81
+          "volume": 0.0
         },
         "penalties": {},
         "flags": [],
         "reasons": [
           "Strong uptrend (9.2% above EMA50)",
           "No clear pullback",
-          "Moderate rebound",
-          "Moderate volume (1.7x)"
+          "Moderate rebound"
         ]
       },
       {
         "symbol": "ASTERUSDT",
-        "price_usdt": 0.7193,
+        "price_usdt": 0.7159,
         "coin_name": "Aster",
-        "market_cap": 1778156777.398648,
-        "quote_volume_24h": 6124583.7909,
+        "market_cap": 1770298771.6736596,
+        "quote_volume_24h": 5941235.2661,
         "score": 43.33,
         "components": {
           "trend": 80.0,
@@ -565,15 +570,15 @@
       },
       {
         "symbol": "STABLEUSDT",
-        "price_usdt": 0.023731,
+        "price_usdt": 0.023917,
         "coin_name": "Stable",
-        "market_cap": 414908118.5064651,
-        "quote_volume_24h": 1793553.711773,
-        "score": 31.33,
+        "market_cap": 421826767.071765,
+        "quote_volume_24h": 1521401.764275,
+        "score": 35.33,
         "components": {
           "trend": 60.0,
           "pullback": 20.0,
-          "rebound": 28.0,
+          "rebound": 52.0,
           "volume": 0.0
         },
         "penalties": {},
@@ -581,20 +586,20 @@
         "reasons": [
           "Moderate uptrend (22.7% above EMA50)",
           "No clear pullback",
-          "No rebound yet"
+          "Moderate rebound"
         ]
       },
       {
         "symbol": "COMPUSDT",
-        "price_usdt": 20.16,
+        "price_usdt": 19.88,
         "coin_name": "Compound",
-        "market_cap": 200350687.46793234,
-        "quote_volume_24h": 6906703.81,
-        "score": 20.0,
+        "market_cap": 198075385.96280807,
+        "quote_volume_24h": 7416796.82,
+        "score": 18.67,
         "components": {
           "trend": 0.0,
           "pullback": 20.0,
-          "rebound": 100.0,
+          "rebound": 84.0,
           "volume": 100.0
         },
         "penalties": {
@@ -607,43 +612,16 @@
           "Weak/no uptrend",
           "No clear pullback",
           "Strong rebound (28.3% in 3d)",
-          "Strong volume (18.2x)",
-          "⚠️ Below EMA50 (trend broken)"
-        ]
-      },
-      {
-        "symbol": "CTCUSDT",
-        "price_usdt": 0.1964,
-        "coin_name": "Creditcoin",
-        "market_cap": 102897076.49689057,
-        "quote_volume_24h": 1661005.443,
-        "score": 17.99,
-        "components": {
-          "trend": 0.0,
-          "pullback": 10.0,
-          "rebound": 95.88,
-          "volume": 100.0
-        },
-        "penalties": {
-          "broken_trend": 0.5
-        },
-        "flags": [
-          "broken_trend"
-        ],
-        "reasons": [
-          "Weak/no uptrend",
-          "No clear pullback",
-          "Strong rebound (23.0% in 3d)",
-          "Strong volume (5.1x)",
+          "Strong volume (22.0x)",
           "⚠️ Below EMA50 (trend broken)"
         ]
       },
       {
         "symbol": "ENSUSDT",
-        "price_usdt": 6.669,
+        "price_usdt": 6.886,
         "coin_name": "Ethereum Name Service",
-        "market_cap": 255780841.63942096,
-        "quote_volume_24h": 2772411.05,
+        "market_cap": 264999136.26113737,
+        "quote_volume_24h": 3144049.023,
         "score": 17.65,
         "components": {
           "trend": 0.0,
@@ -661,16 +639,16 @@
           "Weak/no uptrend",
           "No clear pullback",
           "Strong rebound (15.0% in 3d)",
-          "Strong volume (2.8x)",
+          "Strong volume (2.6x)",
           "⚠️ Below EMA50 (trend broken)"
         ]
       },
       {
         "symbol": "BDXUSDT",
-        "price_usdt": 0.08035,
+        "price_usdt": 0.08064,
         "coin_name": "Beldex",
-        "market_cap": 611168948.5923629,
-        "quote_volume_24h": 1392823.44604,
+        "market_cap": 613844597.8036171,
+        "quote_volume_24h": 1389149.81102,
         "score": 16.69,
         "components": {
           "trend": 0.0,
@@ -688,6 +666,33 @@
           "Weak/no uptrend",
           "At support level (-1.2% from EMA20)",
           "No rebound yet",
+          "⚠️ Below EMA50 (trend broken)"
+        ]
+      },
+      {
+        "symbol": "BSVUSDT",
+        "price_usdt": 16.62,
+        "coin_name": "Bitcoin SV",
+        "market_cap": 332072883.3856021,
+        "quote_volume_24h": 1831298.3,
+        "score": 16.67,
+        "components": {
+          "trend": 0.0,
+          "pullback": 20.0,
+          "rebound": 60.0,
+          "volume": 100.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (5.1x)",
           "⚠️ Below EMA50 (trend broken)"
         ]
       }
