@@ -74,6 +74,21 @@ general:
   lookback_days_4h: 30
 ```
 
+OHLCV lookback precedence (API fetch limit bars):
+
+1. `ohlcv.lookback[timeframe]` (explicit override, unit = bars)
+2. `general.lookback_days_*` defaults (`1d`: days as bars, `4h`: days × 6 bars)
+3. Built-in defaults (`1d`=120, `4h`=180)
+
+Priority matrix examples:
+
+| Config state | Effective `1d` | Effective `4h` |
+|---|---:|---:|
+| only `general.lookback_days_1d=120`, `lookback_days_4h=30` | 120 | 180 |
+| only `ohlcv.lookback: {1d: 90, 4h: 240}` | 90 | 240 |
+| both present (`general` + `ohlcv.lookback`) | `ohlcv.lookback.1d` wins | `ohlcv.lookback.4h` wins |
+| partial `ohlcv.lookback: {1d: 150}` + `general.lookback_days_4h=12` | 150 | 72 |
+
 ---
 
 ## 5. Data Sources

@@ -108,3 +108,39 @@ def test_legacy_exclusion_patterns_override_new_exclusions_when_present() -> Non
     ])
     # Only legacy pattern applies; stablecoin exclusion from new config is ignored.
     assert [x["symbol"] for x in out] == ["AAAUSDT"]
+
+
+def test_ohlcv_lookback_override_takes_precedence_over_general_defaults() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {
+            "general": {"lookback_days_1d": 120, "lookback_days_4h": 10},
+            "ohlcv": {"lookback": {"1d": 77, "4h": 88}},
+        },
+    )
+    assert fetcher.lookback["1d"] == 77
+    assert fetcher.lookback["4h"] == 88
+
+
+def test_ohlcv_lookback_partial_override_keeps_general_for_missing_timeframe() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {
+            "general": {"lookback_days_1d": 90, "lookback_days_4h": 12},
+            "ohlcv": {"lookback": {"1d": 150}},
+        },
+    )
+    assert fetcher.lookback["1d"] == 150
+    assert fetcher.lookback["4h"] == 72  # 12 days * 6 bars/day
+
+
+def test_ohlcv_lookback_falls_back_to_general_when_override_absent() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {"general": {"lookback_days_1d": 60, "lookback_days_4h": 5}},
+    )
+    assert fetcher.lookback["1d"] == 60
+    assert fetcher.lookback["4h"] == 30
