@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-13 21:39 UTC  
-**Commit:** `7deef3b` (7deef3b000b9501bb68355e8b66f5f92e9023dea)  
+**Generated:** 2026-02-15 09:16 UTC  
+**Commit:** `796c205` (796c20544108560fcafe8069ce2d344f3b19b987)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -50,7 +50,7 @@
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
 | `scanner/pipeline/shortlist.py` | `ShortlistSelector` | - |
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
-| `scanner/tools/validate_features.py` | - | `validate_features` |
+| `scanner/tools/validate_features.py` | - | `_is_number`, `validate_features` |
 | `scanner/utils/__init__.py` | - | - |
 | `scanner/utils/io_utils.py` | - | `load_json`, `save_json`, `get_cache_path`, `cache_exists`, `load_cache` ... (+1 more) |
 | `scanner/utils/logging_utils.py` | - | `setup_logger`, `get_logger` |
@@ -61,7 +61,7 @@
 **Statistics:**
 - Total Modules: 28
 - Total Classes: 16
-- Total Functions: 27
+- Total Functions: 28
 
 ---
 
@@ -3979,7 +3979,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `4ea1173b8e7637fdeaa0055d28735519e2aae34b2ea9feadd8672ca761257ebe`
+**SHA256:** `bc289b4a13bde8b578567446ae09d146e482c619367e88c7da3780788e264afd`
 
 ```python
 """
@@ -4141,11 +4141,20 @@ class ReportGenerator:
         symbol = data.get('symbol', 'UNKNOWN')
         coin_name = data.get('coin_name', 'Unknown')
         score = data.get('score', 0)
+        raw_score = data.get('raw_score')
+        penalty_multiplier = data.get('penalty_multiplier')
         price = data.get('price_usdt')
         
         # Header with rank, symbol, name, and score
         lines.append(f"### {rank}. {symbol} ({coin_name}) - Score: {score:.1f}")
         lines.append("")
+
+        # Score transparency
+        if raw_score is not None or penalty_multiplier is not None:
+            raw_display = f"{float(raw_score):.2f}" if raw_score is not None else "n/a"
+            pm_display = f"{float(penalty_multiplier):.4f}" if penalty_multiplier is not None else "n/a"
+            lines.append(f"**Score Details:** score={float(score):.2f}, raw_score={raw_display}, penalty_multiplier={pm_display}")
+            lines.append("")
         
         # Price
         if price is not None:
@@ -4745,27 +4754,41 @@ class RuntimeMarketMetaExporter:
 
 ### `scanner/tools/validate_features.py`
 
-**SHA256:** `264fb1d5b7452097378602de2f49345275e153f664344a1e54dd6b7c5d20e1c3`
+**SHA256:** `5ee7663b78ae267507f67ffdc136f747f653da49051c4f77f2a6291efc26c344`
 
 ```python
+"""Validate scanner report feature/scoring plausibility."""
+
 import json
 import os
+from typing import Any, Dict, List, Tuple
 
-def validate_features(report_path: str):
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def validate_features(report_path: str) -> int:
     """
-    Prüft, ob die im JSON-Report gespeicherten Feature- und Scoring-Werte
-    numerisch, plausibel und nicht konstant sind.
-    Unterstützt Reports mit 'setups', 'data' oder 'results' als Hauptsektion.
+    Validate report scoring structure and numeric ranges.
+
+    Checks:
+    - score and raw_score in [0, 100]
+    - each component in [0, 100]
+    - penalty_multiplier in (0, 1]
+
+    Returns process-style status code:
+    - 0 if valid
+    - 1 if report missing/invalid/anomalies found
     """
 
     if not os.path.exists(report_path):
         print(f"❌ Report-Datei nicht gefunden: {report_path}")
-        return
+        return 1
 
     with open(report_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Dynamisch den richtigen Abschnitt im Report finden
     if "setups" in data:
         section_key = "setups"
     elif "data" in data:
@@ -4774,49 +4797,65 @@ def validate_features(report_path: str):
         section_key = "results"
     else:
         print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
-        return
+        return 1
 
     results = data[section_key]
     if not results:
         print("⚠️ Keine Ergebnisse im Report.")
-        return
+        return 0
 
-    anomalies = []
+    anomalies: List[Tuple[str, str, str, Any]] = []
 
     for setup_type, setups in results.items():
         for s in setups:
+            symbol = s.get("symbol", "UNKNOWN")
+
+            for scalar_key in ("score", "raw_score"):
+                if scalar_key in s:
+                    val = s.get(scalar_key)
+                    if not _is_number(val) or not (0 <= float(val) <= 100):
+                        anomalies.append((setup_type, symbol, scalar_key, val))
+
+            if "penalty_multiplier" in s:
+                pm = s.get("penalty_multiplier")
+                if not _is_number(pm) or not (0 < float(pm) <= 1):
+                    anomalies.append((setup_type, symbol, "penalty_multiplier", pm))
+
             comps = s.get("components", {})
+            if not isinstance(comps, dict):
+                anomalies.append((setup_type, symbol, "components", comps))
+                continue
+
             for key, value in comps.items():
-                # Prüfe auf None oder nicht-numerische Werte
-                if value is None or not isinstance(value, (int, float)):
-                    anomalies.append((setup_type, s.get("symbol"), key, value))
-                # Prüfe auf unrealistische Werte
-                elif not (0 <= value <= 150):
-                    anomalies.append((setup_type, s.get("symbol"), key, value))
+                if not _is_number(value) or not (0 <= float(value) <= 100):
+                    anomalies.append((setup_type, symbol, f"components.{key}", value))
 
     if anomalies:
         print("⚠️ Anomalien gefunden:")
         for setup_type, symbol, key, value in anomalies:
             print(f"  [{setup_type}] {symbol}: {key} = {value}")
-    else:
-        print("✅ Alle Feature-Komponenten numerisch und plausibel.")
+        return 1
+
+    print("✅ Scoring-Werte numerisch und plausibel (inkl. score/raw_score/components/penalty_multiplier).")
+    return 0
+
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
         print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
         print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
         sys.exit(1)
 
     report_path = sys.argv[1]
-    validate_features(report_path)
-
+    sys.exit(validate_features(report_path))
 
 ```
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `32bcaf740af1ff85c77b4565e617da20811d4bb3c20ae2f01b129ea42d0d982b`
+**SHA256:** `e1efe26e7c1b0cdbe27f7552fc9a3930793b33d5e30a32ebaf128d2fcfd52137`
 
 ```python
 """Breakout scoring."""
@@ -4848,6 +4887,9 @@ class BreakoutScorer:
 
         penalties_cfg = scoring_cfg.get("penalties", {})
         self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.6))
+        self.max_overextension_ema20_percent = float(
+            penalties_cfg.get("max_overextension_ema20_percent", scoring_cfg.get("max_overextension_ema20_percent", 25.0))
+        )
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
@@ -4894,7 +4936,11 @@ class BreakoutScorer:
         flags = []
 
         breakout_dist = f1d.get("breakout_dist_20", 0)
-        if breakout_dist > self.max_breakout_pct:
+        if breakout_dist is not None and breakout_dist > self.breakout_overextended_cap_pct:
+            flags.append("overextended_breakout_zone")
+
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        if dist_ema20 is not None and dist_ema20 > self.max_overextension_ema20_percent:
             penalties.append(("overextension", self.overextension_factor))
             flags.append("overextended")
 
@@ -4932,15 +4978,27 @@ class BreakoutScorer:
         if dist <= self.breakout_floor_pct:
             return 0.0
         if self.breakout_floor_pct < dist < 0:
-            return 70 * (1 + (dist / abs(self.breakout_floor_pct)))
-        if 0 <= dist <= self.breakout_fresh_cap_pct:
-            return 70 + (30 * (dist / self.breakout_fresh_cap_pct))
-        if self.breakout_fresh_cap_pct < dist <= self.breakout_overextended_cap_pct:
-            return max(90 - (dist - self.breakout_fresh_cap_pct) * 10, 70)
-        return 60.0
+            return 30.0 * (dist - self.breakout_floor_pct) / (0 - self.breakout_floor_pct)
+        if 0 <= dist < self.min_breakout_pct:
+            if self.min_breakout_pct <= 0:
+                return 70.0
+            return 30.0 + 40.0 * (dist / self.min_breakout_pct)
+        if self.min_breakout_pct <= dist <= self.ideal_breakout_pct:
+            denom = self.ideal_breakout_pct - self.min_breakout_pct
+            if denom <= 0:
+                return 100.0
+            return 70.0 + 30.0 * ((dist - self.min_breakout_pct) / denom)
+        if self.ideal_breakout_pct < dist <= self.max_breakout_pct:
+            denom = self.max_breakout_pct - self.ideal_breakout_pct
+            if denom <= 0:
+                return 0.0
+            return 100.0 * (1.0 - ((dist - self.ideal_breakout_pct) / denom))
+        return 0.0
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        max_spike = max(spike_1d, spike_4h)
         if max_spike < self.min_volume_spike:
             return 0.0
         if max_spike >= self.ideal_volume_spike:
@@ -4982,7 +5040,9 @@ class BreakoutScorer:
         else:
             reasons.append("No breakout (below recent high)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        vol_spike = max(spike_1d, spike_4h)
         if volume_score > 70:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif volume_score > 30:
@@ -4997,8 +5057,10 @@ class BreakoutScorer:
         else:
             reasons.append("In downtrend (below EMAs)")
 
+        if "overextended_breakout_zone" in flags:
+            reasons.append(f"⚠️ Breakout in overextended zone ({dist:.1f}% above high)")
         if "overextended" in flags:
-            reasons.append(f"⚠️ Overextended ({dist:.1f}% above high)")
+            reasons.append("⚠️ Overextended vs EMA20")
         if "low_liquidity" in flags:
             reasons.append("⚠️ Low liquidity")
         return reasons
@@ -5058,7 +5120,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `7b447872b78f4973ef93dc88cd4991ee4bac1a03ecc15ff0c12142333bc36a6a`
+**SHA256:** `68e7577b24d51dc5ebf1c4985ebb30d3201dde1d9fedf0c0ee72fa30e3dec63d`
 
 ```python
 """Pullback scoring."""
@@ -5219,7 +5281,9 @@ class PullbackScorer:
         return min(score, 100.0)
 
     def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        max_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        max_spike = max(spike_1d, spike_4h)
         if max_spike < self.min_volume_spike:
             return 0.0
         if max_spike >= 2.5:
@@ -5257,7 +5321,9 @@ class PullbackScorer:
         else:
             reasons.append("No rebound yet")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        vol_spike = max(spike_1d, spike_4h)
         if volume_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x)")
         elif volume_score > 30:
@@ -5915,7 +5981,7 @@ Constraints:
 
 ### `docs/features.md`
 
-**SHA256:** `433fa512759518abf99a8a938bc1708e2becbeec472ae6230d03bd2a27bfd640`
+**SHA256:** `7e938ba70cde6166047873a301011ad5bce6cd8af72fdce17f762900342f468c`
 
 ```markdown
 # Feature Engine Specification
@@ -6306,61 +6372,20 @@ It does not pull data from scoring.
 
 ---
 
-## 18. Quote Volume (Thema 7)
-
-If Kline `quoteVolume` is present, compute:
-- `volume_quote`
-- `volume_quote_sma`
-- `volume_quote_spike`
-- legacy compatibility key: `volume_quote_sma_14`
-
-If quote-volume is unavailable, these keys remain present with `null` values for schema stability.
-
 ---
 
-## 19. Volume Baseline per Timeframe
+## 18. Phase Appendix Reference
 
-- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
-- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
-- Baseline uses `include_current=False` (current candle excluded).
-- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
-- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+Phase-specific feature conventions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
 
-
-## Reversal Base Features (Phase 2)
-
-For timeframe `1d`, base detection is config-driven via:
-- `scoring.reversal.base_lookback_days`
-- `scoring.reversal.min_base_days_without_new_low`
-- `scoring.reversal.max_allowed_new_low_percent_vs_base_low`
-
-Additional output fields:
-- `base_low`
-- `base_recent_low`
-- `base_range_pct`
-- `base_no_new_lows_pass`
-
-`base_score` is `None` if insufficient candles for the configured lookback.
-
-
----
-
-## End of `features.md`
-
-
-## Volume Baseline per Timeframe
-
-- Primary config: `features.volume_sma_periods` with explicit values per timeframe (e.g. `1d=14`, `4h=7`).
-- Legacy fallback: `features.volume_sma_period` applies to all timeframes if `volume_sma_periods` is missing.
-- Baseline uses `include_current=False` (current candle excluded).
-- Output keys per timeframe: `volume_sma`, `volume_sma_period`, `volume_spike`, `volume_quote_sma`, `volume_quote_spike`.
-- Legacy keys (`volume_sma_14`, `volume_quote_sma_14`) are kept for backward compatibility.
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.
 
 ```
 
 ### `docs/scoring.md`
 
-**SHA256:** `5ae3204f512819b063295fc306b2f21b09dba8f79554122c66737e5f74ecfd2d`
+**SHA256:** `279488242e5d435d01da18a95d9f2348464654f0c04022b8dbba7a6c824ccdaf`
 
 ```markdown
 # Scoring Modules Specification
@@ -6775,19 +6800,14 @@ v1 provides the structural foundation.
 
 ---
 
-## 11. Reversal Score Transparency
-
-Reversal scorer outputs include:
-- `raw_score`
-- `penalty_multiplier`
-- `final_score` (same numeric value as `score`, before display rounding differences)
-
-Volume component prefers `volume_quote_spike` if available; otherwise it falls back to `volume_spike`.
-
-
 ---
 
-## End of `scoring.md`
+## 11. Phase Appendix Reference
+
+Phase-specific scoring additions are maintained in:
+- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
+
+This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.
 
 ```
 
@@ -6802,4 +6822,4 @@ Volume component prefers `volume_quote_spike` if available; otherwise it falls b
 
 ---
 
-_Generated by GitHub Actions • 2026-02-13 21:39 UTC_
+_Generated by GitHub Actions • 2026-02-15 09:16 UTC_
