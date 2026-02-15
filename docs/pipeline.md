@@ -220,7 +220,7 @@ Two primary outputs:
 - flags
 - mapping info
 - meta info
-- setup-level transparency fields: `score`, `raw_score`, `penalty_multiplier`, `components`
+- setup-level transparency fields: `score`, `raw_score`, `penalty_multiplier`, `components`, `rank`
 
 Outputs are snapshot-stored.
 

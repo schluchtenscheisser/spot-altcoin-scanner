@@ -118,3 +118,22 @@ def test_report_payload_contains_score_details_for_pipeline_like_entries(tmp_pat
 
     md = generator.generate_markdown_report(reversals, breakouts, pullbacks, "2026-02-20")
     assert md.count("**Score Details:**") == 3
+
+
+def test_json_report_adds_explicit_rank_field_per_setup() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 2}})
+
+    reversals = [
+        {"symbol": "AUSDT", "score": 90.0, "raw_score": 95.0, "penalty_multiplier": 0.95, "components": {}},
+        {"symbol": "BUSDT", "score": 80.0, "raw_score": 90.0, "penalty_multiplier": 0.89, "components": {}},
+        {"symbol": "CUSDT", "score": 70.0, "raw_score": 88.0, "penalty_multiplier": 0.80, "components": {}},
+    ]
+    breakouts = [{"symbol": "DUSDT", "score": 77.0, "raw_score": 80.0, "penalty_multiplier": 0.96, "components": {}}]
+    pullbacks = []
+
+    report = generator.generate_json_report(reversals, breakouts, pullbacks, "2026-02-20")
+
+    assert [e["symbol"] for e in report["setups"]["reversals"]] == ["AUSDT", "BUSDT"]
+    assert [e["rank"] for e in report["setups"]["reversals"]] == [1, 2]
+    assert report["setups"]["breakouts"][0]["rank"] == 1
+    assert "rank" not in reversals[0]

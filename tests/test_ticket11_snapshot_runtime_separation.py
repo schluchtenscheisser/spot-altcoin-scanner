@@ -38,3 +38,11 @@ def test_list_snapshots_ignores_non_snapshot_json_schemas(tmp_path: Path) -> Non
     (tmp_path / "2026-02-13.json").write_text("{invalid-json", encoding="utf-8")
 
     assert snapshot_mgr.list_snapshots() == ["2026-02-12"]
+
+
+def test_snapshot_manager_honors_legacy_runtime_dir_when_history_dir_missing(tmp_path: Path) -> None:
+    cfg = ScannerConfig(raw={"snapshots": {"runtime_dir": str(tmp_path)}})
+
+    snapshot_mgr = SnapshotManager(cfg)
+
+    assert snapshot_mgr.snapshots_dir == tmp_path

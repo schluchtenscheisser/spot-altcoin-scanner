@@ -54,21 +54,31 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
+            if exclusions_cfg.get('exclude_stablecoins', True):
+                patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+            if exclusions_cfg.get('exclude_wrapped_tokens', True):
+                patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+            if exclusions_cfg.get('exclude_leveraged_tokens', True):
+                patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
+                patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            return [str(p).upper() for p in patterns]
+
         if 'exclusion_patterns' in legacy_filters:
             # Legacy override is key-presence based: [] explicitly disables exclusions.
-            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
-            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
+            # A null value is treated as unset to avoid accidental broad allow-through.
+            legacy_patterns = legacy_filters.get('exclusion_patterns')
+            if legacy_patterns is None:
+                logger.warning(
+                    "filters.exclusion_patterns is null; treating as unset and falling back to exclusions.*"
+                )
+                self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+            else:
+                self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
-            self.exclusion_patterns = []
-            if exclusions_cfg.get('exclude_stablecoins', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
-            if exclusions_cfg.get('exclude_wrapped_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
-            if exclusions_cfg.get('exclude_leveraged_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
-            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
-                self.exclusion_patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
-            self.exclusion_patterns = [str(p).upper() for p in self.exclusion_patterns]
+            self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
@@ -142,6 +152,12 @@ class UniverseFilters:
             return str(quote).upper()
 
         symbol = str(sym_data.get('symbol', '')).upper()
+
+        # Canonical suffix inference independent of configurable allowlist.
+        # This keeps include_only_usdt_pairs deterministic even if quote_allowlist is customized.
+        if symbol.endswith('USDT'):
+            return 'USDT'
+
         for q in sorted(self.quote_allowlist, key=len, reverse=True):
             if symbol.endswith(q):
                 return q
