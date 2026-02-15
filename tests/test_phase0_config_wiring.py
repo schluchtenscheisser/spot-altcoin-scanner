@@ -144,3 +144,39 @@ def test_ohlcv_lookback_falls_back_to_general_when_override_absent() -> None:
     )
     assert fetcher.lookback["1d"] == 60
     assert fetcher.lookback["4h"] == 30
+
+
+def test_include_only_usdt_pairs_true_excludes_non_usdt_pairs() -> None:
+    cfg = {
+        "universe_filters": {
+            "include_only_usdt_pairs": True,
+            "market_cap": {"min_usd": 1, "max_usd": 10_000_000_000},
+            "volume": {"min_quote_volume_24h": 0},
+        },
+        "filters": {"exclusion_patterns": []},
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 100},
+    ])
+    assert [x["symbol"] for x in out] == ["AAAUSDT"]
+
+
+def test_include_only_usdt_pairs_false_keeps_only_stablecoin_quotes() -> None:
+    cfg = {
+        "universe_filters": {
+            "include_only_usdt_pairs": False,
+            "market_cap": {"min_usd": 1, "max_usd": 10_000_000_000},
+            "volume": {"min_quote_volume_24h": 0},
+        },
+        "filters": {"exclusion_patterns": []},
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 100},
+    ])
+    assert [x["symbol"] for x in out] == ["AAAUSDT", "AAAUSDC"]

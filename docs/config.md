@@ -123,7 +123,13 @@ universe_filters:
   history:
     min_history_days_1d: 60
   include_only_usdt_pairs: true
+  quote_allowlist: ["USDT", "USDC", "DAI", "TUSD", "FDUSD", "USDP", "BUSD"]
 ```
+
+Quote filter semantics:
+- `include_only_usdt_pairs: true` → only `*USDT` pairs pass.
+- `include_only_usdt_pairs: false` → only pairs quoted in `quote_allowlist` pass.
+- Non-stablecoin quotes (e.g. `BTC`, `ETH`) are excluded unless explicitly versioned with FX conversion support.
 
 ---
 
