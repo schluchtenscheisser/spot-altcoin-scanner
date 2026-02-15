@@ -31,18 +31,38 @@ class OHLCVFetcher:
 
         self.timeframes = ohlcv_config.get('timeframes', ['1d', '4h'])
 
-        lookback_1d = int(general_cfg.get('lookback_days_1d', 120))
-        lookback_4h = int(general_cfg.get('lookback_days_4h', 30)) * 6
-        self.lookback = {
-            '1d': lookback_1d,
-            '4h': lookback_4h,
-            **ohlcv_config.get('lookback', {}),
-        }
+        self.lookback = self._build_lookback(general_cfg, ohlcv_config.get('lookback', {}))
 
         self.min_candles = ohlcv_config.get('min_candles', {'1d': 50, '4h': 50})
         self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
 
         logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}, lookback={self.lookback}")
+
+
+    def _build_lookback(self, general_cfg: Dict[str, Any], ohlcv_lookback_cfg: Dict[str, Any]) -> Dict[str, int]:
+        """Build timeframe lookback (API limit bars) with explicit precedence.
+
+        Precedence:
+        1) `ohlcv.lookback[timeframe]` explicit override (bars)
+        2) `general.lookback_days_*` defaults (`1d`: days->bars 1:1, `4h`: days*6)
+        3) hard defaults (`1d`=120, `4h`=180 bars)
+        """
+        lookback_1d_default = int(general_cfg.get('lookback_days_1d', 120))
+        lookback_4h_default = int(general_cfg.get('lookback_days_4h', 30)) * 6
+
+        lookback = {
+            '1d': lookback_1d_default,
+            '4h': lookback_4h_default,
+        }
+
+        if isinstance(ohlcv_lookback_cfg, dict):
+            for tf, bars in ohlcv_lookback_cfg.items():
+                try:
+                    lookback[str(tf)] = int(bars)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid ohlcv.lookback value for timeframe '{tf}': {bars}; ignoring override")
+
+        return lookback
 
     def fetch_all(self, shortlist: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         results = {}

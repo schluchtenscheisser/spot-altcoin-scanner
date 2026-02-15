@@ -3,6 +3,8 @@
 import logging
 from typing import Dict, Any, List
 
+from scanner.pipeline.scoring.weights import load_component_weights
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,26 +26,16 @@ class PullbackScorer:
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
         default_weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-
-        mapped = {
-            "trend": cfg_weights.get("trend", cfg_weights.get("trend_quality")),
-            "pullback": cfg_weights.get("pullback", cfg_weights.get("pullback_quality")),
-            "rebound": cfg_weights.get("rebound", cfg_weights.get("rebound_signal")),
-            "volume": cfg_weights.get("volume"),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="pullback",
+            default_weights=default_weights,
+            aliases={
+                "trend": "trend_quality",
+                "pullback": "pullback_quality",
+                "rebound": "rebound_signal",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -123,7 +115,7 @@ class PullbackScorer:
             return 100.0
         if -2 <= dist_ema50 <= 2:
             return 80.0
-        if dist_ema20 < 0 and dist_ema50 > 0:
+        if dist_ema20 < 0 and dist_ema50 >= 0:
             return 60.0
         if dist_ema20 > 5:
             return 20.0
@@ -227,6 +219,8 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
