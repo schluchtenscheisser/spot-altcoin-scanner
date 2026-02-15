@@ -249,8 +249,9 @@ Reversal decomposed into:
 Bounded Drawdown (canonical):
 
 ```
-L = config.features.drawdown_lookback_days  # default: 365
-ath_L = max(close[t-L+1 .. t])
+L_days = config.features.drawdown_lookback_days  # default: 365
+L_bars = ceil(L_days * bars_per_day(timeframe))
+ath_L = max(close[t-L_bars+1 .. t])
 drawdown_from_ath = (close[t] / ath_L - 1) * 100
 ```
 
