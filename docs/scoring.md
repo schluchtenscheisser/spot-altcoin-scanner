@@ -34,6 +34,7 @@ The canonical implementation is in:
 - `scanner/pipeline/scoring/reversal.py`
 
 Critical canonical rules:
+- Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
 - Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
@@ -207,7 +208,7 @@ Trend must be established before retracement.
 Trend is up if:
 
 ```
-close > ema50 (1d)
+close >= ema50 (1d, EMA50 touch allowed)
 ema50 rising or flat
 ```
 

@@ -115,7 +115,7 @@ class PullbackScorer:
             return 100.0
         if -2 <= dist_ema50 <= 2:
             return 80.0
-        if dist_ema20 < 0 and dist_ema50 > 0:
+        if dist_ema20 < 0 and dist_ema50 >= 0:
             return 60.0
         if dist_ema20 > 5:
             return 20.0
