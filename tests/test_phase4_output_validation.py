@@ -50,3 +50,51 @@ def test_validate_features_checks_phase4_ranges(tmp_path: Path) -> None:
     invalid = tmp_path / "invalid.json"
     invalid.write_text(json.dumps(report), encoding="utf-8")
     assert validate_features(str(invalid)) == 1
+
+
+def test_validate_features_requires_transparency_fields(tmp_path: Path) -> None:
+    report = {
+        "setups": {
+            "reversals": [
+                {
+                    "symbol": "XUSDT",
+                    "score": 75.5,
+                    "components": {"drawdown": 80.0, "base": 70.0},
+                }
+            ],
+            "breakouts": [],
+            "pullbacks": [],
+        }
+    }
+
+    path = tmp_path / "missing_fields.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    assert validate_features(str(path)) == 1
+
+
+def test_validate_features_emits_machine_readable_json(capsys, tmp_path: Path) -> None:
+    report = {
+        "setups": {
+            "reversals": [
+                {
+                    "symbol": "XUSDT",
+                    "score": 101,
+                    "raw_score": 80.0,
+                    "penalty_multiplier": 0.9,
+                    "components": {"drawdown": 80.0, "base": 70.0},
+                }
+            ],
+            "breakouts": [],
+            "pullbacks": [],
+        }
+    }
+
+    path = tmp_path / "json_errors.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+
+    rc = validate_features(str(path))
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["errors"][0]["code"] == "RANGE"
+    assert payload["errors"][0]["path"] == "setups.reversals[0].score"

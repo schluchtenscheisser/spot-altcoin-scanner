@@ -35,6 +35,7 @@ The canonical implementation is in:
 
 Critical canonical rules:
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
+- Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
 - Penalties/thresholds are config-driven via `scoring.*.penalties` and `scoring.*.momentum`.
 
