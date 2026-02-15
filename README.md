@@ -23,7 +23,7 @@ Scans **1837 MEXC USDT pairs** daily and identifies three types of trading setup
 **Outputs:**
 - Daily Markdown report: `reports/YYYY-MM-DD.md`
 - JSON data: `reports/YYYY-MM-DD.json`
-- Snapshot for backtesting: `snapshots/runtime/YYYY-MM-DD.json`
+- Snapshot for backtesting: `snapshots/history/YYYY-MM-DD.json`
 
 ---
 
@@ -38,6 +38,11 @@ cd spot-altcoin-scanner
 ### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
+```
+
+For local testing/development (same baseline as CI):
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 ### 3. Set API Key
@@ -82,6 +87,15 @@ Reports are automatically committed to the repository.
 
 ## Pull Request CI
 
+
+### Outage / Quota Fallback Policy
+
+If live data providers fail (API outage/quota):
+- Use last-known cache **only when available**.
+- Mark run metadata as degraded with freshness timestamps.
+- If no cache is available, fail explicitly (no silent partial output).
+
+
 A dedicated GitHub Actions workflow (`.github/workflows/pr-ci.yml`) runs on every pull request targeting `main`.
 
 Current PR gate:
@@ -93,6 +107,15 @@ Recommended repository setting (GitHub → Settings → Branches → `main`):
 - (Optional) Enable **Require branches to be up to date before merging**
 
 ---
+
+
+### CI Dependency Policy
+
+PR CI installs dependencies **explicitly** from:
+- `requirements.txt`
+- `requirements-dev.txt` (includes `pytest`)
+
+This avoids implicit runner assumptions and keeps CI reproducible.
 
 ## Example Output
 ```markdown
