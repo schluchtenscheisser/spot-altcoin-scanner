@@ -60,6 +60,7 @@ features:
 
 scoring:
   breakout:
+    weights_mode: "compat"
     enabled: true
     min_breakout_pct: 2
     ideal_breakout_pct: 5
@@ -80,11 +81,13 @@ scoring:
     min_volume_spike_factor: 1.5
     max_overextension_ema20_percent: 25
     weights:
-      price_break: 0.40
-      volume_confirmation: 0.40
-      volatility_context: 0.20
+      breakout: 0.40
+      volume: 0.40
+      trend: 0.20
+      momentum: 0.00
 
   pullback:
+    weights_mode: "compat"
     enabled: true
     min_trend_strength: 5
     min_rebound: 3
@@ -99,11 +102,13 @@ scoring:
     min_trend_days: 10
     ema_trend_period_days: 20
     weights:
-      trend_quality: 0.40
-      pullback_quality: 0.40
-      rebound_signal: 0.20
+      trend: 0.40
+      pullback: 0.40
+      rebound: 0.20
+      volume: 0.00
 
   reversal:
+    weights_mode: "compat"
     enabled: true
     min_drawdown_pct: 40
     ideal_drawdown_min: 50
@@ -122,9 +127,10 @@ scoring:
     min_reclaim_above_ema_days: 1
     min_volume_spike_factor: 1.5
     weights:
-      base_structure: 0.30
-      reclaim_signal: 0.40
-      volume_confirmation: 0.30
+      drawdown: 0.00
+      base: 0.30
+      reclaim: 0.40
+      volume: 0.30
 
 backtest:
   enabled: true

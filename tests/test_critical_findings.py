@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from scanner.pipeline.features import FeatureEngine
@@ -13,6 +15,8 @@ def test_reversal_base_uses_feature_engine_base_score_directly() -> None:
     assert scorer._score_base({"base_detected": False, "base_score": 73.5}) == pytest.approx(73.5)
     assert scorer._score_base({"base_detected": True, "base_score": 110.0}) == pytest.approx(100.0)
     assert scorer._score_base({"base_detected": True, "base_score": -10.0}) == pytest.approx(0.0)
+    assert scorer._score_base({"base_detected": True, "base_score": float("nan")}) == pytest.approx(0.0)
+    assert scorer._score_base({"base_detected": True, "base_score": math.inf}) == pytest.approx(0.0)
 
 
 def test_reversal_penalties_are_config_driven() -> None:
