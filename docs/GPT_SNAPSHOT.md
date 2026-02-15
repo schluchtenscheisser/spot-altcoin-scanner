@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-15 10:19 UTC  
-**Commit:** `d42e40c` (d42e40c6a0be786a4768cd5d4c6d5bf15c67dcc9)  
+**Generated:** 2026-02-15 11:15 UTC  
+**Commit:** `10f09a0` (10f09a026ca57637a728e9a143d4b67087cbf4af)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -48,9 +48,10 @@
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
+| `scanner/pipeline/scoring/weights.py` | - | `load_component_weights` |
 | `scanner/pipeline/shortlist.py` | `ShortlistSelector` | - |
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
-| `scanner/tools/validate_features.py` | - | `_is_number`, `validate_features` |
+| `scanner/tools/validate_features.py` | - | `_is_number`, `_error`, `_emit`, `validate_features` |
 | `scanner/utils/__init__.py` | - | - |
 | `scanner/utils/io_utils.py` | - | `load_json`, `save_json`, `get_cache_path`, `cache_exists`, `load_cache` ... (+1 more) |
 | `scanner/utils/logging_utils.py` | - | `setup_logger`, `get_logger` |
@@ -59,9 +60,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 28
+- Total Modules: 29
 - Total Classes: 16
-- Total Functions: 28
+- Total Functions: 31
 
 ---
 
@@ -396,7 +397,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `253661e87764774419a0db2bb2ea64ccc0ddd5e5fc306ebd7a89512fb4f40633`
+**SHA256:** `8eb6216952d30914b928f5c893fc50f40abdf1445a735f4aa484f88529aba819`
 
 ```yaml
 version:
@@ -461,6 +462,7 @@ features:
 
 scoring:
   breakout:
+    weights_mode: "compat"
     enabled: true
     min_breakout_pct: 2
     ideal_breakout_pct: 5
@@ -481,11 +483,13 @@ scoring:
     min_volume_spike_factor: 1.5
     max_overextension_ema20_percent: 25
     weights:
-      price_break: 0.40
-      volume_confirmation: 0.40
-      volatility_context: 0.20
+      breakout: 0.40
+      volume: 0.40
+      trend: 0.20
+      momentum: 0.00
 
   pullback:
+    weights_mode: "compat"
     enabled: true
     min_trend_strength: 5
     min_rebound: 3
@@ -500,11 +504,13 @@ scoring:
     min_trend_days: 10
     ema_trend_period_days: 20
     weights:
-      trend_quality: 0.40
-      pullback_quality: 0.40
-      rebound_signal: 0.20
+      trend: 0.40
+      pullback: 0.40
+      rebound: 0.20
+      volume: 0.00
 
   reversal:
+    weights_mode: "compat"
     enabled: true
     min_drawdown_pct: 40
     ideal_drawdown_min: 50
@@ -523,9 +529,10 @@ scoring:
     min_reclaim_above_ema_days: 1
     min_volume_spike_factor: 1.5
     weights:
-      base_structure: 0.30
-      reclaim_signal: 0.40
-      volume_confirmation: 0.30
+      drawdown: 0.00
+      base: 0.30
+      reclaim: 0.40
+      volume: 0.30
 
 backtest:
   enabled: true
@@ -4754,18 +4761,38 @@ class RuntimeMarketMetaExporter:
 
 ### `scanner/tools/validate_features.py`
 
-**SHA256:** `5ee7663b78ae267507f67ffdc136f747f653da49051c4f77f2a6291efc26c344`
+**SHA256:** `be0e041fff94015cfdd32acd4fbcded4dd38daa693bce1f4d3e55fceb701f359`
 
 ```python
 """Validate scanner report feature/scoring plausibility."""
 
 import json
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _error(
+    path: str,
+    code: str,
+    msg: str,
+    got: Any = None,
+    expected: str | None = None,
+) -> Dict[str, Any]:
+    entry: Dict[str, Any] = {"path": path, "code": code, "msg": msg}
+    if got is not None:
+        entry["got"] = got
+    if expected is not None:
+        entry["expected"] = expected
+    return entry
+
+
+def _emit(ok: bool, errors: List[Dict[str, Any]]) -> int:
+    print(json.dumps({"ok": ok, "errors": errors}, ensure_ascii=False))
+    return 0 if ok else 1
 
 
 def validate_features(report_path: str) -> int:
@@ -4783,11 +4810,19 @@ def validate_features(report_path: str) -> int:
     """
 
     if not os.path.exists(report_path):
-        print(f"❌ Report-Datei nicht gefunden: {report_path}")
-        return 1
+        return _emit(
+            False,
+            [_error("report", "FILE_NOT_FOUND", "Report file not found.", got=report_path)],
+        )
 
-    with open(report_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        return _emit(
+            False,
+            [_error("report", "INVALID_JSON", "Report is not valid JSON.", got=str(exc))],
+        )
 
     if "setups" in data:
         section_key = "setups"
@@ -4796,56 +4831,115 @@ def validate_features(report_path: str) -> int:
     elif "results" in data:
         section_key = "results"
     else:
-        print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
-        return 1
+        return _emit(
+            False,
+            [
+                _error(
+                    "report",
+                    "MISSING_SECTION",
+                    "Report must contain 'setups', 'data' or 'results' section.",
+                )
+            ],
+        )
 
     results = data[section_key]
     if not results:
-        print("⚠️ Keine Ergebnisse im Report.")
-        return 0
+        return _emit(True, [])
 
-    anomalies: List[Tuple[str, str, str, Any]] = []
+    anomalies: List[Dict[str, Any]] = []
 
     for setup_type, setups in results.items():
-        for s in setups:
-            symbol = s.get("symbol", "UNKNOWN")
+        for idx, s in enumerate(setups):
+            setup_path = f"{section_key}.{setup_type}[{idx}]"
+
+            for required_key in ("score", "raw_score", "penalty_multiplier", "components"):
+                if required_key not in s:
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.{required_key}",
+                            "MISSING_FIELD",
+                            f"Required field '{required_key}' is missing.",
+                            expected="present",
+                        )
+                    )
 
             for scalar_key in ("score", "raw_score"):
                 if scalar_key in s:
                     val = s.get(scalar_key)
                     if not _is_number(val) or not (0 <= float(val) <= 100):
-                        anomalies.append((setup_type, symbol, scalar_key, val))
+                        anomalies.append(
+                            _error(
+                                f"{setup_path}.{scalar_key}",
+                                "RANGE",
+                                f"{scalar_key} must be a number in [0,100].",
+                                got=val,
+                                expected="[0,100]",
+                            )
+                        )
 
             if "penalty_multiplier" in s:
                 pm = s.get("penalty_multiplier")
                 if not _is_number(pm) or not (0 < float(pm) <= 1):
-                    anomalies.append((setup_type, symbol, "penalty_multiplier", pm))
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.penalty_multiplier",
+                            "RANGE",
+                            "penalty_multiplier must be a number in (0,1].",
+                            got=pm,
+                            expected="(0,1]",
+                        )
+                    )
 
             comps = s.get("components", {})
             if not isinstance(comps, dict):
-                anomalies.append((setup_type, symbol, "components", comps))
+                anomalies.append(
+                    _error(
+                        f"{setup_path}.components",
+                        "TYPE",
+                        "components must be an object/dict.",
+                        got=comps,
+                        expected="dict",
+                    )
+                )
                 continue
 
             for key, value in comps.items():
                 if not _is_number(value) or not (0 <= float(value) <= 100):
-                    anomalies.append((setup_type, symbol, f"components.{key}", value))
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.components.{key}",
+                            "RANGE",
+                            f"Component '{key}' must be a number in [0,100].",
+                            got=value,
+                            expected="[0,100]",
+                        )
+                    )
 
     if anomalies:
-        print("⚠️ Anomalien gefunden:")
-        for setup_type, symbol, key, value in anomalies:
-            print(f"  [{setup_type}] {symbol}: {key} = {value}")
-        return 1
+        return _emit(False, anomalies)
 
-    print("✅ Scoring-Werte numerisch und plausibel (inkl. score/raw_score/components/penalty_multiplier).")
-    return 0
+    return _emit(True, [])
 
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
-        print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "path": "cli",
+                            "code": "MISSING_ARGUMENT",
+                            "msg": "Please provide report path, e.g. python -m scanner.tools.validate_features reports/2026-01-22.json",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
         sys.exit(1)
 
     report_path = sys.argv[1]
@@ -4855,13 +4949,15 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `e1efe26e7c1b0cdbe27f7552fc9a3930793b33d5e30a32ebaf128d2fcfd52137`
+**SHA256:** `c0f2eb90ebf1f52a733d649f7f67852870c08947e84343bf8b00442bdaab4f6b`
 
 ```python
 """Breakout scoring."""
 
 import logging
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -4894,27 +4990,16 @@ class BreakoutScorer:
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
         default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
-            return default_weights
-
-        mapped = {
-            "breakout": cfg_weights.get("breakout", cfg_weights.get("price_break")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-            "trend": cfg_weights.get("trend", cfg_weights.get("volatility_context")),
-            "momentum": cfg_weights.get("momentum"),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="breakout",
+            default_weights=default_weights,
+            aliases={
+                "breakout": "price_break",
+                "volume": "volume_confirmation",
+                "trend": "volatility_context",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5096,6 +5181,99 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ```
 
+### `scanner/pipeline/scoring/weights.py`
+
+**SHA256:** `06fe401a509b1dbfbdadaaa5243ba31d81b8d60168d473a5b352d2d2042eed4d`
+
+```python
+"""Shared scorer weight loading helpers."""
+
+import logging
+from typing import Any, Dict
+
+
+logger = logging.getLogger(__name__)
+
+_WEIGHT_SUM_TOLERANCE = 1e-6
+
+
+def load_component_weights(
+    *,
+    scoring_cfg: Dict[str, Any],
+    section_name: str,
+    default_weights: Dict[str, float],
+    aliases: Dict[str, str],
+) -> Dict[str, float]:
+    """Load scorer component weights with deterministic compatibility behavior.
+
+    Modes:
+    - compat (default): canonical keys may be mixed with legacy aliases; missing keys are
+      filled from defaults; no normalization is applied.
+    - strict: all canonical keys must be present in config.scoring.<section>.weights.
+    """
+
+    mode = str(scoring_cfg.get("weights_mode", "compat")).strip().lower()
+    if mode not in {"compat", "strict"}:
+        logger.warning(
+            "Unknown weights_mode '%s' for config.scoring.%s, using compat",
+            mode,
+            section_name,
+        )
+        mode = "compat"
+
+    cfg_weights = scoring_cfg.get("weights")
+    if not isinstance(cfg_weights, dict):
+        logger.warning("Using default weights for config.scoring.%s.weights", section_name)
+        return default_weights.copy()
+
+    resolved: Dict[str, float] = {}
+    for canonical_key, fallback_value in default_weights.items():
+        alias_key = aliases.get(canonical_key)
+        canonical_present = canonical_key in cfg_weights and cfg_weights.get(canonical_key) is not None
+        alias_present = bool(alias_key) and alias_key in cfg_weights and cfg_weights.get(alias_key) is not None
+
+        if canonical_present and alias_present and cfg_weights[canonical_key] != cfg_weights[alias_key]:
+            logger.warning(
+                "Conflicting canonical/legacy weights for config.scoring.%s.weights.%s/%s; using canonical value",
+                section_name,
+                canonical_key,
+                alias_key,
+            )
+
+        if canonical_present:
+            resolved[canonical_key] = float(cfg_weights[canonical_key])
+        elif alias_present and mode == "compat":
+            resolved[canonical_key] = float(cfg_weights[alias_key])
+        elif mode == "compat":
+            resolved[canonical_key] = float(fallback_value)
+
+    if mode == "strict":
+        missing = [k for k in default_weights if k not in resolved]
+        if missing:
+            logger.warning(
+                "Missing required canonical weight keys for config.scoring.%s.weights: %s. Using defaults.",
+                section_name,
+                ", ".join(missing),
+            )
+            return default_weights.copy()
+
+    if any(v < 0 for v in resolved.values()):
+        logger.warning("Negative weights detected for config.scoring.%s.weights. Using defaults.", section_name)
+        return default_weights.copy()
+
+    total = sum(resolved.values())
+    if abs(total - 1.0) > _WEIGHT_SUM_TOLERANCE:
+        logger.warning(
+            "Weight sum for config.scoring.%s.weights must be ~1.0 (got %.10f). Using defaults.",
+            section_name,
+            total,
+        )
+        return default_weights.copy()
+
+    return resolved
+
+```
+
 ### `scanner/pipeline/scoring/__init__.py`
 
 **SHA256:** `85d37b09e745ca99fd4ceeca2844c758866fa7f247ded2d4a2b9a8284d6c51b4`
@@ -5120,13 +5298,15 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `68e7577b24d51dc5ebf1c4985ebb30d3201dde1d9fedf0c0ee72fa30e3dec63d`
+**SHA256:** `6af2fa6a89416dd4ba94e1032be7a3edb70be38e2cd7f14d3409ea5388dbc443`
 
 ```python
 """Pullback scoring."""
 
 import logging
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -5149,26 +5329,16 @@ class PullbackScorer:
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
         default_weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-
-        mapped = {
-            "trend": cfg_weights.get("trend", cfg_weights.get("trend_quality")),
-            "pullback": cfg_weights.get("pullback", cfg_weights.get("pullback_quality")),
-            "rebound": cfg_weights.get("rebound", cfg_weights.get("rebound_signal")),
-            "volume": cfg_weights.get("volume"),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="pullback",
+            default_weights=default_weights,
+            aliases={
+                "trend": "trend_quality",
+                "pullback": "pullback_quality",
+                "rebound": "rebound_signal",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5369,7 +5539,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `390e672d4d7588079448d497930a731f7130cacee71090e1363296d3997a69e1`
+**SHA256:** `74e10b6f3fb2db35989c5e3580ae296801094e136ecd409979fa1ccef6ceb2bb`
 
 ```python
 """
@@ -5381,6 +5551,8 @@ Identifies downtrend → base → reclaim setups.
 
 import logging
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -5409,26 +5581,16 @@ class ReversalScorer:
             "reclaim": 0.25,
             "volume": 0.20,
         }
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-
-        mapped = {
-            "drawdown": cfg_weights.get("drawdown"),
-            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
-            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="reversal",
+            default_weights=default_weights,
+            aliases={
+                "base": "base_structure",
+                "reclaim": "reclaim_signal",
+                "volume": "volume_confirmation",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -6822,4 +6984,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 10:19 UTC_
+_Generated by GitHub Actions • 2026-02-15 11:15 UTC_
