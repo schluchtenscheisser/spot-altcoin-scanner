@@ -69,3 +69,78 @@ def test_scorer_weights_are_config_driven():
     assert b.weights["breakout"] == 1.0
     assert p.weights["trend"] == 1.0
     assert r.weights["drawdown"] == 1.0
+
+
+def test_legacy_exclusion_patterns_empty_list_disables_exclusions() -> None:
+    cfg = {
+        "filters": {"exclusion_patterns": []},
+        "exclusions": {
+            "exclude_stablecoins": True,
+            "stablecoin_patterns": ["USD"],
+            "exclude_wrapped_tokens": False,
+            "exclude_leveraged_tokens": False,
+            "exclude_synthetic_derivatives": False,
+        },
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+    ])
+    assert [x["symbol"] for x in out] == ["AAAUSDT", "BBBUSDT"]
+
+
+def test_legacy_exclusion_patterns_override_new_exclusions_when_present() -> None:
+    cfg = {
+        "filters": {"exclusion_patterns": ["WRAP"]},
+        "exclusions": {
+            "exclude_stablecoins": True,
+            "stablecoin_patterns": ["USD"],
+            "exclude_wrapped_tokens": False,
+            "exclude_leveraged_tokens": False,
+            "exclude_synthetic_derivatives": False,
+        },
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAAUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "WRAPUSDT", "base": "WRAPCOIN", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+    ])
+    # Only legacy pattern applies; stablecoin exclusion from new config is ignored.
+    assert [x["symbol"] for x in out] == ["AAAUSDT"]
+
+
+def test_ohlcv_lookback_override_takes_precedence_over_general_defaults() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {
+            "general": {"lookback_days_1d": 120, "lookback_days_4h": 10},
+            "ohlcv": {"lookback": {"1d": 77, "4h": 88}},
+        },
+    )
+    assert fetcher.lookback["1d"] == 77
+    assert fetcher.lookback["4h"] == 88
+
+
+def test_ohlcv_lookback_partial_override_keeps_general_for_missing_timeframe() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {
+            "general": {"lookback_days_1d": 90, "lookback_days_4h": 12},
+            "ohlcv": {"lookback": {"1d": 150}},
+        },
+    )
+    assert fetcher.lookback["1d"] == 150
+    assert fetcher.lookback["4h"] == 72  # 12 days * 6 bars/day
+
+
+def test_ohlcv_lookback_falls_back_to_general_when_override_absent() -> None:
+    mexc = _DummyMexc({})
+    fetcher = OHLCVFetcher(
+        mexc,
+        {"general": {"lookback_days_1d": 60, "lookback_days_4h": 5}},
+    )
+    assert fetcher.lookback["1d"] == 60
+    assert fetcher.lookback["4h"] == 30
