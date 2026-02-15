@@ -6,6 +6,7 @@ Identifies downtrend → base → reclaim setups.
 """
 
 import logging
+import math
 from typing import Dict, Any, List
 
 from scanner.pipeline.scoring.weights import load_component_weights
@@ -122,7 +123,16 @@ class ReversalScorer:
         base_score = f1d.get("base_score")
         if base_score is None:
             return 0.0
-        return max(0.0, min(100.0, float(base_score)))
+
+        try:
+            numeric = float(base_score)
+        except (TypeError, ValueError):
+            return 0.0
+
+        if not math.isfinite(numeric):
+            return 0.0
+
+        return max(0.0, min(100.0, numeric))
 
     def _score_reclaim(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
