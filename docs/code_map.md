@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-15 10:21 UTC  
+**Last Updated:** 2026-02-15 10:33 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 28
+- **Total Modules:** 29
 - **Total Classes:** 16
-- **Total Functions:** 150
+- **Total Functions:** 148
 
 ---
 
@@ -194,11 +194,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `BreakoutScorer`
 
-**Functions:** `__init__, _generate_reasons, _load_weights, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
+**Functions:** `__init__, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_curve, breakout_dist, breakout_score, cfg_weights, default_weights, denom, dist, dist_ema20, dist_ema50, f1d` _(+29 more)_
+**Module Variables:** `breakout_curve, breakout_dist, breakout_score, default_weights, denom, dist, dist_ema20, dist_ema50, f1d, f4h` _(+25 more)_
 
-**Imports:** `logging, typing`
+**Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
 ---
 
@@ -206,11 +206,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `PullbackScorer`
 
-**Functions:** `__init__, _generate_reasons, _load_weights, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
+**Functions:** `__init__, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
 
-**Module Variables:** `cfg_weights, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, mapped` _(+27 more)_
+**Module Variables:** `default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, max_spike, momentum_cfg` _(+23 more)_
 
-**Imports:** `logging, typing`
+**Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
 ---
 
@@ -218,9 +218,19 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ReversalScorer`
 
-**Functions:** `__init__, _generate_reasons, _load_weights, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
+**Functions:** `__init__, _generate_reasons, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
 
-**Module Variables:** `base_score, cfg_weights, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess, f1d` _(+29 more)_
+**Module Variables:** `base_score, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess, f1d, f4h` _(+25 more)_
+
+**Imports:** `logging, scanner.pipeline.scoring.weights, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/weights.py`
+
+**Functions:** `load_component_weights`
+
+**Module Variables:** `alias_key, alias_present, canonical_present, cfg_weights, logger, missing, mode, total`
 
 **Imports:** `logging, typing`
 
@@ -474,9 +484,8 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | `_load_weights` | `get` |
+| `__init__` | — | `get`, `load_component_weights` |
 | `_generate_reasons` | — | `append`, `get` |
-| `_load_weights` | — | `get`, `items`, `values`, `warning` |
 | `_score_breakout` | — | `get` |
 | `_score_momentum` | — | `get` |
 | `_score_trend` | — | `get` |
@@ -488,9 +497,8 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | `_load_weights` | `get` |
+| `__init__` | — | `get`, `load_component_weights` |
 | `_generate_reasons` | — | `append`, `get` |
-| `_load_weights` | — | `get`, `items`, `values`, `warning` |
 | `_score_pullback` | — | `get` |
 | `_score_rebound` | — | `get` |
 | `_score_trend` | — | `get` |
@@ -502,15 +510,20 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | `_load_weights` | `get` |
+| `__init__` | — | `get`, `load_component_weights` |
 | `_generate_reasons` | — | `append`, `get` |
-| `_load_weights` | — | `get`, `items`, `values`, `warning` |
 | `_score_base` | — | `get` |
 | `_score_drawdown` | — | `get` |
 | `_score_reclaim` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get` |
 | `score_reversals` | `score` | `ReversalScorer`, `append`, `error`, `get`, `items`, `sort` |
+
+### 📄 scanner/pipeline/scoring/weights.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `load_component_weights` | — | `copy`, `get`, `items`, `join`, `lower`, `strip`, `values`, `warning` |
 
 ### 📄 scanner/pipeline/shortlist.py
 
@@ -596,16 +609,17 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/excel_output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/pipeline/output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
-| `scanner/pipeline/scoring/breakout.py` | 7 | 19 | 26 | 🔴 High |
-| `scanner/pipeline/scoring/pullback.py` | 7 | 19 | 26 | 🔴 High |
-| `scanner/pipeline/scoring/reversal.py` | 7 | 19 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 6 | 16 | 22 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 6 | 16 | 22 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 6 | 16 | 22 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 20 | 21 | 🔴 High |
 | `scanner/pipeline/filters.py` | 7 | 12 | 19 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 0 | 12 | 12 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
@@ -629,4 +643,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 10:21 UTC_
+_Generated by GitHub Actions • 2026-02-15 10:33 UTC_
