@@ -1,7 +1,7 @@
 import pytest
 
 from scanner.pipeline.features import FeatureEngine
-from scanner.pipeline.scoring.reversal import ReversalScorer
+from scanner.pipeline.scoring.reversal import ReversalScorer, score_reversals
 
 
 def _gen_1d_klines_with_base(pass_condition: bool) -> list[list[float]]:
@@ -93,3 +93,25 @@ def test_reversal_drawdown_score_piecewise_and_volume_quote_preferred():
     # preferred quote spikes => max=2.0, not 3.0
     expected = ((2.0 - 1.5) / (3.0 - 1.5)) * 100.0
     assert vol == pytest.approx(expected)
+
+
+def test_reversal_setup_payload_propagates_raw_score_and_penalty_multiplier() -> None:
+    features = {
+        "XUSDT": {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_detected": True,
+                "base_score": 80.0,
+                "reclaim_ema50": True,
+                "dist_ema50_pct": 1.0,
+                "volume_spike": 1.7,
+            },
+            "4h": {"volume_spike": 1.6},
+        }
+    }
+    volumes = {"XUSDT": 2_000_000.0}
+
+    results = score_reversals(features, volumes, {})
+
+    assert "raw_score" in results[0]
+    assert "penalty_multiplier" in results[0]
