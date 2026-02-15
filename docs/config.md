@@ -278,7 +278,22 @@ Weight loading rules (all scorers):
 
 ---
 
-## 11. Backtest
+
+## 11. Snapshots
+
+```yaml
+snapshots:
+  history_dir: "snapshots/history"
+  runtime_dir: "snapshots/runtime"
+```
+
+Namespace separation rules:
+- `history_dir` stores only replay/backtest snapshots (`YYYY-MM-DD.json`).
+- `runtime_dir` stores runtime metadata artifacts (for observability) and must not be used for snapshot discovery.
+
+---
+
+## 12. Backtest
 
 ```yaml
 backtest:
@@ -292,7 +307,7 @@ backtest:
 
 ---
 
-## 12. Logging
+## 13. Logging
 
 ```yaml
 logging:
@@ -303,7 +318,7 @@ logging:
 
 ---
 
-## 13. Versioning
+## 14. Versioning
 
 Configuration changes must increment:
 

@@ -132,6 +132,11 @@ scoring:
       reclaim: 0.40
       volume: 0.30
 
+
+snapshots:
+  history_dir: "snapshots/history"
+  runtime_dir: "snapshots/runtime"
+
 backtest:
   enabled: true
   forward_return_days: [7, 14, 30]

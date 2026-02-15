@@ -8,6 +8,7 @@ Snapshots include all pipeline data at a specific point in time.
 
 import logging
 from typing import Dict, Any, List
+import re
 from datetime import datetime
 from pathlib import Path
 import json
@@ -31,11 +32,15 @@ class SnapshotManager:
         else:
             snapshot_config = config.get('snapshots', {})
         
-        self.snapshots_dir = Path(snapshot_config.get('runtime_dir', 'snapshots/runtime'))
-        
+        self.snapshots_dir = Path(
+            snapshot_config.get('history_dir')
+            or snapshot_config.get('snapshot_dir')
+            or 'snapshots/history'
+        )
+
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
     
     def create_snapshot(
@@ -150,15 +155,28 @@ class SnapshotManager:
             List of date strings (YYYY-MM-DD)
         """
         snapshots = []
-        
+
         for path in self.snapshots_dir.glob("*.json"):
-            date = path.stem  # Filename without extension
-            snapshots.append(date)
-        
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
+                continue
+
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    payload = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+            if not all(key in payload for key in ('meta', 'pipeline', 'data', 'scoring')):
+                continue
+
+            snapshots.append(path.stem)
+
         snapshots.sort()
-        
+
         logger.info(f"Found {len(snapshots)} snapshots")
-        
+
         return snapshots
     
     def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
