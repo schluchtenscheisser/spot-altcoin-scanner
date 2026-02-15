@@ -8,6 +8,8 @@ Identifies downtrend → base → reclaim setups.
 import logging
 from typing import Dict, Any, List
 
+from scanner.pipeline.scoring.weights import load_component_weights
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,26 +37,16 @@ class ReversalScorer:
             "reclaim": 0.25,
             "volume": 0.20,
         }
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-
-        mapped = {
-            "drawdown": cfg_weights.get("drawdown"),
-            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
-            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="reversal",
+            default_weights=default_weights,
+            aliases={
+                "base": "base_structure",
+                "reclaim": "reclaim_signal",
+                "volume": "volume_confirmation",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
