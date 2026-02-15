@@ -153,10 +153,13 @@ class ReversalScorer:
 
         return min(score, 100.0)
 
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+    def _resolve_volume_spike(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
         vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
         vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        max_spike = max(vol_spike_1d, vol_spike_4h)
+        return max(vol_spike_1d, vol_spike_4h)
+
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        max_spike = self._resolve_volume_spike(f1d, f4h)
 
         if max_spike < self.min_volume_spike:
             return 0.0
@@ -198,7 +201,7 @@ class ReversalScorer:
         else:
             reasons.append("Below EMAs (no reclaim yet)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        vol_spike = self._resolve_volume_spike(f1d, f4h)
         if vol_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif vol_score > 30:

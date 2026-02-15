@@ -81,3 +81,31 @@ def test_pullback_rebound_includes_continuous_r7_component() -> None:
     # No step-based r3/r3_4h rebound, only r7 contributes via continuous term.
     rebound = scorer._score_rebound({"r_3": 0.0, "r_7": 5.0}, {"r_3": 0.0})
     assert rebound == pytest.approx(10.0)  # 0.2 * 50
+
+
+def test_reversal_reasons_use_same_volume_spike_path_as_scoring() -> None:
+    scorer = ReversalScorer(config={"scoring": {"reversal": {"min_volume_spike": 1.5}}})
+
+    result = scorer.score(
+        symbol="TESTUSDT",
+        features={
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "dist_ema20_pct": 1.0,
+                "dist_ema50_pct": 1.0,
+                "hh_20": True,
+                "r_7": 0.0,
+                # intentionally conflicting values to verify reason path matches scoring path
+                "volume_spike": 5.0,
+                "volume_quote_spike": 2.2,
+            },
+            "4h": {"volume_spike": 5.0, "volume_quote_spike": 1.2},
+        },
+        quote_volume_24h=2_000_000,
+    )
+
+    # scoring uses quote-based fallback path => max spike should be 2.2, not raw 5.0
+    volume_reasons = [r for r in result["reasons"] if "volume" in r.lower()]
+    assert any("2.2x" in r for r in volume_reasons)
+    assert not any("5.0x" in r for r in volume_reasons)

@@ -35,6 +35,7 @@ The canonical implementation is in:
 
 Critical canonical rules:
 - Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
+- Volume reason text must use the exact same spike datapath/fallback as scoring (no divergence between displayed and scored spike).
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
 - Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
