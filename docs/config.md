@@ -128,6 +128,10 @@ exclusions:
 
 Pattern rules avoid false positives.
 
+Legacy override note:
+- If `filters.exclusion_patterns` is present, it overrides `exclusions.*` entirely.
+- `filters.exclusion_patterns: []` explicitly means “no exclusions”.
+
 ---
 
 ## 8. Mapping
@@ -185,6 +189,12 @@ Feature parameters affect scoring.
 ```yaml
 scoring:
   breakout:
+    weights_mode: "compat"  # compat|strict
+    weights:
+      breakout: 0.35
+      volume: 0.30
+      trend: 0.20
+      momentum: 0.15
     enabled: true
     min_breakout_pct: 2
     ideal_breakout_pct: 5
@@ -202,6 +212,12 @@ scoring:
       low_liquidity_threshold: 500000
       low_liquidity_factor: 0.8
 ```
+
+Weight loading rules (all scorers):
+- `weights_mode: compat` (default): legacy aliases are accepted, missing canonical keys are filled from defaults.
+- `weights_mode: strict`: all canonical keys in `weights` must be present.
+- Weight sums must be approximately `1.0` (tolerance `1e-6`).
+- No automatic renormalization is applied. Invalid weight configs fall back deterministically to scorer defaults with warning logs.
 
 ---
 

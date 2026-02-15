@@ -69,3 +69,42 @@ def test_scorer_weights_are_config_driven():
     assert b.weights["breakout"] == 1.0
     assert p.weights["trend"] == 1.0
     assert r.weights["drawdown"] == 1.0
+
+
+def test_legacy_exclusion_patterns_empty_list_disables_exclusions() -> None:
+    cfg = {
+        "filters": {"exclusion_patterns": []},
+        "exclusions": {
+            "exclude_stablecoins": True,
+            "stablecoin_patterns": ["USD"],
+            "exclude_wrapped_tokens": False,
+            "exclude_leveraged_tokens": False,
+            "exclude_synthetic_derivatives": False,
+        },
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+    ])
+    assert [x["symbol"] for x in out] == ["AAAUSDT", "BBBUSDT"]
+
+
+def test_legacy_exclusion_patterns_override_new_exclusions_when_present() -> None:
+    cfg = {
+        "filters": {"exclusion_patterns": ["WRAP"]},
+        "exclusions": {
+            "exclude_stablecoins": True,
+            "stablecoin_patterns": ["USD"],
+            "exclude_wrapped_tokens": False,
+            "exclude_leveraged_tokens": False,
+            "exclude_synthetic_derivatives": False,
+        },
+    }
+    f = UniverseFilters(cfg)
+    out = f.apply_all([
+        {"symbol": "AAAUSDT", "base": "AAAUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "WRAPUSDT", "base": "WRAPCOIN", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+    ])
+    # Only legacy pattern applies; stablecoin exclusion from new config is ignored.
+    assert [x["symbol"] for x in out] == ["AAAUSDT"]
