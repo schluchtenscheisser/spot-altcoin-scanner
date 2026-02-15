@@ -1,7 +1,7 @@
 import pytest
 
-from scanner.pipeline.scoring.breakout import BreakoutScorer
-from scanner.pipeline.scoring.pullback import PullbackScorer
+from scanner.pipeline.scoring.breakout import BreakoutScorer, score_breakouts
+from scanner.pipeline.scoring.pullback import PullbackScorer, score_pullbacks
 
 
 def test_breakout_score_piecewise_formula():
@@ -97,3 +97,29 @@ def test_pullback_penalty_triggers_only_below_ema50() -> None:
     assert "broken_trend" in below["flags"]
     assert "broken_trend" not in touch["flags"]
     assert "broken_trend" not in above["flags"]
+
+
+def test_setup_payload_propagates_raw_score_and_penalty_multiplier() -> None:
+    features = {
+        "XUSDT": {
+            "1d": {
+                "breakout_dist_20": 2.0,
+                "dist_ema20_pct": 0.0,
+                "dist_ema50_pct": 1.0,
+                "r_7": 3.0,
+                "volume_spike": 1.6,
+                "hh_20": True,
+                "r_3": 0.4,
+            },
+            "4h": {"volume_spike": 1.5, "r_3": 0.2},
+        }
+    }
+    volumes = {"XUSDT": 1_000_000.0}
+
+    breakout_results = score_breakouts(features, volumes, {})
+    pullback_results = score_pullbacks(features, volumes, {})
+
+    assert "raw_score" in breakout_results[0]
+    assert "penalty_multiplier" in breakout_results[0]
+    assert "raw_score" in pullback_results[0]
+    assert "penalty_multiplier" in pullback_results[0]

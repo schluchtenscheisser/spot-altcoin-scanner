@@ -98,3 +98,23 @@ def test_validate_features_emits_machine_readable_json(capsys, tmp_path: Path) -
     assert payload["ok"] is False
     assert payload["errors"][0]["code"] == "RANGE"
     assert payload["errors"][0]["path"] == "setups.reversals[0].score"
+
+
+def test_report_payload_contains_score_details_for_pipeline_like_entries(tmp_path: Path) -> None:
+    generator = ReportGenerator({"output": {"reports_dir": str(tmp_path), "top_n_per_setup": 5}})
+
+    reversals = [{"symbol": "RUSDT", "coin_name": "Rev", "score": 70.0, "raw_score": 80.0, "penalty_multiplier": 0.875, "components": {"drawdown": 70.0}}]
+    breakouts = [{"symbol": "BUSDT", "coin_name": "Brk", "score": 65.0, "raw_score": 72.2, "penalty_multiplier": 0.9, "components": {"breakout": 65.0}}]
+    pullbacks = [{"symbol": "PUSDT", "coin_name": "Pbk", "score": 60.0, "raw_score": 75.0, "penalty_multiplier": 0.8, "components": {"trend": 60.0}}]
+
+    report = generator.generate_json_report(reversals, breakouts, pullbacks, "2026-02-20")
+
+    assert report["setups"]["reversals"][0]["raw_score"] == 80.0
+    assert report["setups"]["reversals"][0]["penalty_multiplier"] == 0.875
+    assert report["setups"]["breakouts"][0]["raw_score"] == 72.2
+    assert report["setups"]["breakouts"][0]["penalty_multiplier"] == 0.9
+    assert report["setups"]["pullbacks"][0]["raw_score"] == 75.0
+    assert report["setups"]["pullbacks"][0]["penalty_multiplier"] == 0.8
+
+    md = generator.generate_markdown_report(reversals, breakouts, pullbacks, "2026-02-20")
+    assert md.count("**Score Details:**") == 3
