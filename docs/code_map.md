@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-15 13:53 UTC  
+**Last Updated:** 2026-02-15 21:02 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 29
 - **Total Classes:** 16
-- **Total Functions:** 156
+- **Total Functions:** 158
 
 ---
 
@@ -140,7 +140,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `UniverseFilters`
 
-**Functions:** `__init__, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, apply_all, get_filter_stats`
+**Functions:** `__init__, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, apply_all, get_filter_stats`
 
 **Module Variables:** `base, default_patterns, default_quote_allowlist, exclusion_pass, exclusions_cfg, filtered, final_pass, history_cfg, is_excluded, legacy_filters` _(+14 more)_
 
@@ -164,9 +164,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ReportGenerator`
 
-**Functions:** `__init__, _format_setup_entry, generate_json_report, generate_markdown_report, save_reports`
+**Functions:** `__init__, _format_setup_entry, _with_rank, generate_json_report, generate_markdown_report, save_reports`
 
-**Module Variables:** `analysis, coin_name, components, excel_config, excel_gen, excel_path, flag_list, flag_str, flags, json_content` _(+18 more)_
+**Module Variables:** `analysis, coin_name, components, excel_config, excel_gen, excel_path, flag_list, flag_str, flags, json_content` _(+20 more)_
 
 **Imports:** `datetime, excel_output, json, logging, pathlib, typing`
 
@@ -254,7 +254,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, create_snapshot, get_snapshot_stats, list_snapshots, load_snapshot`
 
-**Module Variables:** `logger, payload, size_mb, snapshot, snapshot_config, snapshot_path, snapshots`
+**Module Variables:** `history_dir, legacy_runtime_dir, logger, payload, resolved_dir, size_mb, snapshot, snapshot_config, snapshot_dir, snapshot_path` _(+1 more)_
 
 **Imports:** `datetime, json, logging, pathlib, re, typing`
 
@@ -444,7 +444,8 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `extend`, `get`, `info`, `upper` |
+| `__init__` | `_build_exclusion_patterns_from_new_config` | `get`, `info`, `upper`, `warning` |
+| `_build_exclusion_patterns_from_new_config` | — | `extend`, `get`, `upper` |
 | `_extract_quote_asset` | — | `endswith`, `get`, `upper` |
 | `_filter_exclusions` | — | `append`, `get`, `upper` |
 | `_filter_liquidity` | — | `append`, `get` |
@@ -468,7 +469,8 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
 | `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join`, `replace` |
-| `generate_json_report` | — | `isoformat`, `update`, `utcnow` |
+| `_with_rank` | — | `append` |
+| `generate_json_report` | `_with_rank` | `isoformat`, `update`, `utcnow` |
 | `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `join`, `strftime`, `utcnow` |
 | `save_reports` | `generate_json_report`, `generate_markdown_report` | `ExcelReportGenerator`, `dump`, `error`, `generate_excel_report`, `info`, `warning`, `write` |
 
@@ -543,7 +545,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `__init__` | — | `Path`, `get`, `info`, `mkdir`, `warning` |
 | `create_snapshot` | — | `dump`, `info`, `isoformat`, `stat`, `strftime`, `timestamp`, `update`, `utcnow` |
 | `get_snapshot_stats` | `load_snapshot` | — |
 | `list_snapshots` | — | `append`, `fullmatch`, `glob`, `info`, `load`, `sort` |
@@ -612,14 +614,14 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/__init__.py` | 0 | 35 | 35 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/pipeline/filters.py` | 11 | 19 | 30 | 🔴 High |
+| `scanner/pipeline/output.py` | 4 | 26 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 3 | 25 | 28 | 🔴 High |
-| `scanner/pipeline/output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
-| `scanner/pipeline/filters.py` | 10 | 16 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 8 | 17 | 25 | 🔴 High |
-| `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
+| `scanner/pipeline/snapshot.py` | 1 | 23 | 24 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 6 | 16 | 22 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 6 | 16 | 22 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -650,4 +652,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 13:53 UTC_
+_Generated by GitHub Actions • 2026-02-15 21:02 UTC_
