@@ -211,6 +211,7 @@ Two primary outputs:
 - Top Reversals
 - contextual metrics
 - reasoning + flags
+- **Score Details** per setup entry (`score`, `raw_score`, `penalty_multiplier`)
 
 (2) Machine (JSON):
 - full metrics
@@ -219,6 +220,7 @@ Two primary outputs:
 - flags
 - mapping info
 - meta info
+- setup-level transparency fields: `score`, `raw_score`, `penalty_multiplier`, `components`
 
 Outputs are snapshot-stored.
 

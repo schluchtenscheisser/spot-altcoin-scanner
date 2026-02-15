@@ -243,4 +243,27 @@ Workflow supports extension without rewrite.
 
 ---
 
+
+## 17. CI & Dependency Discipline
+
+CI must install dependencies explicitly from versioned requirement files:
+
+- runtime deps: `requirements.txt`
+- test/dev deps: `requirements-dev.txt` (includes `pytest`)
+
+No implicit dependency on preinstalled runner packages is allowed.
+
+---
+
+## 18. Bot/Quota Outage Fallback Process
+
+If live provider calls fail due to quota/outage:
+
+1. Use cache only if a valid cache exists.
+2. Mark output metadata as degraded and include freshness timestamps.
+3. If no cache exists, fail fast with explicit error (do not emit unlabeled partial data).
+4. Document incident handling in PR notes if behavior changed.
+
+---
+
 ## End of `dev_workflow.md`

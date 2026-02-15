@@ -1,7 +1,7 @@
 import pytest
 
-from scanner.pipeline.scoring.breakout import BreakoutScorer
-from scanner.pipeline.scoring.pullback import PullbackScorer
+from scanner.pipeline.scoring.breakout import BreakoutScorer, score_breakouts
+from scanner.pipeline.scoring.pullback import PullbackScorer, score_pullbacks
 
 
 def test_breakout_score_piecewise_formula():
@@ -68,3 +68,58 @@ def test_pullback_volume_prefers_quote_spike():
     )
     expected = ((1.5 - 1.3) / (2.0 - 1.3)) * 70.0
     assert score == pytest.approx(expected)
+
+
+def test_pullback_uptrend_guard_ema50_boundary_behavior() -> None:
+    scorer = PullbackScorer({})
+
+    assert scorer._score_trend({"dist_ema50_pct": -0.01, "hh_20": True}) == pytest.approx(0.0)
+
+    score_touch = scorer._score_trend({"dist_ema50_pct": 0.0, "hh_20": True})
+    assert score_touch > 0.0
+
+    score_above = scorer._score_trend({"dist_ema50_pct": 0.01, "hh_20": True})
+    assert score_above > 0.0
+
+
+def test_pullback_penalty_triggers_only_below_ema50() -> None:
+    scorer = PullbackScorer({"scoring": {"pullback": {"penalties": {"broken_trend_factor": 0.5}}}})
+
+    features_common = {
+        "1d": {"dist_ema20_pct": -1.0, "r_3": 0.0, "r_7": 0.0, "hh_20": True, "volume_spike": 1.4},
+        "4h": {"r_3": 0.0, "volume_spike": 1.4},
+    }
+
+    below = scorer.score("X", {**features_common, "1d": {**features_common["1d"], "dist_ema50_pct": -0.01}}, 1_000_000)
+    touch = scorer.score("X", {**features_common, "1d": {**features_common["1d"], "dist_ema50_pct": 0.0}}, 1_000_000)
+    above = scorer.score("X", {**features_common, "1d": {**features_common["1d"], "dist_ema50_pct": 0.01}}, 1_000_000)
+
+    assert "broken_trend" in below["flags"]
+    assert "broken_trend" not in touch["flags"]
+    assert "broken_trend" not in above["flags"]
+
+
+def test_setup_payload_propagates_raw_score_and_penalty_multiplier() -> None:
+    features = {
+        "XUSDT": {
+            "1d": {
+                "breakout_dist_20": 2.0,
+                "dist_ema20_pct": 0.0,
+                "dist_ema50_pct": 1.0,
+                "r_7": 3.0,
+                "volume_spike": 1.6,
+                "hh_20": True,
+                "r_3": 0.4,
+            },
+            "4h": {"volume_spike": 1.5, "r_3": 0.2},
+        }
+    }
+    volumes = {"XUSDT": 1_000_000.0}
+
+    breakout_results = score_breakouts(features, volumes, {})
+    pullback_results = score_pullbacks(features, volumes, {})
+
+    assert "raw_score" in breakout_results[0]
+    assert "penalty_multiplier" in breakout_results[0]
+    assert "raw_score" in pullback_results[0]
+    assert "penalty_multiplier" in pullback_results[0]
