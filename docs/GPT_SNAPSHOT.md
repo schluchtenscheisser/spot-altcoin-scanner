@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-15 11:15 UTC  
-**Commit:** `10f09a0` (10f09a026ca57637a728e9a143d4b67087cbf4af)  
+**Generated:** 2026-02-15 11:28 UTC  
+**Commit:** `2e58a60` (2e58a603d1fd7d38eb7f87971d6fd9dc960ff525)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -3386,7 +3386,7 @@ def run_pipeline(config: ScannerConfig) -> None:
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `3c3aeb814350adf794ef1ff63900b987b98d7b97e6a24feabd625eb836883796`
+**SHA256:** `aadd127cf726b4579f124fee55e0a582541b9c8ad0473ed1adb49f24c84658c4`
 
 ```python
 """
@@ -3404,6 +3404,7 @@ Features computed:
 """
 
 import logging
+import math
 from typing import Dict, List, Any, Optional
 import numpy as np
 
@@ -3585,8 +3586,9 @@ class FeatureEngine:
         # Structural metrics
         f["breakout_dist_20"] = self._calc_breakout_distance(symbol, closes, highs, 20)
         f["breakout_dist_30"] = self._calc_breakout_distance(symbol, closes, highs, 30)
-        drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
-        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
+        drawdown_lookback_days = int(self._config_get(["features", "drawdown_lookback_days"], 365))
+        drawdown_lookback_bars = self._lookback_days_to_bars(drawdown_lookback_days, timeframe)
+        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback_bars)
 
         # Phase 2: Base detection (1d only, config-driven)
         if timeframe == "1d":
@@ -3693,10 +3695,41 @@ class FeatureEngine:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
 
-    def _calc_drawdown(self, closes: np.ndarray, lookback_days: int = 365) -> Optional[float]:
+
+    def _timeframe_to_seconds(self, timeframe: str) -> Optional[int]:
+        if not timeframe:
+            return None
+
+        tf = str(timeframe).strip().lower()
+        units = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+        unit = tf[-1:]
+        if unit not in units:
+            return None
+
+        try:
+            magnitude = int(tf[:-1])
+        except ValueError:
+            return None
+
+        if magnitude <= 0:
+            return None
+
+        return magnitude * units[unit]
+
+    def _lookback_days_to_bars(self, lookback_days: int, timeframe: str) -> int:
+        days = max(1, int(lookback_days))
+        seconds_per_bar = self._timeframe_to_seconds(timeframe)
+        if not seconds_per_bar:
+            logger.warning(f"Unknown timeframe '{timeframe}' for drawdown lookback conversion; using days as bars fallback")
+            return days
+
+        bars = math.ceil((days * 86400) / seconds_per_bar)
+        return max(1, int(bars))
+
+    def _calc_drawdown(self, closes: np.ndarray, lookback_bars: int = 365) -> Optional[float]:
         if len(closes) == 0:
             return np.nan
-        lookback = max(1, int(lookback_days))
+        lookback = max(1, int(lookback_bars))
         window = closes[-lookback:]
         ath = np.nanmax(window)
         return float(((closes[-1] / ath) - 1) * 100)
@@ -5298,7 +5331,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `6af2fa6a89416dd4ba94e1032be7a3edb70be38e2cd7f14d3409ea5388dbc443`
+**SHA256:** `e2825e090e327a735a1308a6f73417083fd09a13f3768e406da745dc4fc3bf1b`
 
 ```python
 """Pullback scoring."""
@@ -5418,7 +5451,7 @@ class PullbackScorer:
             return 100.0
         if -2 <= dist_ema50 <= 2:
             return 80.0
-        if dist_ema20 < 0 and dist_ema50 > 0:
+        if dist_ema20 < 0 and dist_ema50 >= 0:
             return 60.0
         if dist_ema20 > 5:
             return 20.0
@@ -5539,7 +5572,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `74e10b6f3fb2db35989c5e3580ae296801094e136ecd409979fa1ccef6ceb2bb`
+**SHA256:** `1ad894e7e24b05d5cc8bb89dab5125dcccb7b3402b1727521afa2fc4a9425cb3`
 
 ```python
 """
@@ -5550,6 +5583,7 @@ Identifies downtrend → base → reclaim setups.
 """
 
 import logging
+import math
 from typing import Dict, Any, List
 
 from scanner.pipeline.scoring.weights import load_component_weights
@@ -5666,7 +5700,16 @@ class ReversalScorer:
         base_score = f1d.get("base_score")
         if base_score is None:
             return 0.0
-        return max(0.0, min(100.0, float(base_score)))
+
+        try:
+            numeric = float(base_score)
+        except (TypeError, ValueError):
+            return 0.0
+
+        if not math.isfinite(numeric):
+            return 0.0
+
+        return max(0.0, min(100.0, numeric))
 
     def _score_reclaim(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
@@ -6143,7 +6186,7 @@ Constraints:
 
 ### `docs/features.md`
 
-**SHA256:** `7e938ba70cde6166047873a301011ad5bce6cd8af72fdce17f762900342f468c`
+**SHA256:** `05af8e47d66923fec50e4694eab5bee70dc7cfce4d6a1e16ab0f6cc40fb6779a`
 
 ```markdown
 # Feature Engine Specification
@@ -6397,8 +6440,9 @@ Reversal decomposed into:
 Bounded Drawdown (canonical):
 
 ```
-L = config.features.drawdown_lookback_days  # default: 365
-ath_L = max(close[t-L+1 .. t])
+L_days = config.features.drawdown_lookback_days  # default: 365
+L_bars = ceil(L_days * bars_per_day(timeframe))
+ath_L = max(close[t-L_bars+1 .. t])
 drawdown_from_ath = (close[t] / ath_L - 1) * 100
 ```
 
@@ -6547,7 +6591,7 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ### `docs/scoring.md`
 
-**SHA256:** `279488242e5d435d01da18a95d9f2348464654f0c04022b8dbba7a6c824ccdaf`
+**SHA256:** `0e67a29876c34bf24c8c366b1f927ebc346af0a4cd42dba35612697e461ee9d4`
 
 ```markdown
 # Scoring Modules Specification
@@ -6586,7 +6630,9 @@ The canonical implementation is in:
 - `scanner/pipeline/scoring/reversal.py`
 
 Critical canonical rules:
+- Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
+- Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
 - Penalties/thresholds are config-driven via `scoring.*.penalties` and `scoring.*.momentum`.
 
@@ -6758,7 +6804,7 @@ Trend must be established before retracement.
 Trend is up if:
 
 ```
-close > ema50 (1d)
+close >= ema50 (1d, EMA50 touch allowed)
 ema50 rising or flat
 ```
 
@@ -6984,4 +7030,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 11:15 UTC_
+_Generated by GitHub Actions • 2026-02-15 11:28 UTC_
