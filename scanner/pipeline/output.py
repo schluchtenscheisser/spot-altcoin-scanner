@@ -208,6 +208,16 @@ class ReportGenerator:
         
         return lines
         
+    @staticmethod
+    def _with_rank(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Return entries with explicit 1-based rank preserving order."""
+        ranked = []
+        for idx, entry in enumerate(entries, start=1):
+            ranked_entry = dict(entry)
+            ranked_entry["rank"] = idx
+            ranked.append(ranked_entry)
+        return ranked
+
     def generate_json_report(
         self,
         reversal_results: List[Dict[str, Any]],
@@ -242,9 +252,9 @@ class ReportGenerator:
                 'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results)
             },
             'setups': {
-                'reversals': reversal_results[:self.top_n],
-                'breakouts': breakout_results[:self.top_n],
-                'pullbacks': pullback_results[:self.top_n]
+                'reversals': self._with_rank(reversal_results[:self.top_n]),
+                'breakouts': self._with_rank(breakout_results[:self.top_n]),
+                'pullbacks': self._with_rank(pullback_results[:self.top_n])
             }
         }
         

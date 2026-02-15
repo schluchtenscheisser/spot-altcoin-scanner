@@ -1,0 +1,2 @@
+# Test / development dependencies used by CI and local validation
+pytest>=8.0.0

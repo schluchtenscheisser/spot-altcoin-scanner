@@ -74,6 +74,21 @@ general:
   lookback_days_4h: 30
 ```
 
+OHLCV lookback precedence (API fetch limit bars):
+
+1. `ohlcv.lookback[timeframe]` (explicit override, unit = bars)
+2. `general.lookback_days_*` defaults (`1d`: days as bars, `4h`: days × 6 bars)
+3. Built-in defaults (`1d`=120, `4h`=180)
+
+Priority matrix examples:
+
+| Config state | Effective `1d` | Effective `4h` |
+|---|---:|---:|
+| only `general.lookback_days_1d=120`, `lookback_days_4h=30` | 120 | 180 |
+| only `ohlcv.lookback: {1d: 90, 4h: 240}` | 90 | 240 |
+| both present (`general` + `ohlcv.lookback`) | `ohlcv.lookback.1d` wins | `ohlcv.lookback.4h` wins |
+| partial `ohlcv.lookback: {1d: 150}` + `general.lookback_days_4h=12` | 150 | 72 |
+
 ---
 
 ## 5. Data Sources
@@ -108,7 +123,13 @@ universe_filters:
   history:
     min_history_days_1d: 60
   include_only_usdt_pairs: true
+  quote_allowlist: ["USDT", "USDC", "DAI", "TUSD", "FDUSD", "USDP", "BUSD"]
 ```
+
+Quote filter semantics:
+- `include_only_usdt_pairs: true` → only `*USDT` pairs pass.
+- `include_only_usdt_pairs: false` → only pairs quoted in `quote_allowlist` pass.
+- Non-stablecoin quotes (e.g. `BTC`, `ETH`) are excluded unless explicitly versioned with FX conversion support.
 
 ---
 
@@ -127,6 +148,10 @@ exclusions:
 ```
 
 Pattern rules avoid false positives.
+
+Legacy override note:
+- If `filters.exclusion_patterns` is present, it overrides `exclusions.*` entirely.
+- `filters.exclusion_patterns: []` explicitly means “no exclusions”.
 
 ---
 
@@ -185,6 +210,12 @@ Feature parameters affect scoring.
 ```yaml
 scoring:
   breakout:
+    weights_mode: "compat"  # compat|strict
+    weights:
+      breakout: 0.35
+      volume: 0.30
+      trend: 0.20
+      momentum: 0.15
     enabled: true
     min_breakout_pct: 2
     ideal_breakout_pct: 5
@@ -202,6 +233,12 @@ scoring:
       low_liquidity_threshold: 500000
       low_liquidity_factor: 0.8
 ```
+
+Weight loading rules (all scorers):
+- `weights_mode: compat` (default): legacy aliases are accepted, missing canonical keys are filled from defaults.
+- `weights_mode: strict`: all canonical keys in `weights` must be present.
+- Weight sums must be approximately `1.0` (tolerance `1e-6`).
+- No automatic renormalization is applied. Invalid weight configs fall back deterministically to scorer defaults with warning logs.
 
 ---
 
@@ -241,7 +278,22 @@ scoring:
 
 ---
 
-## 11. Backtest
+
+## 11. Snapshots
+
+```yaml
+snapshots:
+  history_dir: "snapshots/history"
+  runtime_dir: "snapshots/runtime"
+```
+
+Namespace separation rules:
+- `history_dir` stores only replay/backtest snapshots (`YYYY-MM-DD.json`).
+- `runtime_dir` stores runtime metadata artifacts (for observability) and must not be used for snapshot discovery.
+
+---
+
+## 12. Backtest
 
 ```yaml
 backtest:
@@ -255,7 +307,7 @@ backtest:
 
 ---
 
-## 12. Logging
+## 13. Logging
 
 ```yaml
 logging:
@@ -266,7 +318,7 @@ logging:
 
 ---
 
-## 13. Versioning
+## 14. Versioning
 
 Configuration changes must increment:
 
