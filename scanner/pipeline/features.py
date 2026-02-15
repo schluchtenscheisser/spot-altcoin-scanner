@@ -13,6 +13,7 @@ Features computed:
 """
 
 import logging
+import math
 from typing import Dict, List, Any, Optional
 import numpy as np
 
@@ -194,8 +195,9 @@ class FeatureEngine:
         # Structural metrics
         f["breakout_dist_20"] = self._calc_breakout_distance(symbol, closes, highs, 20)
         f["breakout_dist_30"] = self._calc_breakout_distance(symbol, closes, highs, 30)
-        drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
-        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
+        drawdown_lookback_days = int(self._config_get(["features", "drawdown_lookback_days"], 365))
+        drawdown_lookback_bars = self._lookback_days_to_bars(drawdown_lookback_days, timeframe)
+        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback_bars)
 
         # Phase 2: Base detection (1d only, config-driven)
         if timeframe == "1d":
@@ -302,10 +304,41 @@ class FeatureEngine:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
 
-    def _calc_drawdown(self, closes: np.ndarray, lookback_days: int = 365) -> Optional[float]:
+
+    def _timeframe_to_seconds(self, timeframe: str) -> Optional[int]:
+        if not timeframe:
+            return None
+
+        tf = str(timeframe).strip().lower()
+        units = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+        unit = tf[-1:]
+        if unit not in units:
+            return None
+
+        try:
+            magnitude = int(tf[:-1])
+        except ValueError:
+            return None
+
+        if magnitude <= 0:
+            return None
+
+        return magnitude * units[unit]
+
+    def _lookback_days_to_bars(self, lookback_days: int, timeframe: str) -> int:
+        days = max(1, int(lookback_days))
+        seconds_per_bar = self._timeframe_to_seconds(timeframe)
+        if not seconds_per_bar:
+            logger.warning(f"Unknown timeframe '{timeframe}' for drawdown lookback conversion; using days as bars fallback")
+            return days
+
+        bars = math.ceil((days * 86400) / seconds_per_bar)
+        return max(1, int(bars))
+
+    def _calc_drawdown(self, closes: np.ndarray, lookback_bars: int = 365) -> Optional[float]:
         if len(closes) == 0:
             return np.nan
-        lookback = max(1, int(lookback_days))
+        lookback = max(1, int(lookback_bars))
         window = closes[-lookback:]
         ath = np.nanmax(window)
         return float(((closes[-1] / ath) - 1) * 100)

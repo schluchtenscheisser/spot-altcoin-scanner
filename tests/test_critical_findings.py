@@ -60,7 +60,7 @@ def test_drawdown_uses_bounded_lookback() -> None:
 
     # Full history ATH would be 100, but 3-day lookback ATH is 95.
     closes = [100.0, 90.0, 95.0, 94.0, 93.0]
-    dd = engine._calc_drawdown(closes, lookback_days=3)
+    dd = engine._calc_drawdown(closes, lookback_bars=3)
 
     expected = ((93.0 / 95.0) - 1.0) * 100.0
     assert dd == pytest.approx(expected)
