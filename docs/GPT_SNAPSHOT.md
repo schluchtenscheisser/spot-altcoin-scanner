@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-15 11:28 UTC  
-**Commit:** `2e58a60` (2e58a603d1fd7d38eb7f87971d6fd9dc960ff525)  
+**Generated:** 2026-02-15 13:38 UTC  
+**Commit:** `ee61f2e` (ee61f2e38f735cec7d9678084524ca9d61797cbb)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -397,7 +397,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `8eb6216952d30914b928f5c893fc50f40abdf1445a735f4aa484f88529aba819`
+**SHA256:** `2c713e6cdd7d7a3465c6646ddebd4b68c6741d45f32b425631f118343479fbf0`
 
 ```yaml
 version:
@@ -533,6 +533,11 @@ scoring:
       base: 0.30
       reclaim: 0.40
       volume: 0.30
+
+
+snapshots:
+  history_dir: "snapshots/history"
+  runtime_dir: "snapshots/runtime"
 
 backtest:
   enabled: true
@@ -2615,7 +2620,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `c98f26ac6b9b5a38848ce7d5fa4620376e7b2dba1408b754694ad563cf4aef48`
+**SHA256:** `a1778bd3948fd733db108ca1572d0ad3314425d937f53b6ce4b778715a53e121`
 
 ```python
 """
@@ -2629,7 +2634,7 @@ Filters the MEXC universe to create a tradable shortlist:
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -2664,6 +2669,9 @@ class UniverseFilters:
 
         self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
 
+        default_quote_allowlist = ['USDT', 'USDC', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'BUSD']
+        self.quote_allowlist = [str(q).upper() for q in universe_cfg.get('quote_allowlist', default_quote_allowlist)]
+
         default_patterns = {
             'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
             'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
@@ -2671,8 +2679,10 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
-        if legacy_filters.get('exclusion_patterns'):
-            self.exclusion_patterns = [str(p).upper() for p in legacy_filters['exclusion_patterns']]
+        if 'exclusion_patterns' in legacy_filters:
+            # Legacy override is key-presence based: [] explicitly disables exclusions.
+            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
+            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
             self.exclusion_patterns = []
             if exclusions_cfg.get('exclude_stablecoins', True):
@@ -2712,13 +2722,18 @@ class UniverseFilters:
         filtered = self._filter_mcap(symbols_with_data)
         logger.info(f"After MCAP filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 2: Liquidity filter
+
+        # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
+        filtered = self._filter_quote_assets(filtered)
+        logger.info(f"After Quote filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 3: Liquidity filter
         filtered = self._filter_liquidity(filtered)
         logger.info(f"After Liquidity filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 3: Exclusions
+
+        # Step 4: Exclusions
         filtered = self._filter_exclusions(filtered)
         logger.info(f"After Exclusions filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
@@ -2745,6 +2760,34 @@ class UniverseFilters:
         
         return filtered
     
+
+    def _extract_quote_asset(self, sym_data: Dict[str, Any]) -> Optional[str]:
+        quote = sym_data.get('quote')
+        if quote:
+            return str(quote).upper()
+
+        symbol = str(sym_data.get('symbol', '')).upper()
+        for q in sorted(self.quote_allowlist, key=len, reverse=True):
+            if symbol.endswith(q):
+                return q
+
+        return None
+
+    def _filter_quote_assets(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by quote asset according to include_only_usdt_pairs semantics."""
+        filtered: List[Dict[str, Any]] = []
+
+        for sym_data in symbols:
+            quote = self._extract_quote_asset(sym_data)
+            if self.include_only_usdt_pairs:
+                if quote == 'USDT':
+                    filtered.append(sym_data)
+            else:
+                if quote in self.quote_allowlist:
+                    filtered.append(sym_data)
+
+        return filtered
+
     def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter by minimum 24h volume."""
         filtered = []
@@ -2790,6 +2833,7 @@ class UniverseFilters:
         
         # Count what passes each filter
         mcap_pass = len(self._filter_mcap(symbols))
+        quote_pass = len(self._filter_quote_assets(symbols))
         liquidity_pass = len(self._filter_liquidity(symbols))
         exclusion_pass = len(self._filter_exclusions(symbols))
         
@@ -2800,6 +2844,8 @@ class UniverseFilters:
             'total_input': total,
             'mcap_pass': mcap_pass,
             'mcap_fail': total - mcap_pass,
+            'quote_pass': quote_pass,
+            'quote_fail': total - quote_pass,
             'liquidity_pass': liquidity_pass,
             'liquidity_fail': total - liquidity_pass,
             'exclusion_pass': exclusion_pass,
@@ -3825,7 +3871,7 @@ class FeatureEngine:
 
 ### `scanner/pipeline/snapshot.py`
 
-**SHA256:** `d89156ff32aceb7b2123e1e1369138b66ed8ec0e98573cbf6162e6c913eade42`
+**SHA256:** `7804d11b91f79cff4eb61b20149e8cab07fb72e9d90e5b67d2d534d1045a66d6`
 
 ```python
 """
@@ -3838,6 +3884,7 @@ Snapshots include all pipeline data at a specific point in time.
 
 import logging
 from typing import Dict, Any, List
+import re
 from datetime import datetime
 from pathlib import Path
 import json
@@ -3861,11 +3908,15 @@ class SnapshotManager:
         else:
             snapshot_config = config.get('snapshots', {})
         
-        self.snapshots_dir = Path(snapshot_config.get('runtime_dir', 'snapshots/runtime'))
-        
+        self.snapshots_dir = Path(
+            snapshot_config.get('history_dir')
+            or snapshot_config.get('snapshot_dir')
+            or 'snapshots/history'
+        )
+
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
     
     def create_snapshot(
@@ -3980,15 +4031,28 @@ class SnapshotManager:
             List of date strings (YYYY-MM-DD)
         """
         snapshots = []
-        
+
         for path in self.snapshots_dir.glob("*.json"):
-            date = path.stem  # Filename without extension
-            snapshots.append(date)
-        
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
+                continue
+
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    payload = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+            if not all(key in payload for key in ('meta', 'pipeline', 'data', 'scoring')):
+                continue
+
+            snapshots.append(path.stem)
+
         snapshots.sort()
-        
+
         logger.info(f"Found {len(snapshots)} snapshots")
-        
+
         return snapshots
     
     def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
@@ -4358,7 +4422,7 @@ class ReportGenerator:
 
 ### `scanner/pipeline/ohlcv.py`
 
-**SHA256:** `62b13a3d12db52a87562feaf50c15b72d195e9ce265ab0aad9cb5e92bc489749`
+**SHA256:** `692e69deed5f59bbdefa0c5a9cbcd1fb2c5ea76c570bfeec1762e3d98a47f985`
 
 ```python
 """
@@ -4394,18 +4458,38 @@ class OHLCVFetcher:
 
         self.timeframes = ohlcv_config.get('timeframes', ['1d', '4h'])
 
-        lookback_1d = int(general_cfg.get('lookback_days_1d', 120))
-        lookback_4h = int(general_cfg.get('lookback_days_4h', 30)) * 6
-        self.lookback = {
-            '1d': lookback_1d,
-            '4h': lookback_4h,
-            **ohlcv_config.get('lookback', {}),
-        }
+        self.lookback = self._build_lookback(general_cfg, ohlcv_config.get('lookback', {}))
 
         self.min_candles = ohlcv_config.get('min_candles', {'1d': 50, '4h': 50})
         self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
 
         logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}, lookback={self.lookback}")
+
+
+    def _build_lookback(self, general_cfg: Dict[str, Any], ohlcv_lookback_cfg: Dict[str, Any]) -> Dict[str, int]:
+        """Build timeframe lookback (API limit bars) with explicit precedence.
+
+        Precedence:
+        1) `ohlcv.lookback[timeframe]` explicit override (bars)
+        2) `general.lookback_days_*` defaults (`1d`: days->bars 1:1, `4h`: days*6)
+        3) hard defaults (`1d`=120, `4h`=180 bars)
+        """
+        lookback_1d_default = int(general_cfg.get('lookback_days_1d', 120))
+        lookback_4h_default = int(general_cfg.get('lookback_days_4h', 30)) * 6
+
+        lookback = {
+            '1d': lookback_1d_default,
+            '4h': lookback_4h_default,
+        }
+
+        if isinstance(ohlcv_lookback_cfg, dict):
+            for tf, bars in ohlcv_lookback_cfg.items():
+                try:
+                    lookback[str(tf)] = int(bars)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid ohlcv.lookback value for timeframe '{tf}': {bars}; ignoring override")
+
+        return lookback
 
     def fetch_all(self, shortlist: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         results = {}
@@ -4982,7 +5066,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `c0f2eb90ebf1f52a733d649f7f67852870c08947e84343bf8b00442bdaab4f6b`
+**SHA256:** `c00d2021eab5f0ca1542ac63cc3d6a3e179c00bf0121872e6290157b893e2377`
 
 ```python
 """Breakout scoring."""
@@ -5199,6 +5283,8 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -5331,7 +5417,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `e2825e090e327a735a1308a6f73417083fd09a13f3768e406da745dc4fc3bf1b`
+**SHA256:** `1588b9b0ae1b1bac5ed8124393496f7547a6caa6b7a1e1f756bb0e432373bba8`
 
 ```python
 """Pullback scoring."""
@@ -5555,6 +5641,8 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -5572,7 +5660,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `1ad894e7e24b05d5cc8bb89dab5125dcccb7b3402b1727521afa2fc4a9425cb3`
+**SHA256:** `d32086820a7e58be0e400bf588863387ea82ee09bf87ea7c5f2b7c05ac168db6`
 
 ```python
 """
@@ -5730,10 +5818,13 @@ class ReversalScorer:
 
         return min(score, 100.0)
 
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+    def _resolve_volume_spike(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
         vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
         vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        max_spike = max(vol_spike_1d, vol_spike_4h)
+        return max(vol_spike_1d, vol_spike_4h)
+
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        max_spike = self._resolve_volume_spike(f1d, f4h)
 
         if max_spike < self.min_volume_spike:
             return 0.0
@@ -5775,7 +5866,7 @@ class ReversalScorer:
         else:
             reasons.append("Below EMAs (no reclaim yet)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        vol_spike = self._resolve_volume_spike(f1d, f4h)
         if vol_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif vol_score > 30:
@@ -5805,6 +5896,8 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -6591,7 +6684,7 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ### `docs/scoring.md`
 
-**SHA256:** `0e67a29876c34bf24c8c366b1f927ebc346af0a4cd42dba35612697e461ee9d4`
+**SHA256:** `63afdf61d6613c1f30a78f0ef10f1acce82f4731d2f8692911071b001ed11c6a`
 
 ```markdown
 # Scoring Modules Specification
@@ -6631,6 +6724,7 @@ The canonical implementation is in:
 
 Critical canonical rules:
 - Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
+- Volume reason text must use the exact same spike datapath/fallback as scoring (no divergence between displayed and scored spike).
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
 - Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
@@ -7030,4 +7124,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 11:28 UTC_
+_Generated by GitHub Actions • 2026-02-15 13:38 UTC_
