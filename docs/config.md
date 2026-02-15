@@ -128,6 +128,10 @@ exclusions:
 
 Pattern rules avoid false positives.
 
+Legacy override note:
+- If `filters.exclusion_patterns` is present, it overrides `exclusions.*` entirely.
+- `filters.exclusion_patterns: []` explicitly means “no exclusions”.
+
 ---
 
 ## 8. Mapping
