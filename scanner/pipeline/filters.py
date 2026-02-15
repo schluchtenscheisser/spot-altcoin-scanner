@@ -9,7 +9,7 @@ Filters the MEXC universe to create a tradable shortlist:
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,9 @@ class UniverseFilters:
 
         self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
 
+        default_quote_allowlist = ['USDT', 'USDC', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'BUSD']
+        self.quote_allowlist = [str(q).upper() for q in universe_cfg.get('quote_allowlist', default_quote_allowlist)]
+
         default_patterns = {
             'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
             'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
@@ -51,8 +54,10 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
-        if legacy_filters.get('exclusion_patterns'):
-            self.exclusion_patterns = [str(p).upper() for p in legacy_filters['exclusion_patterns']]
+        if 'exclusion_patterns' in legacy_filters:
+            # Legacy override is key-presence based: [] explicitly disables exclusions.
+            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
+            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
             self.exclusion_patterns = []
             if exclusions_cfg.get('exclude_stablecoins', True):
@@ -92,13 +97,18 @@ class UniverseFilters:
         filtered = self._filter_mcap(symbols_with_data)
         logger.info(f"After MCAP filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 2: Liquidity filter
+
+        # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
+        filtered = self._filter_quote_assets(filtered)
+        logger.info(f"After Quote filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 3: Liquidity filter
         filtered = self._filter_liquidity(filtered)
         logger.info(f"After Liquidity filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 3: Exclusions
+
+        # Step 4: Exclusions
         filtered = self._filter_exclusions(filtered)
         logger.info(f"After Exclusions filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
@@ -125,6 +135,34 @@ class UniverseFilters:
         
         return filtered
     
+
+    def _extract_quote_asset(self, sym_data: Dict[str, Any]) -> Optional[str]:
+        quote = sym_data.get('quote')
+        if quote:
+            return str(quote).upper()
+
+        symbol = str(sym_data.get('symbol', '')).upper()
+        for q in sorted(self.quote_allowlist, key=len, reverse=True):
+            if symbol.endswith(q):
+                return q
+
+        return None
+
+    def _filter_quote_assets(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by quote asset according to include_only_usdt_pairs semantics."""
+        filtered: List[Dict[str, Any]] = []
+
+        for sym_data in symbols:
+            quote = self._extract_quote_asset(sym_data)
+            if self.include_only_usdt_pairs:
+                if quote == 'USDT':
+                    filtered.append(sym_data)
+            else:
+                if quote in self.quote_allowlist:
+                    filtered.append(sym_data)
+
+        return filtered
+
     def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter by minimum 24h volume."""
         filtered = []
@@ -170,6 +208,7 @@ class UniverseFilters:
         
         # Count what passes each filter
         mcap_pass = len(self._filter_mcap(symbols))
+        quote_pass = len(self._filter_quote_assets(symbols))
         liquidity_pass = len(self._filter_liquidity(symbols))
         exclusion_pass = len(self._filter_exclusions(symbols))
         
@@ -180,6 +219,8 @@ class UniverseFilters:
             'total_input': total,
             'mcap_pass': mcap_pass,
             'mcap_fail': total - mcap_pass,
+            'quote_pass': quote_pass,
+            'quote_fail': total - quote_pass,
             'liquidity_pass': liquidity_pass,
             'liquidity_fail': total - liquidity_pass,
             'exclusion_pass': exclusion_pass,

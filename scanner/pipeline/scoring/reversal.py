@@ -6,7 +6,10 @@ Identifies downtrend → base → reclaim setups.
 """
 
 import logging
+import math
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -35,26 +38,16 @@ class ReversalScorer:
             "reclaim": 0.25,
             "volume": 0.20,
         }
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-
-        mapped = {
-            "drawdown": cfg_weights.get("drawdown"),
-            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
-            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="reversal",
+            default_weights=default_weights,
+            aliases={
+                "base": "base_structure",
+                "reclaim": "reclaim_signal",
+                "volume": "volume_confirmation",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -130,7 +123,16 @@ class ReversalScorer:
         base_score = f1d.get("base_score")
         if base_score is None:
             return 0.0
-        return max(0.0, min(100.0, float(base_score)))
+
+        try:
+            numeric = float(base_score)
+        except (TypeError, ValueError):
+            return 0.0
+
+        if not math.isfinite(numeric):
+            return 0.0
+
+        return max(0.0, min(100.0, numeric))
 
     def _score_reclaim(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
@@ -151,10 +153,13 @@ class ReversalScorer:
 
         return min(score, 100.0)
 
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+    def _resolve_volume_spike(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
         vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
         vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        max_spike = max(vol_spike_1d, vol_spike_4h)
+        return max(vol_spike_1d, vol_spike_4h)
+
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        max_spike = self._resolve_volume_spike(f1d, f4h)
 
         if max_spike < self.min_volume_spike:
             return 0.0
@@ -196,7 +201,7 @@ class ReversalScorer:
         else:
             reasons.append("Below EMAs (no reclaim yet)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        vol_spike = self._resolve_volume_spike(f1d, f4h)
         if vol_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif vol_score > 30:
