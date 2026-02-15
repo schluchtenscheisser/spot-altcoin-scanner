@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-15 13:52 UTC  
-**Commit:** `9ac8bd8` (9ac8bd88066587d33fab4de38bd9222757f0e531)  
+**Generated:** 2026-02-15 21:02 UTC  
+**Commit:** `cf2bb82` (cf2bb8272d5dbacda484a1a07b8820063a14fabf)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -2643,7 +2643,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `a1778bd3948fd733db108ca1572d0ad3314425d937f53b6ce4b778715a53e121`
+**SHA256:** `d4b3f0bff0b6d74a85e2b221eed4bd25b98a81cb3ab2d4a8bbf07fc0ef2117d6`
 
 ```python
 """
@@ -2702,21 +2702,31 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
+            if exclusions_cfg.get('exclude_stablecoins', True):
+                patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+            if exclusions_cfg.get('exclude_wrapped_tokens', True):
+                patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+            if exclusions_cfg.get('exclude_leveraged_tokens', True):
+                patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
+                patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            return [str(p).upper() for p in patterns]
+
         if 'exclusion_patterns' in legacy_filters:
             # Legacy override is key-presence based: [] explicitly disables exclusions.
-            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
-            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
+            # A null value is treated as unset to avoid accidental broad allow-through.
+            legacy_patterns = legacy_filters.get('exclusion_patterns')
+            if legacy_patterns is None:
+                logger.warning(
+                    "filters.exclusion_patterns is null; treating as unset and falling back to exclusions.*"
+                )
+                self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+            else:
+                self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
-            self.exclusion_patterns = []
-            if exclusions_cfg.get('exclude_stablecoins', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
-            if exclusions_cfg.get('exclude_wrapped_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
-            if exclusions_cfg.get('exclude_leveraged_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
-            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
-                self.exclusion_patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
-            self.exclusion_patterns = [str(p).upper() for p in self.exclusion_patterns]
+            self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
@@ -2790,6 +2800,12 @@ class UniverseFilters:
             return str(quote).upper()
 
         symbol = str(sym_data.get('symbol', '')).upper()
+
+        # Canonical suffix inference independent of configurable allowlist.
+        # This keeps include_only_usdt_pairs deterministic even if quote_allowlist is customized.
+        if symbol.endswith('USDT'):
+            return 'USDT'
+
         for q in sorted(self.quote_allowlist, key=len, reverse=True):
             if symbol.endswith(q):
                 return q
@@ -3894,7 +3910,7 @@ class FeatureEngine:
 
 ### `scanner/pipeline/snapshot.py`
 
-**SHA256:** `7804d11b91f79cff4eb61b20149e8cab07fb72e9d90e5b67d2d534d1045a66d6`
+**SHA256:** `4e13055d1f753905cc10af8e91a95fc0ab024fc9d1f6a36592417ebdf9e0cd88`
 
 ```python
 """
@@ -3931,11 +3947,19 @@ class SnapshotManager:
         else:
             snapshot_config = config.get('snapshots', {})
         
-        self.snapshots_dir = Path(
-            snapshot_config.get('history_dir')
-            or snapshot_config.get('snapshot_dir')
-            or 'snapshots/history'
-        )
+        history_dir = snapshot_config.get('history_dir')
+        snapshot_dir = snapshot_config.get('snapshot_dir')
+        legacy_runtime_dir = snapshot_config.get('runtime_dir')
+
+        resolved_dir = history_dir or snapshot_dir
+        if resolved_dir is None and legacy_runtime_dir is not None:
+            logger.warning(
+                "snapshots.runtime_dir is deprecated for snapshot history; "
+                "please migrate to snapshots.history_dir"
+            )
+            resolved_dir = legacy_runtime_dir
+
+        self.snapshots_dir = Path(resolved_dir or 'snapshots/history')
 
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
@@ -4106,7 +4130,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `bc289b4a13bde8b578567446ae09d146e482c619367e88c7da3780788e264afd`
+**SHA256:** `837165bf8dc49fc7de97af4e42d02f7d5357af41e6876761d049dfc01da60766`
 
 ```python
 """
@@ -4319,6 +4343,16 @@ class ReportGenerator:
         
         return lines
         
+    @staticmethod
+    def _with_rank(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Return entries with explicit 1-based rank preserving order."""
+        ranked = []
+        for idx, entry in enumerate(entries, start=1):
+            ranked_entry = dict(entry)
+            ranked_entry["rank"] = idx
+            ranked.append(ranked_entry)
+        return ranked
+
     def generate_json_report(
         self,
         reversal_results: List[Dict[str, Any]],
@@ -4353,9 +4387,9 @@ class ReportGenerator:
                 'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results)
             },
             'setups': {
-                'reversals': reversal_results[:self.top_n],
-                'breakouts': breakout_results[:self.top_n],
-                'pullbacks': pullback_results[:self.top_n]
+                'reversals': self._with_rank(reversal_results[:self.top_n]),
+                'breakouts': self._with_rank(breakout_results[:self.top_n]),
+                'pullbacks': self._with_rank(pullback_results[:self.top_n])
             }
         }
         
@@ -7147,4 +7181,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 13:52 UTC_
+_Generated by GitHub Actions • 2026-02-15 21:02 UTC_
