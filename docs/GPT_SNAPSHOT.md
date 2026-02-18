@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-15 10:19 UTC  
-**Commit:** `d42e40c` (d42e40c6a0be786a4768cd5d4c6d5bf15c67dcc9)  
+**Generated:** 2026-02-15 21:02 UTC  
+**Commit:** `cf2bb82` (cf2bb8272d5dbacda484a1a07b8820063a14fabf)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -48,9 +48,10 @@
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
+| `scanner/pipeline/scoring/weights.py` | - | `load_component_weights` |
 | `scanner/pipeline/shortlist.py` | `ShortlistSelector` | - |
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
-| `scanner/tools/validate_features.py` | - | `_is_number`, `validate_features` |
+| `scanner/tools/validate_features.py` | - | `_is_number`, `_error`, `_emit`, `validate_features` |
 | `scanner/utils/__init__.py` | - | - |
 | `scanner/utils/io_utils.py` | - | `load_json`, `save_json`, `get_cache_path`, `cache_exists`, `load_cache` ... (+1 more) |
 | `scanner/utils/logging_utils.py` | - | `setup_logger`, `get_logger` |
@@ -59,9 +60,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 28
+- Total Modules: 29
 - Total Classes: 16
-- Total Functions: 28
+- Total Functions: 31
 
 ---
 
@@ -110,7 +111,7 @@ pyarrow>=14.0.1
 
 ### `README.md`
 
-**SHA256:** `8eed55d227b127507ceb43b85fe131ec1be846bd479ad86f6f6dbdcd9145e274`
+**SHA256:** `4e3e218240cde97de5f9a89570dd3ad48135f91b81655ddc87e7761325e18bd4`
 
 ```markdown
 # Spot Altcoin Scanner (v1)
@@ -138,7 +139,7 @@ Scans **1837 MEXC USDT pairs** daily and identifies three types of trading setup
 **Outputs:**
 - Daily Markdown report: `reports/YYYY-MM-DD.md`
 - JSON data: `reports/YYYY-MM-DD.json`
-- Snapshot for backtesting: `snapshots/runtime/YYYY-MM-DD.json`
+- Snapshot for backtesting: `snapshots/history/YYYY-MM-DD.json`
 
 ---
 
@@ -153,6 +154,11 @@ cd spot-altcoin-scanner
 ### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
+```
+
+For local testing/development (same baseline as CI):
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 ### 3. Set API Key
@@ -197,6 +203,15 @@ Reports are automatically committed to the repository.
 
 ## Pull Request CI
 
+
+### Outage / Quota Fallback Policy
+
+If live data providers fail (API outage/quota):
+- Use last-known cache **only when available**.
+- Mark run metadata as degraded with freshness timestamps.
+- If no cache is available, fail explicitly (no silent partial output).
+
+
 A dedicated GitHub Actions workflow (`.github/workflows/pr-ci.yml`) runs on every pull request targeting `main`.
 
 Current PR gate:
@@ -208,6 +223,15 @@ Recommended repository setting (GitHub → Settings → Branches → `main`):
 - (Optional) Enable **Require branches to be up to date before merging**
 
 ---
+
+
+### CI Dependency Policy
+
+PR CI installs dependencies **explicitly** from:
+- `requirements.txt`
+- `requirements-dev.txt` (includes `pytest`)
+
+This avoids implicit runner assumptions and keeps CI reproducible.
 
 ## Example Output
 ```markdown
@@ -396,7 +420,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `253661e87764774419a0db2bb2ea64ccc0ddd5e5fc306ebd7a89512fb4f40633`
+**SHA256:** `2c713e6cdd7d7a3465c6646ddebd4b68c6741d45f32b425631f118343479fbf0`
 
 ```yaml
 version:
@@ -461,6 +485,7 @@ features:
 
 scoring:
   breakout:
+    weights_mode: "compat"
     enabled: true
     min_breakout_pct: 2
     ideal_breakout_pct: 5
@@ -481,11 +506,13 @@ scoring:
     min_volume_spike_factor: 1.5
     max_overextension_ema20_percent: 25
     weights:
-      price_break: 0.40
-      volume_confirmation: 0.40
-      volatility_context: 0.20
+      breakout: 0.40
+      volume: 0.40
+      trend: 0.20
+      momentum: 0.00
 
   pullback:
+    weights_mode: "compat"
     enabled: true
     min_trend_strength: 5
     min_rebound: 3
@@ -500,11 +527,13 @@ scoring:
     min_trend_days: 10
     ema_trend_period_days: 20
     weights:
-      trend_quality: 0.40
-      pullback_quality: 0.40
-      rebound_signal: 0.20
+      trend: 0.40
+      pullback: 0.40
+      rebound: 0.20
+      volume: 0.00
 
   reversal:
+    weights_mode: "compat"
     enabled: true
     min_drawdown_pct: 40
     ideal_drawdown_min: 50
@@ -523,9 +552,15 @@ scoring:
     min_reclaim_above_ema_days: 1
     min_volume_spike_factor: 1.5
     weights:
-      base_structure: 0.30
-      reclaim_signal: 0.40
-      volume_confirmation: 0.30
+      drawdown: 0.00
+      base: 0.30
+      reclaim: 0.40
+      volume: 0.30
+
+
+snapshots:
+  history_dir: "snapshots/history"
+  runtime_dir: "snapshots/runtime"
 
 backtest:
   enabled: true
@@ -2608,7 +2643,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `c98f26ac6b9b5a38848ce7d5fa4620376e7b2dba1408b754694ad563cf4aef48`
+**SHA256:** `d4b3f0bff0b6d74a85e2b221eed4bd25b98a81cb3ab2d4a8bbf07fc0ef2117d6`
 
 ```python
 """
@@ -2622,7 +2657,7 @@ Filters the MEXC universe to create a tradable shortlist:
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -2657,6 +2692,9 @@ class UniverseFilters:
 
         self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
 
+        default_quote_allowlist = ['USDT', 'USDC', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'BUSD']
+        self.quote_allowlist = [str(q).upper() for q in universe_cfg.get('quote_allowlist', default_quote_allowlist)]
+
         default_patterns = {
             'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
             'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
@@ -2664,19 +2702,31 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
-        if legacy_filters.get('exclusion_patterns'):
-            self.exclusion_patterns = [str(p).upper() for p in legacy_filters['exclusion_patterns']]
-        else:
-            self.exclusion_patterns = []
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
             if exclusions_cfg.get('exclude_stablecoins', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+                patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
             if exclusions_cfg.get('exclude_wrapped_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+                patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
             if exclusions_cfg.get('exclude_leveraged_tokens', True):
-                self.exclusion_patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+                patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
             if exclusions_cfg.get('exclude_synthetic_derivatives', False):
-                self.exclusion_patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
-            self.exclusion_patterns = [str(p).upper() for p in self.exclusion_patterns]
+                patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            return [str(p).upper() for p in patterns]
+
+        if 'exclusion_patterns' in legacy_filters:
+            # Legacy override is key-presence based: [] explicitly disables exclusions.
+            # A null value is treated as unset to avoid accidental broad allow-through.
+            legacy_patterns = legacy_filters.get('exclusion_patterns')
+            if legacy_patterns is None:
+                logger.warning(
+                    "filters.exclusion_patterns is null; treating as unset and falling back to exclusions.*"
+                )
+                self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+            else:
+                self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
+        else:
+            self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
@@ -2705,13 +2755,18 @@ class UniverseFilters:
         filtered = self._filter_mcap(symbols_with_data)
         logger.info(f"After MCAP filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 2: Liquidity filter
+
+        # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
+        filtered = self._filter_quote_assets(filtered)
+        logger.info(f"After Quote filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 3: Liquidity filter
         filtered = self._filter_liquidity(filtered)
         logger.info(f"After Liquidity filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
-        
-        # Step 3: Exclusions
+
+        # Step 4: Exclusions
         filtered = self._filter_exclusions(filtered)
         logger.info(f"After Exclusions filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
@@ -2738,6 +2793,40 @@ class UniverseFilters:
         
         return filtered
     
+
+    def _extract_quote_asset(self, sym_data: Dict[str, Any]) -> Optional[str]:
+        quote = sym_data.get('quote')
+        if quote:
+            return str(quote).upper()
+
+        symbol = str(sym_data.get('symbol', '')).upper()
+
+        # Canonical suffix inference independent of configurable allowlist.
+        # This keeps include_only_usdt_pairs deterministic even if quote_allowlist is customized.
+        if symbol.endswith('USDT'):
+            return 'USDT'
+
+        for q in sorted(self.quote_allowlist, key=len, reverse=True):
+            if symbol.endswith(q):
+                return q
+
+        return None
+
+    def _filter_quote_assets(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by quote asset according to include_only_usdt_pairs semantics."""
+        filtered: List[Dict[str, Any]] = []
+
+        for sym_data in symbols:
+            quote = self._extract_quote_asset(sym_data)
+            if self.include_only_usdt_pairs:
+                if quote == 'USDT':
+                    filtered.append(sym_data)
+            else:
+                if quote in self.quote_allowlist:
+                    filtered.append(sym_data)
+
+        return filtered
+
     def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter by minimum 24h volume."""
         filtered = []
@@ -2783,6 +2872,7 @@ class UniverseFilters:
         
         # Count what passes each filter
         mcap_pass = len(self._filter_mcap(symbols))
+        quote_pass = len(self._filter_quote_assets(symbols))
         liquidity_pass = len(self._filter_liquidity(symbols))
         exclusion_pass = len(self._filter_exclusions(symbols))
         
@@ -2793,6 +2883,8 @@ class UniverseFilters:
             'total_input': total,
             'mcap_pass': mcap_pass,
             'mcap_fail': total - mcap_pass,
+            'quote_pass': quote_pass,
+            'quote_fail': total - quote_pass,
             'liquidity_pass': liquidity_pass,
             'liquidity_fail': total - liquidity_pass,
             'exclusion_pass': exclusion_pass,
@@ -3379,7 +3471,7 @@ def run_pipeline(config: ScannerConfig) -> None:
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `3c3aeb814350adf794ef1ff63900b987b98d7b97e6a24feabd625eb836883796`
+**SHA256:** `aadd127cf726b4579f124fee55e0a582541b9c8ad0473ed1adb49f24c84658c4`
 
 ```python
 """
@@ -3397,6 +3489,7 @@ Features computed:
 """
 
 import logging
+import math
 from typing import Dict, List, Any, Optional
 import numpy as np
 
@@ -3578,8 +3671,9 @@ class FeatureEngine:
         # Structural metrics
         f["breakout_dist_20"] = self._calc_breakout_distance(symbol, closes, highs, 20)
         f["breakout_dist_30"] = self._calc_breakout_distance(symbol, closes, highs, 30)
-        drawdown_lookback = int(self._config_get(["features", "drawdown_lookback_days"], 365))
-        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback)
+        drawdown_lookback_days = int(self._config_get(["features", "drawdown_lookback_days"], 365))
+        drawdown_lookback_bars = self._lookback_days_to_bars(drawdown_lookback_days, timeframe)
+        f["drawdown_from_ath"] = self._calc_drawdown(closes, drawdown_lookback_bars)
 
         # Phase 2: Base detection (1d only, config-driven)
         if timeframe == "1d":
@@ -3686,10 +3780,41 @@ class FeatureEngine:
             logger.error(f"[{symbol}] breakout_dist_{lookback} error: {e}")
             return np.nan
 
-    def _calc_drawdown(self, closes: np.ndarray, lookback_days: int = 365) -> Optional[float]:
+
+    def _timeframe_to_seconds(self, timeframe: str) -> Optional[int]:
+        if not timeframe:
+            return None
+
+        tf = str(timeframe).strip().lower()
+        units = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+        unit = tf[-1:]
+        if unit not in units:
+            return None
+
+        try:
+            magnitude = int(tf[:-1])
+        except ValueError:
+            return None
+
+        if magnitude <= 0:
+            return None
+
+        return magnitude * units[unit]
+
+    def _lookback_days_to_bars(self, lookback_days: int, timeframe: str) -> int:
+        days = max(1, int(lookback_days))
+        seconds_per_bar = self._timeframe_to_seconds(timeframe)
+        if not seconds_per_bar:
+            logger.warning(f"Unknown timeframe '{timeframe}' for drawdown lookback conversion; using days as bars fallback")
+            return days
+
+        bars = math.ceil((days * 86400) / seconds_per_bar)
+        return max(1, int(bars))
+
+    def _calc_drawdown(self, closes: np.ndarray, lookback_bars: int = 365) -> Optional[float]:
         if len(closes) == 0:
             return np.nan
-        lookback = max(1, int(lookback_days))
+        lookback = max(1, int(lookback_bars))
         window = closes[-lookback:]
         ath = np.nanmax(window)
         return float(((closes[-1] / ath) - 1) * 100)
@@ -3785,7 +3910,7 @@ class FeatureEngine:
 
 ### `scanner/pipeline/snapshot.py`
 
-**SHA256:** `d89156ff32aceb7b2123e1e1369138b66ed8ec0e98573cbf6162e6c913eade42`
+**SHA256:** `4e13055d1f753905cc10af8e91a95fc0ab024fc9d1f6a36592417ebdf9e0cd88`
 
 ```python
 """
@@ -3798,6 +3923,7 @@ Snapshots include all pipeline data at a specific point in time.
 
 import logging
 from typing import Dict, Any, List
+import re
 from datetime import datetime
 from pathlib import Path
 import json
@@ -3821,11 +3947,23 @@ class SnapshotManager:
         else:
             snapshot_config = config.get('snapshots', {})
         
-        self.snapshots_dir = Path(snapshot_config.get('runtime_dir', 'snapshots/runtime'))
-        
+        history_dir = snapshot_config.get('history_dir')
+        snapshot_dir = snapshot_config.get('snapshot_dir')
+        legacy_runtime_dir = snapshot_config.get('runtime_dir')
+
+        resolved_dir = history_dir or snapshot_dir
+        if resolved_dir is None and legacy_runtime_dir is not None:
+            logger.warning(
+                "snapshots.runtime_dir is deprecated for snapshot history; "
+                "please migrate to snapshots.history_dir"
+            )
+            resolved_dir = legacy_runtime_dir
+
+        self.snapshots_dir = Path(resolved_dir or 'snapshots/history')
+
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
     
     def create_snapshot(
@@ -3940,15 +4078,28 @@ class SnapshotManager:
             List of date strings (YYYY-MM-DD)
         """
         snapshots = []
-        
+
         for path in self.snapshots_dir.glob("*.json"):
-            date = path.stem  # Filename without extension
-            snapshots.append(date)
-        
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
+                continue
+
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    payload = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+            if not all(key in payload for key in ('meta', 'pipeline', 'data', 'scoring')):
+                continue
+
+            snapshots.append(path.stem)
+
         snapshots.sort()
-        
+
         logger.info(f"Found {len(snapshots)} snapshots")
-        
+
         return snapshots
     
     def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
@@ -3979,7 +4130,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `bc289b4a13bde8b578567446ae09d146e482c619367e88c7da3780788e264afd`
+**SHA256:** `837165bf8dc49fc7de97af4e42d02f7d5357af41e6876761d049dfc01da60766`
 
 ```python
 """
@@ -4192,6 +4343,16 @@ class ReportGenerator:
         
         return lines
         
+    @staticmethod
+    def _with_rank(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Return entries with explicit 1-based rank preserving order."""
+        ranked = []
+        for idx, entry in enumerate(entries, start=1):
+            ranked_entry = dict(entry)
+            ranked_entry["rank"] = idx
+            ranked.append(ranked_entry)
+        return ranked
+
     def generate_json_report(
         self,
         reversal_results: List[Dict[str, Any]],
@@ -4226,9 +4387,9 @@ class ReportGenerator:
                 'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results)
             },
             'setups': {
-                'reversals': reversal_results[:self.top_n],
-                'breakouts': breakout_results[:self.top_n],
-                'pullbacks': pullback_results[:self.top_n]
+                'reversals': self._with_rank(reversal_results[:self.top_n]),
+                'breakouts': self._with_rank(breakout_results[:self.top_n]),
+                'pullbacks': self._with_rank(pullback_results[:self.top_n])
             }
         }
         
@@ -4318,7 +4479,7 @@ class ReportGenerator:
 
 ### `scanner/pipeline/ohlcv.py`
 
-**SHA256:** `62b13a3d12db52a87562feaf50c15b72d195e9ce265ab0aad9cb5e92bc489749`
+**SHA256:** `692e69deed5f59bbdefa0c5a9cbcd1fb2c5ea76c570bfeec1762e3d98a47f985`
 
 ```python
 """
@@ -4354,18 +4515,38 @@ class OHLCVFetcher:
 
         self.timeframes = ohlcv_config.get('timeframes', ['1d', '4h'])
 
-        lookback_1d = int(general_cfg.get('lookback_days_1d', 120))
-        lookback_4h = int(general_cfg.get('lookback_days_4h', 30)) * 6
-        self.lookback = {
-            '1d': lookback_1d,
-            '4h': lookback_4h,
-            **ohlcv_config.get('lookback', {}),
-        }
+        self.lookback = self._build_lookback(general_cfg, ohlcv_config.get('lookback', {}))
 
         self.min_candles = ohlcv_config.get('min_candles', {'1d': 50, '4h': 50})
         self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
 
         logger.info(f"OHLCV Fetcher initialized: timeframes={self.timeframes}, lookback={self.lookback}")
+
+
+    def _build_lookback(self, general_cfg: Dict[str, Any], ohlcv_lookback_cfg: Dict[str, Any]) -> Dict[str, int]:
+        """Build timeframe lookback (API limit bars) with explicit precedence.
+
+        Precedence:
+        1) `ohlcv.lookback[timeframe]` explicit override (bars)
+        2) `general.lookback_days_*` defaults (`1d`: days->bars 1:1, `4h`: days*6)
+        3) hard defaults (`1d`=120, `4h`=180 bars)
+        """
+        lookback_1d_default = int(general_cfg.get('lookback_days_1d', 120))
+        lookback_4h_default = int(general_cfg.get('lookback_days_4h', 30)) * 6
+
+        lookback = {
+            '1d': lookback_1d_default,
+            '4h': lookback_4h_default,
+        }
+
+        if isinstance(ohlcv_lookback_cfg, dict):
+            for tf, bars in ohlcv_lookback_cfg.items():
+                try:
+                    lookback[str(tf)] = int(bars)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid ohlcv.lookback value for timeframe '{tf}': {bars}; ignoring override")
+
+        return lookback
 
     def fetch_all(self, shortlist: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         results = {}
@@ -4754,18 +4935,38 @@ class RuntimeMarketMetaExporter:
 
 ### `scanner/tools/validate_features.py`
 
-**SHA256:** `5ee7663b78ae267507f67ffdc136f747f653da49051c4f77f2a6291efc26c344`
+**SHA256:** `be0e041fff94015cfdd32acd4fbcded4dd38daa693bce1f4d3e55fceb701f359`
 
 ```python
 """Validate scanner report feature/scoring plausibility."""
 
 import json
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _error(
+    path: str,
+    code: str,
+    msg: str,
+    got: Any = None,
+    expected: str | None = None,
+) -> Dict[str, Any]:
+    entry: Dict[str, Any] = {"path": path, "code": code, "msg": msg}
+    if got is not None:
+        entry["got"] = got
+    if expected is not None:
+        entry["expected"] = expected
+    return entry
+
+
+def _emit(ok: bool, errors: List[Dict[str, Any]]) -> int:
+    print(json.dumps({"ok": ok, "errors": errors}, ensure_ascii=False))
+    return 0 if ok else 1
 
 
 def validate_features(report_path: str) -> int:
@@ -4783,11 +4984,19 @@ def validate_features(report_path: str) -> int:
     """
 
     if not os.path.exists(report_path):
-        print(f"❌ Report-Datei nicht gefunden: {report_path}")
-        return 1
+        return _emit(
+            False,
+            [_error("report", "FILE_NOT_FOUND", "Report file not found.", got=report_path)],
+        )
 
-    with open(report_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        return _emit(
+            False,
+            [_error("report", "INVALID_JSON", "Report is not valid JSON.", got=str(exc))],
+        )
 
     if "setups" in data:
         section_key = "setups"
@@ -4796,56 +5005,115 @@ def validate_features(report_path: str) -> int:
     elif "results" in data:
         section_key = "results"
     else:
-        print("❌ Ungültiges Report-Format – keine 'setups', 'data' oder 'results'-Sektion gefunden.")
-        return 1
+        return _emit(
+            False,
+            [
+                _error(
+                    "report",
+                    "MISSING_SECTION",
+                    "Report must contain 'setups', 'data' or 'results' section.",
+                )
+            ],
+        )
 
     results = data[section_key]
     if not results:
-        print("⚠️ Keine Ergebnisse im Report.")
-        return 0
+        return _emit(True, [])
 
-    anomalies: List[Tuple[str, str, str, Any]] = []
+    anomalies: List[Dict[str, Any]] = []
 
     for setup_type, setups in results.items():
-        for s in setups:
-            symbol = s.get("symbol", "UNKNOWN")
+        for idx, s in enumerate(setups):
+            setup_path = f"{section_key}.{setup_type}[{idx}]"
+
+            for required_key in ("score", "raw_score", "penalty_multiplier", "components"):
+                if required_key not in s:
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.{required_key}",
+                            "MISSING_FIELD",
+                            f"Required field '{required_key}' is missing.",
+                            expected="present",
+                        )
+                    )
 
             for scalar_key in ("score", "raw_score"):
                 if scalar_key in s:
                     val = s.get(scalar_key)
                     if not _is_number(val) or not (0 <= float(val) <= 100):
-                        anomalies.append((setup_type, symbol, scalar_key, val))
+                        anomalies.append(
+                            _error(
+                                f"{setup_path}.{scalar_key}",
+                                "RANGE",
+                                f"{scalar_key} must be a number in [0,100].",
+                                got=val,
+                                expected="[0,100]",
+                            )
+                        )
 
             if "penalty_multiplier" in s:
                 pm = s.get("penalty_multiplier")
                 if not _is_number(pm) or not (0 < float(pm) <= 1):
-                    anomalies.append((setup_type, symbol, "penalty_multiplier", pm))
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.penalty_multiplier",
+                            "RANGE",
+                            "penalty_multiplier must be a number in (0,1].",
+                            got=pm,
+                            expected="(0,1]",
+                        )
+                    )
 
             comps = s.get("components", {})
             if not isinstance(comps, dict):
-                anomalies.append((setup_type, symbol, "components", comps))
+                anomalies.append(
+                    _error(
+                        f"{setup_path}.components",
+                        "TYPE",
+                        "components must be an object/dict.",
+                        got=comps,
+                        expected="dict",
+                    )
+                )
                 continue
 
             for key, value in comps.items():
                 if not _is_number(value) or not (0 <= float(value) <= 100):
-                    anomalies.append((setup_type, symbol, f"components.{key}", value))
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.components.{key}",
+                            "RANGE",
+                            f"Component '{key}' must be a number in [0,100].",
+                            got=value,
+                            expected="[0,100]",
+                        )
+                    )
 
     if anomalies:
-        print("⚠️ Anomalien gefunden:")
-        for setup_type, symbol, key, value in anomalies:
-            print(f"  [{setup_type}] {symbol}: {key} = {value}")
-        return 1
+        return _emit(False, anomalies)
 
-    print("✅ Scoring-Werte numerisch und plausibel (inkl. score/raw_score/components/penalty_multiplier).")
-    return 0
+    return _emit(True, [])
 
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("⚠️  Bitte Report-Dateipfad angeben, z. B.:")
-        print("    python -m scanner.tools.validate_features reports/2026-01-22.json")
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "path": "cli",
+                            "code": "MISSING_ARGUMENT",
+                            "msg": "Please provide report path, e.g. python -m scanner.tools.validate_features reports/2026-01-22.json",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
         sys.exit(1)
 
     report_path = sys.argv[1]
@@ -4855,13 +5123,15 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `e1efe26e7c1b0cdbe27f7552fc9a3930793b33d5e30a32ebaf128d2fcfd52137`
+**SHA256:** `c00d2021eab5f0ca1542ac63cc3d6a3e179c00bf0121872e6290157b893e2377`
 
 ```python
 """Breakout scoring."""
 
 import logging
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -4894,27 +5164,16 @@ class BreakoutScorer:
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
         default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
-            return default_weights
-
-        mapped = {
-            "breakout": cfg_weights.get("breakout", cfg_weights.get("price_break")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-            "trend": cfg_weights.get("trend", cfg_weights.get("volatility_context")),
-            "momentum": cfg_weights.get("momentum"),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.breakout.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="breakout",
+            default_weights=default_weights,
+            aliases={
+                "breakout": "price_break",
+                "volume": "volume_confirmation",
+                "trend": "volatility_context",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5081,6 +5340,8 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -5093,6 +5354,99 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
+
+```
+
+### `scanner/pipeline/scoring/weights.py`
+
+**SHA256:** `06fe401a509b1dbfbdadaaa5243ba31d81b8d60168d473a5b352d2d2042eed4d`
+
+```python
+"""Shared scorer weight loading helpers."""
+
+import logging
+from typing import Any, Dict
+
+
+logger = logging.getLogger(__name__)
+
+_WEIGHT_SUM_TOLERANCE = 1e-6
+
+
+def load_component_weights(
+    *,
+    scoring_cfg: Dict[str, Any],
+    section_name: str,
+    default_weights: Dict[str, float],
+    aliases: Dict[str, str],
+) -> Dict[str, float]:
+    """Load scorer component weights with deterministic compatibility behavior.
+
+    Modes:
+    - compat (default): canonical keys may be mixed with legacy aliases; missing keys are
+      filled from defaults; no normalization is applied.
+    - strict: all canonical keys must be present in config.scoring.<section>.weights.
+    """
+
+    mode = str(scoring_cfg.get("weights_mode", "compat")).strip().lower()
+    if mode not in {"compat", "strict"}:
+        logger.warning(
+            "Unknown weights_mode '%s' for config.scoring.%s, using compat",
+            mode,
+            section_name,
+        )
+        mode = "compat"
+
+    cfg_weights = scoring_cfg.get("weights")
+    if not isinstance(cfg_weights, dict):
+        logger.warning("Using default weights for config.scoring.%s.weights", section_name)
+        return default_weights.copy()
+
+    resolved: Dict[str, float] = {}
+    for canonical_key, fallback_value in default_weights.items():
+        alias_key = aliases.get(canonical_key)
+        canonical_present = canonical_key in cfg_weights and cfg_weights.get(canonical_key) is not None
+        alias_present = bool(alias_key) and alias_key in cfg_weights and cfg_weights.get(alias_key) is not None
+
+        if canonical_present and alias_present and cfg_weights[canonical_key] != cfg_weights[alias_key]:
+            logger.warning(
+                "Conflicting canonical/legacy weights for config.scoring.%s.weights.%s/%s; using canonical value",
+                section_name,
+                canonical_key,
+                alias_key,
+            )
+
+        if canonical_present:
+            resolved[canonical_key] = float(cfg_weights[canonical_key])
+        elif alias_present and mode == "compat":
+            resolved[canonical_key] = float(cfg_weights[alias_key])
+        elif mode == "compat":
+            resolved[canonical_key] = float(fallback_value)
+
+    if mode == "strict":
+        missing = [k for k in default_weights if k not in resolved]
+        if missing:
+            logger.warning(
+                "Missing required canonical weight keys for config.scoring.%s.weights: %s. Using defaults.",
+                section_name,
+                ", ".join(missing),
+            )
+            return default_weights.copy()
+
+    if any(v < 0 for v in resolved.values()):
+        logger.warning("Negative weights detected for config.scoring.%s.weights. Using defaults.", section_name)
+        return default_weights.copy()
+
+    total = sum(resolved.values())
+    if abs(total - 1.0) > _WEIGHT_SUM_TOLERANCE:
+        logger.warning(
+            "Weight sum for config.scoring.%s.weights must be ~1.0 (got %.10f). Using defaults.",
+            section_name,
+            total,
+        )
+        return default_weights.copy()
+
+    return resolved
 
 ```
 
@@ -5120,13 +5474,15 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `68e7577b24d51dc5ebf1c4985ebb30d3201dde1d9fedf0c0ee72fa30e3dec63d`
+**SHA256:** `1588b9b0ae1b1bac5ed8124393496f7547a6caa6b7a1e1f756bb0e432373bba8`
 
 ```python
 """Pullback scoring."""
 
 import logging
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -5149,26 +5505,16 @@ class PullbackScorer:
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
 
         default_weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-
-        mapped = {
-            "trend": cfg_weights.get("trend", cfg_weights.get("trend_quality")),
-            "pullback": cfg_weights.get("pullback", cfg_weights.get("pullback_quality")),
-            "rebound": cfg_weights.get("rebound", cfg_weights.get("rebound_signal")),
-            "volume": cfg_weights.get("volume"),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.pullback.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="pullback",
+            default_weights=default_weights,
+            aliases={
+                "trend": "trend_quality",
+                "pullback": "pullback_quality",
+                "rebound": "rebound_signal",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5248,7 +5594,7 @@ class PullbackScorer:
             return 100.0
         if -2 <= dist_ema50 <= 2:
             return 80.0
-        if dist_ema20 < 0 and dist_ema50 > 0:
+        if dist_ema20 < 0 and dist_ema50 >= 0:
             return 60.0
         if dist_ema20 > 5:
             return 20.0
@@ -5352,6 +5698,8 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -5369,7 +5717,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `390e672d4d7588079448d497930a731f7130cacee71090e1363296d3997a69e1`
+**SHA256:** `d32086820a7e58be0e400bf588863387ea82ee09bf87ea7c5f2b7c05ac168db6`
 
 ```python
 """
@@ -5380,7 +5728,10 @@ Identifies downtrend → base → reclaim setups.
 """
 
 import logging
+import math
 from typing import Dict, Any, List
+
+from scanner.pipeline.scoring.weights import load_component_weights
 
 logger = logging.getLogger(__name__)
 
@@ -5409,26 +5760,16 @@ class ReversalScorer:
             "reclaim": 0.25,
             "volume": 0.20,
         }
-        self.weights = self._load_weights(scoring_cfg, default_weights)
-
-    def _load_weights(self, scoring_cfg: Dict[str, Any], default_weights: Dict[str, float]) -> Dict[str, float]:
-        cfg_weights = scoring_cfg.get("weights")
-        if not cfg_weights:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-
-        mapped = {
-            "drawdown": cfg_weights.get("drawdown"),
-            "base": cfg_weights.get("base", cfg_weights.get("base_structure")),
-            "reclaim": cfg_weights.get("reclaim", cfg_weights.get("reclaim_signal")),
-            "volume": cfg_weights.get("volume", cfg_weights.get("volume_confirmation")),
-        }
-        merged = {k: float(mapped[k]) if mapped.get(k) is not None else v for k, v in default_weights.items()}
-        total = sum(merged.values())
-        if total <= 0:
-            logger.warning("Using legacy default weights; please define config.scoring.reversal.weights")
-            return default_weights
-        return {k: v / total for k, v in merged.items()}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="reversal",
+            default_weights=default_weights,
+            aliases={
+                "base": "base_structure",
+                "reclaim": "reclaim_signal",
+                "volume": "volume_confirmation",
+            },
+        )
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5504,7 +5845,16 @@ class ReversalScorer:
         base_score = f1d.get("base_score")
         if base_score is None:
             return 0.0
-        return max(0.0, min(100.0, float(base_score)))
+
+        try:
+            numeric = float(base_score)
+        except (TypeError, ValueError):
+            return 0.0
+
+        if not math.isfinite(numeric):
+            return 0.0
+
+        return max(0.0, min(100.0, numeric))
 
     def _score_reclaim(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
@@ -5525,10 +5875,13 @@ class ReversalScorer:
 
         return min(score, 100.0)
 
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+    def _resolve_volume_spike(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
         vol_spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
         vol_spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        max_spike = max(vol_spike_1d, vol_spike_4h)
+        return max(vol_spike_1d, vol_spike_4h)
+
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        max_spike = self._resolve_volume_spike(f1d, f4h)
 
         if max_spike < self.min_volume_spike:
             return 0.0
@@ -5570,7 +5923,7 @@ class ReversalScorer:
         else:
             reasons.append("Below EMAs (no reclaim yet)")
 
-        vol_spike = max(f1d.get("volume_spike", 1.0), f4h.get("volume_spike", 1.0))
+        vol_spike = self._resolve_volume_spike(f1d, f4h)
         if vol_score > 60:
             reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
         elif vol_score > 30:
@@ -5600,6 +5953,8 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "market_cap": features.get("market_cap"),
                     "quote_volume_24h": features.get("quote_volume_24h"),
                     "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
@@ -5981,7 +6336,7 @@ Constraints:
 
 ### `docs/features.md`
 
-**SHA256:** `7e938ba70cde6166047873a301011ad5bce6cd8af72fdce17f762900342f468c`
+**SHA256:** `05af8e47d66923fec50e4694eab5bee70dc7cfce4d6a1e16ab0f6cc40fb6779a`
 
 ```markdown
 # Feature Engine Specification
@@ -6235,8 +6590,9 @@ Reversal decomposed into:
 Bounded Drawdown (canonical):
 
 ```
-L = config.features.drawdown_lookback_days  # default: 365
-ath_L = max(close[t-L+1 .. t])
+L_days = config.features.drawdown_lookback_days  # default: 365
+L_bars = ceil(L_days * bars_per_day(timeframe))
+ath_L = max(close[t-L_bars+1 .. t])
 drawdown_from_ath = (close[t] / ath_L - 1) * 100
 ```
 
@@ -6385,7 +6741,7 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ### `docs/scoring.md`
 
-**SHA256:** `279488242e5d435d01da18a95d9f2348464654f0c04022b8dbba7a6c824ccdaf`
+**SHA256:** `63afdf61d6613c1f30a78f0ef10f1acce82f4731d2f8692911071b001ed11c6a`
 
 ```markdown
 # Scoring Modules Specification
@@ -6424,7 +6780,10 @@ The canonical implementation is in:
 - `scanner/pipeline/scoring/reversal.py`
 
 Critical canonical rules:
+- Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
+- Volume reason text must use the exact same spike datapath/fallback as scoring (no divergence between displayed and scored spike).
 - Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
+- Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
 - Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
 - Penalties/thresholds are config-driven via `scoring.*.penalties` and `scoring.*.momentum`.
 
@@ -6596,7 +6955,7 @@ Trend must be established before retracement.
 Trend is up if:
 
 ```
-close > ema50 (1d)
+close >= ema50 (1d, EMA50 touch allowed)
 ema50 rising or flat
 ```
 
@@ -6822,4 +7181,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-15 10:19 UTC_
+_Generated by GitHub Actions • 2026-02-15 21:02 UTC_

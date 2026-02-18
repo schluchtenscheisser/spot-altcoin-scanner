@@ -1,0 +1,773 @@
+{
+  "meta": {
+    "date": "2026-02-18",
+    "generated_at": "2026-02-18T05:36:56.172675Z",
+    "version": "1.0",
+    "mode": "standard",
+    "asof_ts_ms": 1771393002584,
+    "asof_iso": "2026-02-18T05:36:42Z"
+  },
+  "summary": {
+    "reversal_count": 36,
+    "breakout_count": 36,
+    "pullback_count": 36,
+    "total_scored": 108
+  },
+  "setups": {
+    "reversals": [
+      {
+        "symbol": "ULTIMAUSDT",
+        "price_usdt": 5893.69,
+        "coin_name": "Ultima",
+        "market_cap": 220161899.33431402,
+        "quote_volume_24h": 4037679.54,
+        "score": 85.73,
+        "raw_score": 85.72788,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 0.0,
+          "base": 79.09,
+          "reclaim": 80.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Clean base formation detected",
+          "Reclaimed EMAs (7.0% above EMA50)",
+          "Strong volume (3.1x average)"
+        ],
+        "rank": 1
+      },
+      {
+        "symbol": "JTOUSDT",
+        "price_usdt": 0.3018,
+        "coin_name": "Jito",
+        "market_cap": 132374134.99602287,
+        "quote_volume_24h": 1439405.8109,
+        "score": 68.82,
+        "raw_score": 68.821105,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 62.74,
+          "reclaim": 50.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (71.1% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress",
+          "Strong volume (8.4x average)"
+        ],
+        "rank": 2
+      },
+      {
+        "symbol": "ATOMUSDT",
+        "price_usdt": 2.28,
+        "coin_name": "Cosmos",
+        "market_cap": 1125382291.8567753,
+        "quote_volume_24h": 1850848.353,
+        "score": 64.51,
+        "raw_score": 64.507271,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 0.0,
+          "base": 80.76,
+          "reclaim": 100.0,
+          "volume": 0.93
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Clean base formation detected",
+          "Reclaimed EMAs (2.5% above EMA50)"
+        ],
+        "rank": 3
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.7122,
+        "coin_name": "Aster",
+        "market_cap": 1762494330.468707,
+        "quote_volume_24h": 3031810.297,
+        "score": 62.65,
+        "raw_score": 62.651506,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 93.39,
+          "base": 78.09,
+          "reclaim": 98.06,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (48.7% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (3.0% above EMA50)"
+        ],
+        "rank": 4
+      },
+      {
+        "symbol": "TRUMPUSDT",
+        "price_usdt": 3.549,
+        "coin_name": "OFFICIAL TRUMP",
+        "market_cap": 824193335.7359158,
+        "quote_volume_24h": 3928261.249,
+        "score": 61.87,
+        "raw_score": 61.866327,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 88.6,
+          "reclaim": 13.21,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (61.1% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (4.4x average)"
+        ],
+        "rank": 5
+      },
+      {
+        "symbol": "RAYUSDT",
+        "price_usdt": 0.6526,
+        "coin_name": "Raydium",
+        "market_cap": 175526410.94660783,
+        "quote_volume_24h": 2866068.1808,
+        "score": 61.84,
+        "raw_score": 61.840605,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 79.47,
+          "reclaim": 20.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (63.8% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (9.5x average)"
+        ],
+        "rank": 6
+      },
+      {
+        "symbol": "STABLEUSDT",
+        "price_usdt": 0.028508,
+        "coin_name": "Stable",
+        "market_cap": 497360647.9931805,
+        "quote_volume_24h": 4538349.561398,
+        "score": 52.31,
+        "raw_score": 74.72498,
+        "penalty_multiplier": 0.7,
+        "components": {
+          "drawdown": 0.0,
+          "base": 40.07,
+          "reclaim": 100.0,
+          "volume": 75.68
+        },
+        "penalties": {
+          "overextension": 0.7
+        },
+        "flags": [
+          "overextended"
+        ],
+        "reasons": [
+          "Reclaimed EMAs (42.8% above EMA50)",
+          "Strong volume (2.6x average)",
+          "⚠️ Overextended (42.8% above EMA50)"
+        ],
+        "rank": 7
+      },
+      {
+        "symbol": "PEPEUSDT",
+        "price_usdt": 4.403e-06,
+        "coin_name": "Pepe",
+        "market_cap": 1818697800.4915557,
+        "quote_volume_24h": 10601317.993554609,
+        "score": 47.36,
+        "raw_score": 47.360807,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 50.27,
+          "base": 64.54,
+          "reclaim": 70.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Moderate drawdown (40.1% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (-4.9% above EMA50)"
+        ],
+        "rank": 8
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "price_usdt": 126.59,
+        "coin_name": "Aave",
+        "market_cap": 1937846274.5424957,
+        "quote_volume_24h": 4768027.84,
+        "score": 44.24,
+        "raw_score": 44.24203,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 86.91,
+          "base": 80.81,
+          "reclaim": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (47.4% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "rank": 9
+      },
+      {
+        "symbol": "POLUSDT",
+        "price_usdt": 0.11008,
+        "coin_name": "Polygon (prev. MATIC)",
+        "market_cap": 1164025532.6544483,
+        "quote_volume_24h": 1011304.74267,
+        "score": 43.1,
+        "raw_score": 43.102362,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 81.82,
+          "base": 77.01,
+          "reclaim": 50.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong drawdown setup (46.4% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "rank": 10
+      }
+    ],
+    "breakouts": [
+      {
+        "symbol": "ULTIMAUSDT",
+        "price_usdt": 5893.69,
+        "coin_name": "Ultima",
+        "market_cap": 220161899.33431402,
+        "quote_volume_24h": 4037679.54,
+        "score": 65.49,
+        "raw_score": 65.490622,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 13.73,
+          "volume": 100.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (3.1x average)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 1
+      },
+      {
+        "symbol": "STABLEUSDT",
+        "price_usdt": 0.028508,
+        "coin_name": "Stable",
+        "market_cap": 497360647.9931805,
+        "quote_volume_24h": 4538349.561398,
+        "score": 60.0,
+        "raw_score": 60.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (2.6x average)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 2
+      },
+      {
+        "symbol": "JTOUSDT",
+        "price_usdt": 0.3018,
+        "coin_name": "Jito",
+        "market_cap": 132374134.99602287,
+        "quote_volume_24h": 1439405.8109,
+        "score": 50.0,
+        "raw_score": 50.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 50.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (8.4x average)",
+          "Neutral trend"
+        ],
+        "rank": 3
+      },
+      {
+        "symbol": "TRUMPUSDT",
+        "price_usdt": 3.549,
+        "coin_name": "OFFICIAL TRUMP",
+        "market_cap": 824193335.7359158,
+        "quote_volume_24h": 3928261.249,
+        "score": 40.0,
+        "raw_score": 40.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 0.0,
+          "momentum": 66.07
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (4.4x average)",
+          "In downtrend (below EMAs)"
+        ],
+        "rank": 4
+      },
+      {
+        "symbol": "RAYUSDT",
+        "price_usdt": 0.6526,
+        "coin_name": "Raydium",
+        "market_cap": 175526410.94660783,
+        "quote_volume_24h": 2866068.1808,
+        "score": 40.0,
+        "raw_score": 40.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 100.0,
+          "trend": 0.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (9.5x average)",
+          "In downtrend (below EMAs)"
+        ],
+        "rank": 5
+      },
+      {
+        "symbol": "BERAUSDT",
+        "price_usdt": 0.6337,
+        "coin_name": "Berachain",
+        "market_cap": 135446938.79537025,
+        "quote_volume_24h": 2776518.2514,
+        "score": 36.36,
+        "raw_score": 36.358815,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 70.9,
+          "trend": 40.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Strong volume (2.2x average)",
+          "Neutral trend"
+        ],
+        "rank": 6
+      },
+      {
+        "symbol": "ATOMUSDT",
+        "price_usdt": 2.28,
+        "coin_name": "Cosmos",
+        "market_cap": 1125382291.8567753,
+        "quote_volume_24h": 1850848.353,
+        "score": 22.39,
+        "raw_score": 22.390111,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 9.58,
+          "volume": 1.4,
+          "trend": 90.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 7
+      },
+      {
+        "symbol": "PIPPINUSDT",
+        "price_usdt": 0.455117,
+        "coin_name": "pippin",
+        "market_cap": 452810618.79762113,
+        "quote_volume_24h": 3541612.022732,
+        "score": 20.0,
+        "raw_score": 20.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 8
+      },
+      {
+        "symbol": "HUSDT",
+        "price_usdt": 0.17894,
+        "coin_name": "Humanity Protocol",
+        "market_cap": 433011843.93752825,
+        "quote_volume_24h": 1669197.38629,
+        "score": 20.0,
+        "raw_score": 20.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 100.0,
+          "momentum": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 9
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.7122,
+        "coin_name": "Aster",
+        "market_cap": 1762494330.468707,
+        "quote_volume_24h": 3031810.297,
+        "score": 18.0,
+        "raw_score": 18.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "breakout": 0.0,
+          "volume": 0.0,
+          "trend": 90.0,
+          "momentum": 90.29
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "No breakout (below recent high)",
+          "Low volume (no confirmation)",
+          "In uptrend (above EMAs)"
+        ],
+        "rank": 10
+      }
+    ],
+    "pullbacks": [
+      {
+        "symbol": "STABLEUSDT",
+        "price_usdt": 0.028508,
+        "coin_name": "Stable",
+        "market_cap": 497360647.9931805,
+        "quote_volume_24h": 4538349.561398,
+        "score": 64.8,
+        "raw_score": 64.8,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 84.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (42.8% above EMA50)",
+          "No clear pullback",
+          "Strong rebound (25.7% in 3d)",
+          "Strong volume (2.6x)"
+        ],
+        "rank": 1
+      },
+      {
+        "symbol": "PIPPINUSDT",
+        "price_usdt": 0.455117,
+        "coin_name": "pippin",
+        "market_cap": 452810618.79762113,
+        "quote_volume_24h": 3541612.022732,
+        "score": 52.0,
+        "raw_score": 52.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (39.6% above EMA50)",
+          "No clear pullback",
+          "No rebound yet"
+        ],
+        "rank": 2
+      },
+      {
+        "symbol": "HUSDT",
+        "price_usdt": 0.17894,
+        "coin_name": "Humanity Protocol",
+        "market_cap": 433011843.93752825,
+        "quote_volume_24h": 1669197.38629,
+        "score": 52.0,
+        "raw_score": 52.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Strong uptrend (16.0% above EMA50)",
+          "No clear pullback",
+          "No rebound yet"
+        ],
+        "rank": 3
+      },
+      {
+        "symbol": "ATOMUSDT",
+        "price_usdt": 2.28,
+        "coin_name": "Cosmos",
+        "market_cap": 1125382291.8567753,
+        "quote_volume_24h": 1850848.353,
+        "score": 37.6,
+        "raw_score": 37.6,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 60.0,
+          "pullback": 20.0,
+          "rebound": 28.0,
+          "volume": 21.4
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Moderate uptrend (2.5% above EMA50)",
+          "No clear pullback",
+          "No rebound yet"
+        ],
+        "rank": 4
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.7122,
+        "coin_name": "Aster",
+        "market_cap": 1762494330.468707,
+        "quote_volume_24h": 3031810.297,
+        "score": 37.21,
+        "raw_score": 37.211752,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 60.0,
+          "pullback": 20.0,
+          "rebound": 26.06,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Moderate uptrend (3.0% above EMA50)",
+          "No clear pullback",
+          "No rebound yet"
+        ],
+        "rank": 5
+      },
+      {
+        "symbol": "ULTIMAUSDT",
+        "price_usdt": 5893.69,
+        "coin_name": "Ultima",
+        "market_cap": 220161899.33431402,
+        "quote_volume_24h": 4037679.54,
+        "score": 34.4,
+        "raw_score": 34.4,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 40.0,
+          "pullback": 20.0,
+          "rebound": 52.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "reasons": [
+          "Moderate uptrend (7.0% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (3.1x)"
+        ],
+        "rank": 6
+      },
+      {
+        "symbol": "RAYUSDT",
+        "price_usdt": 0.6526,
+        "coin_name": "Raydium",
+        "market_cap": 175526410.94660783,
+        "quote_volume_24h": 2866068.1808,
+        "score": 24.4,
+        "raw_score": 48.8,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 44.0,
+          "volume": 100.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (-1.6% from EMA20)",
+          "Moderate rebound",
+          "Strong volume (9.5x)",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "rank": 7
+      },
+      {
+        "symbol": "TAOUSDT",
+        "price_usdt": 191.55,
+        "coin_name": "Bittensor",
+        "market_cap": 2044361283.118853,
+        "quote_volume_24h": 5395053.79,
+        "score": 22.8,
+        "raw_score": 45.6,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 28.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (1.7% from EMA20)",
+          "No rebound yet",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "rank": 8
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "price_usdt": 126.59,
+        "coin_name": "Aave",
+        "market_cap": 1937846274.5424957,
+        "quote_volume_24h": 4768027.84,
+        "score": 22.8,
+        "raw_score": 45.6,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 28.0,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (0.4% from EMA20)",
+          "No rebound yet",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "rank": 9
+      },
+      {
+        "symbol": "PUMPUSDT",
+        "price_usdt": 0.002171,
+        "coin_name": "Pump.fun",
+        "market_cap": 767968133.959609,
+        "quote_volume_24h": 2281173.941367,
+        "score": 22.0,
+        "raw_score": 44.0,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 20.0,
+          "volume": 0.78
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (-1.3% from EMA20)",
+          "No rebound yet",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "rank": 10
+      }
+    ]
+  }
+}
