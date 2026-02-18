@@ -205,9 +205,9 @@ scanner/
 
 ### For Developers:
 - **docs/dev_guide.md** - Development workflow
-- **docs/spec.md** - Technical specification
+- **docs/legacy/spec.md** - Technical specification
 - **docs/project_phases.md** - Development roadmap
-- **docs/scoring.md** - Scoring algorithms
+- **docs/legacy/scoring.md** - Scoring algorithms
 - **snapshots/gpt/** - Session snapshots
 
 **New to this project?** Start with `docs/dev_guide.md`.
