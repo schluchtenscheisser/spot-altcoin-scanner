@@ -32,19 +32,11 @@ class SnapshotManager:
         else:
             snapshot_config = config.get('snapshots', {})
         
-        history_dir = snapshot_config.get('history_dir')
-        snapshot_dir = snapshot_config.get('snapshot_dir')
-        legacy_runtime_dir = snapshot_config.get('runtime_dir')
-
-        resolved_dir = history_dir or snapshot_dir
-        if resolved_dir is None and legacy_runtime_dir is not None:
-            logger.warning(
-                "snapshots.runtime_dir is deprecated for snapshot history; "
-                "please migrate to snapshots.history_dir"
-            )
-            resolved_dir = legacy_runtime_dir
-
-        self.snapshots_dir = Path(resolved_dir or 'snapshots/history')
+        self.snapshots_dir = Path(
+            snapshot_config.get('history_dir')
+            or snapshot_config.get('snapshot_dir')
+            or 'snapshots/history'
+        )
 
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
