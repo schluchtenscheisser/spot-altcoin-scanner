@@ -16,8 +16,6 @@ Diese Dateien sind die **Single Source of Truth** für Anforderungen, Definition
 - `docs/v2/40_TEST_FIXTURES_VALIDATION.md`
 - `docs/v2/50_DATA_SOURCES.md`
 
-> **Diese v2-Suite ersetzt** alle parallel existierenden Varianten (z. B. Dateien mit Präfix `01 - ...`, `02 - ...` oder ähnliche).
-
 ## Operative Auto-Dokumente (Ist-Zustand, auto-updated)
 Diese Dateien bleiben **unter `docs/`**, werden per GitHub Actions aktualisiert und dürfen **nicht** manuell editiert werden:
 - `docs/code_map.md` (Code-Struktur, Module, Pfade)
