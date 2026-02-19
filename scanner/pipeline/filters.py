@@ -9,7 +9,10 @@ Filters the MEXC universe to create a tradable shortlist:
 """
 
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,7 @@ class UniverseFilters:
         legacy_filters = config.get('filters', {})
         universe_cfg = config.get('universe_filters', {})
         exclusions_cfg = config.get('exclusions', {})
+        risk_cfg = config.get('risk_flags', {})
 
         mcap_cfg = universe_cfg.get('market_cap', {})
         volume_cfg = universe_cfg.get('volume', {})
@@ -79,9 +83,84 @@ class UniverseFilters:
                 self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
             self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+
+        self.minor_unlock_penalty_factor = float(risk_cfg.get('minor_unlock_penalty_factor', 0.9))
+        self.denylist_path = Path(risk_cfg.get('denylist_file', 'config/denylist.yaml'))
+        self.unlock_overrides_path = Path(risk_cfg.get('unlock_overrides_file', 'config/unlock_overrides.yaml'))
+
+        self.denylist_symbols, self.denylist_bases = self._load_denylist(self.denylist_path)
+        (
+            self.major_unlock_symbols,
+            self.major_unlock_bases,
+            self.minor_unlock_symbols,
+            self.minor_unlock_bases,
+        ) = self._load_unlock_overrides(self.unlock_overrides_path)
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
+
+    @staticmethod
+    def _safe_load_yaml(path: Path) -> Dict[str, Any]:
+        if not path.exists():
+            return {}
+        with path.open('r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else {}
+
+    def _load_denylist(self, path: Path) -> tuple[set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        symbols = set()
+        bases = set()
+
+        hard_exclude = data.get('hard_exclude', {}) if isinstance(data.get('hard_exclude', {}), dict) else {}
+        for key in ('symbols', 'symbol'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            symbols.update(str(v).upper() for v in raw)
+
+        for key in ('bases', 'base'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            bases.update(str(v).upper() for v in raw)
+
+        return symbols, bases
+
+    def _load_unlock_overrides(self, path: Path) -> tuple[set[str], set[str], set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        major_symbols: set[str] = set()
+        major_bases: set[str] = set()
+        minor_symbols: set[str] = set()
+        minor_bases: set[str] = set()
+
+        entries = data.get('overrides', [])
+        if isinstance(entries, dict):
+            entries = [entries]
+        if not isinstance(entries, list):
+            return major_symbols, major_bases, minor_symbols, minor_bases
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            severity = str(entry.get('severity', '')).lower()
+            days_to_unlock = entry.get('days_to_unlock')
+            if days_to_unlock is not None and int(days_to_unlock) > 14:
+                continue
+            symbol = entry.get('symbol')
+            base = entry.get('base')
+            if severity == 'major':
+                if symbol:
+                    major_symbols.add(str(symbol).upper())
+                if base:
+                    major_bases.add(str(base).upper())
+            elif severity == 'minor':
+                if symbol:
+                    minor_symbols.add(str(symbol).upper())
+                if base:
+                    minor_bases.add(str(base).upper())
+
+        return major_symbols, major_bases, minor_symbols, minor_bases
     
     def apply_all(
         self,
@@ -121,6 +200,11 @@ class UniverseFilters:
         # Step 4: Exclusions
         filtered = self._filter_exclusions(filtered)
         logger.info(f"After Exclusions filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 5: Risk hard-excludes and soft penalties
+        filtered = self._apply_risk_flags(filtered)
+        logger.info(f"After Risk filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
         
         logger.info(f"Final universe: {len(filtered)} symbols "
@@ -202,6 +286,33 @@ class UniverseFilters:
             if not is_excluded:
                 filtered.append(sym_data)
         
+        return filtered
+
+    def _apply_risk_flags(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered = []
+        for sym_data in symbols:
+            symbol = str(sym_data.get('symbol', '')).upper()
+            base = str(sym_data.get('base', '')).upper()
+
+            hard_reasons = []
+            if symbol in self.denylist_symbols or base in self.denylist_bases:
+                hard_reasons.append('denylist')
+            if symbol in self.major_unlock_symbols or base in self.major_unlock_bases:
+                hard_reasons.append('major_unlock_within_14d')
+
+            if hard_reasons:
+                continue
+
+            row = dict(sym_data)
+            row['risk_flags'] = []
+            row['soft_penalties'] = {}
+
+            if symbol in self.minor_unlock_symbols or base in self.minor_unlock_bases:
+                row['risk_flags'].append('minor_unlock_within_14d')
+                row['soft_penalties']['minor_unlock_within_14d'] = self.minor_unlock_penalty_factor
+
+            filtered.append(row)
+
         return filtered
     
     def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
