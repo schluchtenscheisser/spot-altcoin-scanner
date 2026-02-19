@@ -73,6 +73,14 @@ class PullbackScorer:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
 
+        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
+        if isinstance(soft_penalties, dict):
+            for penalty_name, factor in soft_penalties.items():
+                try:
+                    penalties.append((str(penalty_name), float(factor)))
+                except (TypeError, ValueError):
+                    continue
+
         penalty_multiplier = 1.0
         for _, factor in penalties:
             penalty_multiplier *= factor
@@ -252,6 +260,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
+                    "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                 }
             )

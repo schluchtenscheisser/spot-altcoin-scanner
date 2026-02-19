@@ -137,6 +137,15 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
     shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
 
+    # Hard Exclude: liquidity grade D must not enter downstream scoring universe
+    before_liquidity_gate = len(shortlist)
+    shortlist = [s for s in shortlist if str(s.get('liquidity_grade') or '').upper() != 'D']
+    if len(shortlist) != before_liquidity_gate:
+        logger.info(
+            "  Liquidity hard gate removed %s symbols with liquidity_grade=D",
+            before_liquidity_gate - len(shortlist),
+        )
+
     # Step 7: Fetch OHLCV for shortlist
     logger.info("\n[7/12] Fetching OHLCV data...")
     ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
@@ -176,6 +185,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
             features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
             features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
+            features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
+            features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
         else:
             features[symbol]['market_cap'] = None
             features[symbol]['quote_volume_24h'] = None
@@ -184,6 +195,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = None
             features[symbol]['liquidity_grade'] = None
             features[symbol]['liquidity_insufficient'] = None
+            features[symbol]['risk_flags'] = []
+            features[symbol]['soft_penalties'] = {}
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     

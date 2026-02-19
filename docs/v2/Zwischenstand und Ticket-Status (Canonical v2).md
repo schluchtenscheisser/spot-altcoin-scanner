@@ -22,6 +22,11 @@
   - Global tie-break nutzt `global_score` desc, `slippage_bps` asc (None = +inf), `proxy_liquidity_score` desc.
 - **T3.2 – Mindesthistorie-Gate (funktional)**
   - Setup-spezifische History-Schwellen (Breakout/Pullback/Reversal) sind in Scorern umgesetzt.
+- **T4.1 – Risk Flags (denylist/unlock_overrides)**
+  - `config/denylist.yaml` und `config/unlock_overrides.yaml` eingebunden.
+  - Hard Exclude für Denylist + `major_unlock_within_14d` aktiv im Universe-Filter.
+  - Soft Penalty `minor_unlock_within_14d` wird als Faktor an die Scorer durchgereicht und als `risk_flags` im Setup-Output ausgewiesen.
+  - Zusätzlich: `liquidity_grade=D` wird als Hard-Gate vor OHLCV/Scoring entfernt.
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.4** gesetzt.
 
@@ -41,8 +46,6 @@
 
 ## ❌ Offen
 
-- **T4.1 – Risk Flags (denylist/unlock_overrides)**
-  - Kein implementierter denylist/unlock-flow im produktiven Pipeline-Gating.
 - **T5.1 – Trade Levels (Output-only, deterministisch)**
   - `analysis.trade_levels` / `breakout_level_20` noch nicht umgesetzt.
 - **T6.1 – Discovery Tag (date_added / first_seen_ts)**
@@ -62,8 +65,6 @@
     - `is_valid_setup = False`
     - `reason_invalid = "insufficient history"`
     - inkl. Watchlist-relevanter Spur
-- **Hard Exclude `liquidity_grade_d`**
-  - Grade wird berechnet, aber als durchgängiger Hard-Gate-Mechanismus im Universe-/Ranking-Flow sollte noch explizit finalisiert werden.
 - **Schema-Version-Konvention**
   - Report `meta.version` ist jetzt **1.4**.
   - Beim nächsten schema-relevanten Schritt wieder sauber bumpen + `SCHEMA_CHANGES.md` fortführen.
@@ -82,8 +83,8 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T4.1** vollständig umsetzen (denylist/unlock_overrides + hard/soft flag flow)
-2. Danach **T5.1** (deterministische trade levels, output-only)
-3. Danach **T6.1** (discovery tag inkl. fallback)
-4. Dann **T7.1** + **T8.4** (Backtest runner + golden fixtures)
-5. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
+1. **T5.1** umsetzen (deterministische trade levels, output-only)
+2. Danach **T6.1** (discovery tag inkl. fallback)
+3. Danach **T7.1** + **T8.4** (Backtest runner + golden fixtures)
+4. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
+5. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
