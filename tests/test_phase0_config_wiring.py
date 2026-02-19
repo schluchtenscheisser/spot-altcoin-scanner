@@ -180,3 +180,43 @@ def test_include_only_usdt_pairs_false_keeps_only_stablecoin_quotes() -> None:
         {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 100},
     ])
     assert [x["symbol"] for x in out] == ["AAAUSDT", "AAAUSDC"]
+
+
+def test_shortlist_selector_adds_proxy_liquidity_score_percent_rank():
+    selector = ShortlistSelector({"general": {"shortlist_size": 3}})
+    out = selector.select([
+        {"symbol": "A", "quote_volume_24h": 100},
+        {"symbol": "B", "quote_volume_24h": 10_000},
+        {"symbol": "C", "quote_volume_24h": 1_000_000},
+    ])
+
+    assert [x["symbol"] for x in out] == ["C", "B", "A"]
+    assert out[0]["proxy_liquidity_score"] == 100.0
+    assert out[-1]["proxy_liquidity_score"] == 0.0
+
+
+def test_shortlist_selector_proxy_liquidity_score_handles_ties_with_average_rank():
+    selector = ShortlistSelector({"general": {"shortlist_size": 3}})
+    out = selector.select([
+        {"symbol": "A", "quote_volume_24h": 100},
+        {"symbol": "B", "quote_volume_24h": 100},
+        {"symbol": "C", "quote_volume_24h": 10_000},
+    ])
+
+    by_symbol = {x["symbol"]: x["proxy_liquidity_score"] for x in out}
+    assert by_symbol["C"] == 100.0
+    assert by_symbol["A"] == 25.0
+    assert by_symbol["B"] == 25.0
+
+
+def test_proxy_liquidity_population_uses_full_filtered_universe_not_shortlist():
+    selector = ShortlistSelector({"general": {"shortlist_size": 1}})
+    out = selector.select([
+        {"symbol": "A", "quote_volume_24h": 100},
+        {"symbol": "B", "quote_volume_24h": 10_000},
+        {"symbol": "C", "quote_volume_24h": 1_000_000},
+    ])
+
+    assert len(out) == 1
+    assert out[0]["symbol"] == "C"
+    assert out[0]["proxy_liquidity_population_n"] == 3

@@ -120,3 +120,43 @@ Dieses Dokument protokolliert alle Änderungen an:
   }
 }
 ```
+
+
+### 2026-02-19 — schema_version v1.3 → v1.4 — Global Top20 + Liquidity-Metriken im Report
+**PR:** (branch-local, v2 Ticketfolge T1/T2/T3 Cleanup)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Report-Schema in JSON erweitert um:
+  - `summary.global_top20_count`
+  - `setups.global_top20[]`
+- Setup-Einträge enthalten zusätzliche Liquidity-Felder:
+  - `proxy_liquidity_score`
+  - `spread_bps`
+  - `slippage_bps`
+  - `liquidity_grade`
+  - `liquidity_insufficient`
+- Meta-Version für JSON-Reports angehoben auf `1.4`.
+
+#### Warum?
+- Globales Ranking und Liquidity/Tradeability-Transparenz sind zentrale v2-Anforderungen und müssen schema-seitig nachvollziehbar versioniert sein.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder).
+- Bestehende Consumer bleiben funktionsfähig, sofern unbekannte Felder toleriert werden.
+
+#### Migration / Vorgehen
+- Consumer können über `meta.version` zwischen alten/newen Reports unterscheiden.
+- Für ältere Reports (<=`1.3`) sind `global_top20` und Liquidity-Felder ggf. nicht vorhanden und sollten optional gelesen werden.
+
+#### Beispiel (kurz)
+```json
+{
+  "meta": {"version": "1.4"},
+  "summary": {"global_top20_count": 20},
+  "setups": {
+    "global_top20": [{"symbol": "ABCUSDT", "rank": 1}],
+    "breakouts": [{"symbol": "XYZUSDT", "slippage_bps": 18.2}]
+  }
+}
+```
