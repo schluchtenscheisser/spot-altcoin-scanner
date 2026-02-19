@@ -8,11 +8,6 @@
 - Erst Tests/Fixtures, dann Implementierung
 - Keine stillen Schema‑Änderungen: `schema_version` bump + Eintrag in `docs/SCHEMA_CHANGES.md`
 
-## Epic 0 – Doku/Drift
-### T0.1 – v2 Suite canonical machen
-- v2 Docs unter `docs/v2/` ablegen (diese Suite)
-- `docs/code_map.md` und `docs/GPT_SNAPSHOT.md` bleiben unter `docs/` (auto-updated)
-
 ## Epic 1 – Global Ranking (Top‑20) zusätzlich zu Setup‑Tabs
 ### T1.1 – Global Ranking berechnen
 - Aggregation über alle gültigen SetupResults
