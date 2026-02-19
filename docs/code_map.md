@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-19 21:46 UTC  
+**Last Updated:** 2026-02-19 22:24 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 31
 - **Total Classes:** 16
-- **Total Functions:** 177
+- **Total Functions:** 181
 
 ---
 
@@ -100,7 +100,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `run_pipeline`
 
-**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+35 more)_
+**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, before_liquidity_gate, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info` _(+36 more)_
 
 **Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, global_ranking` _(+11 more)_
 
@@ -140,11 +140,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `UniverseFilters`
 
-**Functions:** `__init__, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, apply_all, get_filter_stats`
+**Functions:** `__init__, _apply_risk_flags, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, _load_denylist, _load_unlock_overrides, _safe_load_yaml, apply_all, get_filter_stats`
 
-**Module Variables:** `base, default_patterns, default_quote_allowlist, exclusion_pass, exclusions_cfg, filtered, final_pass, history_cfg, is_excluded, legacy_filters` _(+14 more)_
+**Module Variables:** `base, bases, data, days_to_unlock, default_patterns, default_quote_allowlist, entries, exclusion_pass, exclusions_cfg, filtered` _(+25 more)_
 
-**Imports:** `logging, typing`
+**Imports:** `logging, pathlib, typing, yaml`
 
 ---
 
@@ -216,7 +216,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+32 more)_
+**Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+33 more)_
 
 **Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
@@ -228,7 +228,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
 
-**Module Variables:** `candles_1d, candles_4h, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, idx` _(+30 more)_
+**Module Variables:** `candles_1d, candles_4h, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, idx` _(+31 more)_
 
 **Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
@@ -240,7 +240,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _resolve_volume_spike, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
 
-**Module Variables:** `base_score, candles_1d, candles_4h, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess` _(+33 more)_
+**Module Variables:** `base_score, candles_1d, candles_4h, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess` _(+34 more)_
 
 **Imports:** `logging, math, scanner.pipeline.scoring.weights, typing`
 
@@ -426,7 +426,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `upper`, `utc_now` |
 
 ### 📄 scanner/pipeline/excel_output.py
 
@@ -466,14 +466,18 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | `_build_exclusion_patterns_from_new_config` | `get`, `info`, `upper`, `warning` |
+| `__init__` | `_build_exclusion_patterns_from_new_config`, `_load_denylist`, `_load_unlock_overrides` | `Path`, `get`, `info`, `upper`, `warning` |
+| `_apply_risk_flags` | — | `append`, `get`, `upper` |
 | `_build_exclusion_patterns_from_new_config` | — | `extend`, `get`, `upper` |
 | `_extract_quote_asset` | — | `endswith`, `get`, `upper` |
 | `_filter_exclusions` | — | `append`, `get`, `upper` |
 | `_filter_liquidity` | — | `append`, `get` |
 | `_filter_mcap` | — | `append`, `get` |
 | `_filter_quote_assets` | `_extract_quote_asset` | `append` |
-| `apply_all` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets` | `info` |
+| `_load_denylist` | `_safe_load_yaml` | `get`, `update`, `upper` |
+| `_load_unlock_overrides` | `_safe_load_yaml` | `add`, `get`, `lower`, `upper` |
+| `_safe_load_yaml` | — | `exists`, `safe_load` |
+| `apply_all` | `_apply_risk_flags`, `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets` | `info` |
 | `get_filter_stats` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets`, `apply_all` | — |
 
 ### 📄 scanner/pipeline/global_ranking.py
@@ -540,7 +544,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_momentum` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
-| `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get` |
+| `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get`, `items` |
 | `score_breakouts` | `_closed_candle_count`, `score` | `BreakoutScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/pullback.py
@@ -554,7 +558,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_rebound` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
-| `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get` |
+| `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get`, `items` |
 | `score_pullbacks` | `_closed_candle_count`, `score` | `PullbackScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/reversal.py
@@ -569,7 +573,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_drawdown` | — | `get` |
 | `_score_reclaim` | — | `get` |
 | `_score_volume` | `_resolve_volume_spike` | — |
-| `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get` |
+| `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get`, `items` |
 | `score_reversals` | `_closed_candle_count`, `score` | `ReversalScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/weights.py
@@ -657,18 +661,18 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/features.py` | 22 | 39 | 61 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 38 | 38 | 🔴 High |
+| `scanner/pipeline/filters.py` | 16 | 32 | 48 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 39 | 39 | 🔴 High |
 | `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/output.py` | 4 | 27 | 31 | 🔴 High |
-| `scanner/pipeline/filters.py` | 11 | 19 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
-| `scanner/pipeline/scoring/reversal.py` | 9 | 19 | 28 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 9 | 20 | 29 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 7 | 19 | 26 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 7 | 19 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
-| `scanner/pipeline/scoring/breakout.py` | 7 | 18 | 25 | 🔴 High |
-| `scanner/pipeline/scoring/pullback.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 10 | 11 | 21 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -700,4 +704,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 21:46 UTC_
+_Generated by GitHub Actions • 2026-02-19 22:24 UTC_
