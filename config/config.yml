@@ -157,3 +157,6 @@ setup_validation:
   min_history_pullback_4h: 80
   min_history_reversal_1d: 120
   min_history_reversal_4h: 80
+
+liquidity:
+  orderbook_top_k: 200
