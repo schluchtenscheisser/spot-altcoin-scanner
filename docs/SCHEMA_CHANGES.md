@@ -1,7 +1,7 @@
 # SCHEMA_CHANGES.md – Schema-/Output‑Änderungslog (verbindlich)
 
 Dieses Dokument protokolliert alle Änderungen an:
-- Report‑Schema (`reports/*.json` / `.md`)
+- Report‑Schema (`reports/*.json` / `.md` / `.xlsx`)
 - Snapshot‑Schema (`snapshots/runtime/*.json`, Raw‑Snapshots)
 - Feature‑Key‑Semantik (wenn die Bedeutung eines Keys sich ändert)
 
