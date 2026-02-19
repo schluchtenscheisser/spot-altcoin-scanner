@@ -71,6 +71,7 @@ Tabs:
 ### 5.2 Inhalte pro Coin (Minimum)
 
 - Symbol, Name, Price (USDT), Market Cap, 24h Quote Volume
+- Rank previous day
 - Setup‑Type + Setup‑Score + Global‑Score
 - Score‑Komponenten (transparent)
 - Liquidity: `spread_pct`, `slippage20k_pct`, `liquidity_grade`
