@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-19 16:43 UTC  
-**Commit:** `19ce10f` (19ce10fdc3c15e0fbbb65223ffa05af767c79e8e)  
+**Generated:** 2026-02-19 17:33 UTC  
+**Commit:** `1119bbd` (1119bbd7b0e4846b7bb05b064421d6dd0bccc936)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -41,6 +41,7 @@
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
+| `scanner/pipeline/global_ranking.py` | - | `_config_get`, `compute_global_top20` |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
 | `scanner/pipeline/runtime_market_meta.py` | `RuntimeMarketMetaExporter` | - |
@@ -60,9 +61,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 29
+- Total Modules: 30
 - Total Classes: 16
-- Total Functions: 31
+- Total Functions: 33
 
 ---
 
@@ -420,7 +421,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `2c713e6cdd7d7a3465c6646ddebd4b68c6741d45f32b425631f118343479fbf0`
+**SHA256:** `8c4ebe507932b5a48471eb2556b7e04cd3bb9280e88e35591dbc2a74b37ec4db`
 
 ```yaml
 version:
@@ -574,6 +575,14 @@ logging:
   level: "INFO"
   file: "logs/scanner.log"
   log_to_file: true
+
+setup_validation:
+  min_history_breakout_1d: 30
+  min_history_breakout_4h: 50
+  min_history_pullback_1d: 60
+  min_history_pullback_4h: 80
+  min_history_reversal_1d: 120
+  min_history_reversal_4h: 80
 
 ```
 
@@ -2643,7 +2652,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `a5637c2004ebdedc79757a5c610a5e96b642cbfcbe1ae37b1c3901d529e2db86`
+**SHA256:** `60169b99832bf9bb8f66a9efd00d37337a3b84a2cb71b4136aa63477ec2d0d38`
 
 ```python
 """
@@ -2702,12 +2711,8 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
-        if 'exclusion_patterns' in legacy_filters:
-            # Legacy override is key-presence based: [] explicitly disables exclusions.
-            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
-            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
-        else:
-            self.exclusion_patterns = []
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
             if exclusions_cfg.get('exclude_stablecoins', True):
                 patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
             if exclusions_cfg.get('exclude_wrapped_tokens', True):
@@ -2894,9 +2899,104 @@ class UniverseFilters:
 
 ```
 
+### `scanner/pipeline/global_ranking.py`
+
+**SHA256:** `016e603c6e5711d991237b90b9dba6628f697879286c50098674e1d4d4ac414e`
+
+```python
+"""Global ranking aggregation across setup-specific rankings."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+
+def _config_get(root: Dict[str, Any], path: List[str], default: Any) -> Any:
+    cur: Any = root
+    for key in path:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(key)
+        if cur is None:
+            return default
+    return cur
+
+
+def compute_global_top20(
+    reversal_results: List[Dict[str, Any]],
+    breakout_results: List[Dict[str, Any]],
+    pullback_results: List[Dict[str, Any]],
+    config: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Build unique global top-20 list from setup results using weighted setup score."""
+    root = config.raw if hasattr(config, "raw") else config
+
+    weights = {
+        "breakout": float(_config_get(root, ["global_ranking", "setup_weights", "breakout"], 1.0)),
+        "pullback": float(_config_get(root, ["global_ranking", "setup_weights", "pullback"], 0.9)),
+        "reversal": float(_config_get(root, ["global_ranking", "setup_weights", "reversal"], 0.8)),
+    }
+
+    setup_map = {
+        "breakout": breakout_results,
+        "pullback": pullback_results,
+        "reversal": reversal_results,
+    }
+
+    by_symbol: Dict[str, Dict[str, Any]] = {}
+
+    for setup_type, entries in setup_map.items():
+        weight = weights[setup_type]
+        for entry in entries:
+            symbol = entry.get("symbol")
+            if not symbol:
+                continue
+            setup_score = float(entry.get("score", 0.0))
+            weighted = setup_score * weight
+
+            if symbol not in by_symbol:
+                agg = dict(entry)
+                agg["setup_score"] = setup_score
+                agg["best_setup_type"] = setup_type
+                agg["best_setup_score"] = setup_score
+                agg["setup_weight"] = weight
+                agg["global_score"] = round(weighted, 6)
+                agg["confluence"] = 1
+                agg["valid_setups"] = [setup_type]
+                by_symbol[symbol] = agg
+                continue
+
+            prev = by_symbol[symbol]
+            prev_setups = set(prev.get("valid_setups", []))
+            prev_setups.add(setup_type)
+            prev["valid_setups"] = sorted(prev_setups)
+            prev["confluence"] = len(prev_setups)
+
+            if weighted > float(prev.get("global_score", 0.0)):
+                prev.update(entry)
+                prev["setup_score"] = setup_score
+                prev["best_setup_type"] = setup_type
+                prev["best_setup_score"] = setup_score
+                prev["setup_weight"] = weight
+                prev["global_score"] = round(weighted, 6)
+                prev["confluence"] = len(prev_setups)
+                prev["valid_setups"] = sorted(prev_setups)
+
+    ranked = sorted(
+        by_symbol.values(),
+        key=lambda x: (-float(x.get("global_score", 0.0)), -int(x.get("confluence", 0)), str(x.get("symbol", ""))),
+    )
+
+    top20 = ranked[:20]
+    for i, e in enumerate(top20, start=1):
+        e["rank"] = i
+    return top20
+
+```
+
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `ce8f419531a271208c4b16ff269df7361a7ab2c38a7d5196aac5d3c7bfb9227d`
+**SHA256:** `29ea4dad9b77817f7d531d74ced6a7897e56bac8e9a938717440b86d3a9aa716`
 
 ```python
 """
@@ -2946,6 +3046,7 @@ class ExcelReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Path:
@@ -2977,21 +3078,24 @@ class ExcelReportGenerator:
             metadata
         )
         
-        # Sheet 2: Reversal Setups
+        # Sheet 2: Global Top 20
+        self._create_global_sheet(wb, global_top20[:20])
+
+        # Sheet 3: Reversal Setups
         self._create_setup_sheet(
             wb, "Reversal Setups", 
             reversal_results[:self.top_n],
             ['Drawdown', 'Base', 'Reclaim', 'Volume']
         )
         
-        # Sheet 3: Breakout Setups
+        # Sheet 4: Breakout Setups
         self._create_setup_sheet(
             wb, "Breakout Setups",
             breakout_results[:self.top_n],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
         
-        # Sheet 4: Pullback Setups
+        # Sheet 5: Pullback Setups
         self._create_setup_sheet(
             wb, "Pullback Setups",
             pullback_results[:self.top_n],
@@ -3068,6 +3172,42 @@ class ExcelReportGenerator:
         ws.column_dimensions['A'].width = 30
         ws.column_dimensions['B'].width = 20
     
+
+    def _create_global_sheet(self, wb: Workbook, results: List[Dict[str, Any]]):
+        """Create Global Top 20 sheet."""
+        ws = wb.create_sheet("Global Top 20", 1)
+        headers = [
+            'Rank', 'Symbol', 'Name', 'Best Setup', 'Global Score', 'Setup Score', 'Confluence',
+            'Price (USDT)', 'Market Cap', '24h Volume', 'Flags'
+        ]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = Font(bold=True, size=11, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal='center')
+
+        for rank, result in enumerate(results, 1):
+            row = rank + 1
+            ws.cell(row=row, column=1, value=rank)
+            ws.cell(row=row, column=2, value=result.get('symbol', 'N/A'))
+            ws.cell(row=row, column=3, value=result.get('coin_name', 'Unknown'))
+            ws.cell(row=row, column=4, value=result.get('best_setup_type', 'N/A'))
+            ws.cell(row=row, column=5, value=float(result.get('global_score', 0.0)))
+            ws.cell(row=row, column=6, value=float(result.get('setup_score', result.get('score', 0.0))))
+            ws.cell(row=row, column=7, value=int(result.get('confluence', 1)))
+            price = result.get('price_usdt')
+            ws.cell(row=row, column=8, value=f"${price:.2f}" if price is not None else 'N/A')
+            market_cap = result.get('market_cap')
+            ws.cell(row=row, column=9, value=self._format_large_number(market_cap) if market_cap else 'N/A')
+            volume = result.get('quote_volume_24h')
+            ws.cell(row=row, column=10, value=self._format_large_number(volume) if volume else 'N/A')
+            flags = result.get('flags', [])
+            flag_str = ', '.join(flags) if isinstance(flags, list) else ''
+            ws.cell(row=row, column=11, value=flag_str)
+
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = ws.dimensions
+
     def _create_setup_sheet(
         self,
         wb: Workbook,
@@ -3197,7 +3337,7 @@ class ExcelReportGenerator:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `e07633302865b89b2f25f0dd6904fb8a55e0776808c129c2169f022d2f71d812`
+**SHA256:** `91e2bcfb81d7a1be0848945542dd995b81eacbd06954c72f0cf381a735379940`
 
 ```python
 """
@@ -3223,6 +3363,7 @@ from .scoring.reversal import score_reversals
 from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
+from .global_ranking import compute_global_top20
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 
@@ -3387,6 +3528,14 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info("  Scoring Pullbacks...")
     pullback_results = score_pullbacks(features, volume_map, config.raw)
     logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
+
+    global_top20 = compute_global_top20(
+        reversal_results=reversal_results,
+        breakout_results=breakout_results,
+        pullback_results=pullback_results,
+        config=config.raw,
+    )
+    logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
     
     # Step 10: Write reports (Markdown + JSON + Excel)
     logger.info("\n[10/11] Generating reports...")
@@ -3395,6 +3544,7 @@ def run_pipeline(config: ScannerConfig) -> None:
         reversal_results,
         breakout_results,
         pullback_results,
+        global_top20,
         run_date,
         metadata={
             'mode': run_mode,
@@ -4120,7 +4270,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `837165bf8dc49fc7de97af4e42d02f7d5357af41e6876761d049dfc01da60766`
+**SHA256:** `f16ae890b143fed4f3a4285fcb7eedff7938948cc1990ea26639e000ee3b3cd9`
 
 ```python
 """
@@ -4169,6 +4319,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str
     ) -> str:
         """
@@ -4199,7 +4350,23 @@ class ReportGenerator:
         lines.append(f"- **Reversal Setups:** {len(reversal_results)} scored")
         lines.append(f"- **Breakout Setups:** {len(breakout_results)} scored")
         lines.append(f"- **Pullback Setups:** {len(pullback_results)} scored")
+        lines.append(f"- **Global Top 20:** {len(global_top20)} ranked")
         lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        # Global Top 20
+        lines.append("## 🌐 Global Top 20")
+        lines.append("")
+        if global_top20:
+            for i, entry in enumerate(global_top20[:20], 1):
+                lines.extend(self._format_setup_entry(i, entry))
+                lines.append(f"**Best Setup:** {entry.get('best_setup_type', 'n/a')} | **Global Score:** {float(entry.get('global_score', 0.0)):.2f} | **Confluence:** {int(entry.get('confluence', 1))}")
+                lines.append("")
+        else:
+            lines.append("*No global setups found.*")
+            lines.append("")
+
         lines.append("---")
         lines.append("")
         
@@ -4348,6 +4515,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
@@ -4374,12 +4542,14 @@ class ReportGenerator:
                 'reversal_count': len(reversal_results),
                 'breakout_count': len(breakout_results),
                 'pullback_count': len(pullback_results),
-                'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results)
+                'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results),
+                'global_top20_count': len(global_top20)
             },
             'setups': {
                 'reversals': self._with_rank(reversal_results[:self.top_n]),
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
-                'pullbacks': self._with_rank(pullback_results[:self.top_n])
+                'pullbacks': self._with_rank(pullback_results[:self.top_n]),
+                'global_top20': self._with_rank(global_top20[:20])
             }
         }
         
@@ -4393,6 +4563,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Path]:
@@ -4413,12 +4584,12 @@ class ReportGenerator:
         
         # Generate Markdown
         md_content = self.generate_markdown_report(
-            reversal_results, breakout_results, pullback_results, run_date
+            reversal_results, breakout_results, pullback_results, global_top20, run_date
         )
         
         # Generate JSON
         json_content = self.generate_json_report(
-            reversal_results, breakout_results, pullback_results, run_date, metadata
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
         )
         
         # Save Markdown
@@ -4445,7 +4616,7 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, run_date, metadata
+                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:
@@ -5113,13 +5284,13 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `c00d2021eab5f0ca1542ac63cc3d6a3e179c00bf0121872e6290157b893e2377`
+**SHA256:** `591a0579f4d3dbda10902a7aa7f93d2f175ada0c2e0a48fae566724e27f760bf`
 
 ```python
 """Breakout scoring."""
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 
@@ -5163,7 +5334,15 @@ class BreakoutScorer:
                 "volume": "volume_confirmation",
                 "trend": "volatility_context",
             },
-        )
+)
+    @staticmethod
+    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
+        meta = features.get("meta", {})
+        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
+        idx = idx_map.get(timeframe)
+        if isinstance(idx, int) and idx >= 0:
+            return idx + 1
+        return None
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5318,7 +5497,22 @@ class BreakoutScorer:
 def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = BreakoutScorer(config)
     results = []
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
     for symbol, features in features_data.items():
+        candles_1d = scorer._closed_candle_count(features, "1d")
+        candles_4h = scorer._closed_candle_count(features, "4h")
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            logger.debug(
+                "Skipping breakout for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
+                symbol,
+                candles_1d,
+                min_1d,
+                candles_4h,
+                min_4h,
+            )
+            continue
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
@@ -5464,13 +5658,13 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `1588b9b0ae1b1bac5ed8124393496f7547a6caa6b7a1e1f756bb0e432373bba8`
+**SHA256:** `e906fb2ab9691a0a42d32f7656949d9740053a0a5b3073dc054623898d926df4`
 
 ```python
 """Pullback scoring."""
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 
@@ -5504,7 +5698,15 @@ class PullbackScorer:
                 "pullback": "pullback_quality",
                 "rebound": "rebound_signal",
             },
-        )
+)
+    @staticmethod
+    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
+        meta = features.get("meta", {})
+        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
+        idx = idx_map.get(timeframe)
+        if isinstance(idx, int) and idx >= 0:
+            return idx + 1
+        return None
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5676,7 +5878,22 @@ class PullbackScorer:
 def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = PullbackScorer(config)
     results = []
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_pullback_1d", 60))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_pullback_4h", 80))
     for symbol, features in features_data.items():
+        candles_1d = scorer._closed_candle_count(features, "1d")
+        candles_4h = scorer._closed_candle_count(features, "4h")
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            logger.debug(
+                "Skipping pullback for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
+                symbol,
+                candles_1d,
+                min_1d,
+                candles_4h,
+                min_4h,
+            )
+            continue
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
@@ -5707,7 +5924,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `d32086820a7e58be0e400bf588863387ea82ee09bf87ea7c5f2b7c05ac168db6`
+**SHA256:** `e3cbfe3ce3e623d085019770f41ba9f6b9d820d8802ea8403ee6883dcb7426af`
 
 ```python
 """
@@ -5719,7 +5936,7 @@ Identifies downtrend → base → reclaim setups.
 
 import logging
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 
@@ -5759,7 +5976,15 @@ class ReversalScorer:
                 "reclaim": "reclaim_signal",
                 "volume": "volume_confirmation",
             },
-        )
+)
+    @staticmethod
+    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
+        meta = features.get("meta", {})
+        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
+        idx = idx_map.get(timeframe)
+        if isinstance(idx, int) and idx >= 0:
+            return idx + 1
+        return None
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -5930,8 +6155,23 @@ class ReversalScorer:
 def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = ReversalScorer(config)
     results = []
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_reversal_1d", 120))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_reversal_4h", 80))
 
     for symbol, features in features_data.items():
+        candles_1d = scorer._closed_candle_count(features, "1d")
+        candles_4h = scorer._closed_candle_count(features, "4h")
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            logger.debug(
+                "Skipping reversal for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
+                symbol,
+                candles_1d,
+                min_1d,
+                candles_4h,
+                min_4h,
+            )
+            continue
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
@@ -6402,4 +6642,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 16:43 UTC_
+_Generated by GitHub Actions • 2026-02-19 17:33 UTC_
