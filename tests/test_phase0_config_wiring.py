@@ -207,3 +207,16 @@ def test_shortlist_selector_proxy_liquidity_score_handles_ties_with_average_rank
     assert by_symbol["C"] == 100.0
     assert by_symbol["A"] == 25.0
     assert by_symbol["B"] == 25.0
+
+
+def test_proxy_liquidity_population_uses_full_filtered_universe_not_shortlist():
+    selector = ShortlistSelector({"general": {"shortlist_size": 1}})
+    out = selector.select([
+        {"symbol": "A", "quote_volume_24h": 100},
+        {"symbol": "B", "quote_volume_24h": 10_000},
+        {"symbol": "C", "quote_volume_24h": 1_000_000},
+    ])
+
+    assert len(out) == 1
+    assert out[0]["symbol"] == "C"
+    assert out[0]["proxy_liquidity_population_n"] == 3

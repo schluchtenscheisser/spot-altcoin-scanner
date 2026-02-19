@@ -261,7 +261,7 @@ class ReportGenerator:
             'meta': {
                 'date': run_date,
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.0'
+                'version': '1.4'
             },
             'summary': {
                 'reversal_count': len(reversal_results),

@@ -181,6 +181,11 @@ class MEXCClient:
         logger.info(f"Fetched {len(data)} ticker entries")
         return data
     
+
+    def get_orderbook(self, symbol: str, limit: int = 200) -> Dict[str, Any]:
+        """Get orderbook depth snapshot for a symbol."""
+        return self._request("GET", "/api/v3/depth", params={"symbol": symbol, "limit": int(limit)})
+
     def get_klines(
         self,
         symbol: str,

@@ -35,7 +35,7 @@ class ShortlistSelector:
         logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
 
     @staticmethod
-    def _average_rank_percent(values: List[float]) -> List[float]:
+    def _percent_rank_average_ties(values: List[float]) -> List[float]:
         """Average-rank percent score in [0,100] with tie handling."""
         n = len(values)
         if n == 0:
@@ -63,12 +63,13 @@ class ShortlistSelector:
             vol = float(row.get('quote_volume_24h', 0) or 0)
             log_volumes.append(math.log1p(max(0.0, vol)))
 
-        percent_scores = self._average_rank_percent(log_volumes)
+        percent_scores = self._percent_rank_average_ties(log_volumes)
 
         enriched: List[Dict[str, Any]] = []
         for row, score in zip(rows, percent_scores):
             r = dict(row)
             r['proxy_liquidity_score'] = round(float(score), 6)
+            r['proxy_liquidity_population_n'] = len(rows)
             enriched.append(r)
 
         return enriched

@@ -22,6 +22,7 @@ from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .global_ranking import compute_global_top20
+from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 
@@ -36,12 +37,13 @@ def run_pipeline(config: ScannerConfig) -> None:
     3. Run mapping layer
     4. Apply hard filters (market cap, liquidity, exclusions)
     5. Run cheap pass (shortlist)
-    6. Fetch OHLCV for shortlist
-    7. Compute features (1d + 4h)
-    8. Enrich features with price, name, market cap, and volume
-    9. Compute scores (breakout / pullback / reversal)
-    10. Write reports (Markdown + JSON + Excel)
-    11. Write snapshot for backtests
+    6. Liquidity stage: orderbook fetch for Top-K only
+    7. Fetch OHLCV for shortlist
+    8. Compute features (1d + 4h)
+    9. Enrich features with price, name, market cap, and volume
+    10. Compute scores (breakout / pullback / reversal)
+    11. Write reports (Markdown + JSON + Excel)
+    12. Write snapshot for backtests
     """
     run_mode = config.run_mode
 
@@ -67,7 +69,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info("✓ Clients initialized")
     
     # Step 1: Fetch universe (MEXC Spot USDT)
-    logger.info("\n[1/11] Fetching MEXC universe...")
+    logger.info("\n[1/12] Fetching MEXC universe...")
     exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     exchange_info = mexc.get_exchange_info(use_cache=use_cache)
 
@@ -90,7 +92,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
     
     # Step 2 & 3: Fetch market cap + Run mapping layer
-    logger.info("\n[2-3/11] Fetching market cap & mapping...")
+    logger.info("\n[2-3/12] Fetching market cap & mapping...")
     cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     cmc_listings = cmc.get_listings(use_cache=use_cache)
     cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
@@ -118,31 +120,37 @@ def run_pipeline(config: ScannerConfig) -> None:
         })
     
     # Step 4: Apply hard filters
-    logger.info("\n[4/11] Applying universe filters...")
+    logger.info("\n[4/12] Applying universe filters...")
     filters = UniverseFilters(config.raw)
     filtered = filters.apply_all(symbols_with_data)
     logger.info(f"✓ Filtered: {len(filtered)} symbols")
     
     # Step 5: Run cheap pass (shortlist)
-    logger.info("\n[5/11] Creating shortlist...")
+    logger.info("\n[5/12] Creating shortlist...")
     selector = ShortlistSelector(config.raw)
     shortlist = selector.select(filtered)
     logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
     
-    # Step 6: Fetch OHLCV for shortlist
-    logger.info("\n[6/11] Fetching OHLCV data...")
+    # Step 6: Liquidity Stage (Top-K orderbook budget)
+    logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
+    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
+    logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
+    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
+
+    # Step 7: Fetch OHLCV for shortlist
+    logger.info("\n[7/12] Fetching OHLCV data...")
     ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
     ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
     logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
     
-    # Step 7: Compute features (1d + 4h)
-    logger.info("\n[7/11] Computing features...")
+    # Step 8: Compute features (1d + 4h)
+    logger.info("\n[8/12] Computing features...")
     feature_engine = FeatureEngine(config.raw)
     features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
     logger.info(f"✓ Features: {len(features)} symbols")
 
-    # Step 8: Enrich features with price, coin name, market cap, and volume
-    logger.info("\n[8/11] Enriching features with price, name, market cap, and volume...")
+    # Step 9: Enrich features with price, coin name, market cap, and volume
+    logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
     for symbol in features.keys():
         # Add current price from tickers
         ticker = ticker_map.get(symbol)
@@ -163,17 +171,27 @@ def run_pipeline(config: ScannerConfig) -> None:
         if shortlist_entry:
             features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
             features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
+            features[symbol]['proxy_liquidity_score'] = shortlist_entry.get('proxy_liquidity_score')
+            features[symbol]['spread_bps'] = shortlist_entry.get('spread_bps')
+            features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
+            features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
+            features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
         else:
             features[symbol]['market_cap'] = None
             features[symbol]['quote_volume_24h'] = None
+            features[symbol]['proxy_liquidity_score'] = None
+            features[symbol]['spread_bps'] = None
+            features[symbol]['slippage_bps'] = None
+            features[symbol]['liquidity_grade'] = None
+            features[symbol]['liquidity_insufficient'] = None
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     
     # Prepare volume map for scoring (backwards compatibility)
     volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
     
-    # Step 9: Compute scores (breakout / pullback / reversal)
-    logger.info("\n[9/11] Scoring setups...")
+    # Step 10: Compute scores (breakout / pullback / reversal)
+    logger.info("\n[10/12] Scoring setups...")
     
     logger.info("  Scoring Reversals...")
     reversal_results = score_reversals(features, volume_map, config.raw)
@@ -195,8 +213,8 @@ def run_pipeline(config: ScannerConfig) -> None:
     )
     logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
     
-    # Step 10: Write reports (Markdown + JSON + Excel)
-    logger.info("\n[10/11] Generating reports...")
+    # Step 11: Write reports (Markdown + JSON + Excel)
+    logger.info("\n[11/12] Generating reports...")
     report_gen = ReportGenerator(config.raw)
     report_paths = report_gen.save_reports(
         reversal_results,
@@ -215,8 +233,8 @@ def run_pipeline(config: ScannerConfig) -> None:
     if 'excel' in report_paths:
         logger.info(f"✓ Excel: {report_paths['excel']}")
     
-    # Step 11: Write snapshot for backtests
-    logger.info("\n[11/11] Creating snapshot...")
+    # Step 12: Write snapshot for backtests
+    logger.info("\n[12/12] Creating snapshot...")
     snapshot_mgr = SnapshotManager(config.raw)
     snapshot_path = snapshot_mgr.create_snapshot(
         run_date=run_date,

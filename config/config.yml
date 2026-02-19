@@ -157,3 +157,11 @@ setup_validation:
   min_history_pullback_4h: 80
   min_history_reversal_1d: 120
   min_history_reversal_4h: 80
+
+liquidity:
+  orderbook_top_k: 200
+  slippage_notional_usdt: 20000
+  grade_thresholds_bps:
+    a_max: 20
+    b_max: 50
+    c_max: 100
