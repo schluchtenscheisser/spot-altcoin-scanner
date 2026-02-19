@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-19 16:43 UTC  
+**Last Updated:** 2026-02-19 17:51 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 29
+- **Total Modules:** 31
 - **Total Classes:** 16
-- **Total Functions:** 157
+- **Total Functions:** 177
 
 ---
 
@@ -66,7 +66,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `MEXCClient`
 
-**Functions:** `__init__, _rate_limit, _request, get_24h_tickers, get_exchange_info, get_klines, get_multiple_klines, get_spot_usdt_symbols`
+**Functions:** `__init__, _rate_limit, _request, get_24h_tickers, get_exchange_info, get_klines, get_multiple_klines, get_orderbook, get_spot_usdt_symbols`
 
 **Module Variables:** `BASE_URL, cache_key, data, elapsed, exchange_info, logger, params, response, results, retry_after` _(+3 more)_
 
@@ -100,9 +100,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `run_pipeline`
 
-**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+33 more)_
+**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+35 more)_
 
-**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, logging` _(+9 more)_
+**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, global_ranking` _(+11 more)_
 
 ---
 
@@ -116,7 +116,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ExcelReportGenerator`
 
-**Functions:** `__init__, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
+**Functions:** `__init__, _create_global_sheet, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
 
 **Module Variables:** `cell, col_letter, comp_key, comp_value, components, excel_path, flag_str, flags, flags_col, headers` _(+9 more)_
 
@@ -140,11 +140,31 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `UniverseFilters`
 
-**Functions:** `__init__, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, apply_all, get_filter_stats`
+**Functions:** `__init__, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, apply_all, get_filter_stats`
 
 **Module Variables:** `base, default_patterns, default_quote_allowlist, exclusion_pass, exclusions_cfg, filtered, final_pass, history_cfg, is_excluded, legacy_filters` _(+14 more)_
 
 **Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/global_ranking.py`
+
+**Functions:** `_config_get, compute_global_top20`
+
+**Module Variables:** `agg, cur, prev, prev_setups, ranked, root, setup_map, setup_score, symbol, top20` _(+3 more)_
+
+**Imports:** `__future__, typing`
+
+---
+
+### 📄 `scanner/pipeline/liquidity.py`
+
+**Functions:** `_compute_buy_vwap, _root_config, _to_levels, apply_liquidity_metrics_to_shortlist, compute_orderbook_liquidity_metrics, fetch_orderbooks_for_top_k, get_grade_thresholds_bps, get_orderbook_top_k, get_slippage_notional_usdt, select_top_k_for_orderbook`
+
+**Module Variables:** `a_max, asks, b_max, best_ask, best_bid, bids, c_max, cfg, grade, level_quote` _(+19 more)_
+
+**Imports:** `__future__, typing`
 
 ---
 
@@ -194,9 +214,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `BreakoutScorer`
 
-**Functions:** `__init__, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
+**Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_curve, breakout_dist, breakout_score, default_weights, denom, dist, dist_ema20, dist_ema50, f1d, f4h` _(+25 more)_
+**Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+32 more)_
 
 **Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
@@ -206,9 +226,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `PullbackScorer`
 
-**Functions:** `__init__, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
+**Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
 
-**Module Variables:** `default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, logger, max_spike, momentum_cfg` _(+23 more)_
+**Module Variables:** `candles_1d, candles_4h, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, idx` _(+30 more)_
 
 **Imports:** `logging, scanner.pipeline.scoring.weights, typing`
 
@@ -218,9 +238,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ReversalScorer`
 
-**Functions:** `__init__, _generate_reasons, _resolve_volume_spike, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
+**Functions:** `__init__, _closed_candle_count, _generate_reasons, _resolve_volume_spike, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
 
-**Module Variables:** `base_score, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess, f1d, f4h` _(+26 more)_
+**Module Variables:** `base_score, candles_1d, candles_4h, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess` _(+33 more)_
 
 **Imports:** `logging, math, scanner.pipeline.scoring.weights, typing`
 
@@ -240,11 +260,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ShortlistSelector`
 
-**Functions:** `__init__, get_shortlist_stats, select`
+**Functions:** `__init__, _attach_proxy_liquidity_score, _average_rank_percent, get_shortlist_stats, select`
 
-**Module Variables:** `coverage, general_cfg, logger, max_vol, min_vol, shortlist, shortlist_volume, sorted_symbols, total_volume`
+**Module Variables:** `avg_rank, coverage, general_cfg, logger, max_vol, min_vol, n, percent_scores, positions, r` _(+7 more)_
 
-**Imports:** `logging, typing`
+**Imports:** `logging, math, typing`
 
 ---
 
@@ -366,6 +386,7 @@ _This section shows which functions call which other functions, helping identify
 | `get_exchange_info` | `_request` | `cache_exists`, `info`, `load_cache`, `save_cache` |
 | `get_klines` | `_request` | `cache_exists`, `debug`, `load_cache`, `save_cache` |
 | `get_multiple_klines` | `get_klines` | `error`, `info` |
+| `get_orderbook` | `_request` | — |
 | `get_spot_usdt_symbols` | `get_exchange_info` | `append`, `get`, `info` |
 
 ### 📄 scanner/config.py
@@ -405,16 +426,17 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `create_snapshot`, `export`, `fetch_all`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
 
 ### 📄 scanner/pipeline/excel_output.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `_create_global_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `join` |
 | `_create_setup_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `get_column_letter`, `items`, `join`, `lower` |
 | `_create_summary_sheet` | — | `Alignment`, `Font`, `PatternFill`, `create_sheet`, `get`, `strftime`, `utcnow` |
-| `generate_excel_report` | `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
+| `generate_excel_report` | `_create_global_sheet`, `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
 
 ### 📄 scanner/pipeline/features.py
 
@@ -444,7 +466,8 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__init__` | — | `_build_exclusion_patterns_from_new_config`, `extend`, `get`, `info`, `upper`, `warning` |
+| `__init__` | `_build_exclusion_patterns_from_new_config` | `get`, `info`, `upper`, `warning` |
+| `_build_exclusion_patterns_from_new_config` | — | `extend`, `get`, `upper` |
 | `_extract_quote_asset` | — | `endswith`, `get`, `upper` |
 | `_filter_exclusions` | — | `append`, `get`, `upper` |
 | `_filter_liquidity` | — | `append`, `get` |
@@ -452,6 +475,26 @@ _This section shows which functions call which other functions, helping identify
 | `_filter_quote_assets` | `_extract_quote_asset` | `append` |
 | `apply_all` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets` | `info` |
 | `get_filter_stats` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets`, `apply_all` | — |
+
+### 📄 scanner/pipeline/global_ranking.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_config_get` | — | `get` |
+| `compute_global_top20` | `_config_get` | `add`, `get`, `items`, `update`, `values` |
+
+### 📄 scanner/pipeline/liquidity.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_to_levels` | — | `append` |
+| `apply_liquidity_metrics_to_shortlist` | `compute_orderbook_liquidity_metrics`, `get_grade_thresholds_bps`, `get_slippage_notional_usdt` | `append`, `get`, `update` |
+| `compute_orderbook_liquidity_metrics` | `_compute_buy_vwap`, `_to_levels` | `get` |
+| `fetch_orderbooks_for_top_k` | `get_orderbook_top_k`, `select_top_k_for_orderbook` | `get`, `get_orderbook` |
+| `get_grade_thresholds_bps` | `_root_config` | `get` |
+| `get_orderbook_top_k` | `_root_config` | `get` |
+| `get_slippage_notional_usdt` | `_root_config` | `get` |
+| `select_top_k_for_orderbook` | — | `get` |
 
 ### 📄 scanner/pipeline/ohlcv.py
 
@@ -470,7 +513,7 @@ _This section shows which functions call which other functions, helping identify
 | `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join`, `replace` |
 | `_with_rank` | — | `append` |
 | `generate_json_report` | `_with_rank` | `isoformat`, `update`, `utcnow` |
-| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `join`, `strftime`, `utcnow` |
+| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `get`, `join`, `strftime`, `utcnow` |
 | `save_reports` | `generate_json_report`, `generate_markdown_report` | `ExcelReportGenerator`, `dump`, `error`, `generate_excel_report`, `info`, `warning`, `write` |
 
 ### 📄 scanner/pipeline/runtime_market_meta.py
@@ -491,32 +534,35 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `load_component_weights` |
+| `_closed_candle_count` | — | `get` |
 | `_generate_reasons` | — | `append`, `get` |
 | `_score_breakout` | — | `get` |
 | `_score_momentum` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get` |
-| `score_breakouts` | `score` | `BreakoutScorer`, `append`, `error`, `get`, `items`, `sort` |
+| `score_breakouts` | `_closed_candle_count`, `score` | `BreakoutScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/pullback.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `load_component_weights` |
+| `_closed_candle_count` | — | `get` |
 | `_generate_reasons` | — | `append`, `get` |
 | `_score_pullback` | — | `get` |
 | `_score_rebound` | — | `get` |
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get` |
-| `score_pullbacks` | `score` | `PullbackScorer`, `append`, `error`, `get`, `items`, `sort` |
+| `score_pullbacks` | `_closed_candle_count`, `score` | `PullbackScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/reversal.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `load_component_weights` |
+| `_closed_candle_count` | — | `get` |
 | `_generate_reasons` | `_resolve_volume_spike` | `append`, `get` |
 | `_resolve_volume_spike` | — | `get` |
 | `_score_base` | — | `get`, `isfinite` |
@@ -524,7 +570,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_reclaim` | — | `get` |
 | `_score_volume` | `_resolve_volume_spike` | — |
 | `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get` |
-| `score_reversals` | `score` | `ReversalScorer`, `append`, `error`, `get`, `items`, `sort` |
+| `score_reversals` | `_closed_candle_count`, `score` | `ReversalScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/weights.py
 
@@ -537,8 +583,9 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `info` |
+| `_attach_proxy_liquidity_score` | `_average_rank_percent` | `append`, `get`, `log1p` |
 | `get_shortlist_stats` | — | `get` |
-| `select` | — | `get`, `info`, `warning` |
+| `select` | `_attach_proxy_liquidity_score` | `get`, `info`, `warning` |
 
 ### 📄 scanner/pipeline/snapshot.py
 
@@ -610,29 +657,31 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/features.py` | 22 | 39 | 61 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 35 | 35 | 🔴 High |
-| `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 38 | 38 | 🔴 High |
+| `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
+| `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
-| `scanner/pipeline/output.py` | 4 | 26 | 30 | 🔴 High |
+| `scanner/pipeline/output.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/pipeline/filters.py` | 11 | 19 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
-| `scanner/pipeline/excel_output.py` | 3 | 25 | 28 | 🔴 High |
-| `scanner/pipeline/filters.py` | 10 | 18 | 28 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 9 | 19 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
-| `scanner/pipeline/scoring/reversal.py` | 8 | 17 | 25 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 7 | 18 | 25 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
-| `scanner/pipeline/scoring/breakout.py` | 6 | 16 | 22 | 🔴 High |
-| `scanner/pipeline/scoring/pullback.py` | 6 | 16 | 22 | 🔴 High |
+| `scanner/pipeline/liquidity.py` | 10 | 11 | 21 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/pipeline/shortlist.py` | 2 | 9 | 11 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
-| `scanner/pipeline/shortlist.py` | 0 | 6 | 6 | 🔴 High |
+| `scanner/pipeline/global_ranking.py` | 1 | 6 | 7 | 🔴 High |
 
 **Interpretation:**
 - ✅ **Low coupling:** Module is self-contained, easy to maintain
@@ -651,4 +700,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 16:43 UTC_
+_Generated by GitHub Actions • 2026-02-19 17:51 UTC_
