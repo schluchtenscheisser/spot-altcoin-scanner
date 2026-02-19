@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-19 17:19 UTC  
+**Last Updated:** 2026-02-19 17:33 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 29
+- **Total Modules:** 30
 - **Total Classes:** 16
-- **Total Functions:** 161
+- **Total Functions:** 164
 
 ---
 
@@ -100,9 +100,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `run_pipeline`
 
-**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+33 more)_
+**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+34 more)_
 
-**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, logging` _(+9 more)_
+**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, global_ranking` _(+10 more)_
 
 ---
 
@@ -116,7 +116,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ExcelReportGenerator`
 
-**Functions:** `__init__, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
+**Functions:** `__init__, _create_global_sheet, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
 
 **Module Variables:** `cell, col_letter, comp_key, comp_value, components, excel_path, flag_str, flags, flags_col, headers` _(+9 more)_
 
@@ -145,6 +145,16 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `base, default_patterns, default_quote_allowlist, exclusion_pass, exclusions_cfg, filtered, final_pass, history_cfg, is_excluded, legacy_filters` _(+14 more)_
 
 **Imports:** `logging, typing`
+
+---
+
+### 📄 `scanner/pipeline/global_ranking.py`
+
+**Functions:** `_config_get, compute_global_top20`
+
+**Module Variables:** `agg, cur, prev, prev_setups, ranked, root, setup_map, setup_score, symbol, top20` _(+3 more)_
+
+**Imports:** `__future__, typing`
 
 ---
 
@@ -405,16 +415,17 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `create_snapshot`, `export`, `fetch_all`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
 
 ### 📄 scanner/pipeline/excel_output.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
+| `_create_global_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `join` |
 | `_create_setup_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `get_column_letter`, `items`, `join`, `lower` |
 | `_create_summary_sheet` | — | `Alignment`, `Font`, `PatternFill`, `create_sheet`, `get`, `strftime`, `utcnow` |
-| `generate_excel_report` | `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
+| `generate_excel_report` | `_create_global_sheet`, `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
 
 ### 📄 scanner/pipeline/features.py
 
@@ -454,6 +465,13 @@ _This section shows which functions call which other functions, helping identify
 | `apply_all` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets` | `info` |
 | `get_filter_stats` | `_filter_exclusions`, `_filter_liquidity`, `_filter_mcap`, `_filter_quote_assets`, `apply_all` | — |
 
+### 📄 scanner/pipeline/global_ranking.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_config_get` | — | `get` |
+| `compute_global_top20` | `_config_get` | `add`, `get`, `items`, `update`, `values` |
+
 ### 📄 scanner/pipeline/ohlcv.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -471,7 +489,7 @@ _This section shows which functions call which other functions, helping identify
 | `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join`, `replace` |
 | `_with_rank` | — | `append` |
 | `generate_json_report` | `_with_rank` | `isoformat`, `update`, `utcnow` |
-| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `join`, `strftime`, `utcnow` |
+| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `get`, `join`, `strftime`, `utcnow` |
 | `save_reports` | `generate_json_report`, `generate_markdown_report` | `ExcelReportGenerator`, `dump`, `error`, `generate_excel_report`, `info`, `warning`, `write` |
 
 ### 📄 scanner/pipeline/runtime_market_meta.py
@@ -614,13 +632,13 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/features.py` | 22 | 39 | 61 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 35 | 35 | 🔴 High |
+| `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 36 | 36 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/pipeline/output.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/filters.py` | 11 | 19 | 30 | 🔴 High |
-| `scanner/pipeline/output.py` | 4 | 26 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
-| `scanner/pipeline/excel_output.py` | 3 | 25 | 28 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 9 | 19 | 28 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
@@ -636,6 +654,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
+| `scanner/pipeline/global_ranking.py` | 1 | 6 | 7 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 0 | 6 | 6 | 🔴 High |
 
 **Interpretation:**
@@ -655,4 +674,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 17:19 UTC_
+_Generated by GitHub Actions • 2026-02-19 17:33 UTC_
