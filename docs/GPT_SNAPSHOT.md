@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-19 17:37 UTC  
-**Commit:** `56b550f` (56b550f0c7fa0eb511b290b095480ccc14d1f968)  
+**Generated:** 2026-02-19 17:45 UTC  
+**Commit:** `e38422e` (e38422e2526c35b352d661e86a6d86cf6248c01d)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -42,6 +42,7 @@
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
 | `scanner/pipeline/global_ranking.py` | - | `_config_get`, `compute_global_top20` |
+| `scanner/pipeline/liquidity.py` | - | `_root_config`, `get_orderbook_top_k`, `select_top_k_for_orderbook`, `fetch_orderbooks_for_top_k` |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
 | `scanner/pipeline/runtime_market_meta.py` | `RuntimeMarketMetaExporter` | - |
@@ -61,9 +62,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 30
+- Total Modules: 31
 - Total Classes: 16
-- Total Functions: 33
+- Total Functions: 37
 
 ---
 
@@ -421,7 +422,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `8c4ebe507932b5a48471eb2556b7e04cd3bb9280e88e35591dbc2a74b37ec4db`
+**SHA256:** `6e1fc8abd6166fa50de9c6693988b4a9c616ffc34cb13db04c367649fa0828e2`
 
 ```yaml
 version:
@@ -583,6 +584,9 @@ setup_validation:
   min_history_pullback_4h: 80
   min_history_reversal_1d: 120
   min_history_reversal_4h: 80
+
+liquidity:
+  orderbook_top_k: 200
 
 ```
 
@@ -4008,6 +4012,52 @@ class ShortlistSelector:
 
 ```
 
+### `scanner/pipeline/liquidity.py`
+
+**SHA256:** `e4d7724ecfb150003b7336657fdb376c9adccee49f04fd914c628b3d4da8408b`
+
+```python
+"""Liquidity stage utilities (Top-K orderbook budget)."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+
+def _root_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    return config.raw if hasattr(config, "raw") else config
+
+
+def get_orderbook_top_k(config: Dict[str, Any]) -> int:
+    root = _root_config(config)
+    return int(root.get("liquidity", {}).get("orderbook_top_k", 200))
+
+
+def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
+    """Select top-k candidates by proxy_liquidity_score then quote_volume_24h."""
+    ranked = sorted(
+        candidates,
+        key=lambda x: (float(x.get("proxy_liquidity_score", 0.0)), float(x.get("quote_volume_24h", 0.0))),
+        reverse=True,
+    )
+    return ranked[: max(0, top_k)]
+
+
+def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fetch orderbook only for Top-K symbols and return mapping symbol->orderbook payload."""
+    top_k = get_orderbook_top_k(config)
+    selected = select_top_k_for_orderbook(candidates, top_k)
+
+    payload: Dict[str, Any] = {}
+    for row in selected:
+        symbol = row.get("symbol")
+        if not symbol:
+            continue
+        payload[symbol] = mexc_client.get_orderbook(symbol)
+    return payload
+
+```
+
 ### `scanner/pipeline/ohlcv.py`
 
 **SHA256:** `692e69deed5f59bbdefa0c5a9cbcd1fb2c5ea76c570bfeec1762e3d98a47f985`
@@ -4169,7 +4219,7 @@ class OHLCVFetcher:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `91e2bcfb81d7a1be0848945542dd995b81eacbd06954c72f0cf381a735379940`
+**SHA256:** `a33b26f46805c1e86d517297cb36477dc70de7b21151e423887778dc98725467`
 
 ```python
 """
@@ -4196,6 +4246,7 @@ from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .global_ranking import compute_global_top20
+from .liquidity import fetch_orderbooks_for_top_k
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 
@@ -4210,12 +4261,13 @@ def run_pipeline(config: ScannerConfig) -> None:
     3. Run mapping layer
     4. Apply hard filters (market cap, liquidity, exclusions)
     5. Run cheap pass (shortlist)
-    6. Fetch OHLCV for shortlist
-    7. Compute features (1d + 4h)
-    8. Enrich features with price, name, market cap, and volume
-    9. Compute scores (breakout / pullback / reversal)
-    10. Write reports (Markdown + JSON + Excel)
-    11. Write snapshot for backtests
+    6. Liquidity stage: orderbook fetch for Top-K only
+    7. Fetch OHLCV for shortlist
+    8. Compute features (1d + 4h)
+    9. Enrich features with price, name, market cap, and volume
+    10. Compute scores (breakout / pullback / reversal)
+    11. Write reports (Markdown + JSON + Excel)
+    12. Write snapshot for backtests
     """
     run_mode = config.run_mode
 
@@ -4241,7 +4293,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info("✓ Clients initialized")
     
     # Step 1: Fetch universe (MEXC Spot USDT)
-    logger.info("\n[1/11] Fetching MEXC universe...")
+    logger.info("\n[1/12] Fetching MEXC universe...")
     exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     exchange_info = mexc.get_exchange_info(use_cache=use_cache)
 
@@ -4264,7 +4316,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
     
     # Step 2 & 3: Fetch market cap + Run mapping layer
-    logger.info("\n[2-3/11] Fetching market cap & mapping...")
+    logger.info("\n[2-3/12] Fetching market cap & mapping...")
     cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
     cmc_listings = cmc.get_listings(use_cache=use_cache)
     cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
@@ -4292,31 +4344,36 @@ def run_pipeline(config: ScannerConfig) -> None:
         })
     
     # Step 4: Apply hard filters
-    logger.info("\n[4/11] Applying universe filters...")
+    logger.info("\n[4/12] Applying universe filters...")
     filters = UniverseFilters(config.raw)
     filtered = filters.apply_all(symbols_with_data)
     logger.info(f"✓ Filtered: {len(filtered)} symbols")
     
     # Step 5: Run cheap pass (shortlist)
-    logger.info("\n[5/11] Creating shortlist...")
+    logger.info("\n[5/12] Creating shortlist...")
     selector = ShortlistSelector(config.raw)
     shortlist = selector.select(filtered)
     logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
     
-    # Step 6: Fetch OHLCV for shortlist
-    logger.info("\n[6/11] Fetching OHLCV data...")
+    # Step 6: Liquidity Stage (Top-K orderbook budget)
+    logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
+    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
+    logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
+
+    # Step 7: Fetch OHLCV for shortlist
+    logger.info("\n[7/12] Fetching OHLCV data...")
     ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
     ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
     logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
     
-    # Step 7: Compute features (1d + 4h)
-    logger.info("\n[7/11] Computing features...")
+    # Step 8: Compute features (1d + 4h)
+    logger.info("\n[8/12] Computing features...")
     feature_engine = FeatureEngine(config.raw)
     features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
     logger.info(f"✓ Features: {len(features)} symbols")
 
-    # Step 8: Enrich features with price, coin name, market cap, and volume
-    logger.info("\n[8/11] Enriching features with price, name, market cap, and volume...")
+    # Step 9: Enrich features with price, coin name, market cap, and volume
+    logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
     for symbol in features.keys():
         # Add current price from tickers
         ticker = ticker_map.get(symbol)
@@ -4346,8 +4403,8 @@ def run_pipeline(config: ScannerConfig) -> None:
     # Prepare volume map for scoring (backwards compatibility)
     volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
     
-    # Step 9: Compute scores (breakout / pullback / reversal)
-    logger.info("\n[9/11] Scoring setups...")
+    # Step 10: Compute scores (breakout / pullback / reversal)
+    logger.info("\n[10/12] Scoring setups...")
     
     logger.info("  Scoring Reversals...")
     reversal_results = score_reversals(features, volume_map, config.raw)
@@ -4369,8 +4426,8 @@ def run_pipeline(config: ScannerConfig) -> None:
     )
     logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
     
-    # Step 10: Write reports (Markdown + JSON + Excel)
-    logger.info("\n[10/11] Generating reports...")
+    # Step 11: Write reports (Markdown + JSON + Excel)
+    logger.info("\n[11/12] Generating reports...")
     report_gen = ReportGenerator(config.raw)
     report_paths = report_gen.save_reports(
         reversal_results,
@@ -4389,8 +4446,8 @@ def run_pipeline(config: ScannerConfig) -> None:
     if 'excel' in report_paths:
         logger.info(f"✓ Excel: {report_paths['excel']}")
     
-    # Step 11: Write snapshot for backtests
-    logger.info("\n[11/11] Creating snapshot...")
+    # Step 12: Write snapshot for backtests
+    logger.info("\n[12/12] Creating snapshot...")
     snapshot_mgr = SnapshotManager(config.raw)
     snapshot_path = snapshot_mgr.create_snapshot(
         run_date=run_date,
@@ -5050,7 +5107,7 @@ class MarketCapClient:
 
 ### `scanner/clients/mexc_client.py`
 
-**SHA256:** `8ed9807845616371013fd9ae0137e05a8bf2db2fdf306a41196e7f35aa57fd20`
+**SHA256:** `895c43d74c5d963773e503f856a45989c679c665bae91284b5ed3b36b463ab7e`
 
 ```python
 """
@@ -5236,6 +5293,11 @@ class MEXCClient:
         logger.info(f"Fetched {len(data)} ticker entries")
         return data
     
+
+    def get_orderbook(self, symbol: str, limit: int = 200) -> Dict[str, Any]:
+        """Get orderbook depth snapshot for a symbol."""
+        return self._request("GET", "/api/v3/depth", params={"symbol": symbol, "limit": int(limit)})
+
     def get_klines(
         self,
         symbol: str,
@@ -6684,4 +6746,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 17:37 UTC_
+_Generated by GitHub Actions • 2026-02-19 17:45 UTC_
