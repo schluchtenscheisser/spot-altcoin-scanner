@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-19 17:45 UTC  
+**Last Updated:** 2026-02-19 17:50 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 31
 - **Total Classes:** 16
-- **Total Functions:** 171
+- **Total Functions:** 177
 
 ---
 
@@ -160,9 +160,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/pipeline/liquidity.py`
 
-**Functions:** `_root_config, fetch_orderbooks_for_top_k, get_orderbook_top_k, select_top_k_for_orderbook`
+**Functions:** `_compute_buy_vwap, _root_config, _to_levels, apply_liquidity_metrics_to_shortlist, compute_orderbook_liquidity_metrics, fetch_orderbooks_for_top_k, get_grade_thresholds_bps, get_orderbook_top_k, get_slippage_notional_usdt, select_top_k_for_orderbook`
 
-**Module Variables:** `ranked, root, selected, symbol, top_k`
+**Module Variables:** `a_max, asks, b_max, best_ask, best_bid, bids, c_max, cfg, grade, level_quote` _(+19 more)_
 
 **Imports:** `__future__, typing`
 
@@ -426,7 +426,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
 
 ### 📄 scanner/pipeline/excel_output.py
 
@@ -487,8 +487,13 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_to_levels` | — | `append` |
+| `apply_liquidity_metrics_to_shortlist` | `compute_orderbook_liquidity_metrics`, `get_grade_thresholds_bps`, `get_slippage_notional_usdt` | `append`, `get`, `update` |
+| `compute_orderbook_liquidity_metrics` | `_compute_buy_vwap`, `_to_levels` | `get` |
 | `fetch_orderbooks_for_top_k` | `get_orderbook_top_k`, `select_top_k_for_orderbook` | `get`, `get_orderbook` |
+| `get_grade_thresholds_bps` | `_root_config` | `get` |
 | `get_orderbook_top_k` | `_root_config` | `get` |
+| `get_slippage_notional_usdt` | `_root_config` | `get` |
 | `select_top_k_for_orderbook` | — | `get` |
 
 ### 📄 scanner/pipeline/ohlcv.py
@@ -652,7 +657,7 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/features.py` | 22 | 39 | 61 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 37 | 37 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 38 | 38 | 🔴 High |
 | `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
@@ -665,6 +670,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
+| `scanner/pipeline/liquidity.py` | 10 | 11 | 21 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
@@ -676,7 +682,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 1 | 6 | 7 | 🔴 High |
-| `scanner/pipeline/liquidity.py` | 3 | 4 | 7 | ⚠️ Medium |
 
 **Interpretation:**
 - ✅ **Low coupling:** Module is self-contained, easy to maintain
@@ -695,4 +700,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 17:45 UTC_
+_Generated by GitHub Actions • 2026-02-19 17:50 UTC_
