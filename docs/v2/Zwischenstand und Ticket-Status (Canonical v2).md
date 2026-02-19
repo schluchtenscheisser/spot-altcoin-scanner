@@ -1,87 +1,89 @@
-1) Ticket-Status (Canonical v2)
-Referenz-Tickets: docs/v2/30_IMPLEMENTATION_TICKETS.md. 
+# Ticket-Status (Canonical v2)
 
-✅ Erledigt
-T1.1 – Global Ranking berechnen
-Implementiert via compute_global_top20(...) inkl. Gewichte, best_setup_type, confluence, Deduplizierung je Symbol. 
+**Referenz-Tickets:** `docs/v2/30_IMPLEMENTATION_TICKETS.md`
 
-T1.2 – Excel Sheet „Global Top 20“
-Neues Sheet Global Top 20 ist im Excel-Export drin. 
+---
 
-T1.3 – JSON/Markdown global_top20
-JSON enthält setups.global_top20; Markdown enthält Global-Top-20-Block. 
+## ✅ Erledigt
 
-T2.1 – Proxy-Liquidity Score
-proxy_liquidity_score (percent-rank, tie average) im Shortlist-Schritt vorhanden. 
+- **T1.1 – Global Ranking berechnen**
+  - Implementiert via `compute_global_top20(...)` inkl. Gewichte, `best_setup_type`, confluence, Deduplizierung je Symbol.
+- **T1.2 – Excel Sheet „Global Top 20“**
+  - Neues Sheet **Global Top 20** ist im Excel-Export enthalten.
+- **T1.3 – JSON/Markdown `global_top20`**
+  - JSON enthält `setups.global_top20`; Markdown enthält den Global-Top-20-Block.
+- **T2.1 – Proxy-Liquidity Score**
+  - `proxy_liquidity_score` (percent-rank, tie average) im Shortlist-Schritt vorhanden.
+- **T2.2 – Orderbook nur Top-K**
+  - Top-K-Selection + Budget-Calls implementiert (`liquidity.orderbook_top_k`).
+- **T2.3 – Slippage-Berechnung**
+  - `spread_bps`, `slippage_bps`, `liquidity_grade`, `liquidity_insufficient` aus Orderbook implementiert.
+- **T2.4 – Re-Rank Regel**
+  - Global tie-break nutzt `global_score` desc, `slippage_bps` asc (None = +inf), `proxy_liquidity_score` desc.
+- **T3.2 – Mindesthistorie-Gate (funktional)**
+  - Setup-spezifische History-Schwellen (Breakout/Pullback/Reversal) sind in Scorern umgesetzt.
+- **Schema-Cleanup**
+  - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.4** gesetzt.
 
-T2.2 – Orderbook nur Top-K
-Top-K-Selection + Budget-Calls implementiert (liquidity.orderbook_top_k). 
+---
 
-T2.3 – Slippage-Berechnung
-spread_bps, slippage_bps, liquidity_grade, liquidity_insufficient aus Orderbook implementiert. 
+## 🟡 Teilweise erledigt / Restarbeit nötig
 
-T2.4 – Re-Rank Regel
-Global tie-break nutzt global_score desc, slippage_bps asc (None=+inf), proxy_liquidity_score desc. 
+- **T3.1 – percent_rank Population = Hard-Gate Universe**
+  - Für Proxy-Liquidity sichtbar gemacht (`proxy_liquidity_population_n`).
+  - Population wird vor Shortlist-Trunkierung berechnet.
+  - **Offen:** noch nicht als allgemeines Cross-Section-Pattern über alle relevanten Features implementiert.
+- **T8.3 – Global Ranking Determinismus**
+  - Grundlegende Tests vorhanden.
+  - **Offen:** nicht alle v2-Konsistenzfälle (z. B. umfassende tie-matrix/confluence edge-cases) als Golden-Suite ausgebaut.
 
-T3.2 – Mindesthistorie-Gate (funktional)
-Setup-spezifische History-Schwellen (Breakout/Pullback/Reversal) sind in Scorern umgesetzt. 
+---
 
-Schema-Cleanup
-SCHEMA_CHANGES.md ergänzt und Report-Meta-Version auf 1.4 gesetzt. 
+## ❌ Offen
 
-🟡 Teilweise erledigt / Restarbeit nötig
-T3.1 – percent_rank Population = Hard-Gate Universe
-Für Proxy-Liquidity sichtbar gemacht (proxy_liquidity_population_n), Population wird vor Shortlist-Trunkierung berechnet.
-Aber: noch nicht als allgemeines Cross-Section-Pattern über alle relevanten Features implementiert. 
+- **T4.1 – Risk Flags (denylist/unlock_overrides)**
+  - Kein implementierter denylist/unlock-flow im produktiven Pipeline-Gating.
+- **T5.1 – Trade Levels (Output-only, deterministisch)**
+  - `analysis.trade_levels` / `breakout_level_20` noch nicht umgesetzt.
+- **T6.1 – Discovery Tag (date_added / first_seen_ts)**
+  - Noch nicht implementiert.
+- **T7.1 – Backtest E2-K**
+  - `backtest_runner.py` ist weiterhin stub/docstring.
+- **T8.1 / T8.4**
+  - Indicator-Drift-Guard und Backtest-Golden-Fixtures als v2-umfangreiche Suite noch offen.
 
-T8.3 – Global Ranking Determinismus
-Grundlegende Tests vorhanden, aber nicht alle v2-Konsistenzfälle (z. B. umfassende tie-matrix/confluence edge-cases) sind als Golden-Suite ausgebaut. 
+---
 
-❌ Offen
-T4.1 – Risk Flags (denylist/unlock_overrides)
-Kein implementierter denylist/unlock-flow im produktiven Pipeline-Gating. 
+## Wichtige fachliche Abweichungen/Spannungen für nächste Session
 
-T5.1 – Trade Levels (Output-only, deterministisch)
-analysis.trade_levels / breakout_level_20 noch nicht umgesetzt. 
+- **History-Gate Semantik vs Tickettext**
+  - Aktuell „skippt“ der Scorer bei zu wenig History.
+  - Tickettext fordert zusätzlich:
+    - `is_valid_setup = False`
+    - `reason_invalid = "insufficient history"`
+    - inkl. Watchlist-relevanter Spur
+- **Hard Exclude `liquidity_grade_d`**
+  - Grade wird berechnet, aber als durchgängiger Hard-Gate-Mechanismus im Universe-/Ranking-Flow sollte noch explizit finalisiert werden.
+- **Schema-Version-Konvention**
+  - Report `meta.version` ist jetzt **1.4**.
+  - Beim nächsten schema-relevanten Schritt wieder sauber bumpen + `SCHEMA_CHANGES.md` fortführen.
 
-T6.1 – Discovery Tag (date_added / first_seen_ts)
-Noch nicht implementiert. 
+---
 
-T7.1 – Backtest E2-K
-backtest_runner.py ist weiterhin stub/docstring. 
+## Tests, die den aktuellen Ausbau absichern
 
-T8.1 / T8.4
-Indicator-Drift-Guard und Backtest-Golden-Fixtures als v2-umfangreiche Suite noch offen. 
+- Top-K-Budget + deterministic selection: `tests/test_t82_topk_budget.py`
+- Slippage/insufficient depth + rerank tie-break: `tests/test_t23_slippage_metrics.py`
+- Global ranking/report integration: `tests/test_t11_global_ranking.py`
+- Setup History Gates: `tests/test_t32_min_history_gate.py`
+- Proxy population explicitness (Population != Shortlist-Nachweis): `tests/test_phase0_config_wiring.py`
 
-2) Wichtige fachliche Abweichungen/Spannungen für nächste Session
-History-Gate Semantik vs Tickettext
-Aktuell „skippt“ der Scorer bei zu wenig History; Tickettext fordert zusätzlich is_valid_setup=False + reason_invalid="insufficient history" (inkl. Watchlist-relevanter Spur). 
+---
 
-Hard Exclude liquidity_grade_d
-Grade wird berechnet, aber als durchgängiger Hard-Gate-Mechanismus im Universe-/Ranking-Flow sollte noch explizit finalisiert werden. 
+## Empfohlener Startpunkt für die nächste Session (konkret)
 
-Schema-Version-Konvention
-Report meta.version ist jetzt 1.4; beim nächsten schema-relevanten Schritt wieder sauber bumpen + SCHEMA_CHANGES.md fortführen. 
-
-3) Tests, die den aktuellen Ausbau absichern
-Top-K-Budget + deterministic selection: tests/test_t82_topk_budget.py. 
-
-Slippage/insufficient depth + rerank tie-break: tests/test_t23_slippage_metrics.py. 
-
-Global ranking/report integration: tests/test_t11_global_ranking.py. 
-
-Setup History Gates: tests/test_t32_min_history_gate.py. 
-
-Proxy population explicitness (Population != Shortlist-Nachweis): tests/test_phase0_config_wiring.py. 
-
-4) Empfohlener Startpunkt für die nächste Session (konkret)
-T4.1 vollständig umsetzen (denylist/unlock_overrides + hard/soft flag flow).
-
-Danach T5.1 (deterministische trade levels output-only).
-
-Danach T6.1 (discovery tag inkl. fallback).
-
-Dann T7.1 + T8.4 (Backtest runner + golden fixtures).
-
-Parallel T3.1 abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity.
-
+1. **T4.1** vollständig umsetzen (denylist/unlock_overrides + hard/soft flag flow)
+2. Danach **T5.1** (deterministische trade levels, output-only)
+3. Danach **T6.1** (discovery tag inkl. fallback)
+4. Dann **T7.1** + **T8.4** (Backtest runner + golden fixtures)
+5. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
