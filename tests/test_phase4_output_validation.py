@@ -18,7 +18,7 @@ def test_markdown_report_includes_score_transparency_fields(tmp_path: Path) -> N
         "flags": ["low_liquidity"],
     }
 
-    md = generator.generate_markdown_report([sample], [], [], "2026-02-20")
+    md = generator.generate_markdown_report([sample], [], [], [], "2026-02-20")
 
     assert "Score Details:" in md
     assert "raw_score=90.00" in md
@@ -107,7 +107,7 @@ def test_report_payload_contains_score_details_for_pipeline_like_entries(tmp_pat
     breakouts = [{"symbol": "BUSDT", "coin_name": "Brk", "score": 65.0, "raw_score": 72.2, "penalty_multiplier": 0.9, "components": {"breakout": 65.0}}]
     pullbacks = [{"symbol": "PUSDT", "coin_name": "Pbk", "score": 60.0, "raw_score": 75.0, "penalty_multiplier": 0.8, "components": {"trend": 60.0}}]
 
-    report = generator.generate_json_report(reversals, breakouts, pullbacks, "2026-02-20")
+    report = generator.generate_json_report(reversals, breakouts, pullbacks, [], "2026-02-20")
 
     assert report["setups"]["reversals"][0]["raw_score"] == 80.0
     assert report["setups"]["reversals"][0]["penalty_multiplier"] == 0.875
@@ -116,7 +116,7 @@ def test_report_payload_contains_score_details_for_pipeline_like_entries(tmp_pat
     assert report["setups"]["pullbacks"][0]["raw_score"] == 75.0
     assert report["setups"]["pullbacks"][0]["penalty_multiplier"] == 0.8
 
-    md = generator.generate_markdown_report(reversals, breakouts, pullbacks, "2026-02-20")
+    md = generator.generate_markdown_report(reversals, breakouts, pullbacks, [], "2026-02-20")
     assert md.count("**Score Details:**") == 3
 
 
@@ -131,7 +131,7 @@ def test_json_report_adds_explicit_rank_field_per_setup() -> None:
     breakouts = [{"symbol": "DUSDT", "score": 77.0, "raw_score": 80.0, "penalty_multiplier": 0.96, "components": {}}]
     pullbacks = []
 
-    report = generator.generate_json_report(reversals, breakouts, pullbacks, "2026-02-20")
+    report = generator.generate_json_report(reversals, breakouts, pullbacks, [], "2026-02-20")
 
     assert [e["symbol"] for e in report["setups"]["reversals"]] == ["AUSDT", "BUSDT"]
     assert [e["rank"] for e in report["setups"]["reversals"]] == [1, 2]
