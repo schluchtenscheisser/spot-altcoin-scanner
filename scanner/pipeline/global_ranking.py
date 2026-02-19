@@ -78,7 +78,12 @@ def compute_global_top20(
 
     ranked = sorted(
         by_symbol.values(),
-        key=lambda x: (-float(x.get("global_score", 0.0)), -int(x.get("confluence", 0)), str(x.get("symbol", ""))),
+        key=lambda x: (
+            -float(x.get("global_score", 0.0)),
+            float("inf") if x.get("slippage_bps") is None else float(x.get("slippage_bps")),
+            -float(x.get("proxy_liquidity_score", 0.0) or 0.0),
+            str(x.get("symbol", "")),
+        ),
     )
 
     top20 = ranked[:20]

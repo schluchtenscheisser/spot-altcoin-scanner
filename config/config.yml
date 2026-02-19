@@ -160,3 +160,8 @@ setup_validation:
 
 liquidity:
   orderbook_top_k: 200
+  slippage_notional_usdt: 20000
+  grade_thresholds_bps:
+    a_max: 20
+    b_max: 50
+    c_max: 100

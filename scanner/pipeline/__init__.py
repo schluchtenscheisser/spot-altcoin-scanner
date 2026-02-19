@@ -22,7 +22,7 @@ from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .global_ranking import compute_global_top20
-from .liquidity import fetch_orderbooks_for_top_k
+from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 
@@ -135,6 +135,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
     orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
+    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
 
     # Step 7: Fetch OHLCV for shortlist
     logger.info("\n[7/12] Fetching OHLCV data...")
@@ -170,9 +171,19 @@ def run_pipeline(config: ScannerConfig) -> None:
         if shortlist_entry:
             features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
             features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
+            features[symbol]['proxy_liquidity_score'] = shortlist_entry.get('proxy_liquidity_score')
+            features[symbol]['spread_bps'] = shortlist_entry.get('spread_bps')
+            features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
+            features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
+            features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
         else:
             features[symbol]['market_cap'] = None
             features[symbol]['quote_volume_24h'] = None
+            features[symbol]['proxy_liquidity_score'] = None
+            features[symbol]['spread_bps'] = None
+            features[symbol]['slippage_bps'] = None
+            features[symbol]['liquidity_grade'] = None
+            features[symbol]['liquidity_insufficient'] = None
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     
