@@ -21,6 +21,7 @@ from .scoring.reversal import score_reversals
 from .scoring.breakout import score_breakouts
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
+from .global_ranking import compute_global_top20
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 
@@ -185,6 +186,14 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info("  Scoring Pullbacks...")
     pullback_results = score_pullbacks(features, volume_map, config.raw)
     logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
+
+    global_top20 = compute_global_top20(
+        reversal_results=reversal_results,
+        breakout_results=breakout_results,
+        pullback_results=pullback_results,
+        config=config.raw,
+    )
+    logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
     
     # Step 10: Write reports (Markdown + JSON + Excel)
     logger.info("\n[10/11] Generating reports...")
@@ -193,6 +202,7 @@ def run_pipeline(config: ScannerConfig) -> None:
         reversal_results,
         breakout_results,
         pullback_results,
+        global_top20,
         run_date,
         metadata={
             'mode': run_mode,
