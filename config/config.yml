@@ -149,3 +149,14 @@ logging:
   level: "INFO"
   file: "logs/scanner.log"
   log_to_file: true
+
+setup_validation:
+  min_history_breakout_1d: 30
+  min_history_breakout_4h: 50
+  min_history_pullback_1d: 60
+  min_history_pullback_4h: 80
+  min_history_reversal_1d: 120
+  min_history_reversal_4h: 80
+
+liquidity:
+  orderbook_top_k: 200

@@ -7,7 +7,7 @@ Identifies downtrend → base → reclaim setups.
 
 import logging
 import math
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 
@@ -47,7 +47,15 @@ class ReversalScorer:
                 "reclaim": "reclaim_signal",
                 "volume": "volume_confirmation",
             },
-        )
+)
+    @staticmethod
+    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
+        meta = features.get("meta", {})
+        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
+        idx = idx_map.get(timeframe)
+        if isinstance(idx, int) and idx >= 0:
+            return idx + 1
+        return None
 
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
         f1d = features.get("1d", {})
@@ -218,8 +226,23 @@ class ReversalScorer:
 def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
     scorer = ReversalScorer(config)
     results = []
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_reversal_1d", 120))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_reversal_4h", 80))
 
     for symbol, features in features_data.items():
+        candles_1d = scorer._closed_candle_count(features, "1d")
+        candles_4h = scorer._closed_candle_count(features, "4h")
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            logger.debug(
+                "Skipping reversal for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
+                symbol,
+                candles_1d,
+                min_1d,
+                candles_4h,
+                min_4h,
+            )
+            continue
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)

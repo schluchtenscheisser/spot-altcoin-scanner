@@ -45,6 +45,7 @@ class ExcelReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Path:
@@ -76,21 +77,24 @@ class ExcelReportGenerator:
             metadata
         )
         
-        # Sheet 2: Reversal Setups
+        # Sheet 2: Global Top 20
+        self._create_global_sheet(wb, global_top20[:20])
+
+        # Sheet 3: Reversal Setups
         self._create_setup_sheet(
             wb, "Reversal Setups", 
             reversal_results[:self.top_n],
             ['Drawdown', 'Base', 'Reclaim', 'Volume']
         )
         
-        # Sheet 3: Breakout Setups
+        # Sheet 4: Breakout Setups
         self._create_setup_sheet(
             wb, "Breakout Setups",
             breakout_results[:self.top_n],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
         
-        # Sheet 4: Pullback Setups
+        # Sheet 5: Pullback Setups
         self._create_setup_sheet(
             wb, "Pullback Setups",
             pullback_results[:self.top_n],
@@ -167,6 +171,42 @@ class ExcelReportGenerator:
         ws.column_dimensions['A'].width = 30
         ws.column_dimensions['B'].width = 20
     
+
+    def _create_global_sheet(self, wb: Workbook, results: List[Dict[str, Any]]):
+        """Create Global Top 20 sheet."""
+        ws = wb.create_sheet("Global Top 20", 1)
+        headers = [
+            'Rank', 'Symbol', 'Name', 'Best Setup', 'Global Score', 'Setup Score', 'Confluence',
+            'Price (USDT)', 'Market Cap', '24h Volume', 'Flags'
+        ]
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = Font(bold=True, size=11, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal='center')
+
+        for rank, result in enumerate(results, 1):
+            row = rank + 1
+            ws.cell(row=row, column=1, value=rank)
+            ws.cell(row=row, column=2, value=result.get('symbol', 'N/A'))
+            ws.cell(row=row, column=3, value=result.get('coin_name', 'Unknown'))
+            ws.cell(row=row, column=4, value=result.get('best_setup_type', 'N/A'))
+            ws.cell(row=row, column=5, value=float(result.get('global_score', 0.0)))
+            ws.cell(row=row, column=6, value=float(result.get('setup_score', result.get('score', 0.0))))
+            ws.cell(row=row, column=7, value=int(result.get('confluence', 1)))
+            price = result.get('price_usdt')
+            ws.cell(row=row, column=8, value=f"${price:.2f}" if price is not None else 'N/A')
+            market_cap = result.get('market_cap')
+            ws.cell(row=row, column=9, value=self._format_large_number(market_cap) if market_cap else 'N/A')
+            volume = result.get('quote_volume_24h')
+            ws.cell(row=row, column=10, value=self._format_large_number(volume) if volume else 'N/A')
+            flags = result.get('flags', [])
+            flag_str = ', '.join(flags) if isinstance(flags, list) else ''
+            ws.cell(row=row, column=11, value=flag_str)
+
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = ws.dimensions
+
     def _create_setup_sheet(
         self,
         wb: Workbook,
