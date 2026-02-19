@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-19 21:46 UTC  
-**Commit:** `a1cb5e9` (a1cb5e92c558ba024c269c8a2f9f31b78a5854f2)  
+**Generated:** 2026-02-19 22:23 UTC  
+**Commit:** `de202cd` (de202cd6e726d4fb4e64241ad974670edddc1265)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -422,7 +422,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `ae2bd1dd24d0eb7f537f0da9f2b1d23e229c5eb758df401a36fe7b5ea0ab8e19`
+**SHA256:** `ee21faa279f92431bae9bc6f1a6a2213407dd509531c43fe92b37496f4738a90`
 
 ```yaml
 version:
@@ -592,6 +592,12 @@ liquidity:
     a_max: 20
     b_max: 50
     c_max: 100
+
+
+risk_flags:
+  denylist_file: "config/denylist.yaml"
+  unlock_overrides_file: "config/unlock_overrides.yaml"
+  minor_unlock_penalty_factor: 0.9
 
 ```
 
@@ -3613,7 +3619,7 @@ class ReportGenerator:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `60169b99832bf9bb8f66a9efd00d37337a3b84a2cb71b4136aa63477ec2d0d38`
+**SHA256:** `5a8aac7ea88c1452a27ced9a883aa48d4f671e84f0bab166431d5595a2ced8cf`
 
 ```python
 """
@@ -3627,7 +3633,10 @@ Filters the MEXC universe to create a tradable shortlist:
 """
 
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -3645,6 +3654,7 @@ class UniverseFilters:
         legacy_filters = config.get('filters', {})
         universe_cfg = config.get('universe_filters', {})
         exclusions_cfg = config.get('exclusions', {})
+        risk_cfg = config.get('risk_flags', {})
 
         mcap_cfg = universe_cfg.get('market_cap', {})
         volume_cfg = universe_cfg.get('volume', {})
@@ -3697,9 +3707,84 @@ class UniverseFilters:
                 self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
         else:
             self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+
+        self.minor_unlock_penalty_factor = float(risk_cfg.get('minor_unlock_penalty_factor', 0.9))
+        self.denylist_path = Path(risk_cfg.get('denylist_file', 'config/denylist.yaml'))
+        self.unlock_overrides_path = Path(risk_cfg.get('unlock_overrides_file', 'config/unlock_overrides.yaml'))
+
+        self.denylist_symbols, self.denylist_bases = self._load_denylist(self.denylist_path)
+        (
+            self.major_unlock_symbols,
+            self.major_unlock_bases,
+            self.minor_unlock_symbols,
+            self.minor_unlock_bases,
+        ) = self._load_unlock_overrides(self.unlock_overrides_path)
         
         logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
                    f"Min Volume {self.min_volume_24h/1e6:.1f}M")
+
+    @staticmethod
+    def _safe_load_yaml(path: Path) -> Dict[str, Any]:
+        if not path.exists():
+            return {}
+        with path.open('r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else {}
+
+    def _load_denylist(self, path: Path) -> tuple[set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        symbols = set()
+        bases = set()
+
+        hard_exclude = data.get('hard_exclude', {}) if isinstance(data.get('hard_exclude', {}), dict) else {}
+        for key in ('symbols', 'symbol'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            symbols.update(str(v).upper() for v in raw)
+
+        for key in ('bases', 'base'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            bases.update(str(v).upper() for v in raw)
+
+        return symbols, bases
+
+    def _load_unlock_overrides(self, path: Path) -> tuple[set[str], set[str], set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        major_symbols: set[str] = set()
+        major_bases: set[str] = set()
+        minor_symbols: set[str] = set()
+        minor_bases: set[str] = set()
+
+        entries = data.get('overrides', [])
+        if isinstance(entries, dict):
+            entries = [entries]
+        if not isinstance(entries, list):
+            return major_symbols, major_bases, minor_symbols, minor_bases
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            severity = str(entry.get('severity', '')).lower()
+            days_to_unlock = entry.get('days_to_unlock')
+            if days_to_unlock is not None and int(days_to_unlock) > 14:
+                continue
+            symbol = entry.get('symbol')
+            base = entry.get('base')
+            if severity == 'major':
+                if symbol:
+                    major_symbols.add(str(symbol).upper())
+                if base:
+                    major_bases.add(str(base).upper())
+            elif severity == 'minor':
+                if symbol:
+                    minor_symbols.add(str(symbol).upper())
+                if base:
+                    minor_bases.add(str(base).upper())
+
+        return major_symbols, major_bases, minor_symbols, minor_bases
     
     def apply_all(
         self,
@@ -3739,6 +3824,11 @@ class UniverseFilters:
         # Step 4: Exclusions
         filtered = self._filter_exclusions(filtered)
         logger.info(f"After Exclusions filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 5: Risk hard-excludes and soft penalties
+        filtered = self._apply_risk_flags(filtered)
+        logger.info(f"After Risk filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
         
         logger.info(f"Final universe: {len(filtered)} symbols "
@@ -3820,6 +3910,33 @@ class UniverseFilters:
             if not is_excluded:
                 filtered.append(sym_data)
         
+        return filtered
+
+    def _apply_risk_flags(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered = []
+        for sym_data in symbols:
+            symbol = str(sym_data.get('symbol', '')).upper()
+            base = str(sym_data.get('base', '')).upper()
+
+            hard_reasons = []
+            if symbol in self.denylist_symbols or base in self.denylist_bases:
+                hard_reasons.append('denylist')
+            if symbol in self.major_unlock_symbols or base in self.major_unlock_bases:
+                hard_reasons.append('major_unlock_within_14d')
+
+            if hard_reasons:
+                continue
+
+            row = dict(sym_data)
+            row['risk_flags'] = []
+            row['soft_penalties'] = {}
+
+            if symbol in self.minor_unlock_symbols or base in self.minor_unlock_bases:
+                row['risk_flags'].append('minor_unlock_within_14d')
+                row['soft_penalties']['minor_unlock_within_14d'] = self.minor_unlock_penalty_factor
+
+            filtered.append(row)
+
         return filtered
     
     def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -4363,7 +4480,7 @@ class OHLCVFetcher:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `1aaba4e0a27cb0c058832b3c3b2717fe6b623259bfea79356caa4195df995da4`
+**SHA256:** `203101fd1acec75380abee23f2389b96cd6b7710b514188f435d8975c909cf92`
 
 ```python
 """
@@ -4505,6 +4622,15 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
     shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
 
+    # Hard Exclude: liquidity grade D must not enter downstream scoring universe
+    before_liquidity_gate = len(shortlist)
+    shortlist = [s for s in shortlist if str(s.get('liquidity_grade') or '').upper() != 'D']
+    if len(shortlist) != before_liquidity_gate:
+        logger.info(
+            "  Liquidity hard gate removed %s symbols with liquidity_grade=D",
+            before_liquidity_gate - len(shortlist),
+        )
+
     # Step 7: Fetch OHLCV for shortlist
     logger.info("\n[7/12] Fetching OHLCV data...")
     ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
@@ -4544,6 +4670,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
             features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
             features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
+            features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
+            features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
         else:
             features[symbol]['market_cap'] = None
             features[symbol]['quote_volume_24h'] = None
@@ -4552,6 +4680,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = None
             features[symbol]['liquidity_grade'] = None
             features[symbol]['liquidity_insufficient'] = None
+            features[symbol]['risk_flags'] = []
+            features[symbol]['soft_penalties'] = {}
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     
@@ -5543,7 +5673,7 @@ class MEXCClient:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `8cfb3a9eb74ecfe253890a473a1e8d5e53cbad45ff9ec7eb3e24cc4e931d6abd`
+**SHA256:** `836541832d8bff6f48d603c7499b40d77d122de0b79622bd786343a705c476bd`
 
 ```python
 """Pullback scoring."""
@@ -5620,6 +5750,14 @@ class PullbackScorer:
         if quote_volume_24h < self.low_liquidity_threshold:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
+
+        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
+        if isinstance(soft_penalties, dict):
+            for penalty_name, factor in soft_penalties.items():
+                try:
+                    penalties.append((str(penalty_name), float(factor)))
+                except (TypeError, ValueError):
+                    continue
 
         penalty_multiplier = 1.0
         for _, factor in penalties:
@@ -5800,6 +5938,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
+                    "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                 }
             )
@@ -5907,7 +6046,7 @@ def load_component_weights(
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `f4fba71fdc2c4715bad4ee8c65bd67299579cf6e89293474ddedd1bc5dd49285`
+**SHA256:** `097928e68d4af5592dabadb812d4877b6a53964210a0da6b9d2435c8b7ea8bf1`
 
 ```python
 """Breakout scoring."""
@@ -5998,6 +6137,14 @@ class BreakoutScorer:
         if quote_volume_24h < self.low_liquidity_threshold:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
+
+        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
+        if isinstance(soft_penalties, dict):
+            for penalty_name, factor in soft_penalties.items():
+                try:
+                    penalties.append((str(penalty_name), float(factor)))
+                except (TypeError, ValueError):
+                    continue
 
         penalty_multiplier = 1.0
         for _, factor in penalties:
@@ -6157,6 +6304,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
+                    "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                 }
             )
@@ -6171,7 +6319,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `37e401a384578007fc0e9bde27c3b2542cc0ac80656bb3bc5ef622deeeb3858a`
+**SHA256:** `78d298ecc7d25b10211f6232e7833fa53378fdf1a60f48690d9c608f7e05616b`
 
 ```python
 """
@@ -6260,6 +6408,14 @@ class ReversalScorer:
         if quote_volume_24h < self.low_liquidity_threshold:
             penalties.append(("low_liquidity", self.low_liquidity_factor))
             flags.append("low_liquidity")
+
+        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
+        if isinstance(soft_penalties, dict):
+            for penalty_name, factor in soft_penalties.items():
+                try:
+                    penalties.append((str(penalty_name), float(factor)))
+                except (TypeError, ValueError):
+                    continue
 
         penalty_multiplier = 1.0
         for _, factor in penalties:
@@ -6440,6 +6596,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "components": score_result["components"],
                     "penalties": score_result["penalties"],
                     "flags": score_result["flags"],
+                    "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                 }
             )
@@ -6916,4 +7073,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 21:46 UTC_
+_Generated by GitHub Actions • 2026-02-19 22:23 UTC_
