@@ -54,12 +54,8 @@ class UniverseFilters:
             'synthetic_patterns': [],
         }
 
-        if 'exclusion_patterns' in legacy_filters:
-            # Legacy override is key-presence based: [] explicitly disables exclusions.
-            legacy_patterns = legacy_filters.get('exclusion_patterns') or []
-            self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
-        else:
-            self.exclusion_patterns = []
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
             if exclusions_cfg.get('exclude_stablecoins', True):
                 patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
             if exclusions_cfg.get('exclude_wrapped_tokens', True):

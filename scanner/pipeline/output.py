@@ -44,6 +44,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str
     ) -> str:
         """
@@ -74,7 +75,23 @@ class ReportGenerator:
         lines.append(f"- **Reversal Setups:** {len(reversal_results)} scored")
         lines.append(f"- **Breakout Setups:** {len(breakout_results)} scored")
         lines.append(f"- **Pullback Setups:** {len(pullback_results)} scored")
+        lines.append(f"- **Global Top 20:** {len(global_top20)} ranked")
         lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        # Global Top 20
+        lines.append("## 🌐 Global Top 20")
+        lines.append("")
+        if global_top20:
+            for i, entry in enumerate(global_top20[:20], 1):
+                lines.extend(self._format_setup_entry(i, entry))
+                lines.append(f"**Best Setup:** {entry.get('best_setup_type', 'n/a')} | **Global Score:** {float(entry.get('global_score', 0.0)):.2f} | **Confluence:** {int(entry.get('confluence', 1))}")
+                lines.append("")
+        else:
+            lines.append("*No global setups found.*")
+            lines.append("")
+
         lines.append("---")
         lines.append("")
         
@@ -223,6 +240,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
@@ -249,12 +267,14 @@ class ReportGenerator:
                 'reversal_count': len(reversal_results),
                 'breakout_count': len(breakout_results),
                 'pullback_count': len(pullback_results),
-                'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results)
+                'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results),
+                'global_top20_count': len(global_top20)
             },
             'setups': {
                 'reversals': self._with_rank(reversal_results[:self.top_n]),
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
-                'pullbacks': self._with_rank(pullback_results[:self.top_n])
+                'pullbacks': self._with_rank(pullback_results[:self.top_n]),
+                'global_top20': self._with_rank(global_top20[:20])
             }
         }
         
@@ -268,6 +288,7 @@ class ReportGenerator:
         reversal_results: List[Dict[str, Any]],
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
+        global_top20: List[Dict[str, Any]],
         run_date: str,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Path]:
@@ -288,12 +309,12 @@ class ReportGenerator:
         
         # Generate Markdown
         md_content = self.generate_markdown_report(
-            reversal_results, breakout_results, pullback_results, run_date
+            reversal_results, breakout_results, pullback_results, global_top20, run_date
         )
         
         # Generate JSON
         json_content = self.generate_json_report(
-            reversal_results, breakout_results, pullback_results, run_date, metadata
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
         )
         
         # Save Markdown
@@ -320,7 +341,7 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, run_date, metadata
+                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:
