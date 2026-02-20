@@ -18,7 +18,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          ref: main
+      
+      - name: Ensure this run is tip of main (skip if outdated)
+        run: |
+          git fetch origin main --quiet
+          TIP="$(git rev-parse origin/main)"
+          echo "TIP=$TIP"
+          echo "EVENT=${GITHUB_SHA}"
+          if [ "$TIP" != "$GITHUB_SHA" ]; then
+            echo "Outdated run (not tip of main). Skipping commit."
+            exit 0
+          fi
       
       - uses: actions/setup-python@v5
         with:
