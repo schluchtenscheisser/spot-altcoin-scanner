@@ -32,6 +32,12 @@
   - `breakout_level_20` deterministisch aus 20D-prior-high-Definition abgeleitet.
   - Ohne Einfluss auf Score-/Ranking-Reihenfolge (output-only).
 
+- **T6.1 – Discovery Tag (date_added / first_seen_ts)**
+  - Discovery-Logik implementiert (primary: CMC `date_added`, fallback: `first_seen_ts` aus ältester 1D-Candle).
+  - Setup-Outputs enthalten `discovery`, `discovery_age_days`, `discovery_source`.
+  - Gating erfüllt: Tag erscheint nur bei validen (gescorten) Setups.
+
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
@@ -51,8 +57,6 @@
 
 ## ❌ Offen
 
-- **T6.1 – Discovery Tag (date_added / first_seen_ts)**
-  - Noch nicht implementiert.
 - **T7.1 – Backtest E2-K**
   - `backtest_runner.py` ist weiterhin stub/docstring.
 - **T8.1 / T8.4**
@@ -86,7 +90,6 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T6.1** umsetzen (discovery tag inkl. fallback)
-2. Danach **T7.1** + **T8.4** (Backtest runner + golden fixtures)
-3. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
-4. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
+1. **T7.1** + **T8.4** (Backtest runner + golden fixtures) umsetzen
+2. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
+3. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
