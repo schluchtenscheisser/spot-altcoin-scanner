@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any, Dict, List, Tuple
+
+
+logger = logging.getLogger(__name__)
 
 
 def _root_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,7 +59,10 @@ def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]
         symbol = row.get("symbol")
         if not symbol:
             continue
-        payload[symbol] = mexc_client.get_orderbook(symbol)
+        try:
+            payload[symbol] = mexc_client.get_orderbook(symbol)
+        except Exception as exc:
+            logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
     return payload
 
 
