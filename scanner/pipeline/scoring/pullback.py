@@ -24,6 +24,7 @@ class PullbackScorer:
         self.broken_trend_factor = float(penalties_cfg.get("broken_trend_factor", 0.5))
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+        self.minor_unlock_penalty_factor = float(penalties_cfg.get("minor_unlock_penalty_factor", 0.9))
 
         default_weights = {"trend": 0.30, "pullback": 0.25, "rebound": 0.25, "volume": 0.20}
         self.weights = load_component_weights(
@@ -63,6 +64,13 @@ class PullbackScorer:
 
         penalties = []
         flags = []
+
+        risk_flags = features.get("risk_flags", []) if isinstance(features, dict) else []
+        if "minor_unlock_within_14d" in risk_flags:
+            penalty_name = "minor_unlock_within_14d"
+            penalty_factor = float((self.__dict__.get('minor_unlock_penalty_factor', 0.9)))
+            penalties.append((penalty_name, penalty_factor))
+            flags.append(penalty_name)
 
         dist_ema50 = f1d.get("dist_ema50_pct")
         if dist_ema50 is not None and dist_ema50 < 0:

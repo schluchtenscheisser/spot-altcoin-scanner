@@ -34,6 +34,7 @@ class BreakoutScorer:
         )
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+        self.minor_unlock_penalty_factor = float(penalties_cfg.get("minor_unlock_penalty_factor", 0.9))
 
         default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
         self.weights = load_component_weights(
@@ -73,6 +74,13 @@ class BreakoutScorer:
 
         penalties = []
         flags = []
+
+        risk_flags = features.get("risk_flags", []) if isinstance(features, dict) else []
+        if "minor_unlock_within_14d" in risk_flags:
+            penalty_name = "minor_unlock_within_14d"
+            penalty_factor = float((self.__dict__.get('minor_unlock_penalty_factor', 0.9)))
+            penalties.append((penalty_name, penalty_factor))
+            flags.append(penalty_name)
 
         breakout_dist = f1d.get("breakout_dist_20", 0)
         if breakout_dist is not None and breakout_dist > self.breakout_overextended_cap_pct:

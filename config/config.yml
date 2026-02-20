@@ -165,3 +165,9 @@ liquidity:
     a_max: 20
     b_max: 50
     c_max: 100
+
+
+risk_flags:
+  denylist_file: "config/denylist.yaml"
+  unlock_overrides_file: "config/unlock_overrides.yaml"
+  minor_unlock_penalty_factor: 0.9

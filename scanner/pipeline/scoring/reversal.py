@@ -31,6 +31,7 @@ class ReversalScorer:
         self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.7))
         self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
         self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+        self.minor_unlock_penalty_factor = float(penalties_cfg.get("minor_unlock_penalty_factor", 0.9))
 
         default_weights = {
             "drawdown": 0.30,
@@ -75,6 +76,13 @@ class ReversalScorer:
 
         penalties = []
         flags = []
+
+        risk_flags = features.get("risk_flags", []) if isinstance(features, dict) else []
+        if "minor_unlock_within_14d" in risk_flags:
+            penalty_name = "minor_unlock_within_14d"
+            penalty_factor = float((self.__dict__.get('minor_unlock_penalty_factor', 0.9)))
+            penalties.append((penalty_name, penalty_factor))
+            flags.append(penalty_name)
 
         dist_ema50 = f1d.get("dist_ema50_pct")
         if dist_ema50 is not None and dist_ema50 > self.overextension_threshold:
