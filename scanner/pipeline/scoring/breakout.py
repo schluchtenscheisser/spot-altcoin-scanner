@@ -260,6 +260,9 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "analysis": {"trade_levels": trade_levels},
+                    "discovery": features.get("discovery", False),
+                    "discovery_age_days": features.get("discovery_age_days"),
+                    "discovery_source": features.get("discovery_source"),
                 }
             )
         except Exception as e:

@@ -173,6 +173,10 @@ risk_flags:
   minor_unlock_penalty_factor: 0.9
 
 
+
+discovery:
+  max_age_days: 180
+
 trade_levels:
   pullback_entry_tolerance_pct: 1.0
   target_atr_multipliers: [1.0, 2.0, 3.0]

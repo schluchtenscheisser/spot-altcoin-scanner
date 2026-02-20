@@ -25,6 +25,7 @@ from .global_ranking import compute_global_top20
 from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
+from .discovery import compute_discovery_fields
 
 logger = logging.getLogger(__name__)
 
@@ -172,8 +173,10 @@ def run_pipeline(config: ScannerConfig) -> None:
         mapping = mapper.map_symbol(symbol, cmc_symbol_map)
         if mapping.mapped and mapping.cmc_data:
             features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
+            features[symbol]['cmc_date_added'] = mapping.cmc_data.get('date_added')
         else:
             features[symbol]['coin_name'] = 'Unknown'
+            features[symbol]['cmc_date_added'] = None
         
         # Add market cap and volume from shortlist data
         shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
@@ -197,6 +200,26 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['liquidity_insufficient'] = None
             features[symbol]['risk_flags'] = []
             features[symbol]['soft_penalties'] = {}
+
+        symbol_ohlcv = ohlcv_data.get(symbol, {})
+        first_seen_ts = None
+        if isinstance(symbol_ohlcv, dict) and symbol_ohlcv.get('1d'):
+            first = symbol_ohlcv['1d'][0]
+            if isinstance(first, (list, tuple)) and first:
+                try:
+                    first_seen_ts = int(float(first[0]))
+                except (TypeError, ValueError):
+                    first_seen_ts = None
+
+        discovery_cfg = config.raw.get('discovery', {}) if isinstance(config.raw, dict) else {}
+        discovery_fields = compute_discovery_fields(
+            asof_ts_ms=asof_ts_ms,
+            date_added=features[symbol].get('cmc_date_added'),
+            first_seen_ts=first_seen_ts,
+            max_age_days=int(discovery_cfg.get('max_age_days', 180)),
+        )
+        features[symbol]['first_seen_ts'] = first_seen_ts
+        features[symbol].update(discovery_fields)
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     
