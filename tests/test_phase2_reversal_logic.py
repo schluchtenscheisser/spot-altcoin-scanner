@@ -107,6 +107,7 @@ def test_reversal_setup_payload_propagates_raw_score_and_penalty_multiplier() ->
                 "volume_spike": 1.7,
             },
             "4h": {"volume_spike": 1.6},
+            "meta": {"last_closed_idx": {"1d": 200, "4h": 200}},
         }
     }
     volumes = {"XUSDT": 2_000_000.0}

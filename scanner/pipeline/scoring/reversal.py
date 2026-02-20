@@ -244,7 +244,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
     for symbol, features in features_data.items():
         candles_1d = scorer._closed_candle_count(features, "1d")
         candles_4h = scorer._closed_candle_count(features, "4h")
-        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+        if candles_1d is None or candles_4h is None or candles_1d < min_1d or candles_4h < min_4h:
             logger.debug(
                 "Skipping reversal for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
                 symbol,
