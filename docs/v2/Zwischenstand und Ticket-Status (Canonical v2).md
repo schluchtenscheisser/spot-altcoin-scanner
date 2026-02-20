@@ -94,6 +94,11 @@
   - Umsetzung in `OHLCVFetcher._build_lookback(...)` inkl. Berücksichtigung von `ohlcv.lookback.1d`-Overrides (+1 bleibt aktiv).
   - Tests erweitert/angepasst: `tests/test_phase0_config_wiring.py` prüft den 1D-Call mit `limit=121` bei `lookback_days_1d=120` sowie +1-Verhalten bei Override/Fallback.
   - Feature-Spec minimal präzisiert (Closed-Candle-Implementierungsregel mit 1D-Puffer-Bar).
+- **C5 – Backtest E2-K: Kalender-Tage statt Snapshot-Index**
+  - `run_backtest_from_snapshots(...)` interpretiert `t_trigger_max` und `t_hold` nun als Kalendertage (inklusive fehlender Tage als "no data" statt Zeitkompression).
+  - Trigger-Window: `t0_date .. t0_date+t_trigger_max` (inkl. t0); Hold-Window: `trigger_day+1 .. trigger_day+t_hold` (Kalenderlogik).
+  - Neue Regression-Tests decken explizit Snapshot-Lücken und korrekte Fenstergrenzen ab (`tests/test_backtest_calendar_days.py`).
+
 
 ---
 
@@ -105,10 +110,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C5 – Backtest E2-K: Kalender-Tage statt Snapshot-Index**
-  - `t_trigger_max`/`t_hold` als Kalendertage interpretieren; fehlende Tage nicht “komprimieren”.
-  - Neue Tests: `tests/test_backtest_calendar_days.py` (Snapshots mit Lücken; 2026-01-05 darf nicht in Trigger-Window rutschen).
-
 - **C6 – Tests: Fixture Paths robust (relativ zu `__file__`)**
   - Fix mindestens `tests/test_t81_indicator_ema_atr.py` (und ggf. weitere), sodass Fixtures CWD-unabhängig geladen werden.
   - Optionaler Zusatztest nur falls sinnvoll; primär refactor + bestehende Tests grün.
@@ -127,9 +128,6 @@
 ## Wichtige fachliche Abweichungen/Spannungen für nächste Session
 
 
-- **Backtest Zeit-Semantik**
-  - `t_trigger_max`/`t_hold` sollen Kalendertage sein; Missing-days dürfen nicht komprimiert werden (**C5**).
-
 - **Schema-Version-Konvention**
   - `schema_version` muss explizit im finalen Output auftauchen + `docs/SCHEMA_CHANGES.md` fortführen (**C8**).
 
@@ -146,7 +144,7 @@
 - Global Ranking Determinismus Golden-Fixture (ties/confluence/einmalig): `tests/test_t83_global_ranking_determinism.py`
 - Reversal closed-candle None-gate: `tests/test_reversal_closed_candle_gate.py`
 - Unlock overrides parsing (defensiv): `tests/test_unlock_overrides_parsing.py`
-- (neu geplant) Backtest Kalender-Tage: `tests/test_backtest_calendar_days.py`
+- Backtest Kalender-Tage (neu umgesetzt): `tests/test_backtest_calendar_days.py`
 - (neu geplant) percent_rank tie/unsorted determinism: `tests/test_percent_rank_average_ties.py`
 - (neu geplant) schema_version Output: (neuer minimaler Writer/Output-Test oder Golden-Update)
 
@@ -155,7 +153,6 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C5** Backtest Kalender‑Tage (fachliche Semantik).
-2. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
-3. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-4. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
+2. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
+3. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
