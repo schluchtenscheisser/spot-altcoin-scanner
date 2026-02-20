@@ -173,3 +173,5 @@ Separate Config‑Files nur für manuelle Listen (denylist/unlock_overrides).
 - min_history_reversal_4h: 80
 
 Diese Parameter müssen im Code aus config/config.yml gelesen und bei jeder Setup‑Prüfung angewendet werden.
+
+Implementierungsregel (Closed-Candle Realität): Für 1D soll der OHLCV-Fetch mindestens einen zusätzlichen Puffer-Bar laden (`effective_lookback_1d = configured_lookback_1d + 1`), damit trotz ggf. offener letzter Tageskerze die konfigurierten `min_history_*_1d`-Schwellen über abgeschlossene Kerzen erreichbar und deterministisch prüfbar bleiben.

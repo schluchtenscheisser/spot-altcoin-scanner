@@ -89,6 +89,12 @@
   - Bei Fehlern bleibt `orderbooks[symbol]=None`; Warning-Log mit `exc_info=True`.
   - Testabdeckung erweitert: `tests/test_t82_topk_budget.py` prüft Exception-Szenario inkl. `calls == K`.
 
+- **C4 – lookback_days_1d vs min_history_*: Konsistenzregel + Tests**
+  - Konsistenzregel umgesetzt: 1D-Lookback lädt deterministisch einen zusätzlichen Puffer-Bar (`effective_lookback_1d = configured + 1`), damit bei ggf. offener letzter Tageskerze weiterhin ausreichend **closed candles** für `min_history_*_1d` erreichbar sind.
+  - Umsetzung in `OHLCVFetcher._build_lookback(...)` inkl. Berücksichtigung von `ohlcv.lookback.1d`-Overrides (+1 bleibt aktiv).
+  - Tests erweitert/angepasst: `tests/test_phase0_config_wiring.py` prüft den 1D-Call mit `limit=121` bei `lookback_days_1d=120` sowie +1-Verhalten bei Override/Fallback.
+  - Feature-Spec minimal präzisiert (Closed-Candle-Implementierungsregel mit 1D-Puffer-Bar).
+
 ---
 
 ## ❌ Offen
@@ -99,10 +105,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C4 – lookback_days_1d vs min_history_*: Konsistenzregel + Tests**
-  - Off-by-one durch offene Tageskerze sauber lösen (Regel definieren & implementieren).
-  - Neue Tests: reproduzieren 120 lookback vs 119 closed; nach Fix konsistentes Verhalten.
-
 - **C5 – Backtest E2-K: Kalender-Tage statt Snapshot-Index**
   - `t_trigger_max`/`t_hold` als Kalendertage interpretieren; fehlende Tage nicht “komprimieren”.
   - Neue Tests: `tests/test_backtest_calendar_days.py` (Snapshots mit Lücken; 2026-01-05 darf nicht in Trigger-Window rutschen).
@@ -124,9 +126,6 @@
 
 ## Wichtige fachliche Abweichungen/Spannungen für nächste Session
 
-
-- **History-Gate Semantik / Closed-Candle Realität**
-  - Off-by-one zwischen `lookback_days_1d` und `min_history_*` muss klar geregelt werden (**C4**).
 
 - **Backtest Zeit-Semantik**
   - `t_trigger_max`/`t_hold` sollen Kalendertage sein; Missing-days dürfen nicht komprimiert werden (**C5**).
@@ -156,8 +155,7 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C4** lookback/min_history Konsistenzregel + Tests (fachliche Konsistenz).
-2. **C5** Backtest Kalender‑Tage (fachliche Semantik).
-3. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
-4. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-5. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C5** Backtest Kalender‑Tage (fachliche Semantik).
+2. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
+3. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
+4. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
