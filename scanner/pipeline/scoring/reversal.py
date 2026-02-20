@@ -10,6 +10,7 @@ import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
+from scanner.pipeline.scoring.trade_levels import reversal_trade_levels
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +239,8 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
     min_1d = int(root.get("setup_validation", {}).get("min_history_reversal_1d", 120))
     min_4h = int(root.get("setup_validation", {}).get("min_history_reversal_4h", 80))
 
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
     for symbol, features in features_data.items():
         candles_1d = scorer._closed_candle_count(features, "1d")
         candles_4h = scorer._closed_candle_count(features, "4h")
@@ -254,6 +257,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
+            trade_levels = reversal_trade_levels(features, target_multipliers)
             results.append(
                 {
                     "symbol": symbol,
@@ -274,6 +278,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "flags": score_result["flags"],
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
+                    "analysis": {"trade_levels": trade_levels},
                 }
             )
         except Exception as e:
