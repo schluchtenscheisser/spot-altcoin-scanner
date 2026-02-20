@@ -37,7 +37,22 @@ jobs:
           fetch-depth: 0
           # Use a token that can trigger other workflows if needed
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
+      
+      - name: Ensure this run is tip of main (skip if outdated)
+        run: |
+          git fetch origin main --quiet
+          TIP="$(git rev-parse origin/main)"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            EVENT="${{ github.event.workflow_run.head_sha }}"
+          else
+            EVENT="${GITHUB_SHA}"
+          fi
+          echo "TIP=$TIP"
+          echo "EVENT=$EVENT"
+          if [ "$TIP" != "$EVENT" ]; then
+            echo "Outdated run (not tip of main). Skipping commit."
+            exit 0
+          fi
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
