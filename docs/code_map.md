@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-19 21:14 UTC  
+**Last Updated:** 2026-02-20 11:17 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 30
+- **Total Modules:** 31
 - **Total Classes:** 16
-- **Total Functions:** 166
+- **Total Functions:** 177
 
 ---
 
@@ -66,7 +66,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `MEXCClient`
 
-**Functions:** `__init__, _rate_limit, _request, get_24h_tickers, get_exchange_info, get_klines, get_multiple_klines, get_spot_usdt_symbols`
+**Functions:** `__init__, _rate_limit, _request, get_24h_tickers, get_exchange_info, get_klines, get_multiple_klines, get_orderbook, get_spot_usdt_symbols`
 
 **Module Variables:** `BASE_URL, cache_key, data, elapsed, exchange_info, logger, params, response, results, retry_after` _(+3 more)_
 
@@ -100,9 +100,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `run_pipeline`
 
-**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+34 more)_
+**Module Variables:** `asof_dt, asof_iso, asof_ts_ms, breakout_results, cmc, cmc_listings, cmc_listings_ts_utc, cmc_symbol_map, exchange_info, exchange_info_ts_utc` _(+35 more)_
 
-**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, global_ranking` _(+10 more)_
+**Imports:** `__future__, clients.mapping, clients.marketcap_client, clients.mexc_client, config, features, filters, global_ranking` _(+11 more)_
 
 ---
 
@@ -153,6 +153,16 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Functions:** `_config_get, compute_global_top20`
 
 **Module Variables:** `agg, cur, prev, prev_setups, ranked, root, setup_map, setup_score, symbol, top20` _(+3 more)_
+
+**Imports:** `__future__, typing`
+
+---
+
+### 📄 `scanner/pipeline/liquidity.py`
+
+**Functions:** `_compute_buy_vwap, _root_config, _to_levels, apply_liquidity_metrics_to_shortlist, compute_orderbook_liquidity_metrics, fetch_orderbooks_for_top_k, get_grade_thresholds_bps, get_orderbook_top_k, get_slippage_notional_usdt, select_top_k_for_orderbook`
+
+**Module Variables:** `a_max, asks, b_max, best_ask, best_bid, bids, c_max, cfg, grade, level_quote` _(+19 more)_
 
 **Imports:** `__future__, typing`
 
@@ -250,7 +260,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ShortlistSelector`
 
-**Functions:** `__init__, _attach_proxy_liquidity_score, _average_rank_percent, get_shortlist_stats, select`
+**Functions:** `__init__, _attach_proxy_liquidity_score, _percent_rank_average_ties, get_shortlist_stats, select`
 
 **Module Variables:** `avg_rank, coverage, general_cfg, logger, max_vol, min_vol, n, percent_scores, positions, r` _(+7 more)_
 
@@ -376,6 +386,7 @@ _This section shows which functions call which other functions, helping identify
 | `get_exchange_info` | `_request` | `cache_exists`, `info`, `load_cache`, `save_cache` |
 | `get_klines` | `_request` | `cache_exists`, `debug`, `load_cache`, `save_cache` |
 | `get_multiple_klines` | `get_klines` | `error`, `info` |
+| `get_orderbook` | `_request` | — |
 | `get_spot_usdt_symbols` | `get_exchange_info` | `append`, `get`, `info` |
 
 ### 📄 scanner/config.py
@@ -415,7 +426,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `utc_now` |
 
 ### 📄 scanner/pipeline/excel_output.py
 
@@ -471,6 +482,19 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `_config_get` | — | `get` |
 | `compute_global_top20` | `_config_get` | `add`, `get`, `items`, `update`, `values` |
+
+### 📄 scanner/pipeline/liquidity.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_to_levels` | — | `append` |
+| `apply_liquidity_metrics_to_shortlist` | `compute_orderbook_liquidity_metrics`, `get_grade_thresholds_bps`, `get_slippage_notional_usdt` | `append`, `get`, `update` |
+| `compute_orderbook_liquidity_metrics` | `_compute_buy_vwap`, `_to_levels` | `get` |
+| `fetch_orderbooks_for_top_k` | `get_orderbook_top_k`, `select_top_k_for_orderbook` | `get`, `get_orderbook` |
+| `get_grade_thresholds_bps` | `_root_config` | `get` |
+| `get_orderbook_top_k` | `_root_config` | `get` |
+| `get_slippage_notional_usdt` | `_root_config` | `get` |
+| `select_top_k_for_orderbook` | — | `get` |
 
 ### 📄 scanner/pipeline/ohlcv.py
 
@@ -559,7 +583,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `get`, `info` |
-| `_attach_proxy_liquidity_score` | `_average_rank_percent` | `append`, `get`, `log1p` |
+| `_attach_proxy_liquidity_score` | `_percent_rank_average_ties` | `append`, `get`, `log1p` |
 | `get_shortlist_stats` | — | `get` |
 | `select` | `_attach_proxy_liquidity_score` | `get`, `info`, `warning` |
 
@@ -633,9 +657,9 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/features.py` | 22 | 39 | 61 | 🔴 High |
+| `scanner/pipeline/__init__.py` | 0 | 38 | 38 | 🔴 High |
 | `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
-| `scanner/pipeline/__init__.py` | 0 | 36 | 36 | 🔴 High |
-| `scanner/clients/mexc_client.py` | 6 | 28 | 34 | 🔴 High |
+| `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/output.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/filters.py` | 11 | 19 | 30 | 🔴 High |
@@ -646,6 +670,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 7 | 18 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
+| `scanner/pipeline/liquidity.py` | 10 | 11 | 21 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
@@ -675,4 +700,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-19 21:14 UTC_
+_Generated by GitHub Actions • 2026-02-20 11:17 UTC_
