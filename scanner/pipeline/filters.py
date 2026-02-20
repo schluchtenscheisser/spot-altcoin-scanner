@@ -145,10 +145,15 @@ class UniverseFilters:
                 continue
             severity = str(entry.get('severity', '')).lower()
             days_to_unlock = entry.get('days_to_unlock')
-            if days_to_unlock is not None and int(days_to_unlock) > 14:
-                continue
             symbol = entry.get('symbol')
             base = entry.get('base')
+
+            parsed_days = self._parse_days_to_unlock(days_to_unlock, symbol=symbol, base=base)
+            if parsed_days is None:
+                continue
+            if parsed_days > 14:
+                continue
+
             if severity == 'major':
                 if symbol:
                     major_symbols.add(str(symbol).upper())
@@ -161,6 +166,27 @@ class UniverseFilters:
                     minor_bases.add(str(base).upper())
 
         return major_symbols, major_bases, minor_symbols, minor_bases
+
+    def _parse_days_to_unlock(
+        self,
+        value: Any,
+        *,
+        symbol: Optional[str] = None,
+        base: Optional[str] = None,
+    ) -> Optional[int]:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        if parsed < 0:
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        return parsed
     
     def apply_all(
         self,

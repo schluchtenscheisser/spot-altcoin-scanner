@@ -79,6 +79,11 @@
   - Neue Regression-Tests ergänzen `None`-Fall sowie Boundary-Fall (`closed_candles == min_history`) in `tests/test_reversal_closed_candle_gate.py`.
   - Bestehender Reversal-Payload-Test wurde auf explizite Meta-History ausgerichtet, damit die Erwartung nach dem Gate-Fix stabil bleibt.
 
+- **C3 – Unlock Overrides: defensives Parsing von `days_to_unlock`**
+  - Parsing in `UniverseFilters._load_unlock_overrides(...)` ist jetzt robust gegenüber ungültigen Werten (z. B. `None`, `""`, `"7d"`, negativ): kein Crash, stattdessen Ignore + Warning-Log.
+  - Gültige Werte (`0`, positive int/int-String) bleiben wirksam; Werte `>14` werden weiterhin bewusst ignoriert.
+  - Neue Tests decken mixed valid/invalid Overrides inklusive Warn-Log-Pfad ab (`tests/test_unlock_overrides_parsing.py`).
+
 - **C1 – Orderbook Top-K: pro Symbol soft-fail (kein Pipeline-Crash)**
   - `fetch_orderbooks_for_top_k(...)` behandelt Exceptions nun pro Symbol (Top-K) via `try/except`; Pipeline läuft weiter.
   - Bei Fehlern bleibt `orderbooks[symbol]=None`; Warning-Log mit `exc_info=True`.
@@ -94,10 +99,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C3 – Unlock Overrides: defensives Parsing von `days_to_unlock`**
-  - Ungültige Werte (None/""/"7d"/negativ) dürfen nicht crashen; Eintrag ignorieren + Warning.
-  - Neue Tests: `tests/test_unlock_overrides_parsing.py` (mix valid/invalid, keine Exception).
-
 - **C4 – lookback_days_1d vs min_history_*: Konsistenzregel + Tests**
   - Off-by-one durch offene Tageskerze sauber lösen (Regel definieren & implementieren).
   - Neue Tests: reproduzieren 120 lookback vs 119 closed; nach Fix konsistentes Verhalten.
@@ -145,7 +146,7 @@
 - Backtest Golden-Fixture (Trigger trifft/verfehlt, Hit10/20): `tests/test_t84_backtest_golden.py`
 - Global Ranking Determinismus Golden-Fixture (ties/confluence/einmalig): `tests/test_t83_global_ranking_determinism.py`
 - Reversal closed-candle None-gate: `tests/test_reversal_closed_candle_gate.py`
-- (neu geplant) Unlock overrides parsing: `tests/test_unlock_overrides_parsing.py`
+- Unlock overrides parsing (defensiv): `tests/test_unlock_overrides_parsing.py`
 - (neu geplant) Backtest Kalender-Tage: `tests/test_backtest_calendar_days.py`
 - (neu geplant) percent_rank tie/unsorted determinism: `tests/test_percent_rank_average_ties.py`
 - (neu geplant) schema_version Output: (neuer minimaler Writer/Output-Test oder Golden-Update)
@@ -155,9 +156,8 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C3** Unlock overrides defensives Parsing (Stabilität).
-2. **C4** lookback/min_history Konsistenzregel + Tests (fachliche Konsistenz).
-3. **C5** Backtest Kalender‑Tage (fachliche Semantik).
-4. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
-5. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-6. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C4** lookback/min_history Konsistenzregel + Tests (fachliche Konsistenz).
+2. **C5** Backtest Kalender‑Tage (fachliche Semantik).
+3. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
+4. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
+5. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
