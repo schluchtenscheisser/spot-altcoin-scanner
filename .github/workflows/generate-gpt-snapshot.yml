@@ -18,6 +18,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+          ref: main
       
       - uses: actions/setup-python@v5
         with:
@@ -199,7 +200,6 @@ jobs:
         with:
           commit_message: "docs: update GPT_SNAPSHOT.md [skip ci]"
           file_pattern: docs/GPT_SNAPSHOT.md
-          push_options: '--force-with-lease'
       
       - name: Summary
         run: |
