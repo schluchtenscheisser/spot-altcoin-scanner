@@ -55,16 +55,12 @@
   - Deterministisches Fixture + Expected Snapshot hinzugefügt (`tests/golden/fixtures/backtest_t84_snapshots.json`, `tests/golden/backtest_t84_expected.json`).
   - Deckt Trigger trifft/verfehlt und Thresholds 10/20 reproduzierbar ab.
 
+- **T8.3 – Global Ranking Determinismus**
+  - Golden-Suite für tie-matrix/confluence edge-cases ergänzt (`tests/test_t83_global_ranking_determinism.py`).
+  - Neue deterministische Fixtures/Snapshots für Ranking-Reihenfolge, stable ties, Einmaligkeit pro Symbol und Confluence-Aggregation (`tests/golden/fixtures/global_ranking_t83_snapshots.json`, `tests/golden/t83_global_ranking_expected.json`).
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
-
----
-
-## 🟡 Teilweise erledigt / Restarbeit nötig
-
-- **T8.3 – Global Ranking Determinismus**
-  - Grundlegende Tests vorhanden.
-  - **Offen:** nicht alle v2-Konsistenzfälle (z. B. umfassende tie-matrix/confluence edge-cases) als Golden-Suite ausgebaut.
 
 ---
 
@@ -97,11 +93,11 @@
 - Setup History Gates: `tests/test_t32_min_history_gate.py`
 - Proxy population explicitness (Population != Shortlist-Nachweis): `tests/test_phase0_config_wiring.py`
 - Backtest Golden-Fixture (Trigger trifft/verfehlt, Hit10/20): `tests/test_t84_backtest_golden.py`
+- Global Ranking Determinismus Golden-Fixture (ties/confluence/einmalig): `tests/test_t83_global_ranking_determinism.py`
 
 ---
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T8.3** Golden-Suite für tie-matrix/confluence edge-cases ausbauen
-2. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
-3. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
+1. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
+2. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
