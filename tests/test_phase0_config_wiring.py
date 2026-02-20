@@ -59,6 +59,7 @@ def test_ohlcv_fetcher_uses_general_lookback_and_history_filter():
     })
     out = fetcher.fetch_all([{"symbol": "AUSDT"}])
     assert out == {}
+    assert ("AUSDT", "1d", 121) in mexc.calls
     assert ("AUSDT", "4h", 60) in mexc.calls
 
 
@@ -119,7 +120,7 @@ def test_ohlcv_lookback_override_takes_precedence_over_general_defaults() -> Non
             "ohlcv": {"lookback": {"1d": 77, "4h": 88}},
         },
     )
-    assert fetcher.lookback["1d"] == 77
+    assert fetcher.lookback["1d"] == 78
     assert fetcher.lookback["4h"] == 88
 
 
@@ -132,7 +133,7 @@ def test_ohlcv_lookback_partial_override_keeps_general_for_missing_timeframe() -
             "ohlcv": {"lookback": {"1d": 150}},
         },
     )
-    assert fetcher.lookback["1d"] == 150
+    assert fetcher.lookback["1d"] == 151
     assert fetcher.lookback["4h"] == 72  # 12 days * 6 bars/day
 
 
@@ -142,7 +143,7 @@ def test_ohlcv_lookback_falls_back_to_general_when_override_absent() -> None:
         mexc,
         {"general": {"lookback_days_1d": 60, "lookback_days_4h": 5}},
     )
-    assert fetcher.lookback["1d"] == 60
+    assert fetcher.lookback["1d"] == 61
     assert fetcher.lookback["4h"] == 30
 
 

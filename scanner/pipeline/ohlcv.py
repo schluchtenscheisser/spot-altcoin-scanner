@@ -46,19 +46,26 @@ class OHLCVFetcher:
         1) `ohlcv.lookback[timeframe]` explicit override (bars)
         2) `general.lookback_days_*` defaults (`1d`: days->bars 1:1, `4h`: days*6)
         3) hard defaults (`1d`=120, `4h`=180 bars)
+
+        1D lookback is always incremented by +1 bar to include one potentially open
+        candle while still guaranteeing `min_history_*_1d` checks run against closed
+        candles only (closed-candle reality).
         """
         lookback_1d_default = int(general_cfg.get('lookback_days_1d', 120))
         lookback_4h_default = int(general_cfg.get('lookback_days_4h', 30)) * 6
 
         lookback = {
-            '1d': lookback_1d_default,
+            '1d': lookback_1d_default + 1,
             '4h': lookback_4h_default,
         }
 
         if isinstance(ohlcv_lookback_cfg, dict):
             for tf, bars in ohlcv_lookback_cfg.items():
                 try:
-                    lookback[str(tf)] = int(bars)
+                    parsed = int(bars)
+                    if str(tf) == '1d':
+                        parsed += 1
+                    lookback[str(tf)] = parsed
                 except (TypeError, ValueError):
                     logger.warning(f"Invalid ohlcv.lookback value for timeframe '{tf}': {bars}; ignoring override")
 
