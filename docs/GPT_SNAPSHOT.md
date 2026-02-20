@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-20 10:05 UTC  
-**Commit:** `48b12f3` (48b12f3c628a9dc5e5c602b02267082ca88250ff)  
+**Generated:** 2026-02-20 10:20 UTC  
+**Commit:** `20956e3` (20956e3b21803661003537543fc64e0beaa25e99)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -50,6 +50,7 @@
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
+| `scanner/pipeline/scoring/trade_levels.py` | - | `_to_float`, `_atr_absolute`, `_targets`, `breakout_trade_levels`, `pullback_trade_levels` ... (+1 more) |
 | `scanner/pipeline/scoring/weights.py` | - | `load_component_weights` |
 | `scanner/pipeline/shortlist.py` | `ShortlistSelector` | - |
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
@@ -62,9 +63,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 31
+- Total Modules: 32
 - Total Classes: 16
-- Total Functions: 43
+- Total Functions: 49
 
 ---
 
@@ -422,7 +423,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `ee21faa279f92431bae9bc6f1a6a2213407dd509531c43fe92b37496f4738a90`
+**SHA256:** `945dac7859786b177ae30d789f1ba7a89fa6d27792a55065abea472e64fd4a28`
 
 ```yaml
 version:
@@ -598,6 +599,11 @@ risk_flags:
   denylist_file: "config/denylist.yaml"
   unlock_overrides_file: "config/unlock_overrides.yaml"
   minor_unlock_penalty_factor: 0.9
+
+
+trade_levels:
+  pullback_entry_tolerance_pct: 1.0
+  target_atr_multipliers: [1.0, 2.0, 3.0]
 
 ```
 
@@ -3249,7 +3255,7 @@ def compute_global_top20(
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `e7c30a25d80e45337dd9474c451828f818dd6ef956356609af5502ea5a957069`
+**SHA256:** `f0d1d1ec3788d03726eb8de4ce302bebbf61a9701343303f06fb478bea185d1d`
 
 ```python
 """
@@ -3460,7 +3466,10 @@ class ReportGenerator:
         analysis = data.get('analysis', '')
         if analysis:
             lines.append("**Analysis:**")
-            lines.append(analysis)
+            if isinstance(analysis, str):
+                lines.append(analysis)
+            else:
+                lines.append(json.dumps(analysis, ensure_ascii=False))
             lines.append("")
         
         # Flags - handle both dict and list formats
@@ -3515,7 +3524,7 @@ class ReportGenerator:
             'meta': {
                 'date': run_date,
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.4'
+                'version': '1.5'
             },
             'summary': {
                 'reversal_count': len(reversal_results),
@@ -5673,7 +5682,7 @@ class MEXCClient:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `836541832d8bff6f48d603c7499b40d77d122de0b79622bd786343a705c476bd`
+**SHA256:** `9d916ebaee145a6cde94d3011d3a2a32b53e79e63864c504c6c0852745de4ed7`
 
 ```python
 """Pullback scoring."""
@@ -5682,6 +5691,7 @@ import logging
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
+from scanner.pipeline.scoring.trade_levels import pullback_trade_levels
 
 logger = logging.getLogger(__name__)
 
@@ -5904,6 +5914,9 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
     root = config.raw if hasattr(config, "raw") else config
     min_1d = int(root.get("setup_validation", {}).get("min_history_pullback_1d", 60))
     min_4h = int(root.get("setup_validation", {}).get("min_history_pullback_4h", 80))
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    pb_tol_pct = float(trade_levels_cfg.get("pullback_entry_tolerance_pct", 1.0))
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
     for symbol, features in features_data.items():
         candles_1d = scorer._closed_candle_count(features, "1d")
         candles_4h = scorer._closed_candle_count(features, "4h")
@@ -5920,6 +5933,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
+            trade_levels = pullback_trade_levels(features, target_multipliers, pb_tol_pct=pb_tol_pct)
             results.append(
                 {
                     "symbol": symbol,
@@ -5940,6 +5954,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "flags": score_result["flags"],
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
+                    "analysis": {"trade_levels": trade_levels},
                 }
             )
         except Exception as e:
@@ -6046,7 +6061,7 @@ def load_component_weights(
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `097928e68d4af5592dabadb812d4877b6a53964210a0da6b9d2435c8b7ea8bf1`
+**SHA256:** `3b4edbd489f9b881aad64a202243392c43eaf44ce71ad700d2d090a7acdcba30`
 
 ```python
 """Breakout scoring."""
@@ -6055,6 +6070,7 @@ import logging
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
+from scanner.pipeline.scoring.trade_levels import breakout_trade_levels
 
 logger = logging.getLogger(__name__)
 
@@ -6270,6 +6286,8 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
     root = config.raw if hasattr(config, "raw") else config
     min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
     min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
     for symbol, features in features_data.items():
         candles_1d = scorer._closed_candle_count(features, "1d")
         candles_4h = scorer._closed_candle_count(features, "4h")
@@ -6286,6 +6304,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
+            trade_levels = breakout_trade_levels(features, target_multipliers)
             results.append(
                 {
                     "symbol": symbol,
@@ -6306,6 +6325,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "flags": score_result["flags"],
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
+                    "analysis": {"trade_levels": trade_levels},
                 }
             )
         except Exception as e:
@@ -6319,7 +6339,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `78d298ecc7d25b10211f6232e7833fa53378fdf1a60f48690d9c608f7e05616b`
+**SHA256:** `185d05d7c1b016048e70426f8026789d79175c2e0deeed0e877270f9fdcf77d2`
 
 ```python
 """
@@ -6334,6 +6354,7 @@ import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
+from scanner.pipeline.scoring.trade_levels import reversal_trade_levels
 
 logger = logging.getLogger(__name__)
 
@@ -6562,6 +6583,8 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
     min_1d = int(root.get("setup_validation", {}).get("min_history_reversal_1d", 120))
     min_4h = int(root.get("setup_validation", {}).get("min_history_reversal_4h", 80))
 
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
     for symbol, features in features_data.items():
         candles_1d = scorer._closed_candle_count(features, "1d")
         candles_4h = scorer._closed_candle_count(features, "4h")
@@ -6578,6 +6601,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
         volume = volumes.get(symbol, 0)
         try:
             score_result = scorer.score(symbol, features, volume)
+            trade_levels = reversal_trade_levels(features, target_multipliers)
             results.append(
                 {
                     "symbol": symbol,
@@ -6598,6 +6622,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "flags": score_result["flags"],
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
+                    "analysis": {"trade_levels": trade_levels},
                 }
             )
         except Exception as e:
@@ -6606,6 +6631,100 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
+
+```
+
+### `scanner/pipeline/scoring/trade_levels.py`
+
+**SHA256:** `a6fe26680178f5202c3f4d2900f48f08d5824de83fda748af26ad455039d7cee`
+
+```python
+"""Deterministic trade-level helpers (output-only, no scoring impact)."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+
+def _to_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _atr_absolute(tf_features: Dict[str, Any]) -> Optional[float]:
+    atr_pct = _to_float(tf_features.get("atr_pct"))
+    close = _to_float(tf_features.get("close"))
+    if atr_pct is None or close is None:
+        return None
+    return (atr_pct / 100.0) * close
+
+
+def _targets(base: Optional[float], atr: Optional[float], multipliers: List[float]) -> List[Optional[float]]:
+    if base is None or atr is None:
+        return [None for _ in multipliers]
+    return [base + (k * atr) for k in multipliers]
+
+
+def breakout_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+    f1d = features.get("1d", {})
+    close_1d = _to_float(f1d.get("close"))
+    breakout_dist_20 = _to_float(f1d.get("breakout_dist_20"))
+
+    breakout_level_20: Optional[float] = None
+    if close_1d is not None and breakout_dist_20 is not None and (100.0 + breakout_dist_20) != 0.0:
+        breakout_level_20 = close_1d / (1.0 + breakout_dist_20 / 100.0)
+
+    ema20_1d = _to_float(f1d.get("ema_20"))
+    invalidation = min(v for v in [breakout_level_20, ema20_1d] if v is not None) if any(
+        v is not None for v in [breakout_level_20, ema20_1d]
+    ) else None
+
+    atr_1d = _atr_absolute(f1d)
+    return {
+        "entry_trigger": breakout_level_20,
+        "breakout_level_20": breakout_level_20,
+        "invalidation": invalidation,
+        "targets": _targets(breakout_level_20, atr_1d, multipliers),
+        "atr_value": atr_1d,
+    }
+
+
+def pullback_trade_levels(features: Dict[str, Any], multipliers: List[float], pb_tol_pct: float) -> Dict[str, Any]:
+    f4h = features.get("4h", {})
+    ema20_4h = _to_float(f4h.get("ema_20"))
+    ema50_4h = _to_float(f4h.get("ema_50"))
+
+    zone = {
+        "center": ema20_4h,
+        "lower": None if ema20_4h is None else ema20_4h * (1.0 - pb_tol_pct / 100.0),
+        "upper": None if ema20_4h is None else ema20_4h * (1.0 + pb_tol_pct / 100.0),
+        "tolerance_pct": pb_tol_pct,
+    }
+    atr_4h = _atr_absolute(f4h)
+    return {
+        "entry_zone": zone,
+        "invalidation": ema50_4h,
+        "targets": _targets(ema20_4h, atr_4h, multipliers),
+        "atr_value": atr_4h,
+    }
+
+
+def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+    f1d = features.get("1d", {})
+    ema20_1d = _to_float(f1d.get("ema_20"))
+    base_low = _to_float(f1d.get("base_low"))
+    atr_1d = _atr_absolute(f1d)
+    return {
+        "entry_trigger": ema20_1d,
+        "invalidation": base_low,
+        "targets": _targets(ema20_1d, atr_1d, multipliers),
+        "atr_value": atr_1d,
+    }
+
 
 ```
 
@@ -6674,4 +6793,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-20 10:05 UTC_
+_Generated by GitHub Actions • 2026-02-20 10:20 UTC_
