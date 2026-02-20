@@ -37,6 +37,7 @@ jobs:
           fetch-depth: 0
           # Use a token that can trigger other workflows if needed
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
@@ -91,8 +92,6 @@ jobs:
           file_pattern: docs/code_map.md
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          # Use force-with-lease to handle potential conflicts
-          push_options: '--force-with-lease'
           skip_fetch: false
           skip_checkout: false
       
