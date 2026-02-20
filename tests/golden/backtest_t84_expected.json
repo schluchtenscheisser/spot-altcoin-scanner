@@ -1,0 +1,80 @@
+{
+  "by_setup": {
+    "breakout": {
+      "count": 1,
+      "hit_10_count": 1,
+      "hit_10_rate_on_triggered": 1.0,
+      "hit_20_count": 1,
+      "hit_20_rate_on_triggered": 1.0,
+      "trigger_rate": 1.0,
+      "triggered_count": 1
+    },
+    "pullback": {
+      "count": 1,
+      "hit_10_count": 0,
+      "hit_10_rate_on_triggered": 0.0,
+      "hit_20_count": 0,
+      "hit_20_rate_on_triggered": 0.0,
+      "trigger_rate": 0.0,
+      "triggered_count": 0
+    },
+    "reversal": {
+      "count": 1,
+      "hit_10_count": 1,
+      "hit_10_rate_on_triggered": 1.0,
+      "hit_20_count": 0,
+      "hit_20_rate_on_triggered": 0.0,
+      "trigger_rate": 1.0,
+      "triggered_count": 1
+    }
+  },
+  "events": {
+    "breakout": [
+      {
+        "entry_price": 100.0,
+        "hit_10": true,
+        "hit_20": true,
+        "max_high_after_entry": 121.0,
+        "setup_type": "breakout",
+        "symbol": "AAAUSDT",
+        "t0_date": "2026-03-01",
+        "trigger_day_offset": 1,
+        "triggered": true
+      }
+    ],
+    "pullback": [
+      {
+        "entry_price": null,
+        "hit_10": false,
+        "hit_20": false,
+        "max_high_after_entry": null,
+        "setup_type": "pullback",
+        "symbol": "BBBUSDT",
+        "t0_date": "2026-03-01",
+        "trigger_day_offset": null,
+        "triggered": false
+      }
+    ],
+    "reversal": [
+      {
+        "entry_price": 210.0,
+        "hit_10": true,
+        "hit_20": false,
+        "max_high_after_entry": 232.0,
+        "setup_type": "reversal",
+        "symbol": "CCCUSDT",
+        "t0_date": "2026-03-01",
+        "trigger_day_offset": 2,
+        "triggered": true
+      }
+    ]
+  },
+  "params": {
+    "t_hold": 3,
+    "t_trigger_max": 2,
+    "thresholds_pct": [
+      10.0,
+      20.0
+    ]
+  }
+}

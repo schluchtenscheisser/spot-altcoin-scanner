@@ -1,0 +1,96 @@
+{
+  "config": {
+    "backtest": {
+      "t_hold": 3,
+      "t_trigger_max": 2,
+      "thresholds_pct": [10, 20]
+    }
+  },
+  "snapshots": [
+    {
+      "meta": {"date": "2026-03-01"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 99, "high": 99}},
+          "BBBUSDT": {"1d": {"close": 55, "high": 56}},
+          "CCCUSDT": {"1d": {"close": 200, "high": 200}}
+        }
+      },
+      "scoring": {
+        "breakouts": [
+          {
+            "symbol": "AAAUSDT",
+            "analysis": {"trade_levels": {"entry_trigger": 100}}
+          }
+        ],
+        "pullbacks": [
+          {
+            "symbol": "BBBUSDT",
+            "analysis": {"trade_levels": {"entry_zone": {"lower": 48, "upper": 50}}}
+          }
+        ],
+        "reversals": [
+          {
+            "symbol": "CCCUSDT",
+            "analysis": {"trade_levels": {"entry_trigger": 210}}
+          }
+        ]
+      }
+    },
+    {
+      "meta": {"date": "2026-03-02"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 100, "high": 111}},
+          "BBBUSDT": {"1d": {"close": 54, "high": 55}},
+          "CCCUSDT": {"1d": {"close": 205, "high": 206}}
+        }
+      },
+      "scoring": {"breakouts": [], "pullbacks": [], "reversals": []}
+    },
+    {
+      "meta": {"date": "2026-03-03"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 101, "high": 118}},
+          "BBBUSDT": {"1d": {"close": 53, "high": 54}},
+          "CCCUSDT": {"1d": {"close": 210, "high": 211}}
+        }
+      },
+      "scoring": {"breakouts": [], "pullbacks": [], "reversals": []}
+    },
+    {
+      "meta": {"date": "2026-03-04"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 102, "high": 119}},
+          "BBBUSDT": {"1d": {"close": 52, "high": 53}},
+          "CCCUSDT": {"1d": {"close": 211, "high": 230}}
+        }
+      },
+      "scoring": {"breakouts": [], "pullbacks": [], "reversals": []}
+    },
+    {
+      "meta": {"date": "2026-03-05"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 103, "high": 121}},
+          "BBBUSDT": {"1d": {"close": 51, "high": 52}},
+          "CCCUSDT": {"1d": {"close": 212, "high": 231}}
+        }
+      },
+      "scoring": {"breakouts": [], "pullbacks": [], "reversals": []}
+    },
+    {
+      "meta": {"date": "2026-03-06"},
+      "data": {
+        "features": {
+          "AAAUSDT": {"1d": {"close": 104, "high": 122}},
+          "BBBUSDT": {"1d": {"close": 50.5, "high": 51}},
+          "CCCUSDT": {"1d": {"close": 213, "high": 232}}
+        }
+      },
+      "scoring": {"breakouts": [], "pullbacks": [], "reversals": []}
+    }
+  ]
+}
