@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 import json
 
+from scanner.schema import REPORT_META_VERSION, REPORT_SCHEMA_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -261,10 +263,11 @@ class ReportGenerator:
             Report dict (JSON-serializable)
         """
         report = {
+            'schema_version': REPORT_SCHEMA_VERSION,
             'meta': {
                 'date': run_date,
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.5'
+                'version': REPORT_META_VERSION
             },
             'summary': {
                 'reversal_count': len(reversal_results),

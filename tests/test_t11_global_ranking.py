@@ -23,3 +23,12 @@ def test_json_report_contains_global_top20():
     assert "global_top20" in report["setups"]
     assert report["setups"]["global_top20"][0]["symbol"] == "ABCUSDT"
     assert report["summary"]["global_top20_count"] == 1
+
+
+def test_json_report_contains_explicit_schema_version():
+    generator = ReportGenerator({"output": {"top_n_per_setup": 2}})
+
+    report = generator.generate_json_report([], [], [], [], "2026-02-20")
+
+    assert report["schema_version"] == "v1.6"
+    assert report["meta"]["version"] == "1.6"

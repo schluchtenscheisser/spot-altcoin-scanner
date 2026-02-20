@@ -54,6 +54,33 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-20 — schema_version v1.5 → v1.6 — Explizites Top-Level-Feld `schema_version` im JSON-Report
+**PR:** (branch-local, v2 Ticket C8 / PR8)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- JSON-Report enthält jetzt ein explizites Top-Level-Feld `schema_version`.
+- `meta.version` wurde von `1.5` auf `1.6` erhöht.
+- Versionswerte werden zentral über `scanner/schema.py` gepflegt.
+
+#### Warum?
+- Canonical-v2 fordert ein klar sichtbares, explizites `schema_version`-Feld im finalen Output für Governance und Consumer-Kompatibilität.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additives Feld; bestehende Felder bleiben erhalten).
+
+#### Migration / Vorgehen
+- Consumer sollten bevorzugt `schema_version` für Format-Gating verwenden.
+- Ältere Reports (`<=v1.5`) können ohne `schema_version` vorliegen und sollten defensiv behandelt werden.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.6",
+  "meta": {"version": "1.6"}
+}
+```
+
 ### 2026-02-12 — schema_version v1.1 → v1.2 — QuoteVolume-Features ergänzt
 **PR:** (branch-local, Thema 7)  
 **Typ:** additiv
