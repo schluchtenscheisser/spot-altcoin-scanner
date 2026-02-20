@@ -1,0 +1,27 @@
+{
+  "config": {
+    "global_ranking": {
+      "setup_weights": {
+        "breakout": 1.0,
+        "pullback": 0.9,
+        "reversal": 0.8
+      }
+    }
+  },
+  "breakout_results": [
+    {"symbol": "AAAUSDT", "score": 80.0, "slippage_bps": 20.0, "proxy_liquidity_score": 70.0, "source": "breakout"},
+    {"symbol": "BBBUSDT", "score": 80.0, "slippage_bps": 20.0, "proxy_liquidity_score": 60.0, "source": "breakout"},
+    {"symbol": "CCCUSDT", "score": 80.0, "slippage_bps": null, "proxy_liquidity_score": 99.0, "source": "breakout"},
+    {"symbol": "DUPUSDT", "score": 75.0, "slippage_bps": 15.0, "proxy_liquidity_score": 40.0, "source": "breakout"}
+  ],
+  "pullback_results": [
+    {"symbol": "DUPUSDT", "score": 90.0, "slippage_bps": 50.0, "proxy_liquidity_score": 10.0, "source": "pullback"},
+    {"symbol": "EEEUSDT", "score": 88.0, "slippage_bps": 5.0, "proxy_liquidity_score": 50.0, "source": "pullback"},
+    {"symbol": "AAAUSDT", "score": 88.0, "slippage_bps": 20.0, "proxy_liquidity_score": 65.0, "source": "pullback"}
+  ],
+  "reversal_results": [
+    {"symbol": "DUPUSDT", "score": 95.0, "slippage_bps": 10.0, "proxy_liquidity_score": 80.0, "source": "reversal"},
+    {"symbol": "BBBUSDT", "score": 100.0, "slippage_bps": 3.0, "proxy_liquidity_score": 90.0, "source": "reversal"},
+    {"symbol": "FFFUSDT", "score": 99.0, "slippage_bps": 5.0, "proxy_liquidity_score": 50.0, "source": "reversal"}
+  ]
+}
