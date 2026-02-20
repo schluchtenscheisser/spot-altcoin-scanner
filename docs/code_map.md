@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-20 10:05 UTC  
+**Last Updated:** 2026-02-20 10:20 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 31
+- **Total Modules:** 32
 - **Total Classes:** 16
-- **Total Functions:** 181
+- **Total Functions:** 187
 
 ---
 
@@ -216,9 +216,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_breakout, _score_momentum, _score_trend, _score_volume, score, score_breakouts`
 
-**Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+33 more)_
+**Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+36 more)_
 
-**Imports:** `logging, scanner.pipeline.scoring.weights, typing`
+**Imports:** `logging, scanner.pipeline.scoring.trade_levels, scanner.pipeline.scoring.weights, typing`
 
 ---
 
@@ -228,9 +228,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _score_pullback, _score_rebound, _score_trend, _score_volume, score, score_pullbacks`
 
-**Module Variables:** `candles_1d, candles_4h, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, idx` _(+31 more)_
+**Module Variables:** `candles_1d, candles_4h, default_weights, dist_ema20, dist_ema50, f1d, f4h, final_score, flags, idx` _(+35 more)_
 
-**Imports:** `logging, scanner.pipeline.scoring.weights, typing`
+**Imports:** `logging, scanner.pipeline.scoring.trade_levels, scanner.pipeline.scoring.weights, typing`
 
 ---
 
@@ -240,9 +240,19 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _closed_candle_count, _generate_reasons, _resolve_volume_spike, _score_base, _score_drawdown, _score_reclaim, _score_volume, score, score_reversals`
 
-**Module Variables:** `base_score, candles_1d, candles_4h, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess` _(+34 more)_
+**Module Variables:** `base_score, candles_1d, candles_4h, dd, dd_pct, default_weights, dist_ema20, dist_ema50, drawdown_score, excess` _(+37 more)_
 
-**Imports:** `logging, math, scanner.pipeline.scoring.weights, typing`
+**Imports:** `logging, math, scanner.pipeline.scoring.trade_levels, scanner.pipeline.scoring.weights, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/trade_levels.py`
+
+**Functions:** `_atr_absolute, _targets, _to_float, breakout_trade_levels, pullback_trade_levels, reversal_trade_levels`
+
+**Module Variables:** `atr_1d, atr_4h, atr_pct, base_low, breakout_dist_20, breakout_level_20, close, close_1d, ema20_1d, ema20_4h` _(+5 more)_
+
+**Imports:** `__future__, typing`
 
 ---
 
@@ -514,7 +524,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
-| `_format_setup_entry` | — | `append`, `capitalize`, `get`, `items`, `join`, `replace` |
+| `_format_setup_entry` | — | `append`, `capitalize`, `dumps`, `get`, `items`, `join`, `replace` |
 | `_with_rank` | — | `append` |
 | `generate_json_report` | `_with_rank` | `isoformat`, `update`, `utcnow` |
 | `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `get`, `join`, `strftime`, `utcnow` |
@@ -545,7 +555,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get`, `items` |
-| `score_breakouts` | `_closed_candle_count`, `score` | `BreakoutScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
+| `score_breakouts` | `_closed_candle_count`, `score` | `BreakoutScorer`, `append`, `breakout_trade_levels`, `debug`, `error`, `get`, `items`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/pullback.py
 
@@ -559,7 +569,7 @@ _This section shows which functions call which other functions, helping identify
 | `_score_trend` | — | `get` |
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_pullback`, `_score_rebound`, `_score_trend`, `_score_volume` | `append`, `get`, `items` |
-| `score_pullbacks` | `_closed_candle_count`, `score` | `PullbackScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
+| `score_pullbacks` | `_closed_candle_count`, `score` | `PullbackScorer`, `append`, `debug`, `error`, `get`, `items`, `pullback_trade_levels`, `sort` |
 
 ### 📄 scanner/pipeline/scoring/reversal.py
 
@@ -574,7 +584,16 @@ _This section shows which functions call which other functions, helping identify
 | `_score_reclaim` | — | `get` |
 | `_score_volume` | `_resolve_volume_spike` | — |
 | `score` | `_generate_reasons`, `_score_base`, `_score_drawdown`, `_score_reclaim`, `_score_volume` | `append`, `get`, `items` |
-| `score_reversals` | `_closed_candle_count`, `score` | `ReversalScorer`, `append`, `debug`, `error`, `get`, `items`, `sort` |
+| `score_reversals` | `_closed_candle_count`, `score` | `ReversalScorer`, `append`, `debug`, `error`, `get`, `items`, `reversal_trade_levels`, `sort` |
+
+### 📄 scanner/pipeline/scoring/trade_levels.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_atr_absolute` | `_to_float` | `get` |
+| `breakout_trade_levels` | `_atr_absolute`, `_targets`, `_to_float` | `get` |
+| `pullback_trade_levels` | `_atr_absolute`, `_targets`, `_to_float` | `get` |
+| `reversal_trade_levels` | `_atr_absolute`, `_targets`, `_to_float` | `get` |
 
 ### 📄 scanner/pipeline/scoring/weights.py
 
@@ -665,19 +684,20 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/__init__.py` | 0 | 39 | 39 | 🔴 High |
 | `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
+| `scanner/pipeline/output.py` | 4 | 28 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
-| `scanner/pipeline/output.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/pipeline/scoring/reversal.py` | 9 | 21 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
-| `scanner/pipeline/scoring/reversal.py` | 9 | 20 | 29 | 🔴 High |
+| `scanner/pipeline/scoring/breakout.py` | 7 | 20 | 27 | 🔴 High |
+| `scanner/pipeline/scoring/pullback.py` | 7 | 20 | 27 | 🔴 High |
 | `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
-| `scanner/pipeline/scoring/breakout.py` | 7 | 19 | 26 | 🔴 High |
-| `scanner/pipeline/scoring/pullback.py` | 7 | 19 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 10 | 11 | 21 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/pipeline/scoring/trade_levels.py` | 10 | 4 | 14 | ✅ Low |
 | `scanner/pipeline/shortlist.py` | 2 | 9 | 11 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
@@ -704,4 +724,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-20 10:05 UTC_
+_Generated by GitHub Actions • 2026-02-20 10:20 UTC_
