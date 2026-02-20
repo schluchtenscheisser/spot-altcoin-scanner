@@ -99,6 +99,11 @@
   - Trigger-Window: `t0_date .. t0_date+t_trigger_max` (inkl. t0); Hold-Window: `trigger_day+1 .. trigger_day+t_hold` (Kalenderlogik).
   - Neue Regression-Tests decken explizit Snapshot-Lücken und korrekte Fenstergrenzen ab (`tests/test_backtest_calendar_days.py`).
 
+- **C6 – Tests: Fixture Paths robust (relativ zu `__file__`)**
+  - CWD-abhängiger Fixture-Pfad in `tests/test_t81_indicator_ema_atr.py` auf `Path(__file__).resolve().parent / "golden" / "fixtures" / ...` umgestellt.
+  - Test lädt Fixture nun robust unabhängig vom aktuellen Working Directory.
+
+
 
 ---
 
@@ -110,10 +115,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C6 – Tests: Fixture Paths robust (relativ zu `__file__`)**
-  - Fix mindestens `tests/test_t81_indicator_ema_atr.py` (und ggf. weitere), sodass Fixtures CWD-unabhängig geladen werden.
-  - Optionaler Zusatztest nur falls sinnvoll; primär refactor + bestehende Tests grün.
-
 - **C7 – percent_rank_average_ties: explizite Tests (ties/unsorted/deterministisch)**
   - Neue Tests: `tests/test_percent_rank_average_ties.py` (unsorted, ties, determinism).
 
@@ -153,6 +154,5 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
-2. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-3. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
+2. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
