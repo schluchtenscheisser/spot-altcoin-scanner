@@ -10,6 +10,8 @@ import logging
 import math
 from typing import List, Dict, Any
 
+from .cross_section import percent_rank_average_ties
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,25 +36,6 @@ class ShortlistSelector:
 
         logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
 
-    @staticmethod
-    def _percent_rank_average_ties(values: List[float]) -> List[float]:
-        """Average-rank percent score in [0,100] with tie handling."""
-        n = len(values)
-        if n == 0:
-            return []
-        if n == 1:
-            return [100.0]
-
-        sorted_unique = sorted(set(values))
-        rank_by_value: Dict[float, float] = {}
-
-        for v in sorted_unique:
-            positions = [idx + 1 for idx, x in enumerate(values) if x == v]
-            avg_rank = sum(positions) / len(positions)
-            rank_by_value[v] = avg_rank
-
-        return [((rank_by_value[v] - 1.0) / (n - 1.0)) * 100.0 for v in values]
-
     def _attach_proxy_liquidity_score(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Attach proxy_liquidity_score based on quote_volume_24h percent-rank (log-scaled input)."""
         if not rows:
@@ -63,7 +46,7 @@ class ShortlistSelector:
             vol = float(row.get('quote_volume_24h', 0) or 0)
             log_volumes.append(math.log1p(max(0.0, vol)))
 
-        percent_scores = self._percent_rank_average_ties(log_volumes)
+        percent_scores = percent_rank_average_ties(log_volumes)
 
         enriched: List[Dict[str, Any]] = []
         for row, score in zip(rows, percent_scores):

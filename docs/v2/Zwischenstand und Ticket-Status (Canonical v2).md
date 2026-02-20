@@ -20,6 +20,10 @@
   - `spread_bps`, `slippage_bps`, `liquidity_grade`, `liquidity_insufficient` aus Orderbook implementiert.
 - **T2.4 – Re-Rank Regel**
   - Global tie-break nutzt `global_score` desc, `slippage_bps` asc (None = +inf), `proxy_liquidity_score` desc.
+- **T3.1 – percent_rank Population = Hard-Gate Universe**
+  - Generischer Cross-Section-Mechanismus implementiert (`scanner/pipeline/cross_section.py`) mit deterministischem average-tie Ranking gegen die volle Population.
+  - Proxy-Liquidity-Verdrahtung nutzt nun den zentralen Mechanismus; Population bleibt explizit das Hard-Gate-Universe (nicht Shortlist).
+  - Regression-Tests ergänzt (`tests/test_t31_percent_rank_population.py`) und bestehende Verdrahtungs-Tests bleiben grün.
 - **T3.2 – Mindesthistorie-Gate (funktional)**
   - Setup-spezifische History-Schwellen (Breakout/Pullback/Reversal) sind in Scorern umgesetzt.
 - **T4.1 – Risk Flags (denylist/unlock_overrides)**
@@ -58,10 +62,6 @@
 
 ## 🟡 Teilweise erledigt / Restarbeit nötig
 
-- **T3.1 – percent_rank Population = Hard-Gate Universe**
-  - Für Proxy-Liquidity sichtbar gemacht (`proxy_liquidity_population_n`).
-  - Population wird vor Shortlist-Trunkierung berechnet.
-  - **Offen:** noch nicht als allgemeines Cross-Section-Pattern über alle relevanten Features implementiert.
 - **T8.3 – Global Ranking Determinismus**
   - Grundlegende Tests vorhanden.
   - **Offen:** nicht alle v2-Konsistenzfälle (z. B. umfassende tie-matrix/confluence edge-cases) als Golden-Suite ausgebaut.
@@ -102,6 +102,6 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
-2. **T8.3** Golden-Suite für tie-matrix/confluence edge-cases ausbauen
-3. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
+1. **T8.3** Golden-Suite für tie-matrix/confluence edge-cases ausbauen
+2. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
+3. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
