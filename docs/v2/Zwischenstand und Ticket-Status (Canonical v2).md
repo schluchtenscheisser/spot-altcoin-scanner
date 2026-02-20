@@ -59,6 +59,12 @@
   - Golden-Suite für tie-matrix/confluence edge-cases ergänzt (`tests/test_t83_global_ranking_determinism.py`).
   - Neue deterministische Fixtures/Snapshots für Ranking-Reihenfolge, stable ties, Einmaligkeit pro Symbol und Confluence-Aggregation (`tests/golden/fixtures/global_ranking_t83_snapshots.json`, `tests/golden/t83_global_ranking_expected.json`).
 
+
+- **T8.1 – Indicator Tests (EMA/ATR)**
+  - Neue deterministische Drift-Guard-Suite für EMA und ATR ergänzt (`tests/test_t81_indicator_ema_atr.py`).
+  - Fixtures mit bekannten Referenzwerten + Edge Cases hinzugefügt (`tests/golden/fixtures/t81_indicator_cases.json`).
+  - Abgedeckt: SMA-Initialisierung (EMA), Wilder-Smoothing (ATR), kurze Reihen (insufficient history), NaN-Seed-Window (EMA) sowie `close<=0`-Fallback (ATR).
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
@@ -66,8 +72,7 @@
 
 ## ❌ Offen
 
-- **T8.1**
-  - Indicator-Drift-Guard (EMA/ATR) als v2-umfangreiche Suite noch offen.
+- Derzeit keine offenen Tickets im Canonical-v2-Track dokumentiert.
 
 ---
 
@@ -99,5 +104,5 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
-2. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
+1. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
+2. Optional: History-Gate-Semantik (`is_valid_setup=False` + `reason_invalid`) gegen Tickettext harmonisieren.

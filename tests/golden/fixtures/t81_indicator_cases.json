@@ -1,0 +1,157 @@
+{
+  "ema": [
+    {
+      "name": "sma_initialization_reference",
+      "period": 3,
+      "data": [
+        10.0,
+        11.0,
+        13.0,
+        12.0,
+        14.0
+      ],
+      "expected": 12.833333333333334
+    },
+    {
+      "name": "flat_series_stays_flat",
+      "period": 4,
+      "data": [
+        7.0,
+        7.0,
+        7.0,
+        7.0,
+        7.0,
+        7.0
+      ],
+      "expected": 7.0
+    },
+    {
+      "name": "nan_in_seed_window_uses_nanmean",
+      "period": 3,
+      "data": [
+        null,
+        10.0,
+        14.0,
+        12.0
+      ],
+      "expected": 12.0
+    },
+    {
+      "name": "insufficient_history_returns_nan",
+      "period": 5,
+      "data": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+      ],
+      "expected": null
+    }
+  ],
+  "atr_pct": [
+    {
+      "name": "wilder_reference",
+      "period": 3,
+      "highs": [
+        11.0,
+        12.0,
+        13.0,
+        12.0,
+        14.0,
+        13.0
+      ],
+      "lows": [
+        9.0,
+        10.0,
+        11.0,
+        10.0,
+        12.0,
+        11.0
+      ],
+      "closes": [
+        10.0,
+        11.0,
+        12.0,
+        11.0,
+        13.0,
+        12.0
+      ],
+      "expected": 18.51851851851852
+    },
+    {
+      "name": "constant_true_range",
+      "period": 3,
+      "highs": [
+        102.0,
+        104.0,
+        106.0,
+        108.0,
+        110.0
+      ],
+      "lows": [
+        100.0,
+        102.0,
+        104.0,
+        106.0,
+        108.0
+      ],
+      "closes": [
+        101.0,
+        103.0,
+        105.0,
+        107.0,
+        109.0
+      ],
+      "expected": 2.7522935779816518
+    },
+    {
+      "name": "insufficient_history_returns_nan",
+      "period": 4,
+      "highs": [
+        10.0,
+        11.0,
+        12.0,
+        13.0
+      ],
+      "lows": [
+        9.0,
+        10.0,
+        11.0,
+        12.0
+      ],
+      "closes": [
+        9.5,
+        10.5,
+        11.5,
+        12.5
+      ],
+      "expected": null
+    },
+    {
+      "name": "non_positive_last_close_returns_nan",
+      "period": 3,
+      "highs": [
+        3.0,
+        4.0,
+        5.0,
+        6.0,
+        7.0
+      ],
+      "lows": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0
+      ],
+      "closes": [
+        2.0,
+        3.0,
+        4.0,
+        5.0,
+        0.0
+      ],
+      "expected": null
+    }
+  ]
+}
