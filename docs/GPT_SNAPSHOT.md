@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-20 23:17 UTC  
-**Commit:** `5ea4226` (5ea42265eb5662766ff6558b3f9f393bccb321fa)  
+**Generated:** 2026-02-20 23:29 UTC  
+**Commit:** `e85ec2b` (e85ec2b31b54ce19d3e632933d136117470d0882)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -1900,7 +1900,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `fbec301a18a5cc631177ba3f4e7ccff1443db8a02bcdd6cb83cacd0e14538c09`
+**SHA256:** `05b530d0762b5871e6b2d25538743f1a55e1997ad1f8334cda951dc532efa197`
 
 ```python
 from __future__ import annotations
@@ -1915,6 +1915,7 @@ Canonical v2 rules (Feature-Spec section 10):
 """
 
 from collections import defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 import json
@@ -1984,15 +1985,46 @@ def _evaluate_candidate(
     t_hold: int,
     thresholds_pct: Sequence[float],
 ) -> Dict[str, Any]:
-    t0_idx = index_by_date[t0_date]
+    def _iso_to_date(value: str) -> Optional[date]:
+        try:
+            return date.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _calendar_window_indices(
+        *,
+        start_date: date,
+        days_inclusive: int,
+    ) -> Iterable[Tuple[int, int]]:
+        for day_offset in range(days_inclusive + 1):
+            day = (start_date + timedelta(days=day_offset)).isoformat()
+            idx = index_by_date.get(day)
+            if idx is None:
+                continue
+            yield day_offset, idx
+
+    t0_parsed = _iso_to_date(t0_date)
+    if t0_parsed is None:
+        return {
+            "symbol": symbol,
+            "setup_type": setup_type,
+            "t0_date": t0_date,
+            "triggered": False,
+            "trigger_day_offset": None,
+            "entry_price": None,
+            "max_high_after_entry": None,
+            **{f"hit_{int(thr)}": False for thr in thresholds_pct},
+        }
 
     trigger_idx: Optional[int] = None
-    for idx in range(t0_idx, min(len(series_close), t0_idx + t_trigger_max + 1)):
+    trigger_day_offset: Optional[int] = None
+    for day_offset, idx in _calendar_window_indices(start_date=t0_parsed, days_inclusive=t_trigger_max):
         close = series_close[idx]
         if close is None:
             continue
         if _setup_triggered(setup_type, close, trade_levels):
             trigger_idx = idx
+            trigger_day_offset = day_offset
             break
 
     outcome: Dict[str, Any] = {
@@ -2015,14 +2047,23 @@ def _evaluate_candidate(
     if entry_price is None or entry_price <= 0:
         return outcome
 
-    start = trigger_idx + 1
-    end_excl = min(len(series_high), trigger_idx + t_hold + 1)
-    window_highs = [h for h in series_high[start:end_excl] if h is not None]
+    trigger_date = t0_parsed + timedelta(days=trigger_day_offset or 0)
+    window_highs: List[float] = []
+    for hold_offset in range(1, t_hold + 1):
+        hold_day = (trigger_date + timedelta(days=hold_offset)).isoformat()
+        hold_idx = index_by_date.get(hold_day)
+        if hold_idx is None:
+            continue
+        high = series_high[hold_idx]
+        if high is None:
+            continue
+        window_highs.append(high)
+
     max_high = max(window_highs) if window_highs else None
 
     outcome.update(
         {
-            "trigger_day_offset": trigger_idx - t0_idx,
+            "trigger_day_offset": trigger_day_offset,
             "entry_price": entry_price,
             "max_high_after_entry": max_high,
         }
@@ -3956,7 +3997,7 @@ class ReportGenerator:
 
 ### `scanner/pipeline/filters.py`
 
-**SHA256:** `5a8aac7ea88c1452a27ced9a883aa48d4f671e84f0bab166431d5595a2ced8cf`
+**SHA256:** `8a948f40bbd070ca9e5e78e44defa96d7fc4f2545c08eebedecba3414bb07205`
 
 ```python
 """
@@ -4106,10 +4147,15 @@ class UniverseFilters:
                 continue
             severity = str(entry.get('severity', '')).lower()
             days_to_unlock = entry.get('days_to_unlock')
-            if days_to_unlock is not None and int(days_to_unlock) > 14:
-                continue
             symbol = entry.get('symbol')
             base = entry.get('base')
+
+            parsed_days = self._parse_days_to_unlock(days_to_unlock, symbol=symbol, base=base)
+            if parsed_days is None:
+                continue
+            if parsed_days > 14:
+                continue
+
             if severity == 'major':
                 if symbol:
                     major_symbols.add(str(symbol).upper())
@@ -4122,6 +4168,27 @@ class UniverseFilters:
                     minor_bases.add(str(base).upper())
 
         return major_symbols, major_bases, minor_symbols, minor_bases
+
+    def _parse_days_to_unlock(
+        self,
+        value: Any,
+        *,
+        symbol: Optional[str] = None,
+        base: Optional[str] = None,
+    ) -> Optional[int]:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        if parsed < 0:
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        return parsed
     
     def apply_all(
         self,
@@ -4655,7 +4722,7 @@ def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderb
 
 ### `scanner/pipeline/ohlcv.py`
 
-**SHA256:** `692e69deed5f59bbdefa0c5a9cbcd1fb2c5ea76c570bfeec1762e3d98a47f985`
+**SHA256:** `5b15b497293e634782803d809b78160a966ac098878a54626d0e0975c3e4aa59`
 
 ```python
 """
@@ -4706,19 +4773,26 @@ class OHLCVFetcher:
         1) `ohlcv.lookback[timeframe]` explicit override (bars)
         2) `general.lookback_days_*` defaults (`1d`: days->bars 1:1, `4h`: days*6)
         3) hard defaults (`1d`=120, `4h`=180 bars)
+
+        1D lookback is always incremented by +1 bar to include one potentially open
+        candle while still guaranteeing `min_history_*_1d` checks run against closed
+        candles only (closed-candle reality).
         """
         lookback_1d_default = int(general_cfg.get('lookback_days_1d', 120))
         lookback_4h_default = int(general_cfg.get('lookback_days_4h', 30)) * 6
 
         lookback = {
-            '1d': lookback_1d_default,
+            '1d': lookback_1d_default + 1,
             '4h': lookback_4h_default,
         }
 
         if isinstance(ohlcv_lookback_cfg, dict):
             for tf, bars in ohlcv_lookback_cfg.items():
                 try:
-                    lookback[str(tf)] = int(bars)
+                    parsed = int(bars)
+                    if str(tf) == '1d':
+                        parsed += 1
+                    lookback[str(tf)] = parsed
                 except (TypeError, ValueError):
                     logger.warning(f"Invalid ohlcv.lookback value for timeframe '{tf}': {bars}; ignoring override")
 
@@ -7190,4 +7264,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-20 23:17 UTC_
+_Generated by GitHub Actions • 2026-02-20 23:29 UTC_
