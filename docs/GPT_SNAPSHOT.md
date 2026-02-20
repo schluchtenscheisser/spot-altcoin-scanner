@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-20 10:20 UTC  
-**Commit:** `20956e3` (20956e3b21803661003537543fc64e0beaa25e99)  
+**Generated:** 2026-02-20 10:53 UTC  
+**Commit:** `86c4cf7` (86c4cf7197ce32484c2de4e426e79f59acc18bac)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -37,7 +37,8 @@
 | `scanner/config.py` | `ScannerConfig` | `load_config`, `validate_config` |
 | `scanner/main.py` | - | `parse_args`, `main` |
 | `scanner/pipeline/__init__.py` | - | `run_pipeline` |
-| `scanner/pipeline/backtest_runner.py` | - | - |
+| `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+2 more) |
+| `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
@@ -63,9 +64,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 32
+- Total Modules: 33
 - Total Classes: 16
-- Total Functions: 49
+- Total Functions: 58
 
 ---
 
@@ -423,7 +424,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `945dac7859786b177ae30d789f1ba7a89fa6d27792a55065abea472e64fd4a28`
+**SHA256:** `df4202c3bcccd079cf8f68c2c85095165fcf3cc37648609ef550a9668a887882`
 
 ```yaml
 version:
@@ -567,6 +568,10 @@ snapshots:
 
 backtest:
   enabled: true
+  t_hold: 10
+  t_trigger_max: 5
+  thresholds_pct: [10, 20]
+  # legacy v1 fields (kept for compatibility)
   forward_return_days: [7, 14, 30]
   max_holding_days: 30
   entry_price: "close"
@@ -600,6 +605,10 @@ risk_flags:
   unlock_overrides_file: "config/unlock_overrides.yaml"
   minor_unlock_penalty_factor: 0.9
 
+
+
+discovery:
+  max_age_days: 180
 
 trade_levels:
   pullback_entry_tolerance_pct: 1.0
@@ -1866,28 +1875,255 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `c7c6d86798768efd84a890760c6e05a356fb4ef089cdc1ef06b0428f9f7c4ac8`
+**SHA256:** `fbec301a18a5cc631177ba3f4e7ccff1443db8a02bcdd6cb83cacd0e14538c09`
 
 ```python
-"""
-Backtest runner.
+from __future__ import annotations
 
-Responsibilities:
-- Consume historical snapshots.
-- Compute forward returns for each setup:
-  - Breakout
-  - Pullback
-  - Reversal
-- Aggregate evaluation metrics:
-  - hit rate
-  - median/mean returns
-  - tail risk
-  - rank vs return behavior
-- Output backtest summaries (e.g. JSON / Markdown).
+"""Deterministic backtest runner (Analytics-only, E2-K).
 
-Backtests must be deterministic and snapshot-driven.
+Canonical v2 rules (Feature-Spec section 10):
+- Trigger search on 1D close within ``[t0 .. t0 + T_trigger_max]``
+- ``entry_price = close[trigger_day]``
+- ``hit_10`` / ``hit_20`` use ``max(high[trigger_day+1 .. trigger_day+T_hold])``
+- No exit logic.
 """
 
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+import json
+
+
+DEFAULT_BACKTEST_CFG: Dict[str, Any] = {
+    "t_hold": 10,
+    "t_trigger_max": 5,
+    "thresholds_pct": [10.0, 20.0],
+}
+
+
+def _float_or_none(value: Any) -> Optional[float]:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f:  # NaN guard
+        return None
+    return f
+
+
+def _extract_backtest_config(config: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    if not config:
+        return dict(DEFAULT_BACKTEST_CFG)
+
+    bt = config.get("backtest", config)
+    out = dict(DEFAULT_BACKTEST_CFG)
+
+    # Canonical aliases in case legacy keys still exist.
+    out["t_hold"] = int(bt.get("t_hold", bt.get("max_holding_days", out["t_hold"])))
+    out["t_trigger_max"] = int(bt.get("t_trigger_max", out["t_trigger_max"]))
+
+    if "thresholds_pct" in bt:
+        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds_pct", [])]
+    elif "thresholds" in bt:
+        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds", [])]
+
+    return out
+
+
+def _setup_triggered(setup_type: str, close: float, trade_levels: Mapping[str, Any]) -> bool:
+    if setup_type == "breakout":
+        trigger = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+        return trigger is not None and close >= trigger
+    if setup_type == "reversal":
+        trigger = _float_or_none(trade_levels.get("entry_trigger"))
+        return trigger is not None and close >= trigger
+    if setup_type == "pullback":
+        zone = trade_levels.get("entry_zone") or {}
+        low = _float_or_none(zone.get("lower"))
+        high = _float_or_none(zone.get("upper"))
+        return low is not None and high is not None and low <= close <= high
+    return False
+
+
+def _evaluate_candidate(
+    *,
+    symbol: str,
+    setup_type: str,
+    t0_date: str,
+    index_by_date: Mapping[str, int],
+    series_close: Sequence[Optional[float]],
+    series_high: Sequence[Optional[float]],
+    trade_levels: Mapping[str, Any],
+    t_trigger_max: int,
+    t_hold: int,
+    thresholds_pct: Sequence[float],
+) -> Dict[str, Any]:
+    t0_idx = index_by_date[t0_date]
+
+    trigger_idx: Optional[int] = None
+    for idx in range(t0_idx, min(len(series_close), t0_idx + t_trigger_max + 1)):
+        close = series_close[idx]
+        if close is None:
+            continue
+        if _setup_triggered(setup_type, close, trade_levels):
+            trigger_idx = idx
+            break
+
+    outcome: Dict[str, Any] = {
+        "symbol": symbol,
+        "setup_type": setup_type,
+        "t0_date": t0_date,
+        "triggered": trigger_idx is not None,
+        "trigger_day_offset": None,
+        "entry_price": None,
+        "max_high_after_entry": None,
+    }
+
+    for thr in thresholds_pct:
+        outcome[f"hit_{int(thr)}"] = False
+
+    if trigger_idx is None:
+        return outcome
+
+    entry_price = series_close[trigger_idx]
+    if entry_price is None or entry_price <= 0:
+        return outcome
+
+    start = trigger_idx + 1
+    end_excl = min(len(series_high), trigger_idx + t_hold + 1)
+    window_highs = [h for h in series_high[start:end_excl] if h is not None]
+    max_high = max(window_highs) if window_highs else None
+
+    outcome.update(
+        {
+            "trigger_day_offset": trigger_idx - t0_idx,
+            "entry_price": entry_price,
+            "max_high_after_entry": max_high,
+        }
+    )
+
+    if max_high is None:
+        return outcome
+
+    for thr in thresholds_pct:
+        target = entry_price * (1.0 + thr / 100.0)
+        outcome[f"hit_{int(thr)}"] = max_high >= target
+
+    return outcome
+
+
+def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]) -> Dict[str, Any]:
+    total = len(events)
+    triggered = [e for e in events if e.get("triggered")]
+    summary: Dict[str, Any] = {
+        "count": total,
+        "triggered_count": len(triggered),
+        "trigger_rate": (len(triggered) / total) if total else 0.0,
+    }
+
+    for thr in thresholds_pct:
+        key = f"hit_{int(thr)}"
+        hit_count = sum(1 for e in triggered if e.get(key))
+        summary[f"{key}_count"] = hit_count
+        summary[f"{key}_rate_on_triggered"] = (hit_count / len(triggered)) if triggered else 0.0
+
+    return summary
+
+
+def run_backtest_from_snapshots(
+    snapshots: Sequence[Mapping[str, Any]],
+    config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run deterministic E2-K backtest on in-memory snapshot payloads."""
+    cfg = _extract_backtest_config(config)
+    t_hold = cfg["t_hold"]
+    t_trigger_max = cfg["t_trigger_max"]
+    thresholds_pct = cfg["thresholds_pct"]
+
+    sorted_snapshots = sorted(snapshots, key=lambda s: str(s.get("meta", {}).get("date", "")))
+    all_dates = [str(s.get("meta", {}).get("date")) for s in sorted_snapshots]
+    index_by_date = {d: i for i, d in enumerate(all_dates)}
+
+    closes: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
+    highs: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
+
+    for i, snap in enumerate(sorted_snapshots):
+        features = snap.get("data", {}).get("features", {})
+        for symbol, feat in features.items():
+            one_d = feat.get("1d", {}) if isinstance(feat, Mapping) else {}
+            closes[symbol][i] = _float_or_none(one_d.get("close"))
+            highs[symbol][i] = _float_or_none(one_d.get("high"))
+
+    setup_map = {
+        "breakout": "breakouts",
+        "pullback": "pullbacks",
+        "reversal": "reversals",
+    }
+
+    events_by_setup: Dict[str, List[Dict[str, Any]]] = {k: [] for k in setup_map}
+
+    for snap in sorted_snapshots:
+        t0_date = str(snap.get("meta", {}).get("date"))
+        scoring = snap.get("scoring", {})
+
+        for setup_type, score_key in setup_map.items():
+            for entry in scoring.get(score_key, []):
+                symbol = entry.get("symbol")
+                if symbol not in closes or t0_date not in index_by_date:
+                    continue
+
+                trade_levels = (
+                    entry.get("analysis", {}).get("trade_levels")
+                    if isinstance(entry.get("analysis"), Mapping)
+                    else None
+                ) or {}
+
+                event = _evaluate_candidate(
+                    symbol=symbol,
+                    setup_type=setup_type,
+                    t0_date=t0_date,
+                    index_by_date=index_by_date,
+                    series_close=closes[symbol],
+                    series_high=highs[symbol],
+                    trade_levels=trade_levels,
+                    t_trigger_max=t_trigger_max,
+                    t_hold=t_hold,
+                    thresholds_pct=thresholds_pct,
+                )
+                events_by_setup[setup_type].append(event)
+
+    summary_by_setup = {
+        setup_type: _summarize(events, thresholds_pct)
+        for setup_type, events in events_by_setup.items()
+    }
+
+    return {
+        "params": {
+            "t_hold": t_hold,
+            "t_trigger_max": t_trigger_max,
+            "thresholds_pct": thresholds_pct,
+        },
+        "by_setup": summary_by_setup,
+        "events": events_by_setup,
+    }
+
+
+def run_backtest_from_history(
+    history_dir: str | Path,
+    config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Load all snapshot json files from ``history_dir`` and run backtest."""
+    history_path = Path(history_dir)
+    snapshots: List[Dict[str, Any]] = []
+
+    for snapshot_file in sorted(history_path.glob("*.json")):
+        with open(snapshot_file, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if isinstance(payload, dict) and payload.get("meta", {}).get("date"):
+            snapshots.append(payload)
+
+    return run_backtest_from_snapshots(snapshots, config=config)
 
 ```
 
@@ -2711,6 +2947,73 @@ class RuntimeMarketMetaExporter:
         logger.info("Runtime market meta universe count: %s", payload["universe"]["count"])
 
         return output_path
+
+```
+
+### `scanner/pipeline/discovery.py`
+
+**SHA256:** `af2733523f90f9904ce93e2bcdf1796a878cca11e030cc8a1105ed59c02da41e`
+
+```python
+"""Discovery tag helpers (v2 T6.1)."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+
+def _iso_to_ts_ms(value: str) -> Optional[int]:
+    if not value:
+        return None
+
+    normalized = str(value).strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp() * 1000)
+
+
+def compute_discovery_fields(
+    *,
+    asof_ts_ms: int,
+    date_added: Optional[str],
+    first_seen_ts: Optional[int],
+    max_age_days: int = 180,
+) -> Dict[str, Any]:
+    """Compute deterministic discovery metadata for a symbol."""
+    source_ts = _iso_to_ts_ms(date_added) if date_added else None
+    source = "cmc_date_added" if source_ts is not None else None
+
+    if source_ts is None and first_seen_ts is not None:
+        try:
+            source_ts = int(first_seen_ts)
+            source = "first_seen_ts"
+        except (TypeError, ValueError):
+            source_ts = None
+            source = None
+
+    if source_ts is None:
+        return {
+            "discovery": False,
+            "discovery_age_days": None,
+            "discovery_source": None,
+        }
+
+    age_days = max(0, int((asof_ts_ms - source_ts) / 86_400_000))
+    return {
+        "discovery": age_days <= int(max_age_days),
+        "discovery_age_days": age_days,
+        "discovery_source": source,
+    }
+
 
 ```
 
@@ -4489,7 +4792,7 @@ class OHLCVFetcher:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `203101fd1acec75380abee23f2389b96cd6b7710b514188f435d8975c909cf92`
+**SHA256:** `fb59dbff03503d753783550166cd544ebfe615a47056748064ad5a79efc7d5ec`
 
 ```python
 """
@@ -4519,6 +4822,7 @@ from .global_ranking import compute_global_top20
 from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
+from .discovery import compute_discovery_fields
 
 logger = logging.getLogger(__name__)
 
@@ -4666,8 +4970,10 @@ def run_pipeline(config: ScannerConfig) -> None:
         mapping = mapper.map_symbol(symbol, cmc_symbol_map)
         if mapping.mapped and mapping.cmc_data:
             features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
+            features[symbol]['cmc_date_added'] = mapping.cmc_data.get('date_added')
         else:
             features[symbol]['coin_name'] = 'Unknown'
+            features[symbol]['cmc_date_added'] = None
         
         # Add market cap and volume from shortlist data
         shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
@@ -4691,6 +4997,26 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['liquidity_insufficient'] = None
             features[symbol]['risk_flags'] = []
             features[symbol]['soft_penalties'] = {}
+
+        symbol_ohlcv = ohlcv_data.get(symbol, {})
+        first_seen_ts = None
+        if isinstance(symbol_ohlcv, dict) and symbol_ohlcv.get('1d'):
+            first = symbol_ohlcv['1d'][0]
+            if isinstance(first, (list, tuple)) and first:
+                try:
+                    first_seen_ts = int(float(first[0]))
+                except (TypeError, ValueError):
+                    first_seen_ts = None
+
+        discovery_cfg = config.raw.get('discovery', {}) if isinstance(config.raw, dict) else {}
+        discovery_fields = compute_discovery_fields(
+            asof_ts_ms=asof_ts_ms,
+            date_added=features[symbol].get('cmc_date_added'),
+            first_seen_ts=first_seen_ts,
+            max_age_days=int(discovery_cfg.get('max_age_days', 180)),
+        )
+        features[symbol]['first_seen_ts'] = first_seen_ts
+        features[symbol].update(discovery_fields)
 
     logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
     
@@ -5682,7 +6008,7 @@ class MEXCClient:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `9d916ebaee145a6cde94d3011d3a2a32b53e79e63864c504c6c0852745de4ed7`
+**SHA256:** `b92a71660905b7baa2bc62b949d0ccb2cb86879e499bfd31cb2947821ea2fe01`
 
 ```python
 """Pullback scoring."""
@@ -5955,6 +6281,9 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "analysis": {"trade_levels": trade_levels},
+                    "discovery": features.get("discovery", False),
+                    "discovery_age_days": features.get("discovery_age_days"),
+                    "discovery_source": features.get("discovery_source"),
                 }
             )
         except Exception as e:
@@ -6061,7 +6390,7 @@ def load_component_weights(
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `3b4edbd489f9b881aad64a202243392c43eaf44ce71ad700d2d090a7acdcba30`
+**SHA256:** `1d559c7db21ff1f052f5b8ae2e92e39057ee205d8976fad89e49326496c68f1c`
 
 ```python
 """Breakout scoring."""
@@ -6326,6 +6655,9 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "analysis": {"trade_levels": trade_levels},
+                    "discovery": features.get("discovery", False),
+                    "discovery_age_days": features.get("discovery_age_days"),
+                    "discovery_source": features.get("discovery_source"),
                 }
             )
         except Exception as e:
@@ -6339,7 +6671,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `185d05d7c1b016048e70426f8026789d79175c2e0deeed0e877270f9fdcf77d2`
+**SHA256:** `68fa78f42793dd8bf0a9eabc7a51d24b71bce2806367a7ee02ab7826bd3cbf9f`
 
 ```python
 """
@@ -6623,6 +6955,9 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "analysis": {"trade_levels": trade_levels},
+                    "discovery": features.get("discovery", False),
+                    "discovery_age_days": features.get("discovery_age_days"),
+                    "discovery_source": features.get("discovery_source"),
                 }
             )
         except Exception as e:
@@ -6793,4 +7128,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-20 10:20 UTC_
+_Generated by GitHub Actions • 2026-02-20 10:53 UTC_
