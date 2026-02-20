@@ -55,6 +55,10 @@
   - Deterministisches Fixture + Expected Snapshot hinzugefügt (`tests/golden/fixtures/backtest_t84_snapshots.json`, `tests/golden/backtest_t84_expected.json`).
   - Deckt Trigger trifft/verfehlt und Thresholds 10/20 reproduzierbar ab.
 
+- **T8.1 – Indicator Tests (EMA/ATR)**
+  - Indicator-Drift-Guard ergänzt über deterministische EMA/ATR-Referenzfixtures sowie Edge-Cases (kurze Reihen, ATR mit close<=0).
+  - Neue Tests: `tests/test_t81_indicator_drift_guard.py` (schnell, ohne externe Abhängigkeiten).
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
@@ -70,8 +74,7 @@
 
 ## ❌ Offen
 
-- **T8.1**
-  - Indicator-Drift-Guard (EMA/ATR) als v2-umfangreiche Suite noch offen.
+- Aktuell keine offenen Tickets im dokumentierten v2-Ticketbestand unter `docs/v2/tickets/` außer verbleibender Restarbeit aus T8.3 (siehe gelber Abschnitt).
 
 ---
 
@@ -97,11 +100,11 @@
 - Setup History Gates: `tests/test_t32_min_history_gate.py`
 - Proxy population explicitness (Population != Shortlist-Nachweis): `tests/test_phase0_config_wiring.py`
 - Backtest Golden-Fixture (Trigger trifft/verfehlt, Hit10/20): `tests/test_t84_backtest_golden.py`
+- Indicator-Drift-Guard (EMA/ATR + Edge-Cases): `tests/test_t81_indicator_drift_guard.py`
 
 ---
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 1. **T8.3** Golden-Suite für tie-matrix/confluence edge-cases ausbauen
-2. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
-3. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
+2. Optionaler Review: weitere percent_rank-Anwendungsfälle bei neuen Features konsequent über den zentralen Cross-Section-Helper führen.
