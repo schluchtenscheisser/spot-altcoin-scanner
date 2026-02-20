@@ -45,6 +45,12 @@
   - Parameter `t_hold`, `t_trigger_max`, `thresholds_pct` in `config/config.yml` ergänzt (Legacy-Backtest-Felder bleiben kompatibel).
   - Tests ergänzt: `tests/test_t71_backtest_runner.py`.
 
+
+- **T8.4 – Backtest Golden Fixtures**
+  - Golden-Fixture-Regression für den E2-K-Runner ergänzt (`tests/test_t84_backtest_golden.py`).
+  - Deterministisches Fixture + Expected Snapshot hinzugefügt (`tests/golden/fixtures/backtest_t84_snapshots.json`, `tests/golden/backtest_t84_expected.json`).
+  - Deckt Trigger trifft/verfehlt und Thresholds 10/20 reproduzierbar ab.
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
@@ -64,8 +70,8 @@
 
 ## ❌ Offen
 
-- **T8.1 / T8.4**
-  - Indicator-Drift-Guard und Backtest-Golden-Fixtures als v2-umfangreiche Suite noch offen.
+- **T8.1**
+  - Indicator-Drift-Guard (EMA/ATR) als v2-umfangreiche Suite noch offen.
 
 ---
 
@@ -90,11 +96,12 @@
 - Global ranking/report integration: `tests/test_t11_global_ranking.py`
 - Setup History Gates: `tests/test_t32_min_history_gate.py`
 - Proxy population explicitness (Population != Shortlist-Nachweis): `tests/test_phase0_config_wiring.py`
+- Backtest Golden-Fixture (Trigger trifft/verfehlt, Hit10/20): `tests/test_t84_backtest_golden.py`
 
 ---
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T8.4** (Backtest-Golden-Fixtures) auf Basis des neuen Runners ergänzen
-2. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
-3. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
+1. **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
+2. **T8.3** Golden-Suite für tie-matrix/confluence edge-cases ausbauen
+3. **T8.1** Indicator-Drift-Guard (EMA/ATR) vervollständigen
