@@ -104,6 +104,9 @@
   - Test lädt Fixture nun robust unabhängig vom aktuellen Working Directory.
 
 
+- **C7 – percent_rank_average_ties: explizite Tests (ties/unsorted/deterministisch)**
+  - Neue deterministische Unit-Tests ergänzt: `tests/test_percent_rank_average_ties.py`.
+  - Abgedeckt: unsortierter Input mit erwarteten Percent-Ranks, average-tie-Verhalten bei Gleichständen und deterministische Wiederholbarkeit (identische Ergebnisse bei Mehrfachaufruf).
 
 ---
 
@@ -115,9 +118,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C7 – percent_rank_average_ties: explizite Tests (ties/unsorted/deterministisch)**
-  - Neue Tests: `tests/test_percent_rank_average_ties.py` (unsorted, ties, determinism).
-
 - **C8 – Schema-Versioning: `schema_version` im finalen Output + docs/SCHEMA_CHANGES.md**
   - `schema_version` als explizites Feld im finalen Report/JSON ausgeben; zentral definieren.
   - `docs/SCHEMA_CHANGES.md` entsprechend erweitern + Version bump.
@@ -146,7 +146,7 @@
 - Reversal closed-candle None-gate: `tests/test_reversal_closed_candle_gate.py`
 - Unlock overrides parsing (defensiv): `tests/test_unlock_overrides_parsing.py`
 - Backtest Kalender-Tage (neu umgesetzt): `tests/test_backtest_calendar_days.py`
-- (neu geplant) percent_rank tie/unsorted determinism: `tests/test_percent_rank_average_ties.py`
+- percent_rank tie/unsorted determinism: `tests/test_percent_rank_average_ties.py`
 - (neu geplant) schema_version Output: (neuer minimaler Writer/Output-Test oder Golden-Update)
 
 ---
@@ -154,5 +154,4 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-2. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
