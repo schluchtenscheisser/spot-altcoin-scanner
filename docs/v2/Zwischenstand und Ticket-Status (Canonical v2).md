@@ -74,6 +74,11 @@
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
+- **C1 – Orderbook Top-K: pro Symbol soft-fail (kein Pipeline-Crash)**
+  - `fetch_orderbooks_for_top_k(...)` behandelt Exceptions nun pro Symbol (Top-K) via `try/except`; Pipeline läuft weiter.
+  - Bei Fehlern bleibt `orderbooks[symbol]=None`; Warning-Log mit `exc_info=True`.
+  - Testabdeckung erweitert: `tests/test_t82_topk_budget.py` prüft Exception-Szenario inkl. `calls == K`.
+
 ---
 
 ## ❌ Offen
@@ -84,11 +89,6 @@
 
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Diese Tickets sind neu aufgenommen (aus den zusammengeführten PR-Kommentaren) und müssen als separate PRs umgesetzt werden:
-- **C1 – Orderbook Top-K: pro Symbol soft-fail (kein Pipeline-Crash)**
-  - Pro Symbol try/except um `mexc_client.get_orderbook(...)` (Top-K).
-  - Fehlerhafte Symbole bleiben `orderbooks[symbol]=None`, Pipeline läuft weiter; Warning-Log mit `exc_info`.
-  - Neue Tests: erweitert/neu auf Basis `tests/test_t82_topk_budget.py` (Exception-Szenario + Calls==K).
-
 - **C2 – Closed-Candle Gate: None => insufficient_history (Reversal Scoring)**
   - Wenn `_closed_candle_count(...)` `None` liefert, muss das als `insufficient_history` gelten (kein “Durchrutschen”).
   - Neue Tests: `tests/test_reversal_closed_candle_gate.py` (None-Fall + Boundary-Fall == min_history).
@@ -127,9 +127,6 @@
   - `None` bei closed-candle count darf nicht “durchrutschen” (**C2**).
   - Off-by-one zwischen `lookback_days_1d` und `min_history_*` muss klar geregelt werden (**C4**).
 
-- **Orderbook-Robustheit**
-  - Einzelne API-/Orderbook-Fehler dürfen den Run nicht abbrechen (**C1**).
-
 - **Backtest Zeit-Semantik**
   - `t_trigger_max`/`t_hold` sollen Kalendertage sein; Missing-days dürfen nicht komprimiert werden (**C5**).
 
@@ -147,7 +144,6 @@
 - Proxy population explicitness (Population != Shortlist-Nachweis): `tests/test_phase0_config_wiring.py`
 - Backtest Golden-Fixture (Trigger trifft/verfehlt, Hit10/20): `tests/test_t84_backtest_golden.py`
 - Global Ranking Determinismus Golden-Fixture (ties/confluence/einmalig): `tests/test_t83_global_ranking_determinism.py`
-- (neu geplant) Orderbook soft-fail: erweitert `tests/test_t82_topk_budget.py` oder neuer Test
 - (neu geplant) Reversal closed-candle None-gate: `tests/test_reversal_closed_candle_gate.py`
 - (neu geplant) Unlock overrides parsing: `tests/test_unlock_overrides_parsing.py`
 - (neu geplant) Backtest Kalender-Tage: `tests/test_backtest_calendar_days.py`
@@ -159,11 +155,10 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 
-1. **C1** Orderbook Top‑K soft‑fail (Stabilität, verhindert Pipeline‑Crash).
-2. **C2** Closed‑candle Gate: `None` => insufficient_history (Korrektheit).
-3. **C3** Unlock overrides defensives Parsing (Stabilität).
-4. **C4** lookback/min_history Konsistenzregel + Tests (fachliche Konsistenz).
-5. **C5** Backtest Kalender‑Tage (fachliche Semantik).
-6. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
-7. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
-8. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
+1. **C2** Closed‑candle Gate: `None` => insufficient_history (Korrektheit).
+2. **C3** Unlock overrides defensives Parsing (Stabilität).
+3. **C4** lookback/min_history Konsistenzregel + Tests (fachliche Konsistenz).
+4. **C5** Backtest Kalender‑Tage (fachliche Semantik).
+5. **C6** Test‑Fixtures CWD‑unabhängig (Robustheit).
+6. **C7** percent_rank Tests (Robustheit/Regression‑Guard).
+7. **C8** schema_version im Output + SCHEMA_CHANGES (Governance/Schema).
