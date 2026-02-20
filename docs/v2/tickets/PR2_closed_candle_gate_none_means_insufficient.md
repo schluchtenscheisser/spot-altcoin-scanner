@@ -41,3 +41,9 @@ Neuer Unit-Test (z. B. `tests/test_reversal_closed_candle_gate.py`):
 - Neue Tests vorhanden und grün
 - Bestehende Tests grün
 - Verhalten: None => insufficient_history
+
+## Abschluss- und Archiv-Schritt (Pflicht)
+Nach Merge/Abschluss dieses Tickets:
+1. Verschiebe **diese** Ticket-Datei nach `docs/legacy/v2/tickets/` (gleicher Dateiname).
+2. Aktualisiere das Dokument `docs/v2/Zwischenstand und Ticket-Status (Canonical v2).md`, so dass dieses für die nächste Session wieder den dann gültigen Zwischenstand aufweist. Beachte dabei, dass alle relevanten Informationen, die für eine neue Codex-Session ohne Wissensverlust erforderlich sind, in dem Dokument enthalten sind.
+3. 
