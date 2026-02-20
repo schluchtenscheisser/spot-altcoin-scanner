@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-20 10:59 UTC  
-**Commit:** `4d4fdad` (4d4fdadcbebe3927032f8de5b6343bba53d4d5cb)  
+**Generated:** 2026-02-20 17:11 UTC  
+**Commit:** `9ba8f8d` (9ba8f8d8a353a0048e836cf0de1566748dbb4945)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -38,6 +38,7 @@
 | `scanner/main.py` | - | `parse_args`, `main` |
 | `scanner/pipeline/__init__.py` | - | `run_pipeline` |
 | `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+2 more) |
+| `scanner/pipeline/cross_section.py` | - | `percent_rank_average_ties` |
 | `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
@@ -64,9 +65,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 33
+- Total Modules: 34
 - Total Classes: 16
-- Total Functions: 58
+- Total Functions: 59
 
 ---
 
@@ -669,7 +670,7 @@ jobs:
 
 ### `.github/workflows/update-code-map.yml`
 
-**SHA256:** `f9f1aaeeb68b48ecb4f7635fff7ccfae15230353f497afc027d4ca5f05260260`
+**SHA256:** `cc44b1b432f7fbc2bab483b7d4bd66cbaace42aef99c6258e46f9751ea927390`
 
 ```yaml
 name: 🗺️ Auto-Update Code Map with Call Graph
@@ -711,6 +712,7 @@ jobs:
           fetch-depth: 0
           # Use a token that can trigger other workflows if needed
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
       
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
@@ -765,8 +767,6 @@ jobs:
           file_pattern: docs/code_map.md
           commit_user_name: github-actions[bot]
           commit_user_email: github-actions[bot]@users.noreply.github.com
-          # Use force-with-lease to handle potential conflicts
-          push_options: '--force-with-lease'
           skip_fetch: false
           skip_checkout: false
       
@@ -791,7 +791,7 @@ jobs:
 
 ### `.github/workflows/generate-gpt-snapshot.yml`
 
-**SHA256:** `2c41d23986f93d60983b02ceea884043cdd4db00db53641145907dd031e24971`
+**SHA256:** `6e1c9057c65d93e9c1786b94a1889070306a9091768ff686956e51168aca27cf`
 
 ```yaml
 name: gpt-snapshot
@@ -814,6 +814,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+          ref: main
       
       - uses: actions/setup-python@v5
         with:
@@ -995,7 +996,6 @@ jobs:
         with:
           commit_message: "docs: update GPT_SNAPSHOT.md [skip ci]"
           file_pattern: docs/GPT_SNAPSHOT.md
-          push_options: '--force-with-lease'
       
       - name: Summary
         run: |
@@ -4291,7 +4291,7 @@ class UniverseFilters:
 
 ### `scanner/pipeline/shortlist.py`
 
-**SHA256:** `c8d85865822a747a9435510480d31073302a8445f44840bae44b5c9edc800dda`
+**SHA256:** `54ea263030362d03281b41498ce97f12013063cc554fafefde27cc22311dc90c`
 
 ```python
 """
@@ -4305,6 +4305,8 @@ Uses cheap metrics (24h volume) to rank and select top N candidates.
 import logging
 import math
 from typing import List, Dict, Any
+
+from .cross_section import percent_rank_average_ties
 
 logger = logging.getLogger(__name__)
 
@@ -4330,25 +4332,6 @@ class ShortlistSelector:
 
         logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
 
-    @staticmethod
-    def _percent_rank_average_ties(values: List[float]) -> List[float]:
-        """Average-rank percent score in [0,100] with tie handling."""
-        n = len(values)
-        if n == 0:
-            return []
-        if n == 1:
-            return [100.0]
-
-        sorted_unique = sorted(set(values))
-        rank_by_value: Dict[float, float] = {}
-
-        for v in sorted_unique:
-            positions = [idx + 1 for idx, x in enumerate(values) if x == v]
-            avg_rank = sum(positions) / len(positions)
-            rank_by_value[v] = avg_rank
-
-        return [((rank_by_value[v] - 1.0) / (n - 1.0)) * 100.0 for v in values]
-
     def _attach_proxy_liquidity_score(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Attach proxy_liquidity_score based on quote_volume_24h percent-rank (log-scaled input)."""
         if not rows:
@@ -4359,7 +4342,7 @@ class ShortlistSelector:
             vol = float(row.get('quote_volume_24h', 0) or 0)
             log_volumes.append(math.log1p(max(0.0, vol)))
 
-        percent_scores = self._percent_rank_average_ties(log_volumes)
+        percent_scores = percent_rank_average_ties(log_volumes)
 
         enriched: List[Dict[str, Any]] = []
         for row, score in zip(rows, percent_scores):
@@ -4787,6 +4770,46 @@ class OHLCVFetcher:
             'avg_candles_per_symbol': total_candles / len(ohlcv_data) if ohlcv_data else 0,
             'date_range': date_range,
         }
+
+```
+
+### `scanner/pipeline/cross_section.py`
+
+**SHA256:** `af16010718d0097f9f7adc448602dbc23c6008513524c5e31fa9d359c5ffc773`
+
+```python
+"""Cross-section helpers for deterministic percent-rank calculations."""
+
+from __future__ import annotations
+
+from typing import Dict, Iterable, List
+
+
+def percent_rank_average_ties(values: Iterable[float]) -> List[float]:
+    """Return percent-ranks in [0,100] with average-rank tie handling.
+
+    Ranking is computed against the full provided population and is independent
+    of input order.
+    """
+    value_list = [float(v) for v in values]
+    n = len(value_list)
+    if n == 0:
+        return []
+    if n == 1:
+        return [100.0]
+
+    sorted_values = sorted(value_list)
+    positions_by_value: Dict[float, List[int]] = {}
+    for idx, value in enumerate(sorted_values, start=1):
+        positions_by_value.setdefault(value, []).append(idx)
+
+    avg_rank_by_value = {
+        value: (sum(positions) / len(positions))
+        for value, positions in positions_by_value.items()
+    }
+
+    return [((avg_rank_by_value[value] - 1.0) / (n - 1.0)) * 100.0 for value in value_list]
+
 
 ```
 
@@ -7128,4 +7151,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-20 10:59 UTC_
+_Generated by GitHub Actions • 2026-02-20 17:11 UTC_
