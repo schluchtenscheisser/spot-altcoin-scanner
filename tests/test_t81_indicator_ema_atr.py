@@ -6,7 +6,9 @@ import pytest
 
 from scanner.pipeline.features import FeatureEngine
 
-FIXTURE_PATH = Path("tests/golden/fixtures/t81_indicator_cases.json")
+FIXTURE_PATH = (
+    Path(__file__).resolve().parent / "golden" / "fixtures" / "t81_indicator_cases.json"
+)
 
 
 def _to_array(values: list[float | None]) -> np.ndarray:
