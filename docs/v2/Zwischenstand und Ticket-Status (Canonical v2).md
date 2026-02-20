@@ -27,8 +27,13 @@
   - Hard Exclude für Denylist + `major_unlock_within_14d` aktiv im Universe-Filter.
   - Soft Penalty `minor_unlock_within_14d` wird als Faktor an die Scorer durchgereicht und als `risk_flags` im Setup-Output ausgewiesen.
   - Zusätzlich: `liquidity_grade=D` wird als Hard-Gate vor OHLCV/Scoring entfernt.
+- **T5.1 – Trade Levels (Output-only, deterministisch)**
+  - `analysis.trade_levels` je SetupResult implementiert (Breakout/Pullback/Reversal).
+  - `breakout_level_20` deterministisch aus 20D-prior-high-Definition abgeleitet.
+  - Ohne Einfluss auf Score-/Ranking-Reihenfolge (output-only).
+
 - **Schema-Cleanup**
-  - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.4** gesetzt.
+  - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
 ---
 
@@ -46,8 +51,6 @@
 
 ## ❌ Offen
 
-- **T5.1 – Trade Levels (Output-only, deterministisch)**
-  - `analysis.trade_levels` / `breakout_level_20` noch nicht umgesetzt.
 - **T6.1 – Discovery Tag (date_added / first_seen_ts)**
   - Noch nicht implementiert.
 - **T7.1 – Backtest E2-K**
@@ -66,7 +69,7 @@
     - `reason_invalid = "insufficient history"`
     - inkl. Watchlist-relevanter Spur
 - **Schema-Version-Konvention**
-  - Report `meta.version` ist jetzt **1.4**.
+  - Report `meta.version` ist jetzt **1.5**.
   - Beim nächsten schema-relevanten Schritt wieder sauber bumpen + `SCHEMA_CHANGES.md` fortführen.
 
 ---
@@ -83,8 +86,7 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T5.1** umsetzen (deterministische trade levels, output-only)
-2. Danach **T6.1** (discovery tag inkl. fallback)
-3. Danach **T7.1** + **T8.4** (Backtest runner + golden fixtures)
-4. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
-5. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
+1. **T6.1** umsetzen (discovery tag inkl. fallback)
+2. Danach **T7.1** + **T8.4** (Backtest runner + golden fixtures)
+3. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
+4. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen

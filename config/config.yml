@@ -171,3 +171,8 @@ risk_flags:
   denylist_file: "config/denylist.yaml"
   unlock_overrides_file: "config/unlock_overrides.yaml"
   minor_unlock_penalty_factor: 0.9
+
+
+trade_levels:
+  pullback_entry_tolerance_pct: 1.0
+  target_atr_multipliers: [1.0, 2.0, 3.0]

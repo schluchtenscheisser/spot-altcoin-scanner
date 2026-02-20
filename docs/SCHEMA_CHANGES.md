@@ -160,3 +160,46 @@ Dieses Dokument protokolliert alle Änderungen an:
   }
 }
 ```
+
+### 2026-02-20 — schema_version v1.4 → v1.5 — Trade Levels Output je Setup
+**PR:** (branch-local, v2 Ticket T5.1)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Setup-Outputs (`reversals`, `breakouts`, `pullbacks`, damit implizit auch `global_top20` wenn der best-setup Eintrag gewählt wird) enthalten nun:
+  - `analysis.trade_levels`
+- Deterministische Inhalte je Setup:
+  - Breakout: `breakout_level_20`, `entry_trigger`, `invalidation`, `targets`
+  - Pullback: `entry_zone` (center/lower/upper/tolerance), `invalidation`, `targets`
+  - Reversal: `entry_trigger`, `invalidation`, `targets`
+- JSON-Report `meta.version` wurde auf `1.5` erhöht.
+
+#### Warum?
+- Canonical-v2 Ticket T5.1 fordert deterministische Trade Levels als reinen Output ohne Ranking-/Score-Auswirkung.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder).
+
+#### Migration / Vorgehen
+- Consumer sollen `analysis` als optionales Objekt behandeln.
+- Alte Reports (`<=1.4`) können `analysis.trade_levels` fehlen lassen.
+
+#### Beispiel (kurz)
+```json
+{
+  "meta": {"version": "1.5"},
+  "setups": {
+    "breakouts": [
+      {
+        "symbol": "ABCUSDT",
+        "analysis": {
+          "trade_levels": {
+            "breakout_level_20": 1.234,
+            "targets": [1.26, 1.29, 1.31]
+          }
+        }
+      }
+    ]
+  }
+}
+```

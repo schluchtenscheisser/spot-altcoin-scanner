@@ -206,7 +206,10 @@ class ReportGenerator:
         analysis = data.get('analysis', '')
         if analysis:
             lines.append("**Analysis:**")
-            lines.append(analysis)
+            if isinstance(analysis, str):
+                lines.append(analysis)
+            else:
+                lines.append(json.dumps(analysis, ensure_ascii=False))
             lines.append("")
         
         # Flags - handle both dict and list formats
@@ -261,7 +264,7 @@ class ReportGenerator:
             'meta': {
                 'date': run_date,
                 'generated_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.4'
+                'version': '1.5'
             },
             'summary': {
                 'reversal_count': len(reversal_results),
