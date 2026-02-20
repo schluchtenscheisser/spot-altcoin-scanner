@@ -38,6 +38,13 @@
   - Gating erfüllt: Tag erscheint nur bei validen (gescorten) Setups.
 
 
+- **T7.1 – Backtest E2-K**
+  - `scanner/pipeline/backtest_runner.py` von Stub auf lauffähige E2-K-Implementierung erweitert.
+  - Canonical-Regeln umgesetzt: Trigger-Suche über 1D-Close in `[t0 .. t0+T_trigger_max]`, Entry auf Trigger-Close, Hits via `max(high[trigger+1 .. trigger+T_hold])` für 10%/20%.
+  - Deterministische Aggregation (`by_setup`) + Event-Outputs implementiert, inkl. In-Memory- und History-Runner.
+  - Parameter `t_hold`, `t_trigger_max`, `thresholds_pct` in `config/config.yml` ergänzt (Legacy-Backtest-Felder bleiben kompatibel).
+  - Tests ergänzt: `tests/test_t71_backtest_runner.py`.
+
 - **Schema-Cleanup**
   - `SCHEMA_CHANGES.md` ergänzt und Report-Meta-Version auf **1.5** gesetzt.
 
@@ -57,8 +64,6 @@
 
 ## ❌ Offen
 
-- **T7.1 – Backtest E2-K**
-  - `backtest_runner.py` ist weiterhin stub/docstring.
 - **T8.1 / T8.4**
   - Indicator-Drift-Guard und Backtest-Golden-Fixtures als v2-umfangreiche Suite noch offen.
 
@@ -90,6 +95,6 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. **T7.1** + **T8.4** (Backtest runner + golden fixtures) umsetzen
+1. **T8.4** (Backtest-Golden-Fixtures) auf Basis des neuen Runners ergänzen
 2. Parallel **T3.1** abschließen: percent_rank cross-section als allgemeiner Mechanismus, nicht nur Proxy-Liquidity
 3. T8.3 Golden-Suite für tie-matrix/confluence edge-cases ausbauen
