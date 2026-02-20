@@ -39,11 +39,17 @@ def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> 
 
 
 def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch orderbook only for Top-K symbols and return mapping symbol->orderbook payload."""
+    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload/None for all symbols."""
     top_k = get_orderbook_top_k(config)
     selected = select_top_k_for_orderbook(candidates, top_k)
 
     payload: Dict[str, Any] = {}
+    for row in candidates:
+        symbol = row.get("symbol")
+        if not symbol:
+            continue
+        payload[symbol] = None
+
     for row in selected:
         symbol = row.get("symbol")
         if not symbol:

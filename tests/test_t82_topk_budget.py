@@ -20,7 +20,7 @@ def test_select_top_k_for_orderbook_uses_proxy_liquidity_score_desc():
     assert [r["symbol"] for r in selected] == ["C", "B"]
 
 
-def test_fetch_orderbooks_for_top_k_respects_budget():
+def test_fetch_orderbooks_for_top_k_respects_budget_and_sets_none_for_rest():
     rows = [
         {"symbol": "A", "proxy_liquidity_score": 10.0, "quote_volume_24h": 100},
         {"symbol": "B", "proxy_liquidity_score": 40.0, "quote_volume_24h": 100},
@@ -33,4 +33,8 @@ def test_fetch_orderbooks_for_top_k_respects_budget():
     payload = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
-    assert set(payload.keys()) == {"D", "C"}
+    assert set(payload.keys()) == {"A", "B", "C", "D"}
+    assert payload["D"] is not None
+    assert payload["C"] is not None
+    assert payload["B"] is None
+    assert payload["A"] is None

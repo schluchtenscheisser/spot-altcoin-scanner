@@ -60,6 +60,12 @@
   - Neue deterministische Fixtures/Snapshots für Ranking-Reihenfolge, stable ties, Einmaligkeit pro Symbol und Confluence-Aggregation (`tests/golden/fixtures/global_ranking_t83_snapshots.json`, `tests/golden/t83_global_ranking_expected.json`).
 
 
+
+- **T8.2 – Top-K Budget Test (Orderbook)**
+  - Regression-Test für Top-K-Orderbook-Budget geschärft (`tests/test_t82_topk_budget.py`).
+  - Verifiziert explizit: bei Universe > K werden nur K Orderbooks via Mock geladen; alle übrigen Symbole bleiben im Payload mit `None`.
+  - Keine Netzwerkanfragen im Testpfad (Dummy-Client/Mock-only).
+
 - **T8.1 – Indicator Tests (EMA/ATR)**
   - Neue deterministische Drift-Guard-Suite für EMA und ATR ergänzt (`tests/test_t81_indicator_ema_atr.py`).
   - Fixtures mit bekannten Referenzwerten + Edge Cases hinzugefügt (`tests/golden/fixtures/t81_indicator_cases.json`).
