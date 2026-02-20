@@ -10,6 +10,7 @@ Canonical v2 rules (Feature-Spec section 10):
 """
 
 from collections import defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 import json
@@ -79,15 +80,46 @@ def _evaluate_candidate(
     t_hold: int,
     thresholds_pct: Sequence[float],
 ) -> Dict[str, Any]:
-    t0_idx = index_by_date[t0_date]
+    def _iso_to_date(value: str) -> Optional[date]:
+        try:
+            return date.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _calendar_window_indices(
+        *,
+        start_date: date,
+        days_inclusive: int,
+    ) -> Iterable[Tuple[int, int]]:
+        for day_offset in range(days_inclusive + 1):
+            day = (start_date + timedelta(days=day_offset)).isoformat()
+            idx = index_by_date.get(day)
+            if idx is None:
+                continue
+            yield day_offset, idx
+
+    t0_parsed = _iso_to_date(t0_date)
+    if t0_parsed is None:
+        return {
+            "symbol": symbol,
+            "setup_type": setup_type,
+            "t0_date": t0_date,
+            "triggered": False,
+            "trigger_day_offset": None,
+            "entry_price": None,
+            "max_high_after_entry": None,
+            **{f"hit_{int(thr)}": False for thr in thresholds_pct},
+        }
 
     trigger_idx: Optional[int] = None
-    for idx in range(t0_idx, min(len(series_close), t0_idx + t_trigger_max + 1)):
+    trigger_day_offset: Optional[int] = None
+    for day_offset, idx in _calendar_window_indices(start_date=t0_parsed, days_inclusive=t_trigger_max):
         close = series_close[idx]
         if close is None:
             continue
         if _setup_triggered(setup_type, close, trade_levels):
             trigger_idx = idx
+            trigger_day_offset = day_offset
             break
 
     outcome: Dict[str, Any] = {
@@ -110,14 +142,23 @@ def _evaluate_candidate(
     if entry_price is None or entry_price <= 0:
         return outcome
 
-    start = trigger_idx + 1
-    end_excl = min(len(series_high), trigger_idx + t_hold + 1)
-    window_highs = [h for h in series_high[start:end_excl] if h is not None]
+    trigger_date = t0_parsed + timedelta(days=trigger_day_offset or 0)
+    window_highs: List[float] = []
+    for hold_offset in range(1, t_hold + 1):
+        hold_day = (trigger_date + timedelta(days=hold_offset)).isoformat()
+        hold_idx = index_by_date.get(hold_day)
+        if hold_idx is None:
+            continue
+        high = series_high[hold_idx]
+        if high is None:
+            continue
+        window_highs.append(high)
+
     max_high = max(window_highs) if window_highs else None
 
     outcome.update(
         {
-            "trigger_day_offset": trigger_idx - t0_idx,
+            "trigger_day_offset": trigger_day_offset,
             "entry_price": entry_price,
             "max_high_after_entry": max_high,
         }
