@@ -139,6 +139,10 @@ snapshots:
 
 backtest:
   enabled: true
+  t_hold: 10
+  t_trigger_max: 5
+  thresholds_pct: [10, 20]
+  # legacy v1 fields (kept for compatibility)
   forward_return_days: [7, 14, 30]
   max_holding_days: 30
   entry_price: "close"
