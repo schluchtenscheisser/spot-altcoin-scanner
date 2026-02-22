@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 12:54 UTC  
-**Commit:** `ec487b9` (ec487b948494245141457347d724fddbcf6f554b)  
+**Generated:** 2026-02-22 17:02 UTC  
+**Commit:** `9fcb060` (9fcb060fd14af4567d9385bb14aba0bcb1e01b8e)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -1263,14 +1263,13 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
 ### `scanner/schema.py`
 
-**SHA256:** `8ee4edf39d2f2513f321ec05ae4c2d529704e380e44aebc4fa1ea2816c43fe68`
+**SHA256:** `bf2f55e525618469fa38317f3a4626c12432e798d490f582e9121f7a697b82a0`
 
 ```python
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.6"
-REPORT_META_VERSION = "1.6"
-
+REPORT_SCHEMA_VERSION = "v1.7"
+REPORT_META_VERSION = "1.7"
 
 ```
 
@@ -2583,7 +2582,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `6ca0fdb1a1b439949bcab1ab22085d3bc0cd7d64f7e2a3a151629b9f2012eefb`
+**SHA256:** `326368365824a5df9e1d5a531d9bf7e6045eace3bfebfe7b18632651d28a6253`
 
 ```python
 """
@@ -2652,6 +2651,11 @@ class ExcelReportGenerator:
             Path to saved Excel file
         """
         logger.info(f"Generating Excel report for {run_date}")
+
+        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
+        breakout_immediate = [
+            row for row in breakout_results if not str(row.get("setup_id", "")).endswith("retest_1_5d")
+        ]
         
         # Create workbook
         wb = Workbook()
@@ -2677,14 +2681,21 @@ class ExcelReportGenerator:
             ['Drawdown', 'Base', 'Reclaim', 'Volume']
         )
         
-        # Sheet 4: Breakout Setups
+        # Sheet 4: Breakout Immediate 1-5D
         self._create_setup_sheet(
-            wb, "Breakout Setups",
-            breakout_results[:self.top_n],
+            wb, "Breakout Immediate 1-5D",
+            breakout_immediate[:20],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
-        
-        # Sheet 5: Pullback Setups
+
+        # Sheet 5: Breakout Retest 1-5D
+        self._create_setup_sheet(
+            wb, "Breakout Retest 1-5D",
+            breakout_retest[:20],
+            ['Breakout', 'Volume', 'Trend', 'Momentum']
+        )
+
+        # Sheet 6: Pullback Setups
         self._create_setup_sheet(
             wb, "Pullback Setups",
             pullback_results[:self.top_n],
@@ -3834,7 +3845,7 @@ class FeatureEngine:
 
 ### `scanner/pipeline/global_ranking.py`
 
-**SHA256:** `07f5ed5d16a5ad9d58dc1e195dea4e719d2e8736e85339a5001ad0f7e0e83ebd`
+**SHA256:** `d6f7546c8cf7c6899a4decb229c45a1a36beeb9d5766aeeba44ed47163552b6c`
 
 ```python
 """Global ranking aggregation across setup-specific rankings."""
@@ -3864,12 +3875,6 @@ def compute_global_top20(
     """Build unique global top-20 list from setup results using weighted setup score."""
     root = config.raw if hasattr(config, "raw") else config
 
-    weights = {
-        "breakout": float(_config_get(root, ["global_ranking", "setup_weights", "breakout"], 1.0)),
-        "pullback": float(_config_get(root, ["global_ranking", "setup_weights", "pullback"], 0.9)),
-        "reversal": float(_config_get(root, ["global_ranking", "setup_weights", "reversal"], 0.8)),
-    }
-
     setup_map = {
         "breakout": breakout_results,
         "pullback": pullback_results,
@@ -3879,20 +3884,19 @@ def compute_global_top20(
     by_symbol: Dict[str, Dict[str, Any]] = {}
 
     for setup_type, entries in setup_map.items():
-        weight = weights[setup_type]
         for entry in entries:
             symbol = entry.get("symbol")
             if not symbol:
                 continue
             setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
-            weighted = setup_score * weight
+            weighted = setup_score
 
             if symbol not in by_symbol:
                 agg = dict(entry)
                 agg["setup_score"] = setup_score
                 agg["best_setup_type"] = setup_type
                 agg["best_setup_score"] = setup_score
-                agg["setup_weight"] = weight
+                agg["setup_weight"] = 1.0
                 agg["global_score"] = round(weighted, 6)
                 agg["confluence"] = 1
                 agg["valid_setups"] = [setup_type]
@@ -3915,7 +3919,7 @@ def compute_global_top20(
                 prev["setup_score"] = setup_score
                 prev["best_setup_type"] = setup_type
                 prev["best_setup_score"] = setup_score
-                prev["setup_weight"] = weight
+                prev["setup_weight"] = 1.0
                 prev["global_score"] = round(weighted, 6)
                 prev["confluence"] = len(prev_setups)
                 prev["valid_setups"] = sorted(prev_setups)
@@ -3939,7 +3943,7 @@ def compute_global_top20(
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `a74effed23a45551b90aad326c5dc40ef5b14f5d91f8b541937afcea1f3077b4`
+**SHA256:** `e9e48e76f8f0b704f9397ccb6cd9c35c8a4e7c04dd3c7f1b2e847b7d1aaffba2`
 
 ```python
 """
@@ -4039,6 +4043,13 @@ class ReportGenerator:
         lines.append("---")
         lines.append("")
 
+        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
+        breakout_immediate = [
+            row
+            for row in breakout_results
+            if not str(row.get("setup_id", "")).endswith("retest_1_5d")
+        ]
+
         # Global Top 20
         lines.append("## 🌐 Global Top 20")
         lines.append("")
@@ -4071,20 +4082,37 @@ class ReportGenerator:
         lines.append("---")
         lines.append("")
         
-        # Breakout Setups
-        lines.append("## 📈 Top Breakout Setups")
+        # Breakout Immediate Setups (1-5D)
+        lines.append("## 📈 Top 20 Immediate (1–5D)")
         lines.append("")
-        lines.append("*Range break + volume confirmation*")
+        lines.append("*Range break + momentum confirmation*")
         lines.append("")
-        
-        if breakout_results:
-            top_breakouts = breakout_results[:self.top_n]
+
+        if breakout_immediate:
+            top_breakouts = breakout_immediate[:20]
             for i, entry in enumerate(top_breakouts, 1):
                 lines.extend(self._format_setup_entry(i, entry))
         else:
-            lines.append("*No breakout setups found.*")
+            lines.append("*No immediate breakout setups found.*")
             lines.append("")
-        
+
+        lines.append("---")
+        lines.append("")
+
+        # Breakout Retest Setups (1-5D)
+        lines.append("## 📈 Top 20 Retest (1–5D)")
+        lines.append("")
+        lines.append("*Break-and-retest within validation window*")
+        lines.append("")
+
+        if breakout_retest:
+            top_breakouts = breakout_retest[:20]
+            for i, entry in enumerate(top_breakouts, 1):
+                lines.extend(self._format_setup_entry(i, entry))
+        else:
+            lines.append("*No retest breakout setups found.*")
+            lines.append("")
+
         lines.append("---")
         lines.append("")
         
@@ -4237,6 +4265,12 @@ class ReportGenerator:
             'setups': {
                 'reversals': self._with_rank(reversal_results[:self.top_n]),
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
+                'breakout_immediate_1_5d': self._with_rank([
+                    row for row in breakout_results if not str(row.get('setup_id', '')).endswith('retest_1_5d')
+                ][:20]),
+                'breakout_retest_1_5d': self._with_rank(
+                    [row for row in breakout_results if str(row.get('setup_id', '')).endswith('retest_1_5d')][:20]
+                ),
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
             },
@@ -7938,4 +7972,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 12:54 UTC_
+_Generated by GitHub Actions • 2026-02-22 17:02 UTC_
