@@ -377,19 +377,22 @@ class FeatureEngine:
             tr[i] = max(c1, c2, c3)
 
         atr = np.full(n, np.nan, dtype=float)
-        initial_window = tr[1 : period + 1]
-        if not np.isnan(initial_window).any():
-            atr[period] = float(np.nanmean(initial_window))
-            if atr[period] < 0:
-                atr[period] = np.nan
+        seed_window = tr[1 : period + 1]
+        atr[period] = float(np.nanmean(seed_window))
+        if np.isnan(atr[period]) or atr[period] < 0:
+            atr[period] = np.nan
 
         for i in range(period + 1, n):
-            if np.isnan(atr[i - 1]) or np.isnan(tr[i]):
-                atr[i] = np.nan
-                continue
+            if np.isnan(atr[i - 1]):
+                reseed_window = tr[max(1, i - period + 1) : i + 1]
+                reseed = float(np.nanmean(reseed_window))
+                atr[i] = np.nan if np.isnan(reseed) else reseed
+            elif np.isnan(tr[i]):
+                atr[i] = atr[i - 1]
+            else:
+                atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
 
-            atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
-            if atr[i] < 0:
+            if not np.isnan(atr[i]) and atr[i] < 0:
                 atr[i] = np.nan
 
         for i in range(period, n):
