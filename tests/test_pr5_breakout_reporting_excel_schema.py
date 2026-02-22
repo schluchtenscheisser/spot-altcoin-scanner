@@ -31,11 +31,12 @@ def test_pr5_json_contains_breakout_setup_lists() -> None:
     assert report["setups"]["breakout_retest_1_5d"][0]["setup_id"] == "breakout_retest_1_5d"
 
 
-def test_pr5_excel_has_retest_sheet(tmp_path: Path) -> None:
+def test_pr5_excel_has_legacy_and_new_breakout_sheets(tmp_path: Path) -> None:
     generator = ExcelReportGenerator({"output": {"reports_dir": str(tmp_path)}})
 
     excel_path = generator.generate_excel_report([], _breakout_rows(), [], [], "2026-02-22")
     wb = load_workbook(excel_path)
 
+    assert "Breakout Setups" in wb.sheetnames
     assert "Breakout Immediate 1-5D" in wb.sheetnames
     assert "Breakout Retest 1-5D" in wb.sheetnames

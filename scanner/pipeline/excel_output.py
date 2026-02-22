@@ -94,21 +94,28 @@ class ExcelReportGenerator:
             ['Drawdown', 'Base', 'Reclaim', 'Volume']
         )
         
-        # Sheet 4: Breakout Immediate 1-5D
+        # Sheet 4: Breakout Setups (legacy compatibility)
+        self._create_setup_sheet(
+            wb, "Breakout Setups",
+            breakout_results[:self.top_n],
+            ['Breakout', 'Volume', 'Trend', 'Momentum']
+        )
+
+        # Sheet 5: Breakout Immediate 1-5D
         self._create_setup_sheet(
             wb, "Breakout Immediate 1-5D",
             breakout_immediate[:20],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
 
-        # Sheet 5: Breakout Retest 1-5D
+        # Sheet 6: Breakout Retest 1-5D
         self._create_setup_sheet(
             wb, "Breakout Retest 1-5D",
             breakout_retest[:20],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
 
-        # Sheet 6: Pullback Setups
+        # Sheet 7: Pullback Setups
         self._create_setup_sheet(
             wb, "Pullback Setups",
             pullback_results[:self.top_n],
