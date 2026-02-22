@@ -30,5 +30,5 @@ def test_json_report_contains_explicit_schema_version():
 
     report = generator.generate_json_report([], [], [], [], "2026-02-20")
 
-    assert report["schema_version"] == "v1.6"
-    assert report["meta"]["version"] == "1.6"
+    assert report["schema_version"] == "v1.7"
+    assert report["meta"]["version"] == "1.7"

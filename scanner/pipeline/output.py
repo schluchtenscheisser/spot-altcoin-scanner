@@ -95,6 +95,13 @@ class ReportGenerator:
         lines.append("---")
         lines.append("")
 
+        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
+        breakout_immediate = [
+            row
+            for row in breakout_results
+            if not str(row.get("setup_id", "")).endswith("retest_1_5d")
+        ]
+
         # Global Top 20
         lines.append("## 🌐 Global Top 20")
         lines.append("")
@@ -127,20 +134,37 @@ class ReportGenerator:
         lines.append("---")
         lines.append("")
         
-        # Breakout Setups
-        lines.append("## 📈 Top Breakout Setups")
+        # Breakout Immediate Setups (1-5D)
+        lines.append("## 📈 Top 20 Immediate (1–5D)")
         lines.append("")
-        lines.append("*Range break + volume confirmation*")
+        lines.append("*Range break + momentum confirmation*")
         lines.append("")
-        
-        if breakout_results:
-            top_breakouts = breakout_results[:self.top_n]
+
+        if breakout_immediate:
+            top_breakouts = breakout_immediate[:20]
             for i, entry in enumerate(top_breakouts, 1):
                 lines.extend(self._format_setup_entry(i, entry))
         else:
-            lines.append("*No breakout setups found.*")
+            lines.append("*No immediate breakout setups found.*")
             lines.append("")
-        
+
+        lines.append("---")
+        lines.append("")
+
+        # Breakout Retest Setups (1-5D)
+        lines.append("## 📈 Top 20 Retest (1–5D)")
+        lines.append("")
+        lines.append("*Break-and-retest within validation window*")
+        lines.append("")
+
+        if breakout_retest:
+            top_breakouts = breakout_retest[:20]
+            for i, entry in enumerate(top_breakouts, 1):
+                lines.extend(self._format_setup_entry(i, entry))
+        else:
+            lines.append("*No retest breakout setups found.*")
+            lines.append("")
+
         lines.append("---")
         lines.append("")
         
@@ -293,6 +317,12 @@ class ReportGenerator:
             'setups': {
                 'reversals': self._with_rank(reversal_results[:self.top_n]),
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
+                'breakout_immediate_1_5d': self._with_rank([
+                    row for row in breakout_results if not str(row.get('setup_id', '')).endswith('retest_1_5d')
+                ][:20]),
+                'breakout_retest_1_5d': self._with_rank(
+                    [row for row in breakout_results if str(row.get('setup_id', '')).endswith('retest_1_5d')][:20]
+                ),
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
             },

@@ -25,12 +25,6 @@ def compute_global_top20(
     """Build unique global top-20 list from setup results using weighted setup score."""
     root = config.raw if hasattr(config, "raw") else config
 
-    weights = {
-        "breakout": float(_config_get(root, ["global_ranking", "setup_weights", "breakout"], 1.0)),
-        "pullback": float(_config_get(root, ["global_ranking", "setup_weights", "pullback"], 0.9)),
-        "reversal": float(_config_get(root, ["global_ranking", "setup_weights", "reversal"], 0.8)),
-    }
-
     setup_map = {
         "breakout": breakout_results,
         "pullback": pullback_results,
@@ -40,20 +34,19 @@ def compute_global_top20(
     by_symbol: Dict[str, Dict[str, Any]] = {}
 
     for setup_type, entries in setup_map.items():
-        weight = weights[setup_type]
         for entry in entries:
             symbol = entry.get("symbol")
             if not symbol:
                 continue
             setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
-            weighted = setup_score * weight
+            weighted = setup_score
 
             if symbol not in by_symbol:
                 agg = dict(entry)
                 agg["setup_score"] = setup_score
                 agg["best_setup_type"] = setup_type
                 agg["best_setup_score"] = setup_score
-                agg["setup_weight"] = weight
+                agg["setup_weight"] = 1.0
                 agg["global_score"] = round(weighted, 6)
                 agg["confluence"] = 1
                 agg["valid_setups"] = [setup_type]
@@ -76,7 +69,7 @@ def compute_global_top20(
                 prev["setup_score"] = setup_score
                 prev["best_setup_type"] = setup_type
                 prev["best_setup_score"] = setup_score
-                prev["setup_weight"] = weight
+                prev["setup_weight"] = 1.0
                 prev["global_score"] = round(weighted, 6)
                 prev["confluence"] = len(prev_setups)
                 prev["valid_setups"] = sorted(prev_setups)

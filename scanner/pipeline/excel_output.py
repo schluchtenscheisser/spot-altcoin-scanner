@@ -64,6 +64,11 @@ class ExcelReportGenerator:
             Path to saved Excel file
         """
         logger.info(f"Generating Excel report for {run_date}")
+
+        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
+        breakout_immediate = [
+            row for row in breakout_results if not str(row.get("setup_id", "")).endswith("retest_1_5d")
+        ]
         
         # Create workbook
         wb = Workbook()
@@ -89,14 +94,21 @@ class ExcelReportGenerator:
             ['Drawdown', 'Base', 'Reclaim', 'Volume']
         )
         
-        # Sheet 4: Breakout Setups
+        # Sheet 4: Breakout Immediate 1-5D
         self._create_setup_sheet(
-            wb, "Breakout Setups",
-            breakout_results[:self.top_n],
+            wb, "Breakout Immediate 1-5D",
+            breakout_immediate[:20],
             ['Breakout', 'Volume', 'Trend', 'Momentum']
         )
-        
-        # Sheet 5: Pullback Setups
+
+        # Sheet 5: Breakout Retest 1-5D
+        self._create_setup_sheet(
+            wb, "Breakout Retest 1-5D",
+            breakout_retest[:20],
+            ['Breakout', 'Volume', 'Trend', 'Momentum']
+        )
+
+        # Sheet 6: Pullback Setups
         self._create_setup_sheet(
             wb, "Pullback Setups",
             pullback_results[:self.top_n],
