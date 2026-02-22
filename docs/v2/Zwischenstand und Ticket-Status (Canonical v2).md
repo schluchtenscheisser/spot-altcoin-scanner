@@ -124,6 +124,11 @@
 ---
 
 
+- **PR1.1 – Fix ATR rank performance + suppress warm-up warning spam (FeatureEngine)**
+  - ATR-Rank-Berechnung in `FeatureEngine` von O(n²)-Prefix-Loop auf O(n)-Serienlogik umgestellt via `_calc_atr_pct_series(...)`.
+  - Warm-up-Logging-Spam (`insufficient candles for ATR14`) aus dem ATR-Rank-Pfad eliminiert; `_calc_percent_rank`-Semantik und Feature-Keys unverändert.
+  - Ticket-spezifische Tests ergänzt (`tests/test_pr1_1_atr_rank_performance.py`): Serien-vs-Skalar-Äquivalenz + keine wiederholten ATR14-Warnungen im 1D-Featurelauf.
+
 - **PR1 – Breakout Trend 1–5D: Feature Engine Extensions**
   - Feature-Engine um `1d.atr_pct_rank_120`, `4h.bb_width_pct` und `4h.bb_width_rank_120` erweitert.
   - Konfigurationsverdrahtung ergänzt: timeframe-spezifische `volume_sma_periods`, Bollinger-Parameter und ATR-Rank-Lookback.
@@ -138,6 +143,7 @@
 ## ❌ Offen
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
+- [x] **PR1_1_fix_atr_rank_performance.md** (ATR-rank O(n), no warm-up warning spam, tests)
 - [ ] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
 - [ ] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
 - [ ] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
