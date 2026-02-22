@@ -47,7 +47,8 @@ class ExcelReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Path:
         """
         Generate Excel workbook with 4 sheets.
@@ -74,7 +75,8 @@ class ExcelReportGenerator:
             len(reversal_results), 
             len(breakout_results), 
             len(pullback_results),
-            metadata
+            metadata,
+            btc_regime,
         )
         
         # Sheet 2: Global Top 20
@@ -115,24 +117,40 @@ class ExcelReportGenerator:
         reversal_count: int,
         breakout_count: int,
         pullback_count: int,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ):
         """Create Summary sheet with run statistics."""
         ws = wb.create_sheet("Summary", 0)
+
+        btc_regime = btc_regime or {}
+        btc_checks = btc_regime.get("checks") or {}
+
+        ws["A1"] = "BTC Regime"
+        ws["A2"] = "State"
+        ws["B2"] = btc_regime.get("state", "RISK_OFF")
+        ws["A3"] = "Multiplier (Risk-On)"
+        ws["B3"] = float(btc_regime.get("multiplier_risk_on", 1.0))
+        ws["A4"] = "Multiplier (Risk-Off)"
+        ws["B4"] = float(btc_regime.get("multiplier_risk_off", 0.85))
+        ws["A5"] = "close>ema50"
+        ws["B5"] = bool(btc_checks.get("close_gt_ema50", False))
+        ws["A6"] = "ema20>ema50"
+        ws["B6"] = bool(btc_checks.get("ema20_gt_ema50", False))
         
         # Header
-        ws['A1'] = 'Metric'
-        ws['B1'] = 'Value'
+        ws['A8'] = 'Metric'
+        ws['B8'] = 'Value'
         
         # Style header
-        for cell in ['A1', 'B1']:
+        for cell in ['A8', 'B8']:
             ws[cell].font = Font(bold=True, size=12)
             ws[cell].fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             ws[cell].font = Font(bold=True, size=12, color="FFFFFF")
             ws[cell].alignment = Alignment(horizontal='center')
         
         # Data rows
-        row = 2
+        row = 9
         ws[f'A{row}'] = 'Run Date'
         ws[f'B{row}'] = run_date
         row += 1
