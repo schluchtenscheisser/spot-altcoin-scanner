@@ -131,9 +131,12 @@ class BreakoutTrend1to5DScorer:
         if first_breakout_idx is None:
             return []
 
-        if not (float(f1d.get("close") or 0.0) > float(f1d.get("ema_50") or 0.0) and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)):
+        if not (
+            float(f1d.get("close") or 0.0) > float(f1d.get("ema_20") or 0.0)
+            and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)
+        ):
             return []
-        if float(f1d.get("atr_pct_rank_120") or 0.0) < 0.5:
+        if float(f1d.get("atr_pct_rank_120") or 0.0) > 0.80:
             return []
         if float(f1d.get("r_7") or 0.0) <= 0.0:
             return []

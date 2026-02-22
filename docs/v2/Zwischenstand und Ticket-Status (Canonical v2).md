@@ -190,6 +190,12 @@
   - Breakout-Listen in Markdown/JSON (`breakout_immediate_1_5d`, `breakout_retest_1_5d`) respektieren nun konsistent `output.top_n_per_setup` statt Hardcode `[:20]`.
   - Ticket-spezifische Regression-Tests ergänzt (`tests/test_pr7_reports_schema_topn.py`) und bestehende Schema-Version-Assertion angepasst.
   - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR7_reports_fix_schema_bump_and_topn_limits.md` verschoben.
+
+- **PR8 – Scoring: Align Breakout Trend 1–5D hard gates with canonical feature spec**
+  - Hard-Gates in `scanner/pipeline/scoring/breakout_trend_1_5d.py` auf Canonical v2 abgeglichen: Trend-Gate nutzt jetzt `close_1d > ema20_1d` und `ema20_1d > ema50_1d`; ATR-Gate rejectet nur noch bei `atr_pct_rank_120_1d > 0.80` (Boundary `0.80` bleibt valide).
+  - Ticket-spezifische Regression-Tests ergänzt (`tests/test_pr3_breakout_trend_scoring.py`) für Trend-Gate-Fälle (Pass/Fail) und ATR-Boundary (`0.80` Pass, `0.800001` Fail).
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR8_scoring_align_gates_with_feature_spec.md` verschoben.
+
 ## ❌ Offen
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
@@ -201,6 +207,9 @@
 - [x] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
 - [x] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
 - [x] **PR7_reports_fix_schema_bump_and_topn_limits.md** (schema bump for btc_regime + top_n_per_setup for breakout 1–5D lists)
+- [x] **PR8_scoring_align_gates_with_feature_spec.md** (trend/ATR hard-gate alignment to canonical feature spec + boundary tests)
+- [ ] **PR9_backtest_do_not_drop_rows_when_sim_returns_none.md** (preserve rows when 4H sim returns None + explicit NO_TRADE status)
+- [ ] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
 
 ---
 
@@ -232,4 +241,4 @@
 
 1. diehe Tickets in `docs/v2/tickets/`
 2. Empfohlene Reihenfolge:
-   PR8, PR9, PR10
+   PR9, PR10

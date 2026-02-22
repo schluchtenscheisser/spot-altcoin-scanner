@@ -112,3 +112,67 @@ def test_score_output_contains_both_setup_ids() -> None:
     )
     ids = {r["setup_id"] for r in rows}
     assert "breakout_immediate_1_5d" in ids
+
+
+def test_trend_gate_requires_close_above_ema20_and_ema20_above_ema50() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+
+    passing = _feature_row()
+    passing["1d"]["close"] = 120.0
+    passing["1d"]["ema_20"] = 110.0
+    passing["1d"]["ema_50"] = 105.0
+    rows_pass = score_breakout_trend_1_5d(
+        {"AAAUSDT": passing},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_pass
+
+    failing_close = _feature_row()
+    failing_close["1d"]["close"] = 110.0
+    failing_close["1d"]["ema_20"] = 110.0
+    failing_close["1d"]["ema_50"] = 105.0
+    rows_fail_close = score_breakout_trend_1_5d(
+        {"AAAUSDT": failing_close},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_fail_close == []
+
+    failing_ema_stack = _feature_row()
+    failing_ema_stack["1d"]["close"] = 120.0
+    failing_ema_stack["1d"]["ema_20"] = 100.0
+    failing_ema_stack["1d"]["ema_50"] = 105.0
+    rows_fail_ema_stack = score_breakout_trend_1_5d(
+        {"AAAUSDT": failing_ema_stack},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_fail_ema_stack == []
+
+
+def test_atr_gate_boundary_allows_0_80_and_rejects_above() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+
+    passing = _feature_row()
+    passing["1d"]["atr_pct_rank_120"] = 0.80
+    rows_pass = score_breakout_trend_1_5d(
+        {"AAAUSDT": passing},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_pass
+
+    failing = _feature_row()
+    failing["1d"]["atr_pct_rank_120"] = 0.800001
+    rows_fail = score_breakout_trend_1_5d(
+        {"AAAUSDT": failing},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_fail == []
