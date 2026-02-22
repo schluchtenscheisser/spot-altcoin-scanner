@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 12:41 UTC  
-**Commit:** `6d2e22a` (6d2e22aeb8e32cffcf6029460d0b2cc8f08d916a)  
+**Generated:** 2026-02-22 12:54 UTC  
+**Commit:** `ec487b9` (ec487b948494245141457347d724fddbcf6f554b)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -37,7 +37,7 @@
 | `scanner/config.py` | `ScannerConfig` | `load_config`, `validate_config` |
 | `scanner/main.py` | - | `parse_args`, `main` |
 | `scanner/pipeline/__init__.py` | - | `run_pipeline` |
-| `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+2 more) |
+| `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+3 more) |
 | `scanner/pipeline/cross_section.py` | - | `percent_rank_average_ties` |
 | `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
@@ -70,7 +70,7 @@
 **Statistics:**
 - Total Modules: 37
 - Total Classes: 17
-- Total Functions: 63
+- Total Functions: 64
 
 ---
 
@@ -1931,7 +1931,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `05b530d0762b5871e6b2d25538743f1a55e1997ad1f8334cda951dc532efa197`
+**SHA256:** `14c86a8a2d5152ce4067c40f7c428e6e56695abe2470ac22436feca83fcb6d75`
 
 ```python
 from __future__ import annotations
@@ -1957,6 +1957,9 @@ DEFAULT_BACKTEST_CFG: Dict[str, Any] = {
     "t_trigger_max": 5,
     "thresholds_pct": [10.0, 20.0],
 }
+
+BREAKOUT_TREND_SETUP_IDS = {"breakout_immediate_1_5d", "breakout_retest_1_5d"}
+FOUR_H_TIME_STOP_CANDLES = 42  # 168h / 4h
 
 
 def _float_or_none(value: Any) -> Optional[float]:
@@ -2128,6 +2131,140 @@ def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]
     return summary
 
 
+def _simulate_breakout_4h_trade(entry: Mapping[str, Any], setup_id: str) -> Optional[Dict[str, Any]]:
+    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
+    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
+    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
+    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
+    if not candles:
+        return None
+
+    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+    if breakout_level is None:
+        return None
+
+    trigger_idx = None
+    for idx, candle in enumerate(candles):
+        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
+        if close is not None and close > breakout_level:
+            trigger_idx = idx
+            break
+    if trigger_idx is None:
+        return {
+            "symbol": entry.get("symbol"),
+            "setup_id": setup_id,
+            "triggered": False,
+            "entry_idx": None,
+            "exit_reason": None,
+        }
+
+    if setup_id == "breakout_immediate_1_5d":
+        entry_idx = trigger_idx + 1
+        if entry_idx >= len(candles):
+            return None
+        entry_price = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
+    else:
+        entry_price = breakout_level
+        entry_idx = None
+        for idx in range(trigger_idx + 1, len(candles)):
+            candle = candles[idx]
+            if not isinstance(candle, Mapping):
+                continue
+            close = _float_or_none(candle.get("close"))
+            if close is not None and close < breakout_level:
+                return {
+                    "symbol": entry.get("symbol"),
+                    "setup_id": setup_id,
+                    "triggered": True,
+                    "entry_idx": None,
+                    "entry_price": None,
+                    "retest_invalidated": True,
+                    "exit_reason": None,
+                }
+            low = _float_or_none(candle.get("low"))
+            high = _float_or_none(candle.get("high"))
+            if low is not None and high is not None and low <= entry_price <= high:
+                entry_idx = idx
+                break
+        if entry_idx is None:
+            return None
+
+    if entry_price is None:
+        return None
+
+    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
+    if atr_abs is None:
+        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
+        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
+        if atr_pct is not None and close_4h is not None:
+            atr_abs = (atr_pct / 100.0) * close_4h
+    if atr_abs is None:
+        return None
+
+    stop = entry_price - 1.2 * atr_abs
+    r_val = entry_price - stop
+    partial_target = entry_price + 1.5 * r_val
+
+    partial_hit = False
+    partial_idx = None
+    exit_idx = None
+    exit_reason = None
+    exit_price = None
+
+    for idx in range(entry_idx, len(candles)):
+        candle = candles[idx]
+        if not isinstance(candle, Mapping):
+            continue
+        low = _float_or_none(candle.get("low"))
+        high = _float_or_none(candle.get("high"))
+
+        # Intra-candle priority: STOP > PARTIAL > TRAIL
+        if low is not None and low <= stop:
+            exit_idx = idx
+            exit_reason = "stop"
+            exit_price = stop
+            break
+
+        if (not partial_hit) and high is not None and high >= partial_target:
+            partial_hit = True
+            partial_idx = idx
+
+        if partial_hit:
+            close = _float_or_none(candle.get("close"))
+            ema20 = _float_or_none(candle.get("ema20"))
+            if close is not None and ema20 is not None and close < ema20 and (idx + 1) < len(candles):
+                nxt = candles[idx + 1]
+                if isinstance(nxt, Mapping):
+                    exit_idx = idx + 1
+                    exit_reason = "trail"
+                    exit_price = _float_or_none(nxt.get("open"))
+                    break
+
+        hold_candles = idx - entry_idx + 1
+        if hold_candles >= FOUR_H_TIME_STOP_CANDLES and (idx + 1) < len(candles):
+            nxt = candles[idx + 1]
+            if isinstance(nxt, Mapping):
+                exit_idx = idx + 1
+                exit_reason = "time_stop"
+                exit_price = _float_or_none(nxt.get("open"))
+                break
+
+    return {
+        "symbol": entry.get("symbol"),
+        "setup_id": setup_id,
+        "triggered": True,
+        "entry_idx": entry_idx,
+        "entry_price": entry_price,
+        "stop": stop,
+        "partial_target": partial_target,
+        "partial_hit": partial_hit,
+        "partial_idx": partial_idx,
+        "exit_idx": exit_idx,
+        "exit_reason": exit_reason,
+        "exit_price": exit_price,
+    }
+
+
 def run_backtest_from_snapshots(
     snapshots: Sequence[Mapping[str, Any]],
     config: Optional[Mapping[str, Any]] = None,
@@ -2168,6 +2305,14 @@ def run_backtest_from_snapshots(
             for entry in scoring.get(score_key, []):
                 symbol = entry.get("symbol")
                 if symbol not in closes or t0_date not in index_by_date:
+                    continue
+
+                setup_id = str(entry.get("setup_id") or "")
+                if setup_type == "breakout" and setup_id in BREAKOUT_TREND_SETUP_IDS:
+                    event_4h = _simulate_breakout_4h_trade(entry, setup_id)
+                    if event_4h is not None:
+                        event_4h["t0_date"] = t0_date
+                        events_by_setup.setdefault(setup_id, []).append(event_4h)
                     continue
 
                 trade_levels = (
@@ -7793,4 +7938,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 12:41 UTC_
+_Generated by GitHub Actions • 2026-02-22 12:54 UTC_
