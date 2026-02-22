@@ -18,7 +18,7 @@ from .shortlist import ShortlistSelector
 from .ohlcv import OHLCVFetcher
 from .features import FeatureEngine
 from .scoring.reversal import score_reversals
-from .scoring.breakout import score_breakouts
+from .scoring.breakout_trend_1_5d import score_breakout_trend_1_5d
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .global_ranking import compute_global_top20
@@ -243,9 +243,9 @@ def run_pipeline(config: ScannerConfig) -> None:
     reversal_results = score_reversals(features, volume_map, config.raw)
     logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
     
-    logger.info("  Scoring Breakouts...")
-    breakout_results = score_breakouts(features, volume_map, config.raw)
-    logger.info(f"  ✓ Breakouts: {len(breakout_results)} scored")
+    logger.info("  Scoring Breakout Trend 1-5D...")
+    breakout_results = score_breakout_trend_1_5d(features, volume_map, config.raw, btc_regime=btc_regime)
+    logger.info(f"  ✓ Breakout Trend 1-5D rows: {len(breakout_results)} scored")
     
     logger.info("  Scoring Pullbacks...")
     pullback_results = score_pullbacks(features, volume_map, config.raw)

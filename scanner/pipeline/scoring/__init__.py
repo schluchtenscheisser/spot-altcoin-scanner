@@ -3,6 +3,7 @@ Scoring package.
 
 Contains three independent scoring modules:
 - breakout.py
+- breakout_trend_1_5d.py
 - pullback.py
 - reversal.py
 
