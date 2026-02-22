@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 20:06 UTC  
-**Commit:** `77b6a72` (77b6a7221b9fb8a6125aa1140aace360baba1096)  
+**Generated:** 2026-02-22 20:17 UTC  
+**Commit:** `0632495` (06324956c092985e56d649f3df8e43753bf89f92)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -37,7 +37,7 @@
 | `scanner/config.py` | `ScannerConfig` | `load_config`, `validate_config` |
 | `scanner/main.py` | - | `parse_args`, `main` |
 | `scanner/pipeline/__init__.py` | - | `run_pipeline` |
-| `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+3 more) |
+| `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+4 more) |
 | `scanner/pipeline/cross_section.py` | - | `percent_rank_average_ties` |
 | `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
@@ -70,7 +70,7 @@
 **Statistics:**
 - Total Modules: 37
 - Total Classes: 17
-- Total Functions: 64
+- Total Functions: 65
 
 ---
 
@@ -1938,7 +1938,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `14c86a8a2d5152ce4067c40f7c428e6e56695abe2470ac22436feca83fcb6d75`
+**SHA256:** `9fcf7810ec2cf5a247eea3355911b16473d95734997dc84a6ab9207e29db9b9d`
 
 ```python
 from __future__ import annotations
@@ -2123,10 +2123,15 @@ def _evaluate_candidate(
 def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]) -> Dict[str, Any]:
     total = len(events)
     triggered = [e for e in events if e.get("triggered")]
+    has_trade_status = any("trade_status" in e for e in events)
+    trades = [e for e in events if e.get("trade_status") == "TRADE"] if has_trade_status else triggered
     summary: Dict[str, Any] = {
         "count": total,
+        "signals_count": total,
         "triggered_count": len(triggered),
         "trigger_rate": (len(triggered) / total) if total else 0.0,
+        "trades_count": len(trades),
+        "trade_rate_on_signals": (len(trades) / total) if total else 0.0,
     }
 
     for thr in thresholds_pct:
@@ -2259,6 +2264,7 @@ def _simulate_breakout_4h_trade(entry: Mapping[str, Any], setup_id: str) -> Opti
     return {
         "symbol": entry.get("symbol"),
         "setup_id": setup_id,
+        "trade_status": "TRADE",
         "triggered": True,
         "entry_idx": entry_idx,
         "entry_price": entry_price,
@@ -2270,6 +2276,58 @@ def _simulate_breakout_4h_trade(entry: Mapping[str, Any], setup_id: str) -> Opti
         "exit_reason": exit_reason,
         "exit_price": exit_price,
     }
+
+
+def _infer_breakout_no_trade_reason(entry: Mapping[str, Any], setup_id: str) -> str:
+    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
+    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
+    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
+    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
+    if not candles:
+        return "INSUFFICIENT_4H_HISTORY"
+
+    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+    if breakout_level is None:
+        return "MISSING_REQUIRED_FEATURES"
+
+    trigger_idx = None
+    for idx, candle in enumerate(candles):
+        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
+        if close is not None and close > breakout_level:
+            trigger_idx = idx
+            break
+    if trigger_idx is None:
+        return "MISSING_NEXT_4H_OPEN"
+
+    if setup_id == "breakout_immediate_1_5d":
+        entry_idx = trigger_idx + 1
+        if entry_idx >= len(candles):
+            return "MISSING_NEXT_4H_OPEN"
+        entry_open = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
+        if entry_open is None:
+            return "MISSING_NEXT_4H_OPEN"
+    else:
+        retest_filled = False
+        for idx in range(trigger_idx + 1, len(candles)):
+            candle = candles[idx]
+            if not isinstance(candle, Mapping):
+                continue
+            low = _float_or_none(candle.get("low"))
+            high = _float_or_none(candle.get("high"))
+            if low is not None and high is not None and low <= breakout_level <= high:
+                retest_filled = True
+                break
+        if not retest_filled:
+            return "RETEST_NOT_FILLED"
+
+    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
+    if atr_abs is None:
+        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
+        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
+        if atr_pct is None or close_4h is None:
+            return "MISSING_REQUIRED_FEATURES"
+
+    return "MISSING_REQUIRED_FEATURES"
 
 
 def run_backtest_from_snapshots(
@@ -2320,6 +2378,20 @@ def run_backtest_from_snapshots(
                     if event_4h is not None:
                         event_4h["t0_date"] = t0_date
                         events_by_setup.setdefault(setup_id, []).append(event_4h)
+                    else:
+                        events_by_setup.setdefault(setup_id, []).append(
+                            {
+                                "symbol": symbol,
+                                "setup_id": setup_id,
+                                "t0_date": t0_date,
+                                "trade_status": "NO_TRADE",
+                                "no_trade_reason": _infer_breakout_no_trade_reason(entry, setup_id),
+                                "triggered": True,
+                                "entry_idx": None,
+                                "entry_price": None,
+                                "exit_reason": None,
+                            }
+                        )
                     continue
 
                 trade_levels = (
@@ -7658,7 +7730,7 @@ def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) ->
 
 ### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
 
-**SHA256:** `28f0548b11649e487639df1650e9188c1a47b7c82e14e7b132a3247779521698`
+**SHA256:** `6c76b483e55b3e6bb7350b914a3e1881adef38d41b2176dbb8f5a790c47567a7`
 
 ```python
 """Breakout Trend 1-5D scoring (immediate + retest)."""
@@ -7794,9 +7866,12 @@ class BreakoutTrend1to5DScorer:
         if first_breakout_idx is None:
             return []
 
-        if not (float(f1d.get("close") or 0.0) > float(f1d.get("ema_50") or 0.0) and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)):
+        if not (
+            float(f1d.get("close") or 0.0) > float(f1d.get("ema_20") or 0.0)
+            and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)
+        ):
             return []
-        if float(f1d.get("atr_pct_rank_120") or 0.0) < 0.5:
+        if float(f1d.get("atr_pct_rank_120") or 0.0) > 0.80:
             return []
         if float(f1d.get("r_7") or 0.0) <= 0.0:
             return []
@@ -7985,4 +8060,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 20:06 UTC_
+_Generated by GitHub Actions • 2026-02-22 20:17 UTC_
