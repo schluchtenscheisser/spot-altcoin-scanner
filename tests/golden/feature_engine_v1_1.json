@@ -2,6 +2,7 @@
   "TESTUSDT": {
     "1d": {
       "atr_pct": 1.9014017568497212,
+      "atr_pct_rank_120": 53.333333333333336,
       "base_low": 106.425,
       "base_no_new_lows_pass": true,
       "base_range_pct": 3.5999999999999996,
@@ -35,6 +36,8 @@
     "4h": {
       "atr_pct": 1.901401756849724,
       "base_score": null,
+      "bb_width_pct": 9.244539154044713,
+      "bb_width_rank_120": 0.0,
       "breakout_dist_20": -0.6063397037378238,
       "breakout_dist_30": -0.6063397037378238,
       "close": 12.95,

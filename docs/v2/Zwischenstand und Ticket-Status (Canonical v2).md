@@ -123,6 +123,13 @@
 
 ---
 
+
+- **PR1 – Breakout Trend 1–5D: Feature Engine Extensions**
+  - Feature-Engine um `1d.atr_pct_rank_120`, `4h.bb_width_pct` und `4h.bb_width_rank_120` erweitert.
+  - Konfigurationsverdrahtung ergänzt: timeframe-spezifische `volume_sma_periods`, Bollinger-Parameter und ATR-Rank-Lookback.
+  - Deterministische Unit-Tests für Percent-Rank-Helper, Bollinger-Width-Berechnung und Volume-Period-Override ergänzt (`tests/test_pr1_breakout_feature_engine.py`).
+  - Golden-Fixture für Feature-Engine aktualisiert (`tests/golden/feature_engine_v1_1.json`).
+
 - **PR0 – Breakout Trend 1–5D: v2 Docs + Ticket Queue (Docs-only)**
   - Canonical-Doku für Breakout Trend 1–5D ist vorhanden/geschärft in `docs/v2/20_FEATURE_SPEC.md` (Features, Gates, Multipliers, Setup-IDs, Pflichtfelder, Backtest-Regeln).
   - Validierungs-/Fixture-Doku ergänzt in `docs/v2/40_TEST_FIXTURES_VALIDATION.md` (MORPHO-Snapshot, Negativfälle, deterministische Unit-Tabellen).
@@ -130,7 +137,7 @@
 
 ## ❌ Offen
 
-- [ ] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
+- [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
 - [ ] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
 - [ ] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
 - [ ] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
@@ -164,4 +171,4 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. Mit `PR1_breakout_trend_1_5d_feature_engine.md` fortfahren.
+1. Mit `PR2_breakout_trend_1_5d_btc_regime.md` fortfahren.
