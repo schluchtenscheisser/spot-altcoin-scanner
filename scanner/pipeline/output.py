@@ -141,7 +141,7 @@ class ReportGenerator:
         lines.append("")
 
         if breakout_immediate:
-            top_breakouts = breakout_immediate[:20]
+            top_breakouts = breakout_immediate[:self.top_n]
             for i, entry in enumerate(top_breakouts, 1):
                 lines.extend(self._format_setup_entry(i, entry))
         else:
@@ -158,7 +158,7 @@ class ReportGenerator:
         lines.append("")
 
         if breakout_retest:
-            top_breakouts = breakout_retest[:20]
+            top_breakouts = breakout_retest[:self.top_n]
             for i, entry in enumerate(top_breakouts, 1):
                 lines.extend(self._format_setup_entry(i, entry))
         else:
@@ -319,9 +319,9 @@ class ReportGenerator:
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
                 'breakout_immediate_1_5d': self._with_rank([
                     row for row in breakout_results if not str(row.get('setup_id', '')).endswith('retest_1_5d')
-                ][:20]),
+                ][:self.top_n]),
                 'breakout_retest_1_5d': self._with_rank(
-                    [row for row in breakout_results if str(row.get('setup_id', '')).endswith('retest_1_5d')][:20]
+                    [row for row in breakout_results if str(row.get('setup_id', '')).endswith('retest_1_5d')][:self.top_n]
                 ),
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])

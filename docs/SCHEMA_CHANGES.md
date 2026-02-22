@@ -54,6 +54,41 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-22 — schema_version v1.7 → v1.8 — `btc_regime` dokumentiert + Top-N-Limits für Breakout-Listen vereinheitlicht
+**PR:** (branch-local, v2 Ticket PR7)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- JSON-Reports sind jetzt auf `schema_version: v1.8` / `meta.version: 1.8` angehoben.
+- Top-Level-Feld `btc_regime` ist als Report-Vertrag explizit dokumentiert (`state`, `multiplier_risk_on`, `multiplier_risk_off`, `checks.close_gt_ema50`, `checks.ema20_gt_ema50`).
+- Setup-Listen `setups.breakout_immediate_1_5d[]` und `setups.breakout_retest_1_5d[]` respektieren nun konsistent `output.top_n_per_setup` statt eines Hardcodes auf 20.
+
+#### Warum?
+- `btc_regime` wurde als neues Top-Level-Feld eingeführt und benötigt einen klar versionierten Contract.
+- Konfigurationsvertrag für Reports (`top_n_per_setup`) muss für alle Setup-Listen einheitlich gelten.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Versionserhöhung; Feldstruktur bleibt stabil).
+- Consumer sollten Version `v1.8` erkennen und die Breakout-Listenlänge nicht mehr als implizit 20 annehmen.
+
+#### Migration / Vorgehen
+- Für Legacy-Consumer mit fester Erwartung `==20` die Auswertung auf `<= configured top_n_per_setup` umstellen.
+- Für Contract-Gating `schema_version` verwenden.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.8",
+  "meta": {"version": "1.8"},
+  "btc_regime": {
+    "state": "RISK_OFF",
+    "multiplier_risk_on": 1.0,
+    "multiplier_risk_off": 0.85,
+    "checks": {"close_gt_ema50": false, "ema20_gt_ema50": true}
+  }
+}
+```
+
 ### 2026-02-22 — schema_version v1.6 → v1.7 — Breakout 1–5D Reporting erweitert (Immediate/Retest)
 **PR:** (branch-local, v2 Ticket PR5)  
 **Typ:** additiv

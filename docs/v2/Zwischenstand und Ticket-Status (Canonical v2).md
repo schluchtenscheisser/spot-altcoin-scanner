@@ -184,6 +184,12 @@
   - Verhindert `RuntimeWarning: Mean of empty slice` ohne globale Warning-Filter; valid-data-Verhalten bleibt unverändert.
   - Ticket-spezifische Tests ergänzt (`tests/test_pr1_1_atr_rank_performance.py`) für all-NaN Seed/Reseed ohne RuntimeWarning und mit späterer Recovery.
 
+
+- **PR7 – Reports: schema bump + Top-N-Limits für Breakout 1–5D-Listen**
+  - Report-Schema auf **v1.8 / meta 1.8** angehoben; `btc_regime`-Top-Level-Contract in `docs/SCHEMA_CHANGES.md` dokumentiert.
+  - Breakout-Listen in Markdown/JSON (`breakout_immediate_1_5d`, `breakout_retest_1_5d`) respektieren nun konsistent `output.top_n_per_setup` statt Hardcode `[:20]`.
+  - Ticket-spezifische Regression-Tests ergänzt (`tests/test_pr7_reports_schema_topn.py`) und bestehende Schema-Version-Assertion angepasst.
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR7_reports_fix_schema_bump_and_topn_limits.md` verschoben.
 ## ❌ Offen
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
@@ -194,6 +200,7 @@
 - [x] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
 - [x] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
 - [x] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
+- [x] **PR7_reports_fix_schema_bump_and_topn_limits.md** (schema bump for btc_regime + top_n_per_setup for breakout 1–5D lists)
 
 ---
 
@@ -225,4 +232,4 @@
 
 1. diehe Tickets in `docs/v2/tickets/`
 2. Empfohlene Reihenfolge:
-   PR7, PR8, PR9, PR10
+   PR8, PR9, PR10
