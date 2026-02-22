@@ -99,6 +99,264 @@ Ist die Historie kürzer, wird das Setup als invalid bewertet.
 - **4H‑Historie:** mindestens 80 abgeschlossene 4H‑Kerzen.  
 Unterschreitet ein Coin diese Schwelle, wird er für dieses Setup ausgeschlossen.
 
+## 5.4 Breakout Trend (1–5 Tage) — Immediate + Retest (NEU)
+
+**Ziel:** Kurzfristige Trendfolge (Hold 1–5 Tage), Breakout aus Struktur mit Confirmation, aber mit Anti-Chase, Volatility-Regime und BTC-Regime Filter.
+
+**Closed-Candle Reality:** Alle Berechnungen verwenden ausschließlich **abgeschlossene** 1D/4H Kerzen (keine Lookahead-Nutzung).
+
+---
+
+### 5.4.1 Universe & Hard Gates (Setup-übergreifend)
+
+**Universe Filter (CMC):**
+- Market Cap: **100M bis 10B USD**
+
+**Liquidity Gates (CMC QuoteVol24h, USD):**
+- Normal: `quote_volume_24h_usd >= 10_000_000`
+- BTC Risk-Off Override: `quote_volume_24h_usd >= 15_000_000`
+
+**Trend Gate (1D):**
+- `ema20_1d > ema50_1d`
+- `close_1d > ema20_1d`
+
+**ATR Chaos Gate (1D):**
+- `atr_pct_rank_120_1d <= 0.80`
+
+**Momentum Gate (1D):**
+- `r_7_1d > 0.0`
+
+**Overextension Hard Gate (1D):**
+- `dist_ema20_pct_1d < 28.0`
+
+---
+
+### 5.4.2 Neue/erweiterte Features (Phase v2)
+
+#### A) Volume SMA Perioden pro Timeframe (Quote Volume)
+Konfiguration (Default):
+- `features.volume_sma_periods.1d = 20`
+- `features.volume_sma_periods.4h = 20`
+
+Berechnung (für Timeframe T in {1d,4h}):
+- `quote_volume_sma_T = SMA(quote_volume_T, period, EXCLUDE current closed candle)`
+- `volume_quote_spike_T = quote_volume_T_last_closed / quote_volume_sma_T`
+
+#### B) ATR% Rank (1D)
+- ATR(n) nach Wilder (n=14) wie in dieser Spec (Abschnitt 2.2).
+- `atr_pct_1d[t] = atr_1d[t] / close_1d[t] * 100`
+- `atr_pct_rank_120_1d = percent_rank(atr_pct_1d over last 120 closed 1D candles, current = last)`
+
+**percent_rank Tie-Handling:** average rank bei gleichen Werten.  
+Formel (deterministisch):
+- `rank = (count_less + 0.5*count_equal) / N` in `[0..1]`.
+
+#### C) Bollinger Band Width + Rank (4H)
+Konfiguration (Default):
+- `period = 20`, `stddev = 2.0`, Rank-Lookback 120
+
+Berechnung für jede 4H Candle `t` (ab t>=19):
+- `bb_middle[t] = SMA(close_4h[t-19..t])`
+- `bb_std[t] = STD(close_4h[t-19..t], population std, ddof=0)`
+- `bb_upper[t] = bb_middle[t] + 2.0 * bb_std[t]`
+- `bb_lower[t] = bb_middle[t] - 2.0 * bb_std[t]`
+- `bb_width_pct_4h[t] = ((bb_upper[t] - bb_lower[t]) / bb_middle[t]) * 100` (wenn bb_middle>0, sonst NaN)
+
+Rank:
+- `bb_width_rank_120_4h = percent_rank(bb_width_pct_4h over last 120 closed 4H candles, current = last)`
+
+---
+
+### 5.4.3 Struktur-Level (1D) und Trigger (4H)
+
+#### Breakout Level (1D 20D High, exclude current 1D candle)
+Sei `t1d` der Index der **letzten abgeschlossenen** 1D Candle.
+- `high_20d_1d = max(high_1d over bars [t1d-20 ... t1d-1])`
+- Wichtig: **Bar `t1d` ist ausgeschlossen** (no lookahead).
+
+#### Fresh Trigger Window (4H)
+Sei `t4h` der Index der **letzten abgeschlossenen** 4H Candle.
+- Fresh Window: die letzten `6` abgeschlossenen 4H Candles: `[t4h-5 ... t4h]`
+- `triggered = any(close_4h[i] > high_20d_1d for i in last 6 closed 4H candles)`
+- Wenn `triggered == False` ⇒ Setup invalid (nicht in Top-Listen)
+
+---
+
+### 5.4.4 Retest-Setup (Break-and-Retest)
+
+**Retest Tolerance:** `retest_tolerance_pct = 1.0`
+
+Zone:
+- `zone_low  = high_20d_1d * (1 - 0.01)`
+- `zone_high = high_20d_1d * (1 + 0.01)`
+
+**Retest Window:** `12` 4H Candles (48h) nach dem ersten Trigger
+1) Bestimme `first_breakout_idx` = frühester 4H Index innerhalb der letzten 6 4H Bars, für den `close_4h > high_20d_1d`.
+2) Retest Search Window: `j in [first_breakout_idx+1 ... first_breakout_idx+12]`
+
+**Retest Valid (für eine Candle j im Window):**
+- `low_4h[j] >= zone_low AND low_4h[j] <= zone_high` (Touch)
+- UND `close_4h[j] >= high_20d_1d` (Reclaim)
+
+**Retest Invalidation (Hard):**
+- Wenn irgendeine Candle im Retest Window gilt:
+  - `close_4h[k] < high_20d_1d` ⇒ Retest Setup invalid (nicht listen)
+
+---
+
+### 5.4.5 Score Komponenten (0..100) + Gewichte
+
+#### A) Breakout Distance Score (4H close vs 1D level)
+Input:
+- `dist_pct = ((close_4h_last_closed / high_20d_1d) - 1) * 100`
+
+**Exakt gleiche Kurve wie bestehender BreakoutScorer** (scanner/pipeline/scoring/breakout.py):
+- Parameter (Defaults):
+  - floor = -5.0
+  - min_breakout = 2.0
+  - ideal_breakout = 5.0
+  - max_breakout = 20.0
+
+Score Funktion (stückweise, deterministisch):
+- wenn `dist <= floor`: 0
+- wenn `floor < dist < 0`: `30 * (dist - floor) / (0 - floor)`
+- wenn `0 <= dist < min`: `30 + 40 * (dist / min)`
+- wenn `min <= dist <= ideal`: `70 + 30 * (dist - min) / (ideal - min)` (wenn denom<=0 => 100)
+- wenn `ideal < dist <= max`: `100 * (1 - (dist - ideal) / (max - ideal))` (wenn denom<=0 => 0)
+- sonst: 0
+
+#### B) Volume Score (combined spike)
+Spikes:
+- `spike_1d = volume_quote_spike_1d` (SMA20 exclude current)
+- `spike_4h = volume_quote_spike_4h` (SMA20 exclude current)
+- `spike_combined = 0.7*spike_1d + 0.3*spike_4h`
+
+Mapping:
+- wenn `spike_combined < 1.5`: 0
+- wenn `spike_combined >= 2.5`: 100
+- sonst linear: `(spike_combined - 1.5) / (2.5 - 1.5) * 100`
+
+#### C) Trend Score (Option A)
+Voraussetzung: Trend Gate (1D) muss true sein (sonst invalid).
+- `trend_score = 70`
+- `+15` wenn `close_4h_last_closed > ema20_4h_last_closed`
+- `+15` wenn `ema20_4h_last_closed > ema50_4h_last_closed`
+- cap: 100
+
+#### D) BB Score (Compression Bonus)
+Input: `r = bb_width_rank_120_4h` in `[0..1]`
+- wenn `r <= 0.20`: 100
+- wenn `0.20 < r <= 0.60`: linear 100 → 40
+  - `100 - (r - 0.20) * (100-40) / (0.60-0.20)`
+- wenn `r > 0.60`: 0
+
+#### Gewichte (fix)
+- breakout_distance: 0.35
+- volume: 0.35
+- trend: 0.15
+- bb_score: 0.15
+
+`base_score = sum(weight_i * component_i)`
+
+---
+
+### 5.4.6 Multipliers (am Ende anwenden)
+
+#### Anti-Chase Multiplier (r_7_1d)
+Parameter:
+- start = 30
+- full = 60
+- min_mult = 0.75
+
+Stückweise:
+- wenn `r_7_1d < 30`: 1.0
+- wenn `30 <= r_7_1d <= 60`: linear 1.0 → 0.75
+- wenn `r_7_1d > 60`: 0.75
+
+#### Overextension Multiplier (dist_ema20_pct_1d)
+Parameter:
+- penalty_start = 12
+- strong = 20
+- hard_gate = 28
+
+Stückweise:
+- wenn `d < 12`: 1.0
+- wenn `12 <= d <= 20`: linear 1.0 → 0.85
+- wenn `20 < d < 28`: linear 0.85 → 0.70
+- wenn `d >= 28`: invalid (Hard Gate)
+
+#### BTC Regime Multiplier (zwingend)
+BTC Risk-On Definition:
+- `btc_risk_on = (btc_close_1d > btc_ema50_1d) AND (btc_ema20_1d > btc_ema50_1d)`
+
+Wenn `btc_risk_on == True`:
+- `btc_multiplier = 1.0`
+
+Wenn `btc_risk_on == False` (Risk-Off):
+- Symbol ist nur eligible, wenn zusätzlich:
+  - `quote_volume_24h_usd >= 15_000_000`
+  - RS Override true:
+    - `(alt_r7_1d - btc_r7_1d) >= 7.5` OR `(alt_r3_1d - btc_r3_1d) >= 3.5`
+- Wenn eligible: `btc_multiplier = 0.85`
+- sonst: invalid
+
+#### Final Score (0..100)
+`final_score = clamp(base_score * overextension_multiplier * anti_chase_multiplier * btc_multiplier, 0..100)`
+
+---
+
+### 5.4.7 Setup IDs & Output Pflichtfelder
+
+**Setup IDs:**
+- `breakout_immediate_1_5d`
+- `breakout_retest_1_5d`
+
+**Pflichtfelder pro Row (in JSON/Markdown/Excel):**
+- `setup_id`
+- `base_score`, `final_score`
+- `high_20d_1d`, `dist_pct`
+- `volume_quote_spike_1d`, `volume_quote_spike_4h`, `spike_combined`
+- `atr_pct_rank_120_1d`
+- `bb_width_pct_4h`, `bb_width_rank_120_4h`
+- `overextension_multiplier`, `anti_chase_multiplier`, `btc_multiplier`
+- Komponenten-Scores: `breakout_distance_score`, `volume_score`, `trend_score`, `bb_score`
+- Gates/Flags: `triggered`, `retest_valid`, `retest_invalidated` (wo relevant)
+
+**Global Top20 Dedup:**
+- Pro Symbol nur 1 Eintrag (höchstes final_score)
+- Tie-break: Retest bevorzugen
+
+---
+
+### 5.4.8 Trade/Backtest Modell (4H, deterministisch)
+
+**Immediate Entry (Backtest/Analytics):**
+- Entry: `open(next_4h_candle after the last breakout trigger candle close)`
+
+**Retest Entry (Backtest/Analytics):**
+- Entry: Limit at `high_20d_1d`
+- Fill: in retest-valid candle if `low <= entry <= high`
+
+**Stop (beide Setups):**
+- `atr_abs_4h = atr_pct_4h_last_closed / 100 * close_4h_last_closed`
+- `stop = entry - 1.2 * atr_abs_4h`
+
+**Partial:**
+- `R = entry - stop`
+- `partial_target = entry + 1.5 * R`
+- `partial_size_pct = 40`
+
+**Trailing (erst nach Partial aktiv):**
+- Exit Signal: `close_4h < ema20_4h`
+- Fill: `open(next_4h_candle)` nach dem Close-Signal
+
+**Time Stop:**
+- Max Hold: 168h (7 Tage)
+- Exit: `open(next_4h_candle)` nach Ablauf der 168h
+
+**Intra-Candle Priority (deterministisch):**
+STOP > PARTIAL > TRAIL
+
 ## 6. Liquidity/Slippage (Phase 1)
 ### 6.1 Proxy‑Pre‑Ranking
 Proxy: `quote_volume_24h` (MEXC).  
