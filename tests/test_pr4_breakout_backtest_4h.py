@@ -89,3 +89,21 @@ def test_pr4_time_stop_exits_on_next_open_after_168h():
     assert event["exit_reason"] == "time_stop"
     assert event["exit_idx"] == 43
     assert event["partial_hit"] is False
+
+
+
+def test_pr4_retest_entry_supported_with_limit_fill():
+    candles = [
+        _candle(99.0, 101.2, 98.5, 101.0, ema20=99.0),    # trigger
+        _candle(101.1, 101.5, 100.7, 101.3, ema20=99.2),  # no retest fill yet
+        _candle(100.9, 101.4, 99.8, 100.8, ema20=99.4),   # retest fill at 100.0
+        _candle(100.8, 101.0, 99.4, 100.7, ema20=99.6),
+    ]
+    snapshots = [_snapshot_with_breakout("breakout_retest_1_5d", candles)]
+
+    out = run_backtest_from_snapshots(snapshots)
+    event = out["events"]["breakout_retest_1_5d"][0]
+
+    assert event["triggered"] is True
+    assert event["entry_idx"] == 2
+    assert event["entry_price"] == 100.0
