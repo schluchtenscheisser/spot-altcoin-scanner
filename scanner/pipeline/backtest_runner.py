@@ -178,10 +178,32 @@ def _evaluate_candidate(
 
 
 def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]) -> Dict[str, Any]:
+    def _is_executed_trade(event: Mapping[str, Any]) -> bool:
+        if event.get("trade_status") == "TRADE":
+            return True
+
+        entry_price = _float_or_none(event.get("entry_price"))
+        if entry_price is None:
+            return False
+
+        entry_time = event.get("entry_time")
+        if entry_time is not None:
+            return True
+
+        trigger_day_offset = event.get("trigger_day_offset")
+        if isinstance(trigger_day_offset, int) and trigger_day_offset >= 0:
+            return True
+
+        entry_idx = event.get("entry_idx")
+        if isinstance(entry_idx, int) and entry_idx >= 0:
+            return True
+
+        position_size = _float_or_none(event.get("position_size"))
+        return position_size is not None and position_size > 0
+
     total = len(events)
     triggered = [e for e in events if e.get("triggered")]
-    has_trade_status = any("trade_status" in e for e in events)
-    trades = [e for e in events if e.get("trade_status") == "TRADE"] if has_trade_status else triggered
+    trades = [e for e in events if _is_executed_trade(e)]
     summary: Dict[str, Any] = {
         "count": total,
         "signals_count": total,

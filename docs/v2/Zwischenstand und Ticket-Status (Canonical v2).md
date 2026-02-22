@@ -211,6 +211,13 @@
   - Canonical Feature-Spec auf dieselbe Skala harmonisiert (`docs/v2/20_FEATURE_SPEC.md`).
   - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR12_fix_atr_rank_gate_percent_scale.md` verschoben.
 
+
+- **PR13 – Backtest-Metriken: Trades nur aus ausgeführten Entries zählen**
+  - Summary-Logik in `scanner/pipeline/backtest_runner.py` zählt `trades_count` nun ausschließlich über ausgeführte Trades (`trade_status == "TRADE"` bzw. Execution-Fallback über Entry-Felder), nicht mehr über bloßes `triggered=True`.
+  - `NO_TRADE`-Zeilen bleiben in den Events erhalten und zählen weiterhin in `signals_count`, aber nicht in `trades_count`.
+  - Ticket-spezifische Regression-Tests ergänzt (`tests/test_pr13_backtest_count_trades_from_executions_only.py`) für die Fälle „triggered + NO_TRADE“ sowie „gemischte NO_TRADE/TRADE-Signale“.
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR13_backtest_count_trades_from_executions_only.md` verschoben.
+
 - **PR11 – CI/Automation: Separate concurrency lock for PR CI**
   - `.github/workflows/pr-ci.yml` nutzt jetzt eine isolierte PR-spezifische Concurrency-Group (`pr-ci-${{ github.event.pull_request.number || github.ref }}`) statt der geteilten Serial-Gruppe.
   - `cancel-in-progress` ist für PR-CI auf `true` gesetzt, damit nur der neueste Run je PR/Ref aktiv bleibt.
@@ -234,6 +241,7 @@
 - [x] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
 - [x] **PR11_fix_concurrency_pr_ci_isolation.md** (isolate PR CI concurrency group from main write-back automations)
 - [x] **PR12_fix_atr_rank_gate_percent_scale.md** (fix breakout ATR gate threshold to 0..100 percent scale + boundary tests)
+- [x] **PR13_backtest_count_trades_from_executions_only.md** (count trades from executed entries only; NO_TRADE remains signal-only)
 
 ---
 
@@ -263,5 +271,5 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. Neue Tickets unter `docs/v2/tickets/`
-2. Reihenfolge: PR13
+1. Neue Tickets unter `docs/v2/tickets/` prüfen (derzeit kein offenes PR-Ticket vorhanden).
+2. Falls neue Tickets vorliegen: weiterhin strikt „one ticket per PR" anwenden.
