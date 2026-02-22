@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import numpy as np
 
@@ -110,3 +111,35 @@ def test_percent_rank_computable_with_mixed_nan_window() -> None:
     rank = engine._calc_percent_rank(window)
 
     assert np.isfinite(rank)
+
+
+def test_atr_pct_series_all_nan_seed_window_emits_no_runtime_warning() -> None:
+    engine = FeatureEngine({})
+
+    closes = np.array([100.0, 101.0, 102.0, 103.0, 104.0, 105.0], dtype=float)
+    highs = np.array([101.0, np.nan, np.nan, np.nan, 105.0, 106.0], dtype=float)
+    lows = np.array([99.0, np.nan, np.nan, np.nan, 103.0, 104.0], dtype=float)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        atr_pct_series = engine._calc_atr_pct_series(highs, lows, closes, period=3)
+
+    assert not any(isinstance(w.message, RuntimeWarning) for w in caught)
+    assert np.isnan(atr_pct_series[:4]).all()
+    assert np.isfinite(atr_pct_series[-1])
+
+
+def test_atr_pct_series_all_nan_reseed_window_emits_no_runtime_warning() -> None:
+    engine = FeatureEngine({})
+
+    closes = np.array([100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0], dtype=float)
+    highs = np.array([101.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 109.0], dtype=float)
+    lows = np.array([99.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 106.0], dtype=float)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        atr_pct_series = engine._calc_atr_pct_series(highs, lows, closes, period=3)
+
+    assert not any(isinstance(w.message, RuntimeWarning) for w in caught)
+    assert np.isnan(atr_pct_series[6])
+    assert np.isfinite(atr_pct_series[-1])

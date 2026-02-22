@@ -179,6 +179,11 @@
   - Validierungs-/Fixture-Doku ergänzt in `docs/v2/40_TEST_FIXTURES_VALIDATION.md` (MORPHO-Snapshot, Negativfälle, deterministische Unit-Tabellen).
   - Ticket-Queue in `docs/v2/30_IMPLEMENTATION_TICKETS.md` vorhanden; PR0-Ticket nach Abschluss nach `docs/legacy/v2/tickets/` verschoben.
 
+- **PR6 – FeatureEngine: Guard ATR seed/reseed `nanmean` on all-NaN windows (no warning spam)**
+  - `_calc_atr_pct_series(...)` schützt Initial-Seed und Reseed gegen all-NaN Fenster, sodass `np.nanmean(...)` in diesen Fällen nicht mehr aufgerufen wird.
+  - Verhindert `RuntimeWarning: Mean of empty slice` ohne globale Warning-Filter; valid-data-Verhalten bleibt unverändert.
+  - Ticket-spezifische Tests ergänzt (`tests/test_pr1_1_atr_rank_performance.py`) für all-NaN Seed/Reseed ohne RuntimeWarning und mit späterer Recovery.
+
 ## ❌ Offen
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
@@ -220,4 +225,4 @@
 
 1. diehe Tickets in `docs/v2/tickets/`
 2. Empfohlene Reihenfolge:
-   PR6, PR7, PR8, PR9, PR10
+   PR7, PR8, PR9, PR10
