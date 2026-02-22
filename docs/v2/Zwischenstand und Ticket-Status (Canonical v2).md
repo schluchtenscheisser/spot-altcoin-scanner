@@ -205,6 +205,13 @@
   - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR10_excel_keep_legacy_breakout_setups_tab.md` verschoben.
 
 
+- **PR11 – CI/Automation: Separate concurrency lock for PR CI**
+  - `.github/workflows/pr-ci.yml` nutzt jetzt eine isolierte PR-spezifische Concurrency-Group (`pr-ci-${{ github.event.pull_request.number || github.ref }}`) statt der geteilten Serial-Gruppe.
+  - `cancel-in-progress` ist für PR-CI auf `true` gesetzt, damit nur der neueste Run je PR/Ref aktiv bleibt.
+  - Write-Back-Workflows (`generate-gpt-snapshot`, `update-code-map`) bleiben unverändert auf `pr-automation-serial` und werden nicht mehr von PR-CI-Locks blockiert.
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR11_fix_concurrency_pr_ci_isolation.md` verschoben.
+
+
 ## ✅ Ticket-Status
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
@@ -219,6 +226,7 @@
 - [x] **PR8_scoring_align_gates_with_feature_spec.md** (trend/ATR hard-gate alignment to canonical feature spec + boundary tests)
 - [x] **PR9_backtest_do_not_drop_rows_when_sim_returns_none.md** (preserve rows when 4H sim returns None + explicit NO_TRADE status)
 - [x] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
+- [x] **PR11_fix_concurrency_pr_ci_isolation.md** (isolate PR CI concurrency group from main write-back automations)
 
 ---
 
@@ -249,4 +257,4 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 1. Neue Tickets unter `docs/v2/tickets/`
-2. Reihenfolge: PR11, PR12, PR13
+2. Reihenfolge: PR12, PR13
