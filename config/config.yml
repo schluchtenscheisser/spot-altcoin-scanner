@@ -24,7 +24,7 @@ data_sources:
 universe_filters:
   market_cap:
     min_usd: 100000000      # 100M
-    max_usd: 3000000000     # 3B
+    max_usd: 10000000000    # 10B
   volume:
     min_quote_volume_24h: 1000000
   history:
@@ -96,6 +96,10 @@ scoring:
       volume: 0.40
       trend: 0.20
       momentum: 0.00
+
+
+  breakout_trend_1_5d:
+    risk_off_min_quote_volume_24h: 15000000
 
   pullback:
     weights_mode: "compat"

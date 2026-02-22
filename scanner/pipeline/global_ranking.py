@@ -45,7 +45,7 @@ def compute_global_top20(
             symbol = entry.get("symbol")
             if not symbol:
                 continue
-            setup_score = float(entry.get("score", 0.0))
+            setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
             weighted = setup_score * weight
 
             if symbol not in by_symbol:
@@ -66,7 +66,12 @@ def compute_global_top20(
             prev["valid_setups"] = sorted(prev_setups)
             prev["confluence"] = len(prev_setups)
 
-            if weighted > float(prev.get("global_score", 0.0)):
+            prev_weighted = float(prev.get("global_score", 0.0))
+            prev_setup_id = str(prev.get("setup_id", ""))
+            cur_setup_id = str(entry.get("setup_id", ""))
+            prefer_retest = weighted == prev_weighted and cur_setup_id.endswith("retest_1_5d") and not prev_setup_id.endswith("retest_1_5d")
+
+            if weighted > prev_weighted or prefer_retest:
                 prev.update(entry)
                 prev["setup_score"] = setup_score
                 prev["best_setup_type"] = setup_type
