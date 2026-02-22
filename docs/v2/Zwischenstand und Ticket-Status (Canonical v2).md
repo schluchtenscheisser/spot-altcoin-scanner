@@ -124,6 +124,11 @@
 ---
 
 
+- **PR1.2 – Align `_calc_atr_pct_series` validation with `_calc_atr_pct` (drop anomalous negatives)**
+  - `_calc_atr_pct_series(...)` validiert TR nun anomalie-sicher (NaN-Inputs, `high < low`, NaN-Komponenten ⇒ `np.nan`) und erzwingt non-negative ATR/ATR% Werte.
+  - Wilder-Initialisierung/Smoothing setzt bei ungültigen Fenstern bzw. negativen Werten konsequent `np.nan`, sodass invalide Beobachtungen nicht mehr in ATR-Ranks einfließen.
+  - Tests erweitert (`tests/test_pr1_1_atr_rank_performance.py`): Anomalie-Regressionsfall (`high < low`), Non-Negative-Invariante und dokumentiertes `percent_rank`-Verhalten bei NaN-Werten.
+
 - **PR1.1 – Fix ATR rank performance + suppress warm-up warning spam (FeatureEngine)**
   - ATR-Rank-Berechnung in `FeatureEngine` von O(n²)-Prefix-Loop auf O(n)-Serienlogik umgestellt via `_calc_atr_pct_series(...)`.
   - Warm-up-Logging-Spam (`insufficient candles for ATR14`) aus dem ATR-Rank-Pfad eliminiert; `_calc_percent_rank`-Semantik und Feature-Keys unverändert.
@@ -144,6 +149,7 @@
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
 - [x] **PR1_1_fix_atr_rank_performance.md** (ATR-rank O(n), no warm-up warning spam, tests)
+- [x] **PR1_2_fix_atr_series_validation.md** (series validation parity with scalar ATR, anomaly->NaN, tests)
 - [ ] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
 - [ ] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
 - [ ] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
