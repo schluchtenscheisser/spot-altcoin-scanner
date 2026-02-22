@@ -205,6 +205,12 @@
   - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR10_excel_keep_legacy_breakout_setups_tab.md` verschoben.
 
 
+- **PR12 – Scoring: ATR-Rank-Gate auf 0–100-Prozentskala korrigiert**
+  - Hard-Gate in `scanner/pipeline/scoring/breakout_trend_1_5d.py` nutzt nun konsistent die Percent-Rank-Skala `<= 80.0` (Boundary 80.0 pass, >80 fail) statt der fehlerhaften 0..1-Schwelle.
+  - Ticket-spezifische Tests angepasst/ergänzt (`tests/test_pr3_breakout_trend_scoring.py`) für Boundary (`80.0` pass, `80.0001` fail) und typischen Percent-Rank-Passfall (`50.0`).
+  - Canonical Feature-Spec auf dieselbe Skala harmonisiert (`docs/v2/20_FEATURE_SPEC.md`).
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR12_fix_atr_rank_gate_percent_scale.md` verschoben.
+
 - **PR11 – CI/Automation: Separate concurrency lock for PR CI**
   - `.github/workflows/pr-ci.yml` nutzt jetzt eine isolierte PR-spezifische Concurrency-Group (`pr-ci-${{ github.event.pull_request.number || github.ref }}`) statt der geteilten Serial-Gruppe.
   - `cancel-in-progress` ist für PR-CI auf `true` gesetzt, damit nur der neueste Run je PR/Ref aktiv bleibt.
@@ -227,6 +233,7 @@
 - [x] **PR9_backtest_do_not_drop_rows_when_sim_returns_none.md** (preserve rows when 4H sim returns None + explicit NO_TRADE status)
 - [x] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
 - [x] **PR11_fix_concurrency_pr_ci_isolation.md** (isolate PR CI concurrency group from main write-back automations)
+- [x] **PR12_fix_atr_rank_gate_percent_scale.md** (fix breakout ATR gate threshold to 0..100 percent scale + boundary tests)
 
 ---
 
@@ -257,4 +264,4 @@
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
 1. Neue Tickets unter `docs/v2/tickets/`
-2. Reihenfolge: PR12, PR13
+2. Reihenfolge: PR13

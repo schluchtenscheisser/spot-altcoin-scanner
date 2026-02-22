@@ -136,7 +136,7 @@ class BreakoutTrend1to5DScorer:
             and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)
         ):
             return []
-        if float(f1d.get("atr_pct_rank_120") or 0.0) > 0.80:
+        if float(f1d.get("atr_pct_rank_120") or 0.0) > 80.0:
             return []
         if float(f1d.get("r_7") or 0.0) <= 0.0:
             return []

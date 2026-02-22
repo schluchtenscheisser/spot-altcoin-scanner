@@ -121,7 +121,7 @@ Unterschreitet ein Coin diese Schwelle, wird er für dieses Setup ausgeschlossen
 - `close_1d > ema20_1d`
 
 **ATR Chaos Gate (1D):**
-- `atr_pct_rank_120_1d <= 0.80`
+- `atr_pct_rank_120_1d <= 80.0`
 
 **Momentum Gate (1D):**
 - `r_7_1d > 0.0`

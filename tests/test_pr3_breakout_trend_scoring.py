@@ -24,7 +24,7 @@ def _feature_row(dist_pct: float = 10.0, r7: float = 10.0) -> dict:
             "ema_20": 110.0,
             "ema_50": 105.0,
             "dist_ema20_pct": 10.0,
-            "atr_pct_rank_120": 0.5,
+            "atr_pct_rank_120": 50.0,
             "r_7": r7,
             "r_3": 5.0,
             "volume_quote_spike": 2.0,
@@ -154,11 +154,11 @@ def test_trend_gate_requires_close_above_ema20_and_ema20_above_ema50() -> None:
     assert rows_fail_ema_stack == []
 
 
-def test_atr_gate_boundary_allows_0_80_and_rejects_above() -> None:
+def test_atr_gate_boundary_allows_80_and_rejects_above() -> None:
     cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
 
     passing = _feature_row()
-    passing["1d"]["atr_pct_rank_120"] = 0.80
+    passing["1d"]["atr_pct_rank_120"] = 80.0
     rows_pass = score_breakout_trend_1_5d(
         {"AAAUSDT": passing},
         {"AAAUSDT": 30_000_000},
@@ -168,7 +168,7 @@ def test_atr_gate_boundary_allows_0_80_and_rejects_above() -> None:
     assert rows_pass
 
     failing = _feature_row()
-    failing["1d"]["atr_pct_rank_120"] = 0.800001
+    failing["1d"]["atr_pct_rank_120"] = 80.0001
     rows_fail = score_breakout_trend_1_5d(
         {"AAAUSDT": failing},
         {"AAAUSDT": 30_000_000},
@@ -176,3 +176,17 @@ def test_atr_gate_boundary_allows_0_80_and_rejects_above() -> None:
         btc_regime={"state": "RISK_ON"},
     )
     assert rows_fail == []
+
+
+def test_atr_gate_passes_typical_percent_rank_values() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+
+    passing = _feature_row()
+    passing["1d"]["atr_pct_rank_120"] = 50.0
+    rows_pass = score_breakout_trend_1_5d(
+        {"AAAUSDT": passing},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows_pass
