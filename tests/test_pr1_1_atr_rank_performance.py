@@ -47,3 +47,26 @@ def test_compute_timeframe_features_no_repeated_atr14_warmup_warning(caplog) -> 
         rec.message for rec in caplog.records if "insufficient candles for ATR14" in rec.message
     ]
     assert len(atr_warnings) == 0
+
+
+def test_atr_pct_series_invalid_high_low_ordering_returns_nan_and_no_negatives() -> None:
+    engine = FeatureEngine({})
+
+    closes = np.array([100.0, 102.0, 101.0, 103.0, 104.0, 105.0], dtype=float)
+    highs = np.array([101.0, 103.0, 102.0, 100.0, 105.0, 106.0], dtype=float)
+    lows = np.array([99.0, 100.0, 99.5, 101.0, 102.0, 103.0], dtype=float)
+
+    atr_pct_series = engine._calc_atr_pct_series(highs, lows, closes, period=3)
+
+    assert np.isnan(atr_pct_series[3])
+    assert np.all(np.isnan(atr_pct_series) | (atr_pct_series >= 0.0))
+
+
+def test_percent_rank_handles_nans_with_min_history_semantics() -> None:
+    engine = FeatureEngine({})
+
+    rank_with_enough_history = engine._calc_percent_rank(np.array([1.0, np.nan, 2.0, 3.0], dtype=float))
+    rank_with_insufficient_history = engine._calc_percent_rank(np.array([np.nan, 5.0], dtype=float))
+
+    assert np.isfinite(rank_with_enough_history)
+    assert np.isnan(rank_with_insufficient_history)

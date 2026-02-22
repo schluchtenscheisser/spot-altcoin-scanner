@@ -358,21 +358,51 @@ class FeatureEngine:
 
         tr = np.full(n, np.nan, dtype=float)
         for i in range(1, n):
-            tr[i] = max(
-                highs[i] - lows[i],
-                abs(highs[i] - closes[i - 1]),
-                abs(lows[i] - closes[i - 1]),
-            )
+            hi = highs[i]
+            lo = lows[i]
+            prev_close = closes[i - 1]
+
+            if np.isnan(hi) or np.isnan(lo) or np.isnan(prev_close):
+                continue
+            if hi < lo:
+                continue
+
+            c1 = hi - lo
+            c2 = abs(hi - prev_close)
+            c3 = abs(lo - prev_close)
+
+            if np.isnan(c1) or np.isnan(c2) or np.isnan(c3):
+                continue
+
+            tr[i] = max(c1, c2, c3)
 
         atr = np.full(n, np.nan, dtype=float)
-        atr[period] = float(np.nanmean(tr[1 : period + 1]))
+        initial_window = tr[1 : period + 1]
+        if not np.isnan(initial_window).any():
+            atr[period] = float(np.nanmean(initial_window))
+            if atr[period] < 0:
+                atr[period] = np.nan
 
         for i in range(period + 1, n):
+            if np.isnan(atr[i - 1]) or np.isnan(tr[i]):
+                atr[i] = np.nan
+                continue
+
             atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
+            if atr[i] < 0:
+                atr[i] = np.nan
 
         for i in range(period, n):
-            if closes[i] > 0:
-                atr_pct[i] = (atr[i] / closes[i]) * 100.0
+            if np.isnan(atr[i]):
+                atr_pct[i] = np.nan
+                continue
+            if closes[i] <= 0:
+                atr_pct[i] = np.nan
+                continue
+
+            atr_pct[i] = (atr[i] / closes[i]) * 100.0
+            if atr_pct[i] < 0:
+                atr_pct[i] = np.nan
 
         return atr_pct
 
