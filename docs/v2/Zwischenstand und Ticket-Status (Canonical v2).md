@@ -201,8 +201,11 @@
   - Regression-Tests ergänzt (`tests/test_pr4_breakout_backtest_4h.py`) und Golden-Expected für Backtest-Summary aktualisiert (`tests/golden/backtest_t84_expected.json`).
   - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR9_backtest_do_not_drop_rows_when_sim_returns_none.md` verschoben.
 
+  - **PR10 abgeschlossen:** Excel-Export schreibt wieder das Legacy-Worksheet `Breakout Setups` zusätzlich zu `Breakout Immediate 1-5D` und `Breakout Retest 1-5D`; Regressionstest auf Workbook-Sheetnamen ergänzt (`tests/test_pr5_breakout_reporting_excel_schema.py`).
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR10_excel_keep_legacy_breakout_setups_tab.md` verschoben.
 
-## ❌ Offen
+
+## ✅ Ticket-Status
 
 - [x] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
 - [x] **PR1_1_fix_atr_rank_performance.md** (ATR-rank O(n), no warm-up warning spam, tests)
@@ -215,7 +218,7 @@
 - [x] **PR7_reports_fix_schema_bump_and_topn_limits.md** (schema bump for btc_regime + top_n_per_setup for breakout 1–5D lists)
 - [x] **PR8_scoring_align_gates_with_feature_spec.md** (trend/ATR hard-gate alignment to canonical feature spec + boundary tests)
 - [x] **PR9_backtest_do_not_drop_rows_when_sim_returns_none.md** (preserve rows when 4H sim returns None + explicit NO_TRADE status)
-- [ ] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
+- [x] **PR10_excel_keep_legacy_breakout_setups_tab.md** (keep legacy Breakout Setups sheet alongside new breakout tabs)
 
 ---
 
@@ -245,6 +248,5 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. diehe Tickets in `docs/v2/tickets/`
-2. Empfohlene Reihenfolge:
-   PR10
+1. Bei neuen Anforderungen ein neues Ticket unter `docs/v2/tickets/` anlegen.
+2. Aktuell sind keine offenen PR-Tickets aus der bestehenden v2-Queue vorhanden.
