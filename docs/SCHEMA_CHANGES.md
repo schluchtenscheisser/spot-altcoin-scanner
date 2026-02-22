@@ -54,6 +54,41 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-22 — schema_version v1.6 → v1.7 — Breakout 1–5D Reporting erweitert (Immediate/Retest)
+**PR:** (branch-local, v2 Ticket PR5)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- JSON-Report erweitert um zwei explizite Setup-Listen:
+  - `setups.breakout_immediate_1_5d[]`
+  - `setups.breakout_retest_1_5d[]`
+- Markdown-Report ergänzt um zwei separate Breakout-Abschnitte:
+  - `Top 20 Immediate (1–5D)`
+  - `Top 20 Retest (1–5D)`
+- Excel-Workbook ergänzt um separates Retest-Sheet (`Breakout Retest 1-5D`) und Immediate-Sheet-Ausweisung (`Breakout Immediate 1-5D`).
+- Meta-Version für JSON-Reports angehoben auf `1.7`.
+
+#### Warum?
+- PR5 fordert die explizite Trennung der Breakout-Varianten im Reporting sowie die Schema-Versionierung dieser Erweiterung.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder/Sheets; bestehende Schlüssel bleiben erhalten).
+
+#### Migration / Vorgehen
+- Consumer können weiterhin `setups.breakouts` lesen; für v2-Breakout-Analysen sollten bevorzugt die neuen Setup-IDs gelesen werden.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.7",
+  "meta": {"version": "1.7"},
+  "setups": {
+    "breakout_immediate_1_5d": [{"symbol": "AAAUSDT", "rank": 1}],
+    "breakout_retest_1_5d": [{"symbol": "BBBUSDT", "rank": 1}]
+  }
+}
+```
+
 ### 2026-02-20 — schema_version v1.5 → v1.6 — Explizites Top-Level-Feld `schema_version` im JSON-Report
 **PR:** (branch-local, v2 Ticket C8 / PR8)  
 **Typ:** additiv

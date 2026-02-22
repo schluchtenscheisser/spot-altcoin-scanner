@@ -77,10 +77,10 @@ def test_t83_global_ranking_tie_matrix_and_confluence_golden() -> None:
     assert len(actual) == len({row["symbol"] for row in actual})
 
     dup = next(row for row in actual if row["symbol"] == "DUPUSDT")
-    assert dup["best_setup_type"] == "pullback"
+    assert dup["best_setup_type"] == "reversal"
     assert dup["confluence"] == 3
     assert dup["valid_setups"] == ["breakout", "pullback", "reversal"]
 
     bbb = next(row for row in actual if row["symbol"] == "BBBUSDT")
-    assert bbb["global_score"] == pytest.approx(80.0)
-    assert bbb["best_setup_type"] == "breakout"
+    assert bbb["global_score"] == pytest.approx(100.0)
+    assert bbb["best_setup_type"] == "reversal"
