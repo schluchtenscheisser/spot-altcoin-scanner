@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 11:56 UTC  
-**Commit:** `abe14d0` (abe14d0aa1087bd14ee18031e88cb76ccdc72be2)  
+**Generated:** 2026-02-22 12:28 UTC  
+**Commit:** `9dde0ff` (9dde0ff6a78674b73f774a7ca126428dba7fe20f)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -47,6 +47,7 @@
 | `scanner/pipeline/liquidity.py` | - | `_root_config`, `get_orderbook_top_k`, `get_slippage_notional_usdt`, `get_grade_thresholds_bps`, `select_top_k_for_orderbook` ... (+5 more) |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
+| `scanner/pipeline/regime.py` | - | `compute_btc_regime_from_1d_features`, `compute_btc_regime`, `_to_float` |
 | `scanner/pipeline/runtime_market_meta.py` | `RuntimeMarketMetaExporter` | - |
 | `scanner/pipeline/scoring/__init__.py` | - | - |
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
@@ -66,9 +67,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 35
+- Total Modules: 36
 - Total Classes: 16
-- Total Functions: 59
+- Total Functions: 62
 
 ---
 
@@ -2432,7 +2433,7 @@ class SnapshotManager:
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `29ea4dad9b77817f7d531d74ced6a7897e56bac8e9a938717440b86d3a9aa716`
+**SHA256:** `6ca0fdb1a1b439949bcab1ab22085d3bc0cd7d64f7e2a3a151629b9f2012eefb`
 
 ```python
 """
@@ -2484,7 +2485,8 @@ class ExcelReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Path:
         """
         Generate Excel workbook with 4 sheets.
@@ -2511,7 +2513,8 @@ class ExcelReportGenerator:
             len(reversal_results), 
             len(breakout_results), 
             len(pullback_results),
-            metadata
+            metadata,
+            btc_regime,
         )
         
         # Sheet 2: Global Top 20
@@ -2552,24 +2555,40 @@ class ExcelReportGenerator:
         reversal_count: int,
         breakout_count: int,
         pullback_count: int,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ):
         """Create Summary sheet with run statistics."""
         ws = wb.create_sheet("Summary", 0)
+
+        btc_regime = btc_regime or {}
+        btc_checks = btc_regime.get("checks") or {}
+
+        ws["A1"] = "BTC Regime"
+        ws["A2"] = "State"
+        ws["B2"] = btc_regime.get("state", "RISK_OFF")
+        ws["A3"] = "Multiplier (Risk-On)"
+        ws["B3"] = float(btc_regime.get("multiplier_risk_on", 1.0))
+        ws["A4"] = "Multiplier (Risk-Off)"
+        ws["B4"] = float(btc_regime.get("multiplier_risk_off", 0.85))
+        ws["A5"] = "close>ema50"
+        ws["B5"] = bool(btc_checks.get("close_gt_ema50", False))
+        ws["A6"] = "ema20>ema50"
+        ws["B6"] = bool(btc_checks.get("ema20_gt_ema50", False))
         
         # Header
-        ws['A1'] = 'Metric'
-        ws['B1'] = 'Value'
+        ws['A8'] = 'Metric'
+        ws['B8'] = 'Value'
         
         # Style header
-        for cell in ['A1', 'B1']:
+        for cell in ['A8', 'B8']:
             ws[cell].font = Font(bold=True, size=12)
             ws[cell].fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             ws[cell].font = Font(bold=True, size=12, color="FFFFFF")
             ws[cell].alignment = Alignment(horizontal='center')
         
         # Data rows
-        row = 2
+        row = 9
         ws[f'A{row}'] = 'Run Date'
         ws[f'B{row}'] = run_date
         row += 1
@@ -3110,7 +3129,7 @@ def compute_discovery_fields(
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `ddfcd9c7d0ed3332f497d5578bfafb4695621f4a22cf9eb499b523571ae8927e`
+**SHA256:** `c0890283c5c054219148924a74b75238c4ac5475eec16d8f2313651aef7c7979`
 
 ```python
 """
@@ -3492,19 +3511,22 @@ class FeatureEngine:
             tr[i] = max(c1, c2, c3)
 
         atr = np.full(n, np.nan, dtype=float)
-        initial_window = tr[1 : period + 1]
-        if not np.isnan(initial_window).any():
-            atr[period] = float(np.nanmean(initial_window))
-            if atr[period] < 0:
-                atr[period] = np.nan
+        seed_window = tr[1 : period + 1]
+        atr[period] = float(np.nanmean(seed_window))
+        if np.isnan(atr[period]) or atr[period] < 0:
+            atr[period] = np.nan
 
         for i in range(period + 1, n):
-            if np.isnan(atr[i - 1]) or np.isnan(tr[i]):
-                atr[i] = np.nan
-                continue
+            if np.isnan(atr[i - 1]):
+                reseed_window = tr[max(1, i - period + 1) : i + 1]
+                reseed = float(np.nanmean(reseed_window))
+                atr[i] = np.nan if np.isnan(reseed) else reseed
+            elif np.isnan(tr[i]):
+                atr[i] = atr[i - 1]
+            else:
+                atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
 
-            atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
-            if atr[i] < 0:
+            if not np.isnan(atr[i]) and atr[i] < 0:
                 atr[i] = np.nan
 
         for i in range(period, n):
@@ -3762,7 +3784,7 @@ def compute_global_top20(
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `fd2500a40b2249125291123b43c9e7f9c9f28fc6d009586ec013517de1e4f0a3`
+**SHA256:** `a74effed23a45551b90aad326c5dc40ef5b14f5d91f8b541937afcea1f3077b4`
 
 ```python
 """
@@ -3814,7 +3836,8 @@ class ReportGenerator:
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
-        run_date: str
+        run_date: str,
+        btc_regime: Dict[str, Any] = None,
     ) -> str:
         """
         Generate Markdown report.
@@ -3834,6 +3857,18 @@ class ReportGenerator:
         lines.append(f"# Spot Altcoin Scanner Report")
         lines.append(f"**Date:** {run_date}")
         lines.append(f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        btc_regime = btc_regime or {}
+        btc_checks = btc_regime.get("checks") or {}
+        lines.append("## BTC Regime")
+        lines.append("")
+        lines.append(f"- **State:** {btc_regime.get('state', 'RISK_OFF')}")
+        lines.append(f"- **Multiplier (Risk-On):** {float(btc_regime.get('multiplier_risk_on', 1.0)):.2f}")
+        lines.append(f"- **Multiplier (Risk-Off):** {float(btc_regime.get('multiplier_risk_off', 0.85)):.2f}")
+        lines.append(f"- **Checks:** close>ema50={bool(btc_checks.get('close_gt_ema50', False))}, ema20>ema50={bool(btc_checks.get('ema20_gt_ema50', False))}")
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -4014,7 +4049,8 @@ class ReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         Generate JSON report.
@@ -4048,7 +4084,16 @@ class ReportGenerator:
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
-            }
+            },
+            'btc_regime': btc_regime or {
+                'state': 'RISK_OFF',
+                'multiplier_risk_on': 1.0,
+                'multiplier_risk_off': 0.85,
+                'checks': {
+                    'close_gt_ema50': False,
+                    'ema20_gt_ema50': False,
+                },
+            },
         }
         
         if metadata:
@@ -4063,7 +4108,8 @@ class ReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Dict[str, Path]:
         """
         Generate and save Markdown, JSON, and Excel reports.
@@ -4082,12 +4128,12 @@ class ReportGenerator:
         
         # Generate Markdown
         md_content = self.generate_markdown_report(
-            reversal_results, breakout_results, pullback_results, global_top20, run_date
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, btc_regime=btc_regime
         )
         
         # Generate JSON
         json_content = self.generate_json_report(
-            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
         )
         
         # Save Markdown
@@ -4114,7 +4160,7 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
+                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:
@@ -5027,6 +5073,63 @@ class OHLCVFetcher:
 
 ```
 
+### `scanner/pipeline/regime.py`
+
+**SHA256:** `d451dcb35abfa1ae4ca17222e68212049137c202dd81b29c5887e186c20d527e`
+
+```python
+"""BTC regime helpers for report-level risk context."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def compute_btc_regime_from_1d_features(features_1d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compute canonical BTC regime payload from 1D BTC features."""
+    features_1d = features_1d or {}
+    close = _to_float(features_1d.get("close"))
+    ema20 = _to_float(features_1d.get("ema_20"))
+    ema50 = _to_float(features_1d.get("ema_50"))
+
+    close_gt_ema50 = (close is not None and ema50 is not None and close > ema50)
+    ema20_gt_ema50 = (ema20 is not None and ema50 is not None and ema20 > ema50)
+    btc_risk_on = bool(close_gt_ema50 and ema20_gt_ema50)
+
+    return {
+        "state": "RISK_ON" if btc_risk_on else "RISK_OFF",
+        "multiplier_risk_on": 1.0,
+        "multiplier_risk_off": 0.85,
+        "checks": {
+            "close_gt_ema50": bool(close_gt_ema50),
+            "ema20_gt_ema50": bool(ema20_gt_ema50),
+        },
+    }
+
+
+def compute_btc_regime(mexc_client: Any, feature_engine: Any, lookback_1d: int, asof_ts_ms: int) -> Dict[str, Any]:
+    """Fetch BTCUSDT 1D candles and compute report-level regime payload."""
+    try:
+        btc_klines_1d = mexc_client.get_klines("BTCUSDT", "1d", limit=int(lookback_1d))
+        btc_features = feature_engine.compute_all({"BTCUSDT": {"1d": btc_klines_1d}}, asof_ts_ms=asof_ts_ms)
+        return compute_btc_regime_from_1d_features(btc_features.get("BTCUSDT", {}).get("1d", {}))
+    except Exception as exc:  # pragma: no cover - defensive runtime fallback
+        logger.warning("BTC regime fallback to RISK_OFF due to recoverable error: %s", exc)
+        return compute_btc_regime_from_1d_features({})
+
+
+def _to_float(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+```
+
 ### `scanner/pipeline/cross_section.py`
 
 **SHA256:** `af16010718d0097f9f7adc448602dbc23c6008513524c5e31fa9d359c5ffc773`
@@ -5069,7 +5172,7 @@ def percent_rank_average_ties(values: Iterable[float]) -> List[float]:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `fb59dbff03503d753783550166cd544ebfe615a47056748064ad5a79efc7d5ec`
+**SHA256:** `a6c99f061d93fb96e0dd1820f6a460c500e6ead4a4c136d0b0ce72f435702cf2`
 
 ```python
 """
@@ -5100,6 +5203,7 @@ from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_sh
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 from .discovery import compute_discovery_fields
+from .regime import compute_btc_regime
 
 logger = logging.getLogger(__name__)
 
@@ -5233,6 +5337,15 @@ def run_pipeline(config: ScannerConfig) -> None:
     features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
     logger.info(f"✓ Features: {len(features)} symbols")
 
+    logger.info("  Computing BTC regime...")
+    btc_regime = compute_btc_regime(
+        mexc_client=mexc,
+        feature_engine=feature_engine,
+        lookback_1d=ohlcv_fetcher.lookback.get("1d", 120),
+        asof_ts_ms=asof_ts_ms,
+    )
+    logger.info("  ✓ BTC regime: %s", btc_regime.get("state"))
+
     # Step 9: Enrich features with price, coin name, market cap, and volume
     logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
     for symbol in features.keys():
@@ -5336,7 +5449,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             'mode': run_mode,
             'asof_ts_ms': asof_ts_ms,
             'asof_iso': asof_iso,
-        }
+        },
+        btc_regime=btc_regime,
     )
     logger.info(f"✓ Markdown: {report_paths['markdown']}")
     logger.info(f"✓ JSON: {report_paths['json']}")
@@ -7405,4 +7519,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 11:56 UTC_
+_Generated by GitHub Actions • 2026-02-22 12:28 UTC_
