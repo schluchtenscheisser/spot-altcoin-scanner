@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-22 12:28 UTC  
+**Last Updated:** 2026-02-22 12:41 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 36
-- **Total Classes:** 16
-- **Total Functions:** 207
+- **Total Modules:** 37
+- **Total Classes:** 17
+- **Total Functions:** 219
 
 ---
 
@@ -176,7 +176,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `_config_get, compute_global_top20`
 
-**Module Variables:** `agg, cur, prev, prev_setups, ranked, root, setup_map, setup_score, symbol, top20` _(+3 more)_
+**Module Variables:** `agg, cur, cur_setup_id, prefer_retest, prev, prev_setup_id, prev_setups, prev_weighted, ranked, root` _(+7 more)_
 
 **Imports:** `__future__, typing`
 
@@ -253,6 +253,18 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `breakout_curve, breakout_dist, breakout_score, candles_1d, candles_4h, default_weights, denom, dist, dist_ema20, dist_ema50` _(+36 more)_
 
 **Imports:** `logging, scanner.pipeline.scoring.trade_levels, scanner.pipeline.scoring.weights, typing`
+
+---
+
+### 📄 `scanner/pipeline/scoring/breakout_trend_1_5d.py`
+
+**Classes:** `BreakoutTrend1to5DScorer`
+
+**Functions:** `__init__, _anti_chase_multiplier, _bb_score, _breakout_distance_score, _btc_multiplier, _calc_high_20d_excluding_current, _find_first_breakout_idx, _overextension_multiplier, _trend_score, _volume_score, score_breakout_trend_1_5d, score_symbol`
+
+**Module Variables:** `alt_r3, alt_r7, anti, base, base_score, bb_rank, bb_score, breakout_distance_score, btc_mult, btc_r3` _(+44 more)_
+
+**Imports:** `__future__, typing`
 
 ---
 
@@ -478,7 +490,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_btc_regime`, `compute_discovery_fields`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakouts`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `update`, `upper`, `utc_now` |
+| `run_pipeline` | — | `FeatureEngine`, `MEXCClient`, `MarketCapClient`, `OHLCVFetcher`, `ReportGenerator`, `RuntimeMarketMetaExporter`, `ShortlistSelector`, `SnapshotManager`, `SymbolMapper`, `UniverseFilters`, `_get_market_cap`, `append`, `apply_all`, `apply_liquidity_metrics_to_shortlist`, `build_symbol_map`, `compute_all`, `compute_btc_regime`, `compute_discovery_fields`, `compute_global_top20`, `create_snapshot`, `export`, `fetch_all`, `fetch_orderbooks_for_top_k`, `get`, `get_24h_tickers`, `get_exchange_info`, `get_listings`, `info`, `keys`, `map_symbol`, `map_universe`, `replace`, `save_reports`, `score_breakout_trend_1_5d`, `score_pullbacks`, `score_reversals`, `select`, `strftime`, `timestamp_to_ms`, `update`, `upper`, `utc_now` |
 
 ### 📄 scanner/pipeline/backtest_runner.py
 
@@ -569,7 +581,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `_config_get` | — | `get` |
-| `compute_global_top20` | `_config_get` | `add`, `get`, `items`, `update`, `values` |
+| `compute_global_top20` | `_config_get` | `add`, `endswith`, `get`, `items`, `update`, `values` |
 
 ### 📄 scanner/pipeline/liquidity.py
 
@@ -637,6 +649,18 @@ _This section shows which functions call which other functions, helping identify
 | `_score_volume` | — | `get` |
 | `score` | `_generate_reasons`, `_score_breakout`, `_score_momentum`, `_score_trend`, `_score_volume` | `append`, `get`, `items` |
 | `score_breakouts` | `_closed_candle_count`, `score` | `BreakoutScorer`, `append`, `breakout_trade_levels`, `debug`, `error`, `get`, `items`, `sort` |
+
+### 📄 scanner/pipeline/scoring/breakout_trend_1_5d.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `get` |
+| `_btc_multiplier` | — | `get` |
+| `_calc_high_20d_excluding_current` | — | `get` |
+| `_find_first_breakout_idx` | — | `get` |
+| `_trend_score` | — | `get` |
+| `score_breakout_trend_1_5d` | `score_symbol` | `BreakoutTrend1to5DScorer`, `extend`, `get`, `items`, `sort` |
+| `score_symbol` | `_anti_chase_multiplier`, `_bb_score`, `_breakout_distance_score`, `_btc_multiplier`, `_calc_high_20d_excluding_current`, `_find_first_breakout_idx`, `_overextension_multiplier`, `_trend_score`, `_volume_score` | `append`, `get` |
 
 ### 📄 scanner/pipeline/scoring/pullback.py
 
@@ -776,6 +800,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 1 | 22 | 23 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 10 | 12 | 22 | ⚠️ Medium |
+| `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 10 | 12 | 22 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
@@ -783,11 +808,11 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/shortlist.py` | 1 | 10 | 11 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/pipeline/global_ranking.py` | 1 | 7 | 8 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
-| `scanner/pipeline/global_ranking.py` | 1 | 6 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
@@ -809,4 +834,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 12:28 UTC_
+_Generated by GitHub Actions • 2026-02-22 12:41 UTC_
