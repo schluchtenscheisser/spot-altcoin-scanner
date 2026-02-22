@@ -139,6 +139,11 @@
   - Tests ergänzt (`tests/test_pr2_btc_regime.py`) inkl. Risk-On/Risk-Off Unit-Cases, Markdown-Order, JSON-Exposure und Excel-A1-Prüfung.
 
 
+- **PR4 – Breakout Trend 1–5D: Backtest Runner (4H entry/exit, partial+trail, time stop)**
+  - 4H-Backtestregeln für `breakout_immediate_1_5d` und `breakout_retest_1_5d` sind im Runner umgesetzt (Immediate-/Retest-Entry, Stop, Partial, Trail und 168h Time-Stop).
+  - Intra-Candle-Priorität `STOP > PARTIAL > TRAIL` bleibt deterministisch abgesichert.
+  - Ticket-spezifische Tests decken Priorität, Trail-Aktivierung erst nach Partial, Time-Stop-Exit sowie Retest-Limit-Fill ab (`tests/test_pr4_breakout_backtest_4h.py`).
+
 - **PR3 – Breakout Trend 1–5D: Scoring (Immediate + Retest) + Global Top20 Dedup**
   - Neues Scoring-Modul `scanner/pipeline/scoring/breakout_trend_1_5d.py` implementiert (Setup-IDs `breakout_immediate_1_5d` und `breakout_retest_1_5d`).
   - Regeln umgesetzt: `high_20d_1d` (exclude current 1D), Trigger-Fenster letzte 6 geschlossene 4H-Candles, Retest-Window + Invalidation, Komponenten + Gewichte, Multipliers inkl. BTC-Risk-Off-Override.
@@ -175,7 +180,7 @@
 - [x] **PR1_3_fix_atr_series_nan_propagation.md** (nanmean seed/reseed, no NaN cascade, scalar parity tests)
 - [x] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
 - [x] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
-- [ ] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
+- [x] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
 - [ ] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
 
 ---
@@ -206,4 +211,4 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. Mit `PR4_breakout_trend_1_5d_backtest.md` fortfahren.
+1. Mit `PR5_breakout_trend_1_5d_reporting_excel_schema.md` fortfahren.
