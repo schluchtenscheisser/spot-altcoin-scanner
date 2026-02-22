@@ -143,6 +143,13 @@
   - 4H-Backtestregeln für `breakout_immediate_1_5d` und `breakout_retest_1_5d` sind im Runner umgesetzt (Immediate-/Retest-Entry, Stop, Partial, Trail und 168h Time-Stop).
   - Intra-Candle-Priorität `STOP > PARTIAL > TRAIL` bleibt deterministisch abgesichert.
   - Ticket-spezifische Tests decken Priorität, Trail-Aktivierung erst nach Partial, Time-Stop-Exit sowie Retest-Limit-Fill ab (`tests/test_pr4_breakout_backtest_4h.py`).
+- **PR5 – Breakout Trend 1–5D: Reporting + Excel + Schema bump**
+  - Reporting um getrennte Breakout-Sektionen erweitert: **Top 20 Immediate (1–5D)** und **Top 20 Retest (1–5D)** (Markdown + JSON + Excel).
+  - BTC-Regime-Block bleibt in Markdown/Excel weiterhin am Anfang (Top-Placement).
+  - Global-Top20-Dedup entsprechend Ticketregel geschärft: pro Symbol höchste `final_score`; Tie-break bevorzugt Retest.
+  - Schema-Version auf **v1.7 / meta 1.7** erhöht und in `docs/SCHEMA_CHANGES.md` dokumentiert.
+  - Ticketdatei nach Abschluss nach `docs/legacy/v2/tickets/PR5_breakout_trend_1_5d_reporting_excel_schema.md` verschoben.
+
 
 - **PR3 – Breakout Trend 1–5D: Scoring (Immediate + Retest) + Global Top20 Dedup**
   - Neues Scoring-Modul `scanner/pipeline/scoring/breakout_trend_1_5d.py` implementiert (Setup-IDs `breakout_immediate_1_5d` und `breakout_retest_1_5d`).
@@ -181,7 +188,7 @@
 - [x] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
 - [x] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
 - [x] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
-- [ ] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
+- [x] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
 
 ---
 
@@ -211,4 +218,4 @@
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
 
-1. Mit `PR5_breakout_trend_1_5d_reporting_excel_schema.md` fortfahren.
+1. Keine offenen v2-Tickets mehr in `docs/v2/tickets/`; nächster Schritt ist ggf. neue Ticketrunde/Phase definieren.
