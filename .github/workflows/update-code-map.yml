@@ -18,6 +18,10 @@ on:
       - 'tests/**/*.py'
       - 'scripts/update_codemap.py'
 
+concurrency:
+  group: pr-automation-serial
+  cancel-in-progress: false
+
 permissions:
   contents: write
 

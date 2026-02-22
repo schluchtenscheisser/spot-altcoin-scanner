@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: pr-automation-serial
+  cancel-in-progress: false
+
 jobs:
   test:
     name: pytest
