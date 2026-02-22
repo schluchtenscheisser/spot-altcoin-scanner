@@ -114,10 +114,6 @@
   - `meta.version` auf `1.6` erhöht; Schema-Log ergänzt (`docs/SCHEMA_CHANGES.md`).
   - Regression-Test ergänzt (`tests/test_t11_global_ranking.py`), der `schema_version` und `meta.version` im Report validiert.
 
----
-
-## ❌ Offen
-
 
 - **Canonical-v2 Kern-Tickets (T1–T8)**
   - Im Dokumentstand weiterhin als erledigt geführt.
@@ -125,13 +121,23 @@
 - **Neue Codex-PR-Tickets (C1–C8)**
   - Alle Tickets C1–C8 sind umgesetzt.
 
+---
+
+## ❌ Offen
+
+- [ ] **PR0_breakout_trend_1_5d_docs.md**  (docs-only: add spec+fixtures+queue)
+- [ ] **PR1_breakout_trend_1_5d_feature_engine.md** (volume_sma_periods, atr_rank, bb_width+rank)
+- [ ] **PR2_breakout_trend_1_5d_btc_regime.md** (btc regime compute + report/excel/json exposure)
+- [ ] **PR3_breakout_trend_1_5d_scoring.md** (new scoring module: immediate+retest + global dedup)
+- [ ] **PR4_breakout_trend_1_5d_backtest.md** (4H backtest: entry/stop/partial/trail/time stop)
+- [ ] **PR5_breakout_trend_1_5d_reporting_excel_schema.md** (report sections + excel sheets + schema bump)
 
 ---
 
 ## Wichtige fachliche Abweichungen/Spannungen für nächste Session
 
 
-- Derzeit keine offenen fachlichen Abweichungen aus C1–C8.
+- Derzeit keine offenen fachlichen Abweichungen.
 
 ---
 
@@ -153,6 +159,5 @@
 ---
 
 ## Empfohlener Startpunkt für die nächste Session (konkret)
-
 
 1. Nächste Tickets aus `docs/v2/tickets/` gemäß neuer Priorisierung aufnehmen (C1–C8 abgeschlossen).
