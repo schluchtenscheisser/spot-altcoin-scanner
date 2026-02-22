@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 12:28 UTC  
-**Commit:** `9dde0ff` (9dde0ff6a78674b73f774a7ca126428dba7fe20f)  
+**Generated:** 2026-02-22 12:41 UTC  
+**Commit:** `6d2e22a` (6d2e22aeb8e32cffcf6029460d0b2cc8f08d916a)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -51,6 +51,7 @@
 | `scanner/pipeline/runtime_market_meta.py` | `RuntimeMarketMetaExporter` | - |
 | `scanner/pipeline/scoring/__init__.py` | - | - |
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
+| `scanner/pipeline/scoring/breakout_trend_1_5d.py` | `BreakoutTrend1to5DScorer` | `score_breakout_trend_1_5d` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
 | `scanner/pipeline/scoring/trade_levels.py` | - | `_to_float`, `_atr_absolute`, `_targets`, `breakout_trade_levels`, `pullback_trade_levels` ... (+1 more) |
@@ -67,9 +68,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 36
-- Total Classes: 16
-- Total Functions: 62
+- Total Modules: 37
+- Total Classes: 17
+- Total Functions: 63
 
 ---
 
@@ -427,7 +428,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `1130d1da3441623ccfffcc35e3c26955c833b771204cbe8f6f86d0dfbf19b0c3`
+**SHA256:** `7caa6d67868d90514e630a442baa45c04fa94f8be73dcccab43ae8b9c17a003d`
 
 ```yaml
 version:
@@ -456,7 +457,7 @@ data_sources:
 universe_filters:
   market_cap:
     min_usd: 100000000      # 100M
-    max_usd: 3000000000     # 3B
+    max_usd: 10000000000    # 10B
   volume:
     min_quote_volume_24h: 1000000
   history:
@@ -528,6 +529,10 @@ scoring:
       volume: 0.40
       trend: 0.20
       momentum: 0.00
+
+
+  breakout_trend_1_5d:
+    risk_off_min_quote_volume_24h: 15000000
 
   pullback:
     weights_mode: "compat"
@@ -3684,7 +3689,7 @@ class FeatureEngine:
 
 ### `scanner/pipeline/global_ranking.py`
 
-**SHA256:** `918519d6f8d9f2e4c0c69e9f4842d49b0bb767b52ff29b0b7718e212488e37b5`
+**SHA256:** `07f5ed5d16a5ad9d58dc1e195dea4e719d2e8736e85339a5001ad0f7e0e83ebd`
 
 ```python
 """Global ranking aggregation across setup-specific rankings."""
@@ -3734,7 +3739,7 @@ def compute_global_top20(
             symbol = entry.get("symbol")
             if not symbol:
                 continue
-            setup_score = float(entry.get("score", 0.0))
+            setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
             weighted = setup_score * weight
 
             if symbol not in by_symbol:
@@ -3755,7 +3760,12 @@ def compute_global_top20(
             prev["valid_setups"] = sorted(prev_setups)
             prev["confluence"] = len(prev_setups)
 
-            if weighted > float(prev.get("global_score", 0.0)):
+            prev_weighted = float(prev.get("global_score", 0.0))
+            prev_setup_id = str(prev.get("setup_id", ""))
+            cur_setup_id = str(entry.get("setup_id", ""))
+            prefer_retest = weighted == prev_weighted and cur_setup_id.endswith("retest_1_5d") and not prev_setup_id.endswith("retest_1_5d")
+
+            if weighted > prev_weighted or prefer_retest:
                 prev.update(entry)
                 prev["setup_score"] = setup_score
                 prev["best_setup_type"] = setup_type
@@ -5172,7 +5182,7 @@ def percent_rank_average_ties(values: Iterable[float]) -> List[float]:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `a6c99f061d93fb96e0dd1820f6a460c500e6ead4a4c136d0b0ce72f435702cf2`
+**SHA256:** `3dac464a1ee3991eaa30290a72ac23f8e9e658d7cbd0b801cad66a77706bf87a`
 
 ```python
 """
@@ -5195,7 +5205,7 @@ from .shortlist import ShortlistSelector
 from .ohlcv import OHLCVFetcher
 from .features import FeatureEngine
 from .scoring.reversal import score_reversals
-from .scoring.breakout import score_breakouts
+from .scoring.breakout_trend_1_5d import score_breakout_trend_1_5d
 from .scoring.pullback import score_pullbacks
 from .output import ReportGenerator
 from .global_ranking import compute_global_top20
@@ -5420,9 +5430,9 @@ def run_pipeline(config: ScannerConfig) -> None:
     reversal_results = score_reversals(features, volume_map, config.raw)
     logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
     
-    logger.info("  Scoring Breakouts...")
-    breakout_results = score_breakouts(features, volume_map, config.raw)
-    logger.info(f"  ✓ Breakouts: {len(breakout_results)} scored")
+    logger.info("  Scoring Breakout Trend 1-5D...")
+    breakout_results = score_breakout_trend_1_5d(features, volume_map, config.raw, btc_regime=btc_regime)
+    logger.info(f"  ✓ Breakout Trend 1-5D rows: {len(breakout_results)} scored")
     
     logger.info("  Scoring Pullbacks...")
     pullback_results = score_pullbacks(features, volume_map, config.raw)
@@ -7454,9 +7464,272 @@ def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) ->
 
 ```
 
+### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
+
+**SHA256:** `28f0548b11649e487639df1650e9188c1a47b7c82e14e7b132a3247779521698`
+
+```python
+"""Breakout Trend 1-5D scoring (immediate + retest)."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+
+class BreakoutTrend1to5DScorer:
+    def __init__(self, config: Dict[str, Any]):
+        root = config.raw if hasattr(config, "raw") else config
+        cfg = root.get("scoring", {}).get("breakout_trend_1_5d", {})
+
+        self.min_24h_risk_off = float(cfg.get("risk_off_min_quote_volume_24h", 15_000_000))
+
+    @staticmethod
+    def _calc_high_20d_excluding_current(f1d: Dict[str, Any]) -> Optional[float]:
+        highs = f1d.get("high_series") or []
+        if len(highs) < 21:
+            return None
+        window = highs[-21:-1]
+        return float(max(window)) if window else None
+
+    @staticmethod
+    def _find_first_breakout_idx(f4h: Dict[str, Any], high_20d_1d: float) -> Optional[int]:
+        closes = f4h.get("close_series") or []
+        if not closes:
+            return None
+        start = max(0, len(closes) - 6)
+        for idx in range(start, len(closes)):
+            if float(closes[idx]) > high_20d_1d:
+                return idx
+        return None
+
+    @staticmethod
+    def _anti_chase_multiplier(r7: float) -> float:
+        if r7 < 30:
+            return 1.0
+        if r7 <= 60:
+            return 1.0 - ((r7 - 30.0) / 30.0) * 0.25
+        return 0.75
+
+    @staticmethod
+    def _overextension_multiplier(dist_ema20_pct_1d: float) -> float:
+        d = dist_ema20_pct_1d
+        if d < 12:
+            return 1.0
+        if d <= 20:
+            return 1.0 - ((d - 12.0) / 8.0) * 0.15
+        if d < 28:
+            return 0.85 - ((d - 20.0) / 8.0) * 0.15
+        return 0.0
+
+    @staticmethod
+    def _breakout_distance_score(dist: float) -> float:
+        floor, min_breakout, ideal, max_breakout = -5.0, 2.0, 5.0, 20.0
+        if dist <= floor:
+            return 0.0
+        if floor < dist < 0:
+            return 30.0 * (dist - floor) / (0.0 - floor)
+        if 0 <= dist < min_breakout:
+            return 30.0 + 40.0 * (dist / min_breakout)
+        if min_breakout <= dist <= ideal:
+            return 70.0 + 30.0 * (dist - min_breakout) / (ideal - min_breakout)
+        if ideal < dist <= max_breakout:
+            return 100.0 * (1.0 - (dist - ideal) / (max_breakout - ideal))
+        return 0.0
+
+    @staticmethod
+    def _volume_score(spike_combined: float) -> float:
+        if spike_combined < 1.5:
+            return 0.0
+        if spike_combined >= 2.5:
+            return 100.0
+        return (spike_combined - 1.5) * 100.0
+
+    @staticmethod
+    def _trend_score(f4h: Dict[str, Any]) -> float:
+        score = 70.0
+        close = float(f4h.get("close") or 0.0)
+        ema20 = float(f4h.get("ema_20") or 0.0)
+        ema50 = float(f4h.get("ema_50") or 0.0)
+        if close > ema20:
+            score += 15.0
+        if ema20 > ema50:
+            score += 15.0
+        return min(score, 100.0)
+
+    @staticmethod
+    def _bb_score(rank: float) -> float:
+        if rank <= 0.2:
+            return 100.0
+        if rank <= 0.6:
+            return 100.0 - (rank - 0.2) * (60.0 / 0.4)
+        return 0.0
+
+    def _btc_multiplier(
+        self,
+        feature_row: Dict[str, Any],
+        btc_regime: Optional[Dict[str, Any]],
+    ) -> Optional[float]:
+        if not btc_regime or btc_regime.get("state") == "RISK_ON":
+            return 1.0
+
+        if float(feature_row.get("quote_volume_24h") or 0.0) < self.min_24h_risk_off:
+            return None
+
+        f1d = feature_row.get("1d", {})
+        alt_r7 = float(f1d.get("r_7") or 0.0)
+        alt_r3 = float(f1d.get("r_3") or 0.0)
+        btc_r7 = float((btc_regime.get("btc_returns") or {}).get("r_7") or 0.0)
+        btc_r3 = float((btc_regime.get("btc_returns") or {}).get("r_3") or 0.0)
+
+        override = (alt_r7 - btc_r7) >= 7.5 or (alt_r3 - btc_r3) >= 3.5
+        return 0.85 if override else None
+
+    def score_symbol(
+        self,
+        symbol: str,
+        feature_row: Dict[str, Any],
+        quote_volume_24h: float,
+        btc_regime: Optional[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        f1d = feature_row.get("1d", {})
+        f4h = feature_row.get("4h", {})
+
+        high_20 = self._calc_high_20d_excluding_current(f1d)
+        if high_20 is None:
+            return []
+
+        first_breakout_idx = self._find_first_breakout_idx(f4h, high_20)
+        if first_breakout_idx is None:
+            return []
+
+        if not (float(f1d.get("close") or 0.0) > float(f1d.get("ema_50") or 0.0) and float(f1d.get("ema_20") or 0.0) > float(f1d.get("ema_50") or 0.0)):
+            return []
+        if float(f1d.get("atr_pct_rank_120") or 0.0) < 0.5:
+            return []
+        if float(f1d.get("r_7") or 0.0) <= 0.0:
+            return []
+
+        dist_ema20 = float(f1d.get("dist_ema20_pct") or 0.0)
+        if dist_ema20 >= 28.0:
+            return []
+
+        close_4h_last = float(f4h.get("close") or 0.0)
+        dist_pct = ((close_4h_last / high_20) - 1.0) * 100.0
+
+        spike_1d = float(f1d.get("volume_quote_spike") or 0.0)
+        spike_4h = float(f4h.get("volume_quote_spike") or 0.0)
+        spike_combined = 0.7 * spike_1d + 0.3 * spike_4h
+
+        breakout_distance_score = self._breakout_distance_score(dist_pct)
+        volume_score = self._volume_score(spike_combined)
+        trend_score = self._trend_score(f4h)
+        bb_rank = float(f4h.get("bb_width_rank_120") or 0.0)
+        bb_score = self._bb_score(bb_rank)
+
+        base_score = (
+            0.35 * breakout_distance_score
+            + 0.35 * volume_score
+            + 0.15 * trend_score
+            + 0.15 * bb_score
+        )
+
+        anti = self._anti_chase_multiplier(float(f1d.get("r_7") or 0.0))
+        over = self._overextension_multiplier(dist_ema20)
+        btc_mult = self._btc_multiplier({**feature_row, "quote_volume_24h": quote_volume_24h}, btc_regime)
+        if btc_mult is None:
+            return []
+
+        final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
+
+        base = {
+            "symbol": symbol,
+            "score": round(final_score, 6),
+            "base_score": round(base_score, 6),
+            "final_score": round(final_score, 6),
+            "high_20d_1d": round(high_20, 8),
+            "dist_pct": round(dist_pct, 6),
+            "volume_quote_spike_1d": spike_1d,
+            "volume_quote_spike_4h": spike_4h,
+            "spike_combined": round(spike_combined, 6),
+            "atr_pct_rank_120_1d": f1d.get("atr_pct_rank_120"),
+            "bb_width_pct_4h": f4h.get("bb_width_pct"),
+            "bb_width_rank_120_4h": bb_rank,
+            "overextension_multiplier": round(over, 6),
+            "anti_chase_multiplier": round(anti, 6),
+            "btc_multiplier": round(btc_mult, 6),
+            "breakout_distance_score": round(breakout_distance_score, 6),
+            "volume_score": round(volume_score, 6),
+            "trend_score": round(trend_score, 6),
+            "bb_score": round(bb_score, 6),
+            "triggered": True,
+            "quote_volume_24h": quote_volume_24h,
+            "coin_name": feature_row.get("coin_name"),
+            "market_cap": feature_row.get("market_cap"),
+            "price_usdt": feature_row.get("price_usdt"),
+            "proxy_liquidity_score": feature_row.get("proxy_liquidity_score"),
+            "spread_bps": feature_row.get("spread_bps"),
+            "slippage_bps": feature_row.get("slippage_bps"),
+            "liquidity_grade": feature_row.get("liquidity_grade"),
+            "liquidity_insufficient": feature_row.get("liquidity_insufficient"),
+            "risk_flags": feature_row.get("risk_flags", []),
+        }
+
+        results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False}]
+
+        lows = f4h.get("low_series") or []
+        closes = f4h.get("close_series") or []
+        zone_low = high_20 * 0.99
+        zone_high = high_20 * 1.01
+        retest_valid = False
+        retest_invalidated = False
+        end_idx = min(len(closes) - 1, first_breakout_idx + 12)
+        for j in range(first_breakout_idx + 1, end_idx + 1):
+            c = float(closes[j])
+            if c < high_20:
+                retest_invalidated = True
+                break
+            low = float(lows[j]) if j < len(lows) else c
+            touch = zone_low <= low <= zone_high
+            reclaim = c >= high_20
+            if touch and reclaim:
+                retest_valid = True
+                break
+
+        if retest_valid and not retest_invalidated:
+            results.append({**base, "setup_id": "breakout_retest_1_5d", "retest_valid": True, "retest_invalidated": False})
+
+        return results
+
+
+def score_breakout_trend_1_5d(
+    features_data: Dict[str, Dict[str, Any]],
+    volumes: Dict[str, float],
+    config: Dict[str, Any],
+    btc_regime: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    scorer = BreakoutTrend1to5DScorer(config)
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
+
+    results: List[Dict[str, Any]] = []
+    for symbol, feature_row in features_data.items():
+        idxs = ((feature_row.get("meta") or {}).get("last_closed_idx") or {})
+        candles_1d = int(idxs.get("1d", -1)) + 1 if idxs.get("1d") is not None else None
+        candles_4h = int(idxs.get("4h", -1)) + 1 if idxs.get("4h") is not None else None
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            continue
+        rows = scorer.score_symbol(symbol, feature_row, float(volumes.get(symbol, 0.0)), btc_regime)
+        results.extend(rows)
+
+    results.sort(key=lambda x: (float(x.get("final_score", 0.0)), x.get("setup_id") == "breakout_retest_1_5d"), reverse=True)
+    return results
+
+```
+
 ### `scanner/pipeline/scoring/__init__.py`
 
-**SHA256:** `85d37b09e745ca99fd4ceeca2844c758866fa7f247ded2d4a2b9a8284d6c51b4`
+**SHA256:** `a6825c25a4e86a74fc0161093fbb40635de680c8d49b0da16935e6ff41c74efc`
 
 ```python
 """
@@ -7464,6 +7737,7 @@ Scoring package.
 
 Contains three independent scoring modules:
 - breakout.py
+- breakout_trend_1_5d.py
 - pullback.py
 - reversal.py
 
@@ -7519,4 +7793,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 12:28 UTC_
+_Generated by GitHub Actions • 2026-02-22 12:41 UTC_
