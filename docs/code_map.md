@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-22 13:08 UTC  
+**Last Updated:** 2026-02-22 16:32 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -142,7 +142,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _create_global_sheet, _create_setup_sheet, _create_summary_sheet, _format_large_number, generate_excel_report`
 
-**Module Variables:** `btc_checks, btc_regime, cell, col_letter, comp_key, comp_value, components, excel_path, flag_str, flags` _(+11 more)_
+**Module Variables:** `breakout_immediate, breakout_retest, btc_checks, btc_regime, cell, col_letter, comp_key, comp_value, components, excel_path` _(+13 more)_
 
 **Imports:** `datetime, logging, openpyxl, openpyxl.styles, openpyxl.utils, pathlib, typing`
 
@@ -176,7 +176,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `_config_get, compute_global_top20`
 
-**Module Variables:** `agg, cur, cur_setup_id, prefer_retest, prev, prev_setup_id, prev_setups, prev_weighted, ranked, root` _(+7 more)_
+**Module Variables:** `agg, cur, cur_setup_id, prefer_retest, prev, prev_setup_id, prev_setups, prev_weighted, ranked, root` _(+5 more)_
 
 **Imports:** `__future__, typing`
 
@@ -210,7 +210,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `__init__, _format_setup_entry, _with_rank, generate_json_report, generate_markdown_report, save_reports`
 
-**Module Variables:** `analysis, btc_checks, btc_regime, coin_name, components, excel_config, excel_gen, excel_path, flag_list, flag_str` _(+22 more)_
+**Module Variables:** `analysis, breakout_immediate, breakout_retest, btc_checks, btc_regime, coin_name, components, excel_config, excel_gen, excel_path` _(+24 more)_
 
 **Imports:** `datetime, excel_output, json, logging, pathlib, scanner.schema, typing`
 
@@ -527,7 +527,7 @@ _This section shows which functions call which other functions, helping identify
 | `_create_global_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `join` |
 | `_create_setup_sheet` | `_format_large_number` | `Alignment`, `Font`, `PatternFill`, `cell`, `create_sheet`, `get`, `get_column_letter`, `items`, `join`, `lower` |
 | `_create_summary_sheet` | — | `Alignment`, `Font`, `PatternFill`, `create_sheet`, `get`, `strftime`, `utcnow` |
-| `generate_excel_report` | `_create_global_sheet`, `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `info`, `remove`, `save` |
+| `generate_excel_report` | `_create_global_sheet`, `_create_setup_sheet`, `_create_summary_sheet` | `Workbook`, `endswith`, `get`, `info`, `remove`, `save` |
 
 ### 📄 scanner/pipeline/features.py
 
@@ -582,7 +582,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `_config_get` | — | `get` |
-| `compute_global_top20` | `_config_get` | `add`, `endswith`, `get`, `items`, `update`, `values` |
+| `compute_global_top20` | — | `add`, `endswith`, `get`, `items`, `update`, `values` |
 
 ### 📄 scanner/pipeline/liquidity.py
 
@@ -613,8 +613,8 @@ _This section shows which functions call which other functions, helping identify
 | `__init__` | — | `Path`, `get`, `info`, `mkdir` |
 | `_format_setup_entry` | — | `append`, `capitalize`, `dumps`, `get`, `items`, `join`, `replace` |
 | `_with_rank` | — | `append` |
-| `generate_json_report` | `_with_rank` | `isoformat`, `update`, `utcnow` |
-| `generate_markdown_report` | `_format_setup_entry` | `append`, `extend`, `get`, `join`, `strftime`, `utcnow` |
+| `generate_json_report` | `_with_rank` | `endswith`, `get`, `isoformat`, `update`, `utcnow` |
+| `generate_markdown_report` | `_format_setup_entry` | `append`, `endswith`, `extend`, `get`, `join`, `strftime`, `utcnow` |
 | `save_reports` | `generate_json_report`, `generate_markdown_report` | `ExcelReportGenerator`, `dump`, `error`, `generate_excel_report`, `info`, `warning`, `write` |
 
 ### 📄 scanner/pipeline/regime.py
@@ -788,10 +788,10 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/features.py` | 29 | 47 | 76 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 33 | 50 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 0 | 42 | 42 | 🔴 High |
-| `scanner/pipeline/excel_output.py` | 5 | 32 | 37 | 🔴 High |
+| `scanner/pipeline/excel_output.py` | 5 | 34 | 39 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
+| `scanner/pipeline/output.py` | 4 | 31 | 35 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 11 | 23 | 34 | 🔴 High |
-| `scanner/pipeline/output.py` | 4 | 28 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 9 | 21 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 17 | 29 | ⚠️ Medium |
@@ -809,11 +809,11 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/shortlist.py` | 1 | 10 | 11 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
-| `scanner/pipeline/global_ranking.py` | 1 | 7 | 8 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
+| `scanner/pipeline/global_ranking.py` | 0 | 7 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
@@ -835,4 +835,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 13:08 UTC_
+_Generated by GitHub Actions • 2026-02-22 16:32 UTC_
