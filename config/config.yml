@@ -54,9 +54,20 @@ features:
   high_low_lookback_days:
     breakout: 30
     reversal: 60
+  volume_sma_periods:
+    1d: 20
+    4h: 20
   volume_sma_period: 7
   volume_spike_threshold: 1.5
   drawdown_lookback_days: 365
+  bollinger:
+    period: 20
+    stddev: 2.0
+    rank_lookback_bars:
+      1d: 120
+      4h: 120
+  atr_rank_lookback_bars:
+    1d: 120
 
 scoring:
   breakout:
