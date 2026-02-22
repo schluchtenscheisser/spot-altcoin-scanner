@@ -47,7 +47,8 @@ class ReportGenerator:
         breakout_results: List[Dict[str, Any]],
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
-        run_date: str
+        run_date: str,
+        btc_regime: Dict[str, Any] = None,
     ) -> str:
         """
         Generate Markdown report.
@@ -67,6 +68,18 @@ class ReportGenerator:
         lines.append(f"# Spot Altcoin Scanner Report")
         lines.append(f"**Date:** {run_date}")
         lines.append(f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        btc_regime = btc_regime or {}
+        btc_checks = btc_regime.get("checks") or {}
+        lines.append("## BTC Regime")
+        lines.append("")
+        lines.append(f"- **State:** {btc_regime.get('state', 'RISK_OFF')}")
+        lines.append(f"- **Multiplier (Risk-On):** {float(btc_regime.get('multiplier_risk_on', 1.0)):.2f}")
+        lines.append(f"- **Multiplier (Risk-Off):** {float(btc_regime.get('multiplier_risk_off', 0.85)):.2f}")
+        lines.append(f"- **Checks:** close>ema50={bool(btc_checks.get('close_gt_ema50', False))}, ema20>ema50={bool(btc_checks.get('ema20_gt_ema50', False))}")
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -247,7 +260,8 @@ class ReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         Generate JSON report.
@@ -281,7 +295,16 @@ class ReportGenerator:
                 'breakouts': self._with_rank(breakout_results[:self.top_n]),
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
-            }
+            },
+            'btc_regime': btc_regime or {
+                'state': 'RISK_OFF',
+                'multiplier_risk_on': 1.0,
+                'multiplier_risk_off': 0.85,
+                'checks': {
+                    'close_gt_ema50': False,
+                    'ema20_gt_ema50': False,
+                },
+            },
         }
         
         if metadata:
@@ -296,7 +319,8 @@ class ReportGenerator:
         pullback_results: List[Dict[str, Any]],
         global_top20: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        btc_regime: Dict[str, Any] = None,
     ) -> Dict[str, Path]:
         """
         Generate and save Markdown, JSON, and Excel reports.
@@ -315,12 +339,12 @@ class ReportGenerator:
         
         # Generate Markdown
         md_content = self.generate_markdown_report(
-            reversal_results, breakout_results, pullback_results, global_top20, run_date
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, btc_regime=btc_regime
         )
         
         # Generate JSON
         json_content = self.generate_json_report(
-            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
         )
         
         # Save Markdown
@@ -347,7 +371,7 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata
+                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:

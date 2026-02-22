@@ -26,6 +26,7 @@ from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_sh
 from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 from .discovery import compute_discovery_fields
+from .regime import compute_btc_regime
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,15 @@ def run_pipeline(config: ScannerConfig) -> None:
     features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
     logger.info(f"✓ Features: {len(features)} symbols")
 
+    logger.info("  Computing BTC regime...")
+    btc_regime = compute_btc_regime(
+        mexc_client=mexc,
+        feature_engine=feature_engine,
+        lookback_1d=ohlcv_fetcher.lookback.get("1d", 120),
+        asof_ts_ms=asof_ts_ms,
+    )
+    logger.info("  ✓ BTC regime: %s", btc_regime.get("state"))
+
     # Step 9: Enrich features with price, coin name, market cap, and volume
     logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
     for symbol in features.keys():
@@ -262,7 +272,8 @@ def run_pipeline(config: ScannerConfig) -> None:
             'mode': run_mode,
             'asof_ts_ms': asof_ts_ms,
             'asof_iso': asof_iso,
-        }
+        },
+        btc_regime=btc_regime,
     )
     logger.info(f"✓ Markdown: {report_paths['markdown']}")
     logger.info(f"✓ JSON: {report_paths['json']}")
