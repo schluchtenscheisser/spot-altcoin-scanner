@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-22 09:29 UTC  
-**Commit:** `d0f2142` (d0f2142d4d88a9a4b34652b6613415c7937d42f4)  
+**Generated:** 2026-02-22 09:54 UTC  
+**Commit:** `a84209a` (a84209a1a63eadcf5909a795c7fc899777e58891)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -426,7 +426,7 @@ For issues or questions:
 
 ### `config/config.yml`
 
-**SHA256:** `df4202c3bcccd079cf8f68c2c85095165fcf3cc37648609ef550a9668a887882`
+**SHA256:** `1130d1da3441623ccfffcc35e3c26955c833b771204cbe8f6f86d0dfbf19b0c3`
 
 ```yaml
 version:
@@ -485,9 +485,20 @@ features:
   high_low_lookback_days:
     breakout: 30
     reversal: 60
+  volume_sma_periods:
+    1d: 20
+    4h: 20
   volume_sma_period: 7
   volume_spike_threshold: 1.5
   drawdown_lookback_days: 365
+  bollinger:
+    period: 20
+    stddev: 2.0
+    rank_lookback_bars:
+      1d: 120
+      4h: 120
+  atr_rank_lookback_bars:
+    1d: 120
 
 scoring:
   breakout:
@@ -3099,7 +3110,7 @@ def compute_discovery_fields(
 
 ### `scanner/pipeline/features.py`
 
-**SHA256:** `aadd127cf726b4579f124fee55e0a582541b9c8ad0473ed1adb49f24c84658c4`
+**SHA256:** `feda8e575517220397462d6f10ca2318783f01194b8f514ead73496243af3ce3`
 
 ```python
 """
@@ -3118,7 +3129,7 @@ Features computed:
 
 import logging
 import math
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -3156,6 +3167,49 @@ class FeatureEngine:
 
         logger.warning("Using legacy default volume_sma_period=14; please define config.features.volume_sma_periods")
         return 14
+
+
+    def _get_bollinger_params(self, timeframe: str) -> Tuple[int, float, int]:
+        period = int(self._config_get(["features", "bollinger", "period"], 20))
+        stddev = float(self._config_get(["features", "bollinger", "stddev"], 2.0))
+        rank_lookback = int(
+            self._config_get(["features", "bollinger", "rank_lookback_bars", timeframe], 120)
+        )
+        return period, stddev, rank_lookback
+
+    def _get_atr_rank_lookback(self, timeframe: str) -> int:
+        return int(self._config_get(["features", "atr_rank_lookback_bars", timeframe], 120))
+
+    def _calc_percent_rank(self, values: np.ndarray, min_history: int = 2) -> Optional[float]:
+        clean = np.array([float(v) for v in values if not np.isnan(v)], dtype=float)
+        if len(clean) < min_history:
+            return np.nan
+
+        current = float(clean[-1])
+        less = float(np.sum(clean < current))
+        equal = float(np.sum(clean == current))
+        avg_rank = less + ((equal + 1.0) / 2.0)
+        denom = float(len(clean) - 1)
+        if denom <= 0:
+            return np.nan
+        return float(((avg_rank - 1.0) / denom) * 100.0)
+
+    def _calc_bollinger_width_series(self, closes: np.ndarray, period: int, stddev: float) -> np.ndarray:
+        result = np.full(len(closes), np.nan, dtype=float)
+        if period <= 1 or len(closes) < period:
+            return result
+
+        for i in range(period - 1, len(closes)):
+            window = closes[i - period + 1 : i + 1]
+            middle = float(np.nanmean(window))
+            sigma = float(np.nanstd(window))
+            if middle <= 0:
+                continue
+            upper = middle + (stddev * sigma)
+            lower = middle - (stddev * sigma)
+            result[i] = ((upper - lower) / middle) * 100.0
+
+        return result
 
     # -------------------------------------------------------------------------
     # Main entry point
@@ -3279,6 +3333,21 @@ class FeatureEngine:
         f["dist_ema50_pct"] = ((closes[-1] / f["ema_50"]) - 1) * 100 if f.get("ema_50") else np.nan
 
         f["atr_pct"] = self._calc_atr_pct(symbol, highs, lows, closes, 14)
+
+        if timeframe == "1d":
+            atr_rank_lookback = self._get_atr_rank_lookback("1d")
+            atr_series = np.full(len(closes), np.nan, dtype=float)
+            for i in range(len(closes)):
+                atr_series[i] = self._calc_atr_pct(symbol, highs[: i + 1], lows[: i + 1], closes[: i + 1], 14)
+            atr_rank_window = atr_series[-atr_rank_lookback:]
+            f[f"atr_pct_rank_{atr_rank_lookback}"] = self._calc_percent_rank(atr_rank_window)
+
+        if timeframe == "4h":
+            bb_period, bb_stddev, bb_rank_lookback = self._get_bollinger_params("4h")
+            bb_width_series = self._calc_bollinger_width_series(closes, bb_period, bb_stddev)
+            f["bb_width_pct"] = float(bb_width_series[-1]) if len(bb_width_series) else np.nan
+            bb_rank_window = bb_width_series[-bb_rank_lookback:]
+            f[f"bb_width_rank_{bb_rank_lookback}"] = self._calc_percent_rank(bb_rank_window)
 
         # Phase 1: timeframe-specific volume baseline period (include_current=False baseline)
         volume_period = self._get_volume_period_for_timeframe(timeframe)
@@ -7281,4 +7350,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-22 09:29 UTC_
+_Generated by GitHub Actions • 2026-02-22 09:54 UTC_
