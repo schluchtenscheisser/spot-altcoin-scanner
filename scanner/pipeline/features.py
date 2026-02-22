@@ -221,10 +221,8 @@ class FeatureEngine:
 
         if timeframe == "1d":
             atr_rank_lookback = self._get_atr_rank_lookback("1d")
-            atr_series = np.full(len(closes), np.nan, dtype=float)
-            for i in range(len(closes)):
-                atr_series[i] = self._calc_atr_pct(symbol, highs[: i + 1], lows[: i + 1], closes[: i + 1], 14)
-            atr_rank_window = atr_series[-atr_rank_lookback:]
+            atr_pct_series = self._calc_atr_pct_series(highs, lows, closes, 14)
+            atr_rank_window = atr_pct_series[-atr_rank_lookback:]
             f[f"atr_pct_rank_{atr_rank_lookback}"] = self._calc_percent_rank(atr_rank_window)
 
         if timeframe == "4h":
@@ -350,6 +348,33 @@ class FeatureEngine:
             return np.nan
 
         return float((atr / closes[-1]) * 100) if closes[-1] > 0 else np.nan
+
+    def _calc_atr_pct_series(self, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> np.ndarray:
+        n = len(closes)
+        atr_pct = np.full(n, np.nan, dtype=float)
+
+        if len(highs) < period + 1:
+            return atr_pct
+
+        tr = np.full(n, np.nan, dtype=float)
+        for i in range(1, n):
+            tr[i] = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+
+        atr = np.full(n, np.nan, dtype=float)
+        atr[period] = float(np.nanmean(tr[1 : period + 1]))
+
+        for i in range(period + 1, n):
+            atr[i] = ((atr[i - 1] * (period - 1)) + tr[i]) / period
+
+        for i in range(period, n):
+            if closes[i] > 0:
+                atr_pct[i] = (atr[i] / closes[i]) * 100.0
+
+        return atr_pct
 
     def _calc_breakout_distance(self, symbol: str, closes: np.ndarray, highs: np.ndarray, lookback: int) -> Optional[float]:
         if len(highs) < lookback + 1:
