@@ -1,3 +1,7 @@
+> ARCHIVED: Superseded by canonical docs under `docs/canonical/`.
+>
+> Start here: `docs/canonical/INDEX.md`
+
 # Output Schema — JSON / Markdown / Excel (Canonical)
 
 ## Machine Header (YAML)
