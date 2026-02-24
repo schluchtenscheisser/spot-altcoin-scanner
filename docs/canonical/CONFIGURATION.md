@@ -5,15 +5,16 @@
 id: CANON_CONFIG
 status: canonical
 intent: "single machine-readable source for defaults/limits and their meanings"
+runtime_config_file: config/config.yml
 ```
 
 ## 0) Canonical principle
 This document defines canonical defaults, limits, and parameter meanings.
 If the implementation deviates, either:
-- the code is updated to match canonical, or
-- canonical is updated explicitly (AUTHORITY process).
+- update code to match canonical, or
+- update canonical explicitly (AUTHORITY process).
 
-## 1) Machine Defaults (YAML)
+## 1) Machine Defaults (VALID YAML)
 ```yaml
 limits:
   universe:
@@ -24,11 +25,29 @@ limits:
 liquidity:
   orderbook_top_k_default: 200
   slippage_notional_usd_default: 20_000
+  grade_thresholds_bps_default:
+    A_max: 20
+    B_max: 50
+    C_max: 100
+    D_rule: "> C_max OR insufficient_depth"
+
+discovery:
+  max_age_days_default: 180
+  primary_source: cmc_date_added
+  fallback_source: first_seen_ts
+
+backtest:
+  model_e2:
+    T_hold_days_default: 10
+    T_trigger_max_days_default: 5
+    thresholds_pct_default: [10, 20]
+    entry_price_default: close
 
 history_minimums_default:
   breakout: { "1d": 30, "4h": 50 }
   pullback: { "1d": 60, "4h": 80 }
   reversal: { "1d": 120, "4h": 80 }
+  breakout_trend_1_5d_uses: breakout
 
 features:
   ema_periods_default: [20, 50]
@@ -40,53 +59,19 @@ features:
     rank_lookback_4h_default: 120
   atr_pct_rank_lookback_1d_default: 120
 
-percent_rank:
+percent_rank_cross_section:
   population_definition: "eligible universe after hard gates with non-NaN feature value"
-  tie_handling: "average_rank"
+  tie_handling: average_rank
+  equality: ieee754_exact
+  rounding_before_compare: none
   formula: "(count_less + 0.5*count_equal) / N"
 
-setup_breakout_trend_1_5d:
-  liquidity_gates_usd:
-    normal_quote_volume_24h_min: 10_000_000
-    btc_risk_off_quote_volume_24h_min: 15_000_000
-  gates_1d:
-    atr_pct_rank_120_max: 0.80
-    overextension_dist_ema20_hard_lt: 28.0
-    overextension_dist_ema20_mult_start: 12
-    overextension_dist_ema20_mult_strong: 20
-  trigger_4h:
-    window_bars: 6
-  retest_4h:
-    tolerance_pct: 1.0
-    window_bars: 12
-  weights:
-    breakout_distance: 0.35
-    volume: 0.35
-    trend: 0.15
-    bb_score: 0.15
-  curves:
-    breakout_distance:
-      floor: -5.0
-      min_breakout: 2.0
-      ideal_breakout: 5.0
-      max_breakout: 20.0
-    volume_score:
-      min_spike: 1.5
-      full_spike: 2.5
-    bb_score:
-      full_rank_le: 0.20
-      linear_to_rank_le: 0.60
-      linear_floor_at: 40
-  multipliers:
-    anti_chase:
-      start_r7: 30
-      full_r7: 60
-      min_mult: 0.75
-    btc_regime:
-      risk_off_multiplier: 0.85
-      rs_override:
-        r7_diff_ge: 7.5
-        r3_diff_ge: 3.5
+rolling_percent_rank_time_series:
+  tie_handling: average_rank
+  equality: ieee754_exact
+  nan_policy:
+    population_excludes_nan: true
+  formula: "(count_less + 0.5*count_equal) / N"
 ```
 
 ## 2) Units & conventions
@@ -94,10 +79,43 @@ setup_breakout_trend_1_5d:
 - Scores are in `[0..100]`
 - `*_pct` is percent (e.g., 7.5 means 7.5%)
 - `*_bps` is basis points (1% = 100 bps)
+- All timestamps in canonical docs are milliseconds unless explicitly stated.
 
-## 3) Config keys in code
-Implementation may use different key names. Canonical mapping should be documented once confirmed:
-- TODO: map canonical keys to `config/config.yml` keys and/or CLI flags.
+## 3) Canonical → runtime config key mapping (config/config.yml)
+This table removes ambiguity: which runtime key implements a canonical default.
+
+| Canonical key | Runtime key in `config/config.yml` |
+|---|---|
+| limits.universe.market_cap_usd_default.min | universe_filters.market_cap.min_usd |
+| limits.universe.market_cap_usd_default.max | universe_filters.market_cap.max_usd |
+| limits.outputs.global_top_n_default | general.shortlist_size (NOTE: shortlist_size controls prefetch workload; top-n output is a separate limit in code if present) |
+| liquidity.orderbook_top_k_default | liquidity.orderbook_top_k |
+| liquidity.slippage_notional_usd_default | liquidity.slippage_notional_usdt |
+| liquidity.grade_thresholds_bps_default.A_max | liquidity.grade_thresholds_bps.a_max |
+| liquidity.grade_thresholds_bps_default.B_max | liquidity.grade_thresholds_bps.b_max |
+| liquidity.grade_thresholds_bps_default.C_max | liquidity.grade_thresholds_bps.c_max |
+| discovery.max_age_days_default | discovery.max_age_days |
+| backtest.model_e2.T_hold_days_default | backtest.t_hold |
+| backtest.model_e2.T_trigger_max_days_default | backtest.t_trigger_max |
+| backtest.model_e2.thresholds_pct_default | backtest.thresholds_pct |
+| backtest.model_e2.entry_price_default | backtest.entry_price |
+| history_minimums_default.breakout.1d | setup_validation.min_history_breakout_1d |
+| history_minimums_default.breakout.4h | setup_validation.min_history_breakout_4h |
+| history_minimums_default.pullback.1d | setup_validation.min_history_pullback_1d |
+| history_minimums_default.pullback.4h | setup_validation.min_history_pullback_4h |
+| history_minimums_default.reversal.1d | setup_validation.min_history_reversal_1d |
+| history_minimums_default.reversal.4h | setup_validation.min_history_reversal_4h |
+| features.ema_periods_default | features.ema_periods |
+| features.atr_period_default | features.atr_period |
+| features.volume_sma_periods_default.1d | features.volume_sma_periods.1d |
+| features.volume_sma_periods_default.4h | features.volume_sma_periods.4h |
+| features.bb.period_default | features.bollinger.period |
+| features.bb.stddev_default | features.bollinger.stddev |
+| features.bb.rank_lookback_4h_default | features.bollinger.rank_lookback_bars.4h |
+| features.atr_pct_rank_lookback_1d_default | features.atr_rank_lookback_bars.1d |
+
+Notes:
+- If code uses different internal names than runtime config keys, that mapping must be documented in canonical docs (no TODOs).
 
 ## 4) Change control
 Any default/limit change that affects outputs requires:
