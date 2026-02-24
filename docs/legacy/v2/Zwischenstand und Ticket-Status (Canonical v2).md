@@ -1,3 +1,7 @@
+> ARCHIVED: Superseded by canonical docs under `docs/canonical/`.
+>
+> Start here: `docs/canonical/INDEX.md`
+
 # Ticket-Status (Canonical v2)
 
 **Referenz-Tickets:** `docs/v2/30_IMPLEMENTATION_TICKETS.md`
