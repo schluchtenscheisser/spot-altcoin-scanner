@@ -16,6 +16,9 @@ minimum_history_defaults:
   breakout: { "1d": 30, "4h": 50 }
   pullback: { "1d": 60, "4h": 80 }
   reversal: { "1d": 120, "4h": 80 }
+setup_id_to_history_key:
+  breakout_immediate_1_5d: breakout
+  breakout_retest_1_5d: breakout
 ```
 
 ## 1) `is_valid_setup` contract
@@ -31,9 +34,9 @@ Reasons must be deterministic strings (stable keys), e.g.:
 - `btc_risk_off_ineligible`
 
 ## 3) Minimum history thresholds (defaults)
-These are defaults and must match config keys when `CONFIGURATION.md` is finalized.
+These defaults must match `CONFIGURATION.md`.
 
-### Breakout
+### Breakout (used by Breakout Trend 1–5d)
 - 1D: >= 30 closed candles
 - 4H: >= 50 closed candles
 
@@ -46,8 +49,7 @@ These are defaults and must match config keys when `CONFIGURATION.md` is finaliz
 - 4H: >= 80 closed candles
 
 ## 4) Closed-candle buffer rule (implementation guard)
-When fetching, the effective lookback should include a buffer so the last in-progress candle never affects the required minimum of closed candles.
+Effective lookback includes a buffer so the last in-progress candle never affects the required minimum of closed candles.
 
 ## 5) Interaction with percent_rank
-- Minimum-history invalid symbols are excluded from setup scoring.
-- For `percent_rank`, the population rule is defined in `FEATURES/FEAT_PERCENT_RANK.md` and is based on eligibility + non-NaN feature values.
+Population definitions remain as specified in feature docs.
