@@ -69,7 +69,7 @@ class ScannerConfig:
     
     @property
     def market_cap_max(self) -> int:
-        return self.raw.get("universe_filters", {}).get("market_cap", {}).get("max_usd", 3_000_000_000)
+        return self.raw.get("universe_filters", {}).get("market_cap", {}).get("max_usd", 10_000_000_000)
     
     @property
     def min_quote_volume_24h(self) -> int:
