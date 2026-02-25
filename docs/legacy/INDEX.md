@@ -1,3 +1,7 @@
+> ARCHIVED: Superseded by `docs/canonical/INDEX.md`.
+>
+> Start here: `docs/canonical/INDEX.md`
+
 # Canonical Documentation — Index
 
 ## Machine Header (YAML)
