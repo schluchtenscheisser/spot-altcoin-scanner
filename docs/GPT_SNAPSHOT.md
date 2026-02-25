@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-25 07:45 UTC  
-**Commit:** `d9798cd` (d9798cd6bd4e210cddef35a1b488de830555b136)  
+**Generated:** 2026-02-25 19:45 UTC  
+**Commit:** `418a42d` (418a42d96ad6283ad659d3240e82ea102c43aa4f)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -1107,6 +1107,34 @@ if __name__ == "__main__":
 
 ```
 
+### `scanner/schema.py`
+
+**SHA256:** `835683686ab066ba7a650b37c2c425dc8a0beea19d1a9793437941f7a277ca36`
+
+```python
+"""Schema/version constants for scanner outputs."""
+
+REPORT_SCHEMA_VERSION = "v1.8"
+REPORT_META_VERSION = "1.8"
+
+```
+
+### `scanner/__init__.py`
+
+**SHA256:** `c6d8ea689789828672d38ce8d93859015f5cc8d69934f34f23366d6a1ddc8b84`
+
+```python
+# scanner/__init__.py
+
+"""
+Spot Altcoin Scanner package.
+
+See /docs/spec.md for the full technical specification.
+"""
+
+
+```
+
 ### `scanner/config.py`
 
 **SHA256:** `518a33d2f31084af0de9a1648bef2842b926ad4ffd75a8f32a018477a8449cc0`
@@ -1271,29 +1299,1036 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
 ```
 
-### `scanner/schema.py`
+### `scanner/clients/mexc_client.py`
 
-**SHA256:** `835683686ab066ba7a650b37c2c425dc8a0beea19d1a9793437941f7a277ca36`
+**SHA256:** `895c43d74c5d963773e503f856a45989c679c665bae91284b5ed3b36b463ab7e`
 
 ```python
-"""Schema/version constants for scanner outputs."""
+"""
+MEXC API Client for Spot market data.
 
-REPORT_SCHEMA_VERSION = "v1.8"
-REPORT_META_VERSION = "1.8"
+Responsibilities:
+- Fetch spot symbol list (exchangeInfo)
+- Fetch 24h ticker data (bulk)
+- Fetch OHLCV (klines) for specific pairs
+
+API Docs: https://mexcdevelop.github.io/apidocs/spot_v3_en/
+"""
+
+import time
+from typing import Dict, List, Optional, Any
+import requests
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_cache, save_cache, cache_exists
+
+
+logger = get_logger(__name__)
+
+
+class MEXCClient:
+    """
+    MEXC Spot API client with rate-limit handling and caching.
+    """
+    
+    BASE_URL = "https://api.mexc.com"
+    
+    def __init__(
+        self,
+        max_retries: int = 3,
+        retry_backoff: float = 3.0,
+        timeout: int = 30
+    ):
+        """
+        Initialize MEXC client.
+        
+        Args:
+            max_retries: Maximum retry attempts on failure
+            retry_backoff: Seconds to wait between retries
+            timeout: Request timeout in seconds
+        """
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
+        self.timeout = timeout
+        self.session = requests.Session()
+        
+        # Rate limiting (conservative)
+        self.last_request_time = 0
+        self.min_request_interval = 0.1  # 100ms between requests
+    
+    def _rate_limit(self) -> None:
+        """Apply rate limiting between requests."""
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.min_request_interval:
+            time.sleep(self.min_request_interval - elapsed)
+        self.last_request_time = time.time()
+    
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make HTTP request with retry logic.
+        
+        Args:
+            method: HTTP method (GET, POST)
+            endpoint: API endpoint (e.g., '/api/v3/exchangeInfo')
+            params: Query parameters
+            
+        Returns:
+            JSON response
+            
+        Raises:
+            requests.RequestException: On persistent failure
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+        
+        for attempt in range(self.max_retries):
+            try:
+                self._rate_limit()
+                
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    timeout=self.timeout
+                )
+                
+                # Handle rate limit (429)
+                if response.status_code == 429:
+                    retry_after = int(response.headers.get('Retry-After', self.retry_backoff))
+                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
+                    time.sleep(retry_after)
+                    continue
+                
+                response.raise_for_status()
+                return response.json()
+                
+            except requests.RequestException as e:
+                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_backoff * (attempt + 1))  # Exponential backoff
+                else:
+                    logger.error(f"Request failed after {self.max_retries} attempts")
+                    raise
+        
+        raise requests.RequestException("Unexpected error in retry loop")
+    
+    def get_exchange_info(self, use_cache: bool = True) -> Dict[str, Any]:
+        """
+        Get exchange info (symbols, trading rules).
+        
+        Args:
+            use_cache: Use cached data if available (today)
+            
+        Returns:
+            Exchange info dict with 'symbols' list
+        """
+        cache_key = "mexc_exchange_info"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading exchange info from cache")
+            return load_cache(cache_key)
+        
+        logger.info("Fetching exchange info from MEXC API")
+        data = self._request("GET", "/api/v3/exchangeInfo")
+        
+        save_cache(data, cache_key)
+        return data
+    
+    def get_spot_usdt_symbols(self, use_cache: bool = True) -> List[str]:
+        """
+        Get all Spot USDT trading pairs.
+        
+        Returns:
+            List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
+        """
+        exchange_info = self.get_exchange_info(use_cache=use_cache)
+        
+        symbols = []
+        for symbol_info in exchange_info.get("symbols", []):
+            # Filter: USDT quote, Spot, Trading status
+            # Note: MEXC uses status="1" for enabled (not "ENABLED")
+            if (
+                symbol_info.get("quoteAsset") == "USDT" and
+                symbol_info.get("isSpotTradingAllowed", False) and
+                symbol_info.get("status") == "1"
+            ):
+                symbols.append(symbol_info["symbol"])
+        
+        logger.info(f"Found {len(symbols)} USDT Spot pairs")
+        return symbols
+    
+    def get_24h_tickers(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get 24h ticker statistics for all symbols (bulk).
+        
+        Returns:
+            List of ticker dicts with keys:
+            - symbol
+            - lastPrice
+            - priceChangePercent
+            - quoteVolume
+            - volume
+            etc.
+        """
+        cache_key = "mexc_24h_tickers"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading 24h tickers from cache")
+            return load_cache(cache_key)
+        
+        logger.info("Fetching 24h tickers from MEXC API")
+        data = self._request("GET", "/api/v3/ticker/24hr")
+        
+        save_cache(data, cache_key)
+        logger.info(f"Fetched {len(data)} ticker entries")
+        return data
+    
+
+    def get_orderbook(self, symbol: str, limit: int = 200) -> Dict[str, Any]:
+        """Get orderbook depth snapshot for a symbol."""
+        return self._request("GET", "/api/v3/depth", params={"symbol": symbol, "limit": int(limit)})
+
+    def get_klines(
+        self,
+        symbol: str,
+        interval: str = "1d",
+        limit: int = 120,
+        use_cache: bool = True
+    ) -> List[List]:
+        """
+        Get candlestick/kline data for a symbol.
+        
+        Args:
+            symbol: Trading pair (e.g., 'BTCUSDT')
+            interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d, 1w)
+            limit: Number of candles (max 1000)
+            use_cache: Use cached data if available
+            
+        Returns:
+            List of klines, each kline is a list:
+            [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
+        """
+        cache_key = f"mexc_klines_{symbol}_{interval}"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.debug(f"Loading klines from cache: {symbol} {interval}")
+            return load_cache(cache_key)
+        
+        logger.debug(f"Fetching klines: {symbol} {interval} (limit={limit})")
+        
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": min(limit, 1000)  # API max is 1000
+        }
+        
+        data = self._request("GET", "/api/v3/klines", params=params)
+        
+        save_cache(data, cache_key)
+        return data
+    
+    def get_multiple_klines(
+        self,
+        symbols: List[str],
+        interval: str = "1d",
+        limit: int = 120,
+        use_cache: bool = True
+    ) -> Dict[str, List[List]]:
+        """
+        Get klines for multiple symbols (sequential, rate-limited).
+        
+        Args:
+            symbols: List of trading pairs
+            interval: Timeframe
+            limit: Candles per symbol
+            use_cache: Use cached data
+            
+        Returns:
+            Dict mapping symbol -> klines
+        """
+        results = {}
+        total = len(symbols)
+        
+        logger.info(f"Fetching klines for {total} symbols ({interval})")
+        
+        for i, symbol in enumerate(symbols, 1):
+            try:
+                results[symbol] = self.get_klines(symbol, interval, limit, use_cache)
+                
+                if i % 10 == 0:
+                    logger.info(f"Progress: {i}/{total} symbols")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch klines for {symbol}: {e}")
+                results[symbol] = []
+        
+        logger.info(f"Successfully fetched klines for {len(results)} symbols")
+        return results
 
 ```
 
-### `scanner/__init__.py`
+### `scanner/clients/__init__.py`
 
-**SHA256:** `c6d8ea689789828672d38ce8d93859015f5cc8d69934f34f23366d6a1ddc8b84`
+**SHA256:** `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
 
 ```python
-# scanner/__init__.py
 
+
+```
+
+### `scanner/clients/marketcap_client.py`
+
+**SHA256:** `5d8072e16cc2f3388b6834d559c65d0c04b9557703ab5e62f2c8e7c1ffa03ace`
+
+```python
 """
-Spot Altcoin Scanner package.
+CoinMarketCap API Client for market cap data.
 
-See /docs/spec.md for the full technical specification.
+Responsibilities:
+- Fetch bulk cryptocurrency listings
+- Get market cap, rank, supply data
+- Cache daily for rate-limit efficiency
+
+API Docs: https://coinmarketcap.com/api/documentation/v1/
+"""
+
+import os
+from typing import Dict, List, Optional, Any
+import requests
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_cache, save_cache, cache_exists
+
+# 🔹 Neu: zentralisierte Rohdaten-Speicherung
+try:
+    from scanner.utils.raw_collector import collect_raw_marketcap
+except ImportError:
+    collect_raw_marketcap = None
+
+
+logger = get_logger(__name__)
+
+
+class MarketCapClient:
+    """
+    CoinMarketCap API client with caching and rate-limit protection.
+    """
+    
+    BASE_URL = "https://pro-api.coinmarketcap.com"
+    
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        timeout: int = 30
+    ):
+        """
+        Initialize CMC client.
+        
+        Args:
+            api_key: CMC API key (default: from CMC_API_KEY env var)
+            timeout: Request timeout in seconds
+        """
+        self.api_key = api_key or os.getenv("CMC_API_KEY")
+        self.timeout = timeout
+        
+        if not self.api_key:
+            logger.warning("CMC_API_KEY not set - client will fail on API calls")
+        
+        self.session = requests.Session()
+        self.session.headers.update({
+            "X-CMC_PRO_API_KEY": self.api_key or "",
+            "Accept": "application/json"
+        })
+    
+    def _request(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Make API request.
+        
+        Args:
+            endpoint: API endpoint (e.g., '/v1/cryptocurrency/listings/latest')
+            params: Query parameters
+            
+        Returns:
+            API response data
+            
+        Raises:
+            requests.RequestException: On API failure
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+        
+        try:
+            response = self.session.get(
+                url,
+                params=params,
+                timeout=self.timeout
+            )
+            
+            # Handle rate limit
+            if response.status_code == 429:
+                logger.error("CMC rate limit hit - check your plan limits")
+                raise requests.RequestException("CMC rate limit exceeded")
+            
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # CMC wraps data in 'data' field
+            if "data" not in data:
+                logger.error(f"Unexpected CMC response structure: {data.keys()}")
+                raise ValueError("Invalid CMC response format")
+            
+            return data
+            
+        except requests.RequestException as e:
+            logger.error(f"CMC API request failed: {e}")
+            raise
+    
+    def get_listings(
+        self,
+        start: int = 1,
+        limit: int = 5000,
+        use_cache: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Get cryptocurrency listings with market cap data.
+        
+        Args:
+            start: Start rank (1-based)
+            limit: Number of results (max 5000)
+            use_cache: Use cached data if available (today)
+            
+        Returns:
+            List of cryptocurrency dicts with keys:
+            - id: CMC ID
+            - symbol: Ticker symbol
+            - name: Full name
+            - slug: URL slug
+            - cmc_rank: CMC rank
+            - quote.USD.market_cap: Market cap in USD
+            - quote.USD.price: Current price
+            - circulating_supply: Circulating supply
+            - total_supply: Total supply
+            - max_supply: Max supply
+        """
+        cache_key = f"cmc_listings_start{start}_limit{limit}"
+        
+        if use_cache and cache_exists(cache_key):
+            logger.info("Loading CMC listings from cache")
+            cached = load_cache(cache_key)
+            data = cached.get("data", []) if isinstance(cached, dict) else []
+
+            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+
+            return data
+        
+        logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
+        
+        params = {
+            "start": start,
+            "limit": min(limit, 5000),  # API max
+            "convert": "USD",
+            "sort": "market_cap",
+            "sort_dir": "desc"
+        }
+        
+        try:
+            response = self._request("/v1/cryptocurrency/listings/latest", params)
+            data = response.get("data", [])
+            
+            logger.info(f"Fetched {len(data)} listings from CMC")
+            
+            # Cache the full response
+            save_cache(response, cache_key)
+
+            # 🔹 Rohdaten-Snapshot über zentralen Collector speichern
+            if collect_raw_marketcap and data:
+                try:
+                    collect_raw_marketcap(data)
+                except Exception as e:
+                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch CMC listings: {e}")
+            return []
+    
+    def get_all_listings(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """
+        Get all available listings (up to 5000).
+        
+        Returns:
+            List of all cryptocurrency dicts
+        """
+        return self.get_listings(start=1, limit=5000, use_cache=use_cache)
+    
+    def build_symbol_map(
+        self,
+        listings: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Build a symbol → data mapping for fast lookups.
+        
+        Args:
+            listings: CMC listings (default: fetch all)
+            
+        Returns:
+            Dict mapping symbol (uppercase) to full CMC data
+            
+        Note:
+            If multiple coins share a symbol, only the highest-ranked is kept.
+        """
+        if listings is None:
+            listings = self.get_all_listings()
+        
+        symbol_map = {}
+        collisions = []
+        
+        for item in listings:
+            symbol = item.get("symbol", "").upper()
+            
+            if not symbol:
+                continue
+            
+            # Collision detection
+            if symbol in symbol_map:
+                # Keep higher-ranked (lower cmc_rank number)
+                existing_rank = symbol_map[symbol].get("cmc_rank", float('inf'))
+                new_rank = item.get("cmc_rank", float('inf'))
+                
+                if new_rank < existing_rank:
+                    collisions.append({
+                        "symbol": symbol,
+                        "replaced": symbol_map[symbol].get("name"),
+                        "with": item.get("name")
+                    })
+                    symbol_map[symbol] = item
+                else:
+                    collisions.append({
+                        "symbol": symbol,
+                        "kept": symbol_map[symbol].get("name"),
+                        "ignored": item.get("name")
+                    })
+            else:
+                symbol_map[symbol] = item
+        
+        if collisions:
+            logger.warning(f"Found {len(collisions)} symbol collisions (kept higher-ranked)")
+            logger.debug(f"Collisions: {collisions[:10]}")  # Show first 10
+        
+        logger.info(f"Built symbol map with {len(symbol_map)} unique symbols")
+        return symbol_map
+    
+    def get_market_cap_for_symbol(
+        self,
+        symbol: str,
+        symbol_map: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Optional[float]:
+        """
+        Get market cap for a specific symbol.
+        
+        Args:
+            symbol: Ticker symbol (e.g., 'BTC')
+            symbol_map: Pre-built symbol map (default: build from listings)
+            
+        Returns:
+            Market cap in USD or None if not found
+        """
+        if symbol_map is None:
+            symbol_map = self.build_symbol_map()
+        
+        symbol = symbol.upper()
+        data = symbol_map.get(symbol)
+        
+        if not data:
+            return None
+        
+        try:
+            return data["quote"]["USD"]["market_cap"]
+        except (KeyError, TypeError):
+            return None
+
+```
+
+### `scanner/clients/mapping.py`
+
+**SHA256:** `02c9c16ef03964e8bcc92f905fbd0078203bec98cf6099509ae8fb5ffe1617e5`
+
+```python
+"""
+Mapping layer between MEXC symbols and CMC market cap data.
+
+Handles:
+- Symbol-based matching (primary)
+- Collision detection (multiple CMC assets per symbol)
+- Confidence scoring
+- Manual overrides
+- Mapping reports
+
+This is a CRITICAL component - incorrect mapping = corrupted scores.
+"""
+
+from typing import Dict, List, Optional, Tuple, Any
+from pathlib import Path
+import json
+from ..utils.logging_utils import get_logger
+from ..utils.io_utils import load_json, save_json
+
+
+logger = get_logger(__name__)
+
+
+class MappingResult:
+    """Result of a mapping operation."""
+    
+    def __init__(
+        self,
+        mexc_symbol: str,
+        cmc_data: Optional[Dict[str, Any]] = None,
+        confidence: str = "none",
+        method: str = "none",
+        collision: bool = False,
+        notes: Optional[str] = None
+    ):
+        self.mexc_symbol = mexc_symbol
+        self.cmc_data = cmc_data
+        self.confidence = confidence  # "high", "medium", "low", "none"
+        self.method = method
+        self.collision = collision
+        self.notes = notes
+    
+    @property
+    def mapped(self) -> bool:
+        """Check if mapping was successful."""
+        return self.cmc_data is not None
+    
+    @property
+    def base_asset(self) -> str:
+        """Extract base asset from MEXC symbol (e.g., BTCUSDT -> BTC)."""
+        # Remove USDT suffix
+        if self.mexc_symbol.endswith("USDT"):
+            return self.mexc_symbol[:-4]
+        return self.mexc_symbol
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for serialization."""
+        return {
+            "mexc_symbol": self.mexc_symbol,
+            "base_asset": self.base_asset,
+            "mapped": self.mapped,
+            "confidence": self.confidence,
+            "method": self.method,
+            "collision": self.collision,
+            "notes": self.notes,
+            "cmc_data": {
+                "id": self.cmc_data.get("id") if self.cmc_data else None,
+                "symbol": self.cmc_data.get("symbol") if self.cmc_data else None,
+                "name": self.cmc_data.get("name") if self.cmc_data else None,
+                "slug": self.cmc_data.get("slug") if self.cmc_data else None,
+                "market_cap": self._get_market_cap() if self.cmc_data else None,
+            }
+        }
+    
+    def _get_market_cap(self) -> Optional[float]:
+        """Extract market cap from CMC data."""
+        try:
+            return self.cmc_data["quote"]["USD"]["market_cap"]
+        except (KeyError, TypeError):
+            return None
+
+
+class SymbolMapper:
+    """
+    Maps MEXC symbols to CMC market cap data.
+    """
+    
+    def __init__(
+        self,
+        overrides_file: str = "config/mapping_overrides.json"
+    ):
+        """
+        Initialize mapper.
+        
+        Args:
+            overrides_file: Path to manual overrides JSON
+        """
+        self.overrides_file = Path(overrides_file)
+        self.overrides = self._load_overrides()
+        
+        # Statistics
+        self.stats = {
+            "total": 0,
+            "mapped": 0,
+            "unmapped": 0,
+            "collisions": 0,
+            "overrides_used": 0,
+            "confidence": {
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "none": 0
+            }
+        }
+    
+    def _load_overrides(self) -> Dict[str, Any]:
+        """Load manual mapping overrides."""
+        if not self.overrides_file.exists():
+            logger.info(f"No overrides file found at {self.overrides_file}")
+            return {}
+        
+        try:
+            overrides = load_json(self.overrides_file)
+            logger.info(f"Loaded {len(overrides)} mapping overrides")
+            return overrides
+        except Exception as e:
+            logger.error(f"Failed to load overrides: {e}")
+            return {}
+    
+    def map_symbol(
+        self,
+        mexc_symbol: str,
+        cmc_symbol_map: Dict[str, Dict[str, Any]]
+    ) -> MappingResult:
+        """
+        Map a single MEXC symbol to CMC data.
+        
+        Args:
+            mexc_symbol: MEXC trading pair (e.g., 'BTCUSDT')
+            cmc_symbol_map: Symbol -> CMC data mapping
+            
+        Returns:
+            MappingResult with confidence + collision info
+        """
+        # Extract base asset
+        base_asset = mexc_symbol[:-4] if mexc_symbol.endswith("USDT") else mexc_symbol
+        base_asset_upper = base_asset.upper()
+        
+        # Check overrides first
+        if base_asset_upper in self.overrides:
+            override = self.overrides[base_asset_upper]
+            
+            # Override can specify CMC symbol or "exclude"
+            if override == "exclude":
+                return MappingResult(
+                    mexc_symbol=mexc_symbol,
+                    cmc_data=None,
+                    confidence="none",
+                    method="override_exclude",
+                    notes="Manually excluded via overrides"
+                )
+            
+            # Try to find CMC data for override symbol
+            override_symbol = override.upper()
+            if override_symbol in cmc_symbol_map:
+                self.stats["overrides_used"] += 1
+                return MappingResult(
+                    mexc_symbol=mexc_symbol,
+                    cmc_data=cmc_symbol_map[override_symbol],
+                    confidence="high",
+                    method="override_match",
+                    notes=f"Overridden to {override_symbol}"
+                )
+        
+        # Direct symbol match
+        if base_asset_upper in cmc_symbol_map:
+            return MappingResult(
+                mexc_symbol=mexc_symbol,
+                cmc_data=cmc_symbol_map[base_asset_upper],
+                confidence="high",
+                method="symbol_exact_match"
+            )
+        
+        # No match found
+        return MappingResult(
+            mexc_symbol=mexc_symbol,
+            cmc_data=None,
+            confidence="none",
+            method="no_match",
+            notes=f"Symbol {base_asset_upper} not found in CMC data"
+        )
+    
+    def map_universe(
+        self,
+        mexc_symbols: List[str],
+        cmc_symbol_map: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, MappingResult]:
+        """
+        Map entire MEXC universe to CMC data.
+        
+        Args:
+            mexc_symbols: List of MEXC trading pairs
+            cmc_symbol_map: CMC symbol -> data mapping
+            
+        Returns:
+            Dict mapping mexc_symbol -> MappingResult
+        """
+        logger.info(f"Mapping {len(mexc_symbols)} MEXC symbols to CMC data")
+        
+        results = {}
+        self.stats["total"] = len(mexc_symbols)
+        
+        for symbol in mexc_symbols:
+            result = self.map_symbol(symbol, cmc_symbol_map)
+            results[symbol] = result
+            
+            # Update stats
+            if result.mapped:
+                self.stats["mapped"] += 1
+            else:
+                self.stats["unmapped"] += 1
+            
+            if result.collision:
+                self.stats["collisions"] += 1
+            
+            self.stats["confidence"][result.confidence] += 1
+        
+        # Log summary
+        logger.info(f"Mapping complete:")
+        logger.info(f"  Mapped: {self.stats['mapped']}/{self.stats['total']}")
+        logger.info(f"  Unmapped: {self.stats['unmapped']}")
+        logger.info(f"  Collisions: {self.stats['collisions']}")
+        logger.info(f"  Confidence: {self.stats['confidence']}")
+        logger.info(f"  Overrides used: {self.stats['overrides_used']}")
+        
+        return results
+    
+    def generate_reports(
+        self,
+        mapping_results: Dict[str, MappingResult],
+        output_dir: str = "reports"
+    ) -> None:
+        """
+        Generate mapping reports.
+        
+        Creates:
+        - unmapped_symbols.json: Symbols without CMC match
+        - mapping_collisions.json: Symbols with multiple CMC candidates
+        - mapping_stats.json: Overall statistics
+        """
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        # Unmapped symbols
+        unmapped = [
+            {
+                "mexc_symbol": result.mexc_symbol,
+                "base_asset": result.base_asset,
+                "notes": result.notes
+            }
+            for result in mapping_results.values()
+            if not result.mapped
+        ]
+        
+        unmapped_file = output_path / "unmapped_symbols.json"
+        save_json(unmapped, unmapped_file)
+        logger.info(f"Saved {len(unmapped)} unmapped symbols to {unmapped_file}")
+        
+        # Collisions
+        collisions = [
+            result.to_dict()
+            for result in mapping_results.values()
+            if result.collision
+        ]
+        
+        collisions_file = output_path / "mapping_collisions.json"
+        save_json(collisions, collisions_file)
+        logger.info(f"Saved {len(collisions)} collisions to {collisions_file}")
+        
+        # Stats
+        stats_file = output_path / "mapping_stats.json"
+        save_json(self.stats, stats_file)
+        logger.info(f"Saved mapping stats to {stats_file}")
+    
+    def suggest_overrides(
+        self,
+        mapping_results: Dict[str, MappingResult],
+        output_file: str = "reports/suggested_overrides.json"
+    ) -> Dict[str, str]:
+        """
+        Generate suggested overrides for unmapped symbols.
+        
+        Returns:
+            Dict of base_asset -> "exclude" (user must review)
+        """
+        suggestions = {}
+        
+        for result in mapping_results.values():
+            if not result.mapped and result.base_asset not in self.overrides:
+                # Suggest exclusion (user can change to proper symbol)
+                suggestions[result.base_asset] = "exclude"
+        
+        if suggestions:
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            save_json(suggestions, output_path, indent=2)
+            logger.info(f"Generated {len(suggestions)} override suggestions: {output_file}")
+        
+        return suggestions
+
+```
+
+### `scanner/utils/logging_utils.py`
+
+**SHA256:** `16b928c91c236b53ca1e7a9d74f6ba890d50b3afb2ae508d3962c1fe44bb2e50`
+
+```python
+"""
+Logging utilities for the scanner.
+Provides centralized logging with file rotation and console output.
+"""
+
+import logging
+import sys
+from pathlib import Path
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+
+
+def setup_logger(
+    name: str = "scanner",
+    level: str = "INFO",
+    log_file: str | None = None,
+    log_to_console: bool = True,
+    log_to_file: bool = True,
+) -> logging.Logger:
+    """
+    Set up a logger with file and/or console handlers.
+    
+    Args:
+        name: Logger name
+        level: Log level (DEBUG, INFO, WARNING, ERROR)
+        log_file: Path to log file (default: logs/scanner_YYYY-MM-DD.log)
+        log_to_console: Enable console output
+        log_to_file: Enable file output
+        
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Remove existing handlers
+    logger.handlers.clear()
+    
+    # Format
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Console handler
+    if log_to_console:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+    
+    # File handler
+    if log_to_file:
+        if log_file is None:
+            log_dir = Path("logs")
+            log_dir.mkdir(exist_ok=True)
+            log_file = log_dir / f"scanner_{datetime.utcnow().strftime('%Y-%m-%d')}.log"
+        
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
+def get_logger(name: str = "scanner") -> logging.Logger:
+    """Get existing logger or create default one."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        return setup_logger(name)
+    return logger
+
+```
+
+### `scanner/utils/time_utils.py`
+
+**SHA256:** `ed28e91229a8ee46f5154d1baa9ece921c37531327ee42ffd2ef635df7a456a0`
+
+```python
+"""
+Time and date utilities.
+All times are UTC-based for consistency.
+"""
+
+from datetime import datetime, timezone
+from typing import Optional
+
+
+def utc_now() -> datetime:
+    """Get current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
+
+def utc_timestamp() -> str:
+    """Get current UTC timestamp as ISO string (YYYY-MM-DDTHH:MM:SSZ)."""
+    return utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def utc_date() -> str:
+    """Get current UTC date as string (YYYY-MM-DD)."""
+    return utc_now().strftime("%Y-%m-%d")
+
+
+def parse_timestamp(ts: str) -> datetime:
+    """
+    Parse ISO timestamp to datetime.
+    
+    Args:
+        ts: ISO timestamp string (e.g., "2025-01-17T12:00:00Z")
+        
+    Returns:
+        Timezone-aware datetime object
+    """
+    # Handle both with and without 'Z'
+    if ts.endswith('Z'):
+        ts = ts[:-1] + '+00:00'
+    return datetime.fromisoformat(ts)
+
+
+def timestamp_to_ms(dt: datetime) -> int:
+    """Convert datetime to milliseconds since epoch (for APIs)."""
+    return int(dt.timestamp() * 1000)
+
+
+def ms_to_timestamp(ms: int) -> datetime:
+    """Convert milliseconds since epoch to datetime."""
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+
+```
+
+### `scanner/utils/__init__.py`
+
+**SHA256:** `f230bbd04291338e0d737b6ea6813a830bdbd2cfff379a1b6ce8ade07fc98021`
+
+```python
+"""
+Utility helpers for the scanner.
+
+Modules:
+- time_utils: time and date handling
+- logging_utils: logging configuration helpers
+- io_utils: file I/O helpers (JSON, Markdown, paths)
 """
 
 
@@ -1595,1092 +2630,883 @@ def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
 
 ```
 
-### `scanner/utils/time_utils.py`
+### `scanner/pipeline/shortlist.py`
 
-**SHA256:** `ed28e91229a8ee46f5154d1baa9ece921c37531327ee42ffd2ef635df7a456a0`
-
-```python
-"""
-Time and date utilities.
-All times are UTC-based for consistency.
-"""
-
-from datetime import datetime, timezone
-from typing import Optional
-
-
-def utc_now() -> datetime:
-    """Get current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
-
-
-def utc_timestamp() -> str:
-    """Get current UTC timestamp as ISO string (YYYY-MM-DDTHH:MM:SSZ)."""
-    return utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def utc_date() -> str:
-    """Get current UTC date as string (YYYY-MM-DD)."""
-    return utc_now().strftime("%Y-%m-%d")
-
-
-def parse_timestamp(ts: str) -> datetime:
-    """
-    Parse ISO timestamp to datetime.
-    
-    Args:
-        ts: ISO timestamp string (e.g., "2025-01-17T12:00:00Z")
-        
-    Returns:
-        Timezone-aware datetime object
-    """
-    # Handle both with and without 'Z'
-    if ts.endswith('Z'):
-        ts = ts[:-1] + '+00:00'
-    return datetime.fromisoformat(ts)
-
-
-def timestamp_to_ms(dt: datetime) -> int:
-    """Convert datetime to milliseconds since epoch (for APIs)."""
-    return int(dt.timestamp() * 1000)
-
-
-def ms_to_timestamp(ms: int) -> datetime:
-    """Convert milliseconds since epoch to datetime."""
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
-
-```
-
-### `scanner/utils/logging_utils.py`
-
-**SHA256:** `16b928c91c236b53ca1e7a9d74f6ba890d50b3afb2ae508d3962c1fe44bb2e50`
+**SHA256:** `54ea263030362d03281b41498ce97f12013063cc554fafefde27cc22311dc90c`
 
 ```python
 """
-Logging utilities for the scanner.
-Provides centralized logging with file rotation and console output.
+Shortlist Selection (Cheap Pass)
+=================================
+
+Reduces filtered universe to a shortlist for expensive operations (OHLCV fetch).
+Uses cheap metrics (24h volume) to rank and select top N candidates.
 """
 
 import logging
-import sys
-from pathlib import Path
-from logging.handlers import RotatingFileHandler
-from datetime import datetime
+import math
+from typing import List, Dict, Any
 
-
-def setup_logger(
-    name: str = "scanner",
-    level: str = "INFO",
-    log_file: str | None = None,
-    log_to_console: bool = True,
-    log_to_file: bool = True,
-) -> logging.Logger:
-    """
-    Set up a logger with file and/or console handlers.
-    
-    Args:
-        name: Logger name
-        level: Log level (DEBUG, INFO, WARNING, ERROR)
-        log_file: Path to log file (default: logs/scanner_YYYY-MM-DD.log)
-        log_to_console: Enable console output
-        log_to_file: Enable file output
-        
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Remove existing handlers
-    logger.handlers.clear()
-    
-    # Format
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    
-    # Console handler
-    if log_to_console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-    
-    # File handler
-    if log_to_file:
-        if log_file is None:
-            log_dir = Path("logs")
-            log_dir.mkdir(exist_ok=True)
-            log_file = log_dir / f"scanner_{datetime.utcnow().strftime('%Y-%m-%d')}.log"
-        
-        file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-    
-    return logger
-
-
-def get_logger(name: str = "scanner") -> logging.Logger:
-    """Get existing logger or create default one."""
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        return setup_logger(name)
-    return logger
-
-```
-
-### `scanner/utils/__init__.py`
-
-**SHA256:** `f230bbd04291338e0d737b6ea6813a830bdbd2cfff379a1b6ce8ade07fc98021`
-
-```python
-"""
-Utility helpers for the scanner.
-
-Modules:
-- time_utils: time and date handling
-- logging_utils: logging configuration helpers
-- io_utils: file I/O helpers (JSON, Markdown, paths)
-"""
-
-
-```
-
-### `scanner/tools/validate_features.py`
-
-**SHA256:** `be0e041fff94015cfdd32acd4fbcded4dd38daa693bce1f4d3e55fceb701f359`
-
-```python
-"""Validate scanner report feature/scoring plausibility."""
-
-import json
-import os
-from typing import Any, Dict, List
-
-
-def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _error(
-    path: str,
-    code: str,
-    msg: str,
-    got: Any = None,
-    expected: str | None = None,
-) -> Dict[str, Any]:
-    entry: Dict[str, Any] = {"path": path, "code": code, "msg": msg}
-    if got is not None:
-        entry["got"] = got
-    if expected is not None:
-        entry["expected"] = expected
-    return entry
-
-
-def _emit(ok: bool, errors: List[Dict[str, Any]]) -> int:
-    print(json.dumps({"ok": ok, "errors": errors}, ensure_ascii=False))
-    return 0 if ok else 1
-
-
-def validate_features(report_path: str) -> int:
-    """
-    Validate report scoring structure and numeric ranges.
-
-    Checks:
-    - score and raw_score in [0, 100]
-    - each component in [0, 100]
-    - penalty_multiplier in (0, 1]
-
-    Returns process-style status code:
-    - 0 if valid
-    - 1 if report missing/invalid/anomalies found
-    """
-
-    if not os.path.exists(report_path):
-        return _emit(
-            False,
-            [_error("report", "FILE_NOT_FOUND", "Report file not found.", got=report_path)],
-        )
-
-    try:
-        with open(report_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as exc:
-        return _emit(
-            False,
-            [_error("report", "INVALID_JSON", "Report is not valid JSON.", got=str(exc))],
-        )
-
-    if "setups" in data:
-        section_key = "setups"
-    elif "data" in data:
-        section_key = "data"
-    elif "results" in data:
-        section_key = "results"
-    else:
-        return _emit(
-            False,
-            [
-                _error(
-                    "report",
-                    "MISSING_SECTION",
-                    "Report must contain 'setups', 'data' or 'results' section.",
-                )
-            ],
-        )
-
-    results = data[section_key]
-    if not results:
-        return _emit(True, [])
-
-    anomalies: List[Dict[str, Any]] = []
-
-    for setup_type, setups in results.items():
-        for idx, s in enumerate(setups):
-            setup_path = f"{section_key}.{setup_type}[{idx}]"
-
-            for required_key in ("score", "raw_score", "penalty_multiplier", "components"):
-                if required_key not in s:
-                    anomalies.append(
-                        _error(
-                            f"{setup_path}.{required_key}",
-                            "MISSING_FIELD",
-                            f"Required field '{required_key}' is missing.",
-                            expected="present",
-                        )
-                    )
-
-            for scalar_key in ("score", "raw_score"):
-                if scalar_key in s:
-                    val = s.get(scalar_key)
-                    if not _is_number(val) or not (0 <= float(val) <= 100):
-                        anomalies.append(
-                            _error(
-                                f"{setup_path}.{scalar_key}",
-                                "RANGE",
-                                f"{scalar_key} must be a number in [0,100].",
-                                got=val,
-                                expected="[0,100]",
-                            )
-                        )
-
-            if "penalty_multiplier" in s:
-                pm = s.get("penalty_multiplier")
-                if not _is_number(pm) or not (0 < float(pm) <= 1):
-                    anomalies.append(
-                        _error(
-                            f"{setup_path}.penalty_multiplier",
-                            "RANGE",
-                            "penalty_multiplier must be a number in (0,1].",
-                            got=pm,
-                            expected="(0,1]",
-                        )
-                    )
-
-            comps = s.get("components", {})
-            if not isinstance(comps, dict):
-                anomalies.append(
-                    _error(
-                        f"{setup_path}.components",
-                        "TYPE",
-                        "components must be an object/dict.",
-                        got=comps,
-                        expected="dict",
-                    )
-                )
-                continue
-
-            for key, value in comps.items():
-                if not _is_number(value) or not (0 <= float(value) <= 100):
-                    anomalies.append(
-                        _error(
-                            f"{setup_path}.components.{key}",
-                            "RANGE",
-                            f"Component '{key}' must be a number in [0,100].",
-                            got=value,
-                            expected="[0,100]",
-                        )
-                    )
-
-    if anomalies:
-        return _emit(False, anomalies)
-
-    return _emit(True, [])
-
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 2:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "errors": [
-                        {
-                            "path": "cli",
-                            "code": "MISSING_ARGUMENT",
-                            "msg": "Please provide report path, e.g. python -m scanner.tools.validate_features reports/2026-01-22.json",
-                        }
-                    ],
-                },
-                ensure_ascii=False,
-            )
-        )
-        sys.exit(1)
-
-    report_path = sys.argv[1]
-    sys.exit(validate_features(report_path))
-
-```
-
-### `scanner/pipeline/backtest_runner.py`
-
-**SHA256:** `d3e0d07cd7845da343c32f58ab88d7c5519dfcd239901e116ac0b26691b1480f`
-
-```python
-from __future__ import annotations
-
-"""Deterministic backtest runner (Analytics-only, E2-K).
-
-Canonical v2 rules (Feature-Spec section 10):
-- Trigger search on 1D close within ``[t0 .. t0 + T_trigger_max]``
-- ``entry_price = close[trigger_day]``
-- ``hit_10`` / ``hit_20`` use ``max(high[trigger_day+1 .. trigger_day+T_hold])``
-- No exit logic.
-"""
-
-from collections import defaultdict
-from datetime import date, timedelta
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
-import json
-
-
-DEFAULT_BACKTEST_CFG: Dict[str, Any] = {
-    "t_hold": 10,
-    "t_trigger_max": 5,
-    "thresholds_pct": [10.0, 20.0],
-}
-
-BREAKOUT_TREND_SETUP_IDS = {"breakout_immediate_1_5d", "breakout_retest_1_5d"}
-FOUR_H_TIME_STOP_CANDLES = 42  # 168h / 4h
-
-
-def _float_or_none(value: Any) -> Optional[float]:
-    try:
-        f = float(value)
-    except (TypeError, ValueError):
-        return None
-    if f != f:  # NaN guard
-        return None
-    return f
-
-
-def _extract_backtest_config(config: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
-    if not config:
-        return dict(DEFAULT_BACKTEST_CFG)
-
-    bt = config.get("backtest", config)
-    out = dict(DEFAULT_BACKTEST_CFG)
-
-    # Canonical aliases in case legacy keys still exist.
-    out["t_hold"] = int(bt.get("t_hold", bt.get("max_holding_days", out["t_hold"])))
-    out["t_trigger_max"] = int(bt.get("t_trigger_max", out["t_trigger_max"]))
-
-    if "thresholds_pct" in bt:
-        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds_pct", [])]
-    elif "thresholds" in bt:
-        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds", [])]
-
-    return out
-
-
-def _setup_triggered(setup_type: str, close: float, trade_levels: Mapping[str, Any]) -> bool:
-    if setup_type == "breakout":
-        trigger = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
-        return trigger is not None and close >= trigger
-    if setup_type == "reversal":
-        trigger = _float_or_none(trade_levels.get("entry_trigger"))
-        return trigger is not None and close >= trigger
-    if setup_type == "pullback":
-        zone = trade_levels.get("entry_zone") or {}
-        low = _float_or_none(zone.get("lower"))
-        high = _float_or_none(zone.get("upper"))
-        return low is not None and high is not None and low <= close <= high
-    return False
-
-
-def _evaluate_candidate(
-    *,
-    symbol: str,
-    setup_type: str,
-    t0_date: str,
-    index_by_date: Mapping[str, int],
-    series_close: Sequence[Optional[float]],
-    series_high: Sequence[Optional[float]],
-    trade_levels: Mapping[str, Any],
-    t_trigger_max: int,
-    t_hold: int,
-    thresholds_pct: Sequence[float],
-) -> Dict[str, Any]:
-    def _iso_to_date(value: str) -> Optional[date]:
-        try:
-            return date.fromisoformat(value)
-        except (TypeError, ValueError):
-            return None
-
-    def _calendar_window_indices(
-        *,
-        start_date: date,
-        days_inclusive: int,
-    ) -> Iterable[Tuple[int, int]]:
-        for day_offset in range(days_inclusive + 1):
-            day = (start_date + timedelta(days=day_offset)).isoformat()
-            idx = index_by_date.get(day)
-            if idx is None:
-                continue
-            yield day_offset, idx
-
-    t0_parsed = _iso_to_date(t0_date)
-    if t0_parsed is None:
-        return {
-            "symbol": symbol,
-            "setup_type": setup_type,
-            "t0_date": t0_date,
-            "triggered": False,
-            "trigger_day_offset": None,
-            "entry_price": None,
-            "max_high_after_entry": None,
-            **{f"hit_{int(thr)}": False for thr in thresholds_pct},
-        }
-
-    trigger_idx: Optional[int] = None
-    trigger_day_offset: Optional[int] = None
-    for day_offset, idx in _calendar_window_indices(start_date=t0_parsed, days_inclusive=t_trigger_max):
-        close = series_close[idx]
-        if close is None:
-            continue
-        if _setup_triggered(setup_type, close, trade_levels):
-            trigger_idx = idx
-            trigger_day_offset = day_offset
-            break
-
-    outcome: Dict[str, Any] = {
-        "symbol": symbol,
-        "setup_type": setup_type,
-        "t0_date": t0_date,
-        "triggered": trigger_idx is not None,
-        "trigger_day_offset": None,
-        "entry_price": None,
-        "max_high_after_entry": None,
-    }
-
-    for thr in thresholds_pct:
-        outcome[f"hit_{int(thr)}"] = False
-
-    if trigger_idx is None:
-        return outcome
-
-    entry_price = series_close[trigger_idx]
-    if entry_price is None or entry_price <= 0:
-        return outcome
-
-    trigger_date = t0_parsed + timedelta(days=trigger_day_offset or 0)
-    window_highs: List[float] = []
-    for hold_offset in range(1, t_hold + 1):
-        hold_day = (trigger_date + timedelta(days=hold_offset)).isoformat()
-        hold_idx = index_by_date.get(hold_day)
-        if hold_idx is None:
-            continue
-        high = series_high[hold_idx]
-        if high is None:
-            continue
-        window_highs.append(high)
-
-    max_high = max(window_highs) if window_highs else None
-
-    outcome.update(
-        {
-            "trigger_day_offset": trigger_day_offset,
-            "entry_price": entry_price,
-            "max_high_after_entry": max_high,
-        }
-    )
-
-    if max_high is None:
-        return outcome
-
-    for thr in thresholds_pct:
-        target = entry_price * (1.0 + thr / 100.0)
-        outcome[f"hit_{int(thr)}"] = max_high >= target
-
-    return outcome
-
-
-def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]) -> Dict[str, Any]:
-    def _is_executed_trade(event: Mapping[str, Any]) -> bool:
-        if event.get("trade_status") == "TRADE":
-            return True
-
-        entry_price = _float_or_none(event.get("entry_price"))
-        if entry_price is None:
-            return False
-
-        entry_time = event.get("entry_time")
-        if entry_time is not None:
-            return True
-
-        trigger_day_offset = event.get("trigger_day_offset")
-        if isinstance(trigger_day_offset, int) and trigger_day_offset >= 0:
-            return True
-
-        entry_idx = event.get("entry_idx")
-        if isinstance(entry_idx, int) and entry_idx >= 0:
-            return True
-
-        position_size = _float_or_none(event.get("position_size"))
-        return position_size is not None and position_size > 0
-
-    total = len(events)
-    triggered = [e for e in events if e.get("triggered")]
-    trades = [e for e in events if _is_executed_trade(e)]
-    summary: Dict[str, Any] = {
-        "count": total,
-        "signals_count": total,
-        "triggered_count": len(triggered),
-        "trigger_rate": (len(triggered) / total) if total else 0.0,
-        "trades_count": len(trades),
-        "trade_rate_on_signals": (len(trades) / total) if total else 0.0,
-    }
-
-    for thr in thresholds_pct:
-        key = f"hit_{int(thr)}"
-        hit_count = sum(1 for e in triggered if e.get(key))
-        summary[f"{key}_count"] = hit_count
-        summary[f"{key}_rate_on_triggered"] = (hit_count / len(triggered)) if triggered else 0.0
-
-    return summary
-
-
-def _simulate_breakout_4h_trade(entry: Mapping[str, Any], setup_id: str) -> Optional[Dict[str, Any]]:
-    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
-    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
-    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
-    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
-    if not candles:
-        return None
-
-    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
-    if breakout_level is None:
-        return None
-
-    trigger_idx = None
-    for idx, candle in enumerate(candles):
-        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
-        if close is not None and close > breakout_level:
-            trigger_idx = idx
-            break
-    if trigger_idx is None:
-        return {
-            "symbol": entry.get("symbol"),
-            "setup_id": setup_id,
-            "triggered": False,
-            "entry_idx": None,
-            "exit_reason": None,
-        }
-
-    if setup_id == "breakout_immediate_1_5d":
-        entry_idx = trigger_idx + 1
-        if entry_idx >= len(candles):
-            return None
-        entry_price = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
-    else:
-        entry_price = breakout_level
-        entry_idx = None
-        for idx in range(trigger_idx + 1, len(candles)):
-            candle = candles[idx]
-            if not isinstance(candle, Mapping):
-                continue
-            close = _float_or_none(candle.get("close"))
-            if close is not None and close < breakout_level:
-                return {
-                    "symbol": entry.get("symbol"),
-                    "setup_id": setup_id,
-                    "triggered": True,
-                    "entry_idx": None,
-                    "entry_price": None,
-                    "retest_invalidated": True,
-                    "exit_reason": None,
-                }
-            low = _float_or_none(candle.get("low"))
-            high = _float_or_none(candle.get("high"))
-            if low is not None and high is not None and low <= entry_price <= high:
-                entry_idx = idx
-                break
-        if entry_idx is None:
-            return None
-
-    if entry_price is None:
-        return None
-
-    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
-    if atr_abs is None:
-        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
-        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
-        if atr_pct is not None and close_4h is not None:
-            atr_abs = (atr_pct / 100.0) * close_4h
-    if atr_abs is None:
-        return None
-
-    stop = entry_price - 1.2 * atr_abs
-    r_val = entry_price - stop
-    partial_target = entry_price + 1.5 * r_val
-
-    partial_hit = False
-    partial_idx = None
-    exit_idx = None
-    exit_reason = None
-    exit_price = None
-
-    for idx in range(entry_idx, len(candles)):
-        candle = candles[idx]
-        if not isinstance(candle, Mapping):
-            continue
-        low = _float_or_none(candle.get("low"))
-        high = _float_or_none(candle.get("high"))
-
-        # Intra-candle priority: STOP > PARTIAL > TRAIL
-        if low is not None and low <= stop:
-            exit_idx = idx
-            exit_reason = "stop"
-            exit_price = stop
-            break
-
-        if (not partial_hit) and high is not None and high >= partial_target:
-            partial_hit = True
-            partial_idx = idx
-
-        if partial_hit:
-            close = _float_or_none(candle.get("close"))
-            ema20 = _float_or_none(candle.get("ema20"))
-            if close is not None and ema20 is not None and close < ema20 and (idx + 1) < len(candles):
-                nxt = candles[idx + 1]
-                if isinstance(nxt, Mapping):
-                    exit_idx = idx + 1
-                    exit_reason = "trail"
-                    exit_price = _float_or_none(nxt.get("open"))
-                    break
-
-        hold_candles = idx - entry_idx + 1
-        if hold_candles >= FOUR_H_TIME_STOP_CANDLES and (idx + 1) < len(candles):
-            nxt = candles[idx + 1]
-            if isinstance(nxt, Mapping):
-                exit_idx = idx + 1
-                exit_reason = "time_stop"
-                exit_price = _float_or_none(nxt.get("open"))
-                break
-
-    return {
-        "symbol": entry.get("symbol"),
-        "setup_id": setup_id,
-        "trade_status": "TRADE",
-        "triggered": True,
-        "entry_idx": entry_idx,
-        "entry_price": entry_price,
-        "stop": stop,
-        "partial_target": partial_target,
-        "partial_hit": partial_hit,
-        "partial_idx": partial_idx,
-        "exit_idx": exit_idx,
-        "exit_reason": exit_reason,
-        "exit_price": exit_price,
-    }
-
-
-def _infer_breakout_no_trade_reason(entry: Mapping[str, Any], setup_id: str) -> str:
-    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
-    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
-    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
-    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
-    if not candles:
-        return "INSUFFICIENT_4H_HISTORY"
-
-    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
-    if breakout_level is None:
-        return "MISSING_REQUIRED_FEATURES"
-
-    trigger_idx = None
-    for idx, candle in enumerate(candles):
-        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
-        if close is not None and close > breakout_level:
-            trigger_idx = idx
-            break
-    if trigger_idx is None:
-        return "MISSING_NEXT_4H_OPEN"
-
-    if setup_id == "breakout_immediate_1_5d":
-        entry_idx = trigger_idx + 1
-        if entry_idx >= len(candles):
-            return "MISSING_NEXT_4H_OPEN"
-        entry_open = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
-        if entry_open is None:
-            return "MISSING_NEXT_4H_OPEN"
-    else:
-        retest_filled = False
-        for idx in range(trigger_idx + 1, len(candles)):
-            candle = candles[idx]
-            if not isinstance(candle, Mapping):
-                continue
-            low = _float_or_none(candle.get("low"))
-            high = _float_or_none(candle.get("high"))
-            if low is not None and high is not None and low <= breakout_level <= high:
-                retest_filled = True
-                break
-        if not retest_filled:
-            return "RETEST_NOT_FILLED"
-
-    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
-    if atr_abs is None:
-        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
-        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
-        if atr_pct is None or close_4h is None:
-            return "MISSING_REQUIRED_FEATURES"
-
-    return "MISSING_REQUIRED_FEATURES"
-
-
-def run_backtest_from_snapshots(
-    snapshots: Sequence[Mapping[str, Any]],
-    config: Optional[Mapping[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Run deterministic E2-K backtest on in-memory snapshot payloads."""
-    cfg = _extract_backtest_config(config)
-    t_hold = cfg["t_hold"]
-    t_trigger_max = cfg["t_trigger_max"]
-    thresholds_pct = cfg["thresholds_pct"]
-
-    sorted_snapshots = sorted(snapshots, key=lambda s: str(s.get("meta", {}).get("date", "")))
-    all_dates = [str(s.get("meta", {}).get("date")) for s in sorted_snapshots]
-    index_by_date = {d: i for i, d in enumerate(all_dates)}
-
-    closes: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
-    highs: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
-
-    for i, snap in enumerate(sorted_snapshots):
-        features = snap.get("data", {}).get("features", {})
-        for symbol, feat in features.items():
-            one_d = feat.get("1d", {}) if isinstance(feat, Mapping) else {}
-            closes[symbol][i] = _float_or_none(one_d.get("close"))
-            highs[symbol][i] = _float_or_none(one_d.get("high"))
-
-    setup_map = {
-        "breakout": "breakouts",
-        "pullback": "pullbacks",
-        "reversal": "reversals",
-    }
-
-    events_by_setup: Dict[str, List[Dict[str, Any]]] = {k: [] for k in setup_map}
-
-    for snap in sorted_snapshots:
-        t0_date = str(snap.get("meta", {}).get("date"))
-        scoring = snap.get("scoring", {})
-
-        for setup_type, score_key in setup_map.items():
-            for entry in scoring.get(score_key, []):
-                symbol = entry.get("symbol")
-                if symbol not in closes or t0_date not in index_by_date:
-                    continue
-
-                setup_id = str(entry.get("setup_id") or "")
-                if setup_type == "breakout" and setup_id in BREAKOUT_TREND_SETUP_IDS:
-                    event_4h = _simulate_breakout_4h_trade(entry, setup_id)
-                    if event_4h is not None:
-                        event_4h["t0_date"] = t0_date
-                        events_by_setup.setdefault(setup_id, []).append(event_4h)
-                    else:
-                        events_by_setup.setdefault(setup_id, []).append(
-                            {
-                                "symbol": symbol,
-                                "setup_id": setup_id,
-                                "t0_date": t0_date,
-                                "trade_status": "NO_TRADE",
-                                "no_trade_reason": _infer_breakout_no_trade_reason(entry, setup_id),
-                                "triggered": True,
-                                "entry_idx": None,
-                                "entry_price": None,
-                                "exit_reason": None,
-                            }
-                        )
-                    continue
-
-                trade_levels = (
-                    entry.get("analysis", {}).get("trade_levels")
-                    if isinstance(entry.get("analysis"), Mapping)
-                    else None
-                ) or {}
-
-                event = _evaluate_candidate(
-                    symbol=symbol,
-                    setup_type=setup_type,
-                    t0_date=t0_date,
-                    index_by_date=index_by_date,
-                    series_close=closes[symbol],
-                    series_high=highs[symbol],
-                    trade_levels=trade_levels,
-                    t_trigger_max=t_trigger_max,
-                    t_hold=t_hold,
-                    thresholds_pct=thresholds_pct,
-                )
-                events_by_setup[setup_type].append(event)
-
-    summary_by_setup = {
-        setup_type: _summarize(events, thresholds_pct)
-        for setup_type, events in events_by_setup.items()
-    }
-
-    return {
-        "params": {
-            "t_hold": t_hold,
-            "t_trigger_max": t_trigger_max,
-            "thresholds_pct": thresholds_pct,
-        },
-        "by_setup": summary_by_setup,
-        "events": events_by_setup,
-    }
-
-
-def run_backtest_from_history(
-    history_dir: str | Path,
-    config: Optional[Mapping[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Load all snapshot json files from ``history_dir`` and run backtest."""
-    history_path = Path(history_dir)
-    snapshots: List[Dict[str, Any]] = []
-
-    for snapshot_file in sorted(history_path.glob("*.json")):
-        with open(snapshot_file, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        if isinstance(payload, dict) and payload.get("meta", {}).get("date"):
-            snapshots.append(payload)
-
-    return run_backtest_from_snapshots(snapshots, config=config)
-
-```
-
-### `scanner/pipeline/snapshot.py`
-
-**SHA256:** `7804d11b91f79cff4eb61b20149e8cab07fb72e9d90e5b67d2d534d1045a66d6`
-
-```python
-"""
-Snapshot System
-===============
-
-Creates deterministic daily snapshots for backtesting and reproducibility.
-Snapshots include all pipeline data at a specific point in time.
-"""
-
-import logging
-from typing import Dict, Any, List
-import re
-from datetime import datetime
-from pathlib import Path
-import json
+from .cross_section import percent_rank_average_ties
 
 logger = logging.getLogger(__name__)
 
 
-class SnapshotManager:
-    """Manages daily pipeline snapshots."""
-    
+class ShortlistSelector:
+    """Selects top candidates based on volume for OHLCV processing."""
+
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize snapshot manager.
-        
+        Initialize shortlist selector.
+
         Args:
-            config: Config dict with 'snapshots' section
+            config: Config dict with 'shortlist' section
         """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            snapshot_config = config.raw.get('snapshots', {})
-        else:
-            snapshot_config = config.get('snapshots', {})
-        
-        self.snapshots_dir = Path(
-            snapshot_config.get('history_dir')
-            or snapshot_config.get('snapshot_dir')
-            or 'snapshots/history'
+        self.config = config.get('shortlist', {})
+        general_cfg = config.get('general', {})
+
+        # Default: Top 100 by volume
+        self.max_size = int(general_cfg.get('shortlist_size', self.config.get('max_size', 100)))
+
+        # Minimum size (even if fewer pass filters)
+        self.min_size = self.config.get('min_size', 10)
+
+        logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
+
+    def _attach_proxy_liquidity_score(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Attach proxy_liquidity_score based on quote_volume_24h percent-rank (log-scaled input)."""
+        if not rows:
+            return []
+
+        log_volumes: List[float] = []
+        for row in rows:
+            vol = float(row.get('quote_volume_24h', 0) or 0)
+            log_volumes.append(math.log1p(max(0.0, vol)))
+
+        percent_scores = percent_rank_average_ties(log_volumes)
+
+        enriched: List[Dict[str, Any]] = []
+        for row, score in zip(rows, percent_scores):
+            r = dict(row)
+            r['proxy_liquidity_score'] = round(float(score), 6)
+            r['proxy_liquidity_population_n'] = len(rows)
+            enriched.append(r)
+
+        return enriched
+
+    def select(self, filtered_symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Select top N symbols by 24h volume.
+
+        Args:
+            filtered_symbols: List of symbols that passed filters
+                Each dict must have:
+                - symbol: str
+                - base: str
+                - quote_volume_24h: float
+                - market_cap: float
+
+        Returns:
+            Shortlist (top N by volume)
+        """
+        if not filtered_symbols:
+            logger.warning("No symbols to shortlist (empty input)")
+            return []
+
+        with_proxy_score = self._attach_proxy_liquidity_score(filtered_symbols)
+
+        # Sort by proxy liquidity score (descending), then raw volume for deterministic tie-break.
+        sorted_symbols = sorted(
+            with_proxy_score,
+            key=lambda x: (x.get('proxy_liquidity_score', 0), x.get('quote_volume_24h', 0)),
+            reverse=True
         )
 
-        # Ensure directory exists
-        self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+        # Take top N
+        shortlist = sorted_symbols[:self.max_size]
 
-        logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
-    
-    def create_snapshot(
+        logger.info(f"Shortlist selected: {len(shortlist)} symbols from {len(filtered_symbols)} "
+                    f"(top {len(shortlist)/len(filtered_symbols)*100:.1f}% by volume)")
+
+        # Log volume range
+        if shortlist:
+            max_vol = shortlist[0].get('quote_volume_24h', 0)
+            min_vol = shortlist[-1].get('quote_volume_24h', 0)
+            logger.info(f"Volume range: ${max_vol/1e6:.2f}M - ${min_vol/1e6:.2f}M")
+
+        return shortlist
+
+    def get_shortlist_stats(
         self,
-        run_date: str,
-        universe: List[Dict[str, Any]],
-        filtered: List[Dict[str, Any]],
-        shortlist: List[Dict[str, Any]],
-        features: Dict[str, Dict[str, Any]],
-        reversal_scores: List[Dict[str, Any]],
-        breakout_scores: List[Dict[str, Any]],
-        pullback_scores: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None
-    ) -> Path:
+        filtered_symbols: List[Dict[str, Any]],
+        shortlist: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Create a complete snapshot of the pipeline run.
-        
+        Get statistics about shortlist selection.
+
         Args:
-            run_date: Date string (YYYY-MM-DD)
-            universe: Full MEXC universe
-            filtered: Post-filter universe
-            shortlist: Shortlisted symbols
-            features: Computed features
-            reversal_scores: Reversal scoring results
-            breakout_scores: Breakout scoring results
-            pullback_scores: Pullback scoring results
-            metadata: Optional metadata
-        
-        Returns:
-            Path to saved snapshot file
-        """
-        logger.info(f"Creating snapshot for {run_date}")
-        
-        snapshot = {
-            'meta': {
-                'date': run_date,
-                'created_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.0'
-            },
-            'pipeline': {
-                'universe_count': len(universe),
-                'filtered_count': len(filtered),
-                'shortlist_count': len(shortlist),
-                'features_count': len(features)
-            },
-            'data': {
-                'universe': universe,
-                'filtered': filtered,
-                'shortlist': shortlist,
-                'features': features
-            },
-            'scoring': {
-                'reversals': reversal_scores,
-                'breakouts': breakout_scores,
-                'pullbacks': pullback_scores
-            }
-        }
-        
-        if metadata:
-            snapshot['meta'].update(metadata)
-            
-        # Safety: ensure as-of exists (for reproducibility)
-        if 'asof_ts_ms' not in snapshot['meta']:
-            snapshot['meta']['asof_ts_ms'] = int(datetime.utcnow().timestamp() * 1000)
+            filtered_symbols: Input (post-filter)
+            shortlist: Output (post-shortlist)
 
-        if 'asof_iso' not in snapshot['meta']:
-            snapshot['meta']['asof_iso'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-            
-        # Save snapshot
-        snapshot_path = self.snapshots_dir / f"{run_date}.json"
-        
-        with open(snapshot_path, 'w', encoding='utf-8') as f:
-            json.dump(snapshot, f, indent=2, ensure_ascii=False)
-        
-        # Get file size
-        size_mb = snapshot_path.stat().st_size / (1024 * 1024)
-        
-        logger.info(f"Snapshot saved: {snapshot_path} ({size_mb:.2f} MB)")
-        
-        return snapshot_path
-    
-    def load_snapshot(self, run_date: str) -> Dict[str, Any]:
-        """
-        Load a snapshot by date.
-        
-        Args:
-            run_date: Date string (YYYY-MM-DD)
-        
-        Returns:
-            Snapshot dict
-        
-        Raises:
-            FileNotFoundError: If snapshot doesn't exist
-        """
-        snapshot_path = self.snapshots_dir / f"{run_date}.json"
-        
-        if not snapshot_path.exists():
-            raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
-        
-        logger.info(f"Loading snapshot: {snapshot_path}")
-        
-        with open(snapshot_path, 'r', encoding='utf-8') as f:
-            snapshot = json.load(f)
-        
-        return snapshot
-    
-    def list_snapshots(self) -> List[str]:
-        """
-        List all available snapshot dates.
-        
-        Returns:
-            List of date strings (YYYY-MM-DD)
-        """
-        snapshots = []
-
-        for path in self.snapshots_dir.glob("*.json"):
-            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
-                continue
-
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    payload = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                continue
-
-            if not isinstance(payload, dict):
-                continue
-            if not all(key in payload for key in ('meta', 'pipeline', 'data', 'scoring')):
-                continue
-
-            snapshots.append(path.stem)
-
-        snapshots.sort()
-
-        logger.info(f"Found {len(snapshots)} snapshots")
-
-        return snapshots
-    
-    def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
-        """
-        Get statistics about a snapshot without loading full data.
-        
-        Args:
-            run_date: Date string
-        
         Returns:
             Stats dict
         """
-        snapshot = self.load_snapshot(run_date)
+        if not filtered_symbols:
+            return {
+                'input_count': 0,
+                'shortlist_count': 0,
+                'reduction_rate': '0%',
+                'volume_coverage': '0%'
+            }
+
+        # Volume stats
+        total_volume = sum(s.get('quote_volume_24h', 0) for s in filtered_symbols)
+        shortlist_volume = sum(s.get('quote_volume_24h', 0) for s in shortlist)
+
+        coverage = (shortlist_volume / total_volume * 100) if total_volume > 0 else 0
+
+        return {
+            'input_count': len(filtered_symbols),
+            'shortlist_count': len(shortlist),
+            'reduction_rate': f"{(1 - len(shortlist)/len(filtered_symbols))*100:.1f}%",
+            'total_volume': f"${total_volume/1e6:.2f}M",
+            'shortlist_volume': f"${shortlist_volume/1e6:.2f}M",
+            'volume_coverage': f"{coverage:.1f}%"
+        }
+
+```
+
+### `scanner/pipeline/regime.py`
+
+**SHA256:** `d451dcb35abfa1ae4ca17222e68212049137c202dd81b29c5887e186c20d527e`
+
+```python
+"""BTC regime helpers for report-level risk context."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def compute_btc_regime_from_1d_features(features_1d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compute canonical BTC regime payload from 1D BTC features."""
+    features_1d = features_1d or {}
+    close = _to_float(features_1d.get("close"))
+    ema20 = _to_float(features_1d.get("ema_20"))
+    ema50 = _to_float(features_1d.get("ema_50"))
+
+    close_gt_ema50 = (close is not None and ema50 is not None and close > ema50)
+    ema20_gt_ema50 = (ema20 is not None and ema50 is not None and ema20 > ema50)
+    btc_risk_on = bool(close_gt_ema50 and ema20_gt_ema50)
+
+    return {
+        "state": "RISK_ON" if btc_risk_on else "RISK_OFF",
+        "multiplier_risk_on": 1.0,
+        "multiplier_risk_off": 0.85,
+        "checks": {
+            "close_gt_ema50": bool(close_gt_ema50),
+            "ema20_gt_ema50": bool(ema20_gt_ema50),
+        },
+    }
+
+
+def compute_btc_regime(mexc_client: Any, feature_engine: Any, lookback_1d: int, asof_ts_ms: int) -> Dict[str, Any]:
+    """Fetch BTCUSDT 1D candles and compute report-level regime payload."""
+    try:
+        btc_klines_1d = mexc_client.get_klines("BTCUSDT", "1d", limit=int(lookback_1d))
+        btc_features = feature_engine.compute_all({"BTCUSDT": {"1d": btc_klines_1d}}, asof_ts_ms=asof_ts_ms)
+        return compute_btc_regime_from_1d_features(btc_features.get("BTCUSDT", {}).get("1d", {}))
+    except Exception as exc:  # pragma: no cover - defensive runtime fallback
+        logger.warning("BTC regime fallback to RISK_OFF due to recoverable error: %s", exc)
+        return compute_btc_regime_from_1d_features({})
+
+
+def _to_float(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+```
+
+### `scanner/pipeline/filters.py`
+
+**SHA256:** `8a948f40bbd070ca9e5e78e44defa96d7fc4f2545c08eebedecba3414bb07205`
+
+```python
+"""
+Universe Filtering
+==================
+
+Filters the MEXC universe to create a tradable shortlist:
+1. Market Cap Filter (100M - 3B USD)
+2. Liquidity Filter (minimum volume)
+3. Exclusions (stablecoins, wrapped tokens, leveraged tokens)
+"""
+
+import logging
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+
+import yaml
+
+logger = logging.getLogger(__name__)
+
+
+class UniverseFilters:
+    """Filters for reducing MEXC universe to tradable MidCaps."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize filters with config.
+        
+        Args:
+            config: Config dict with 'filters' section
+        """
+        legacy_filters = config.get('filters', {})
+        universe_cfg = config.get('universe_filters', {})
+        exclusions_cfg = config.get('exclusions', {})
+        risk_cfg = config.get('risk_flags', {})
+
+        mcap_cfg = universe_cfg.get('market_cap', {})
+        volume_cfg = universe_cfg.get('volume', {})
+        history_cfg = universe_cfg.get('history', {})
+
+        # Market Cap bounds (in USD)
+        self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
+        self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
+
+        # Liquidity (24h volume in USDT)
+        self.min_volume_24h = volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 1_000_000))
+
+        # Minimum 1d history used by OHLCV filtering step.
+        self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
+
+        self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
+
+        default_quote_allowlist = ['USDT', 'USDC', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'BUSD']
+        self.quote_allowlist = [str(q).upper() for q in universe_cfg.get('quote_allowlist', default_quote_allowlist)]
+
+        default_patterns = {
+            'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
+            'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
+            'leveraged_patterns': ['UP', 'DOWN', 'BULL', 'BEAR'],
+            'synthetic_patterns': [],
+        }
+
+        def _build_exclusion_patterns_from_new_config() -> List[str]:
+            patterns: List[str] = []
+            if exclusions_cfg.get('exclude_stablecoins', True):
+                patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
+            if exclusions_cfg.get('exclude_wrapped_tokens', True):
+                patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
+            if exclusions_cfg.get('exclude_leveraged_tokens', True):
+                patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
+            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
+                patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
+            return [str(p).upper() for p in patterns]
+
+        if 'exclusion_patterns' in legacy_filters:
+            # Legacy override is key-presence based: [] explicitly disables exclusions.
+            # A null value is treated as unset to avoid accidental broad allow-through.
+            legacy_patterns = legacy_filters.get('exclusion_patterns')
+            if legacy_patterns is None:
+                logger.warning(
+                    "filters.exclusion_patterns is null; treating as unset and falling back to exclusions.*"
+                )
+                self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+            else:
+                self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
+        else:
+            self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
+
+        self.minor_unlock_penalty_factor = float(risk_cfg.get('minor_unlock_penalty_factor', 0.9))
+        self.denylist_path = Path(risk_cfg.get('denylist_file', 'config/denylist.yaml'))
+        self.unlock_overrides_path = Path(risk_cfg.get('unlock_overrides_file', 'config/unlock_overrides.yaml'))
+
+        self.denylist_symbols, self.denylist_bases = self._load_denylist(self.denylist_path)
+        (
+            self.major_unlock_symbols,
+            self.major_unlock_bases,
+            self.minor_unlock_symbols,
+            self.minor_unlock_bases,
+        ) = self._load_unlock_overrides(self.unlock_overrides_path)
+        
+        logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
+                   f"Min Volume {self.min_volume_24h/1e6:.1f}M")
+
+    @staticmethod
+    def _safe_load_yaml(path: Path) -> Dict[str, Any]:
+        if not path.exists():
+            return {}
+        with path.open('r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else {}
+
+    def _load_denylist(self, path: Path) -> tuple[set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        symbols = set()
+        bases = set()
+
+        hard_exclude = data.get('hard_exclude', {}) if isinstance(data.get('hard_exclude', {}), dict) else {}
+        for key in ('symbols', 'symbol'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            symbols.update(str(v).upper() for v in raw)
+
+        for key in ('bases', 'base'):
+            raw = hard_exclude.get(key, [])
+            if isinstance(raw, str):
+                raw = [raw]
+            bases.update(str(v).upper() for v in raw)
+
+        return symbols, bases
+
+    def _load_unlock_overrides(self, path: Path) -> tuple[set[str], set[str], set[str], set[str]]:
+        data = self._safe_load_yaml(path)
+        major_symbols: set[str] = set()
+        major_bases: set[str] = set()
+        minor_symbols: set[str] = set()
+        minor_bases: set[str] = set()
+
+        entries = data.get('overrides', [])
+        if isinstance(entries, dict):
+            entries = [entries]
+        if not isinstance(entries, list):
+            return major_symbols, major_bases, minor_symbols, minor_bases
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            severity = str(entry.get('severity', '')).lower()
+            days_to_unlock = entry.get('days_to_unlock')
+            symbol = entry.get('symbol')
+            base = entry.get('base')
+
+            parsed_days = self._parse_days_to_unlock(days_to_unlock, symbol=symbol, base=base)
+            if parsed_days is None:
+                continue
+            if parsed_days > 14:
+                continue
+
+            if severity == 'major':
+                if symbol:
+                    major_symbols.add(str(symbol).upper())
+                if base:
+                    major_bases.add(str(base).upper())
+            elif severity == 'minor':
+                if symbol:
+                    minor_symbols.add(str(symbol).upper())
+                if base:
+                    minor_bases.add(str(base).upper())
+
+        return major_symbols, major_bases, minor_symbols, minor_bases
+
+    def _parse_days_to_unlock(
+        self,
+        value: Any,
+        *,
+        symbol: Optional[str] = None,
+        base: Optional[str] = None,
+    ) -> Optional[int]:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        if parsed < 0:
+            identifier = symbol or base or '<unknown>'
+            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
+            return None
+
+        return parsed
+    
+    def apply_all(
+        self,
+        symbols_with_data: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply all filters in sequence.
+        
+        Args:
+            symbols_with_data: List of dicts with keys:
+                - symbol: str (e.g. "BTCUSDT")
+                - base: str (e.g. "BTC")
+                - quote_volume_24h: float
+                - market_cap: float (from CMC mapping)
+        
+        Returns:
+            Filtered list
+        """
+        original_count = len(symbols_with_data)
+        logger.info(f"Starting filters with {original_count} symbols")
+        
+        # Step 1: Market Cap filter
+        filtered = self._filter_mcap(symbols_with_data)
+        logger.info(f"After MCAP filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
+        filtered = self._filter_quote_assets(filtered)
+        logger.info(f"After Quote filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 3: Liquidity filter
+        filtered = self._filter_liquidity(filtered)
+        logger.info(f"After Liquidity filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 4: Exclusions
+        filtered = self._filter_exclusions(filtered)
+        logger.info(f"After Exclusions filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+
+        # Step 5: Risk hard-excludes and soft penalties
+        filtered = self._apply_risk_flags(filtered)
+        logger.info(f"After Risk filter: {len(filtered)} symbols "
+                   f"({len(filtered)/original_count*100:.1f}%)")
+        
+        logger.info(f"Final universe: {len(filtered)} symbols "
+                   f"(filtered out {original_count - len(filtered)})")
+        
+        return filtered
+    
+    def _filter_mcap(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by market cap range."""
+        filtered = []
+        
+        for sym_data in symbols:
+            mcap = sym_data.get('market_cap')
+            
+            # Skip if no market cap data
+            if mcap is None:
+                continue
+            
+            # Check bounds
+            if self.mcap_min <= mcap <= self.mcap_max:
+                filtered.append(sym_data)
+        
+        return filtered
+    
+
+    def _extract_quote_asset(self, sym_data: Dict[str, Any]) -> Optional[str]:
+        quote = sym_data.get('quote')
+        if quote:
+            return str(quote).upper()
+
+        symbol = str(sym_data.get('symbol', '')).upper()
+        for q in sorted(self.quote_allowlist, key=len, reverse=True):
+            if symbol.endswith(q):
+                return q
+
+        return None
+
+    def _filter_quote_assets(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by quote asset according to include_only_usdt_pairs semantics."""
+        filtered: List[Dict[str, Any]] = []
+
+        for sym_data in symbols:
+            quote = self._extract_quote_asset(sym_data)
+            if self.include_only_usdt_pairs:
+                if quote == 'USDT':
+                    filtered.append(sym_data)
+            else:
+                if quote in self.quote_allowlist:
+                    filtered.append(sym_data)
+
+        return filtered
+
+    def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter by minimum 24h volume."""
+        filtered = []
+        
+        for sym_data in symbols:
+            volume = sym_data.get('quote_volume_24h', 0)
+            
+            if volume >= self.min_volume_24h:
+                filtered.append(sym_data)
+        
+        return filtered
+    
+    def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Exclude stablecoins, wrapped tokens, leveraged tokens."""
+        filtered = []
+        
+        for sym_data in symbols:
+            base = sym_data.get('base', '')
+            
+            # Check if base matches any exclusion pattern
+            is_excluded = False
+            for pattern in self.exclusion_patterns:
+                if pattern in base.upper():
+                    is_excluded = True
+                    break
+            
+            if not is_excluded:
+                filtered.append(sym_data)
+        
+        return filtered
+
+    def _apply_risk_flags(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered = []
+        for sym_data in symbols:
+            symbol = str(sym_data.get('symbol', '')).upper()
+            base = str(sym_data.get('base', '')).upper()
+
+            hard_reasons = []
+            if symbol in self.denylist_symbols or base in self.denylist_bases:
+                hard_reasons.append('denylist')
+            if symbol in self.major_unlock_symbols or base in self.major_unlock_bases:
+                hard_reasons.append('major_unlock_within_14d')
+
+            if hard_reasons:
+                continue
+
+            row = dict(sym_data)
+            row['risk_flags'] = []
+            row['soft_penalties'] = {}
+
+            if symbol in self.minor_unlock_symbols or base in self.minor_unlock_bases:
+                row['risk_flags'].append('minor_unlock_within_14d')
+                row['soft_penalties']['minor_unlock_within_14d'] = self.minor_unlock_penalty_factor
+
+            filtered.append(row)
+
+        return filtered
+    
+    def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Get statistics about what would be filtered.
+        
+        Args:
+            symbols: Input symbols
+        
+        Returns:
+            Dict with filter stats
+        """
+        total = len(symbols)
+        
+        # Count what passes each filter
+        mcap_pass = len(self._filter_mcap(symbols))
+        quote_pass = len(self._filter_quote_assets(symbols))
+        liquidity_pass = len(self._filter_liquidity(symbols))
+        exclusion_pass = len(self._filter_exclusions(symbols))
+        
+        # Full pipeline
+        final_pass = len(self.apply_all(symbols))
         
         return {
-            'date': snapshot['meta']['date'],
-            'created_at': snapshot['meta']['created_at'],
-            'universe_count': snapshot['pipeline']['universe_count'],
-            'filtered_count': snapshot['pipeline']['filtered_count'],
-            'shortlist_count': snapshot['pipeline']['shortlist_count'],
-            'features_count': snapshot['pipeline']['features_count'],
-            'reversal_count': len(snapshot['scoring']['reversals']),
-            'breakout_count': len(snapshot['scoring']['breakouts']),
-            'pullback_count': len(snapshot['scoring']['pullbacks'])
+            'total_input': total,
+            'mcap_pass': mcap_pass,
+            'mcap_fail': total - mcap_pass,
+            'quote_pass': quote_pass,
+            'quote_fail': total - quote_pass,
+            'liquidity_pass': liquidity_pass,
+            'liquidity_fail': total - liquidity_pass,
+            'exclusion_pass': exclusion_pass,
+            'exclusion_fail': total - exclusion_pass,
+            'final_pass': final_pass,
+            'final_fail': total - final_pass,
+            'filter_rate': f"{final_pass/total*100:.1f}%" if total > 0 else "0%"
         }
+
+```
+
+### `scanner/pipeline/global_ranking.py`
+
+**SHA256:** `d6f7546c8cf7c6899a4decb229c45a1a36beeb9d5766aeeba44ed47163552b6c`
+
+```python
+"""Global ranking aggregation across setup-specific rankings."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+
+def _config_get(root: Dict[str, Any], path: List[str], default: Any) -> Any:
+    cur: Any = root
+    for key in path:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(key)
+        if cur is None:
+            return default
+    return cur
+
+
+def compute_global_top20(
+    reversal_results: List[Dict[str, Any]],
+    breakout_results: List[Dict[str, Any]],
+    pullback_results: List[Dict[str, Any]],
+    config: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Build unique global top-20 list from setup results using weighted setup score."""
+    root = config.raw if hasattr(config, "raw") else config
+
+    setup_map = {
+        "breakout": breakout_results,
+        "pullback": pullback_results,
+        "reversal": reversal_results,
+    }
+
+    by_symbol: Dict[str, Dict[str, Any]] = {}
+
+    for setup_type, entries in setup_map.items():
+        for entry in entries:
+            symbol = entry.get("symbol")
+            if not symbol:
+                continue
+            setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
+            weighted = setup_score
+
+            if symbol not in by_symbol:
+                agg = dict(entry)
+                agg["setup_score"] = setup_score
+                agg["best_setup_type"] = setup_type
+                agg["best_setup_score"] = setup_score
+                agg["setup_weight"] = 1.0
+                agg["global_score"] = round(weighted, 6)
+                agg["confluence"] = 1
+                agg["valid_setups"] = [setup_type]
+                by_symbol[symbol] = agg
+                continue
+
+            prev = by_symbol[symbol]
+            prev_setups = set(prev.get("valid_setups", []))
+            prev_setups.add(setup_type)
+            prev["valid_setups"] = sorted(prev_setups)
+            prev["confluence"] = len(prev_setups)
+
+            prev_weighted = float(prev.get("global_score", 0.0))
+            prev_setup_id = str(prev.get("setup_id", ""))
+            cur_setup_id = str(entry.get("setup_id", ""))
+            prefer_retest = weighted == prev_weighted and cur_setup_id.endswith("retest_1_5d") and not prev_setup_id.endswith("retest_1_5d")
+
+            if weighted > prev_weighted or prefer_retest:
+                prev.update(entry)
+                prev["setup_score"] = setup_score
+                prev["best_setup_type"] = setup_type
+                prev["best_setup_score"] = setup_score
+                prev["setup_weight"] = 1.0
+                prev["global_score"] = round(weighted, 6)
+                prev["confluence"] = len(prev_setups)
+                prev["valid_setups"] = sorted(prev_setups)
+
+    ranked = sorted(
+        by_symbol.values(),
+        key=lambda x: (
+            -float(x.get("global_score", 0.0)),
+            float("inf") if x.get("slippage_bps") is None else float(x.get("slippage_bps")),
+            -float(x.get("proxy_liquidity_score", 0.0) or 0.0),
+            str(x.get("symbol", "")),
+        ),
+    )
+
+    top20 = ranked[:20]
+    for i, e in enumerate(top20, start=1):
+        e["rank"] = i
+    return top20
+
+```
+
+### `scanner/pipeline/liquidity.py`
+
+**SHA256:** `e6937332aa6d61985e1f71d6156e3c08233e0821d13cd82e4a27ff02ee09e113`
+
+```python
+"""Liquidity stage utilities (Top-K orderbook budget + slippage metrics)."""
+
+from __future__ import annotations
+
+import logging
+
+from typing import Any, Dict, List, Tuple
+
+
+logger = logging.getLogger(__name__)
+
+
+def _root_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    return config.raw if hasattr(config, "raw") else config
+
+
+def get_orderbook_top_k(config: Dict[str, Any]) -> int:
+    root = _root_config(config)
+    return int(root.get("liquidity", {}).get("orderbook_top_k", 200))
+
+
+def get_slippage_notional_usdt(config: Dict[str, Any]) -> float:
+    root = _root_config(config)
+    return float(root.get("liquidity", {}).get("slippage_notional_usdt", 20_000.0))
+
+
+def get_grade_thresholds_bps(config: Dict[str, Any]) -> Tuple[float, float, float]:
+    root = _root_config(config)
+    cfg = root.get("liquidity", {}).get("grade_thresholds_bps", {})
+    a_max = float(cfg.get("a_max", 20.0))
+    b_max = float(cfg.get("b_max", 50.0))
+    c_max = float(cfg.get("c_max", 100.0))
+    return a_max, b_max, c_max
+
+
+def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
+    """Select top-k candidates by proxy_liquidity_score then quote_volume_24h."""
+    ranked = sorted(
+        candidates,
+        key=lambda x: (float(x.get("proxy_liquidity_score", 0.0)), float(x.get("quote_volume_24h", 0.0))),
+        reverse=True,
+    )
+    return ranked[: max(0, top_k)]
+
+
+def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload/None for all symbols."""
+    top_k = get_orderbook_top_k(config)
+    selected = select_top_k_for_orderbook(candidates, top_k)
+
+    payload: Dict[str, Any] = {}
+    for row in candidates:
+        symbol = row.get("symbol")
+        if not symbol:
+            continue
+        payload[symbol] = None
+
+    for row in selected:
+        symbol = row.get("symbol")
+        if not symbol:
+            continue
+        try:
+            payload[symbol] = mexc_client.get_orderbook(symbol)
+        except Exception as exc:
+            logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
+    return payload
+
+
+def _to_levels(levels: Any) -> List[Tuple[float, float]]:
+    out: List[Tuple[float, float]] = []
+    if not isinstance(levels, list):
+        return out
+    for row in levels:
+        if not isinstance(row, (list, tuple)) or len(row) < 2:
+            continue
+        try:
+            p = float(row[0])
+            q = float(row[1])
+        except (TypeError, ValueError):
+            continue
+        if p > 0 and q > 0:
+            out.append((p, q))
+    return out
+
+
+def _compute_buy_vwap(asks: List[Tuple[float, float]], notional_usdt: float) -> Tuple[float, bool]:
+    remaining = float(notional_usdt)
+    if remaining <= 0:
+        return 0.0, False
+
+    spent = 0.0
+    qty = 0.0
+    for price, size in asks:
+        level_quote = price * size
+        take_quote = min(level_quote, remaining)
+        take_qty = take_quote / price
+        spent += take_quote
+        qty += take_qty
+        remaining -= take_quote
+        if remaining <= 1e-9:
+            break
+
+    if qty <= 0:
+        return 0.0, True
+    return spent / qty, remaining > 1e-9
+
+
+def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt: float, thresholds_bps: Tuple[float, float, float]) -> Dict[str, Any]:
+    """Compute spread/slippage/grade from an orderbook snapshot."""
+    bids = _to_levels(orderbook.get("bids"))
+    asks = _to_levels(orderbook.get("asks"))
+
+    if not bids or not asks:
+        return {
+            "spread_bps": None,
+            "slippage_bps": None,
+            "liquidity_grade": "D",
+            "liquidity_insufficient": True,
+        }
+
+    best_bid = bids[0][0]
+    best_ask = asks[0][0]
+    mid = (best_bid + best_ask) / 2.0
+    if mid <= 0:
+        return {
+            "spread_bps": None,
+            "slippage_bps": None,
+            "liquidity_grade": "D",
+            "liquidity_insufficient": True,
+        }
+
+    spread_bps = ((best_ask - best_bid) / mid) * 10_000.0
+    vwap_ask, insufficient = _compute_buy_vwap(asks, float(notional_usdt))
+
+    if insufficient or vwap_ask <= 0:
+        return {
+            "spread_bps": round(spread_bps, 6),
+            "slippage_bps": None,
+            "liquidity_grade": "D",
+            "liquidity_insufficient": True,
+        }
+
+    slippage_bps = ((vwap_ask - mid) / mid) * 10_000.0
+
+    a_max, b_max, c_max = thresholds_bps
+    if slippage_bps <= a_max:
+        grade = "A"
+    elif slippage_bps <= b_max:
+        grade = "B"
+    elif slippage_bps <= c_max:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "spread_bps": round(spread_bps, 6),
+        "slippage_bps": round(slippage_bps, 6),
+        "liquidity_grade": grade,
+        "liquidity_insufficient": False,
+    }
+
+
+def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderbooks: Dict[str, Any], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Attach liquidity fields to shortlist rows when orderbook data is available."""
+    notional = get_slippage_notional_usdt(config)
+    thresholds = get_grade_thresholds_bps(config)
+
+    out: List[Dict[str, Any]] = []
+    for row in shortlist:
+        symbol = row.get("symbol")
+        r = dict(row)
+        if symbol in orderbooks:
+            metrics = compute_orderbook_liquidity_metrics(orderbooks[symbol], notional, thresholds)
+            r.update(metrics)
+        else:
+            r.update(
+                {
+                    "spread_bps": None,
+                    "slippage_bps": None,
+                    "liquidity_grade": None,
+                    "liquidity_insufficient": None,
+                }
+            )
+        out.append(r)
+    return out
 
 ```
 
@@ -3062,339 +3888,389 @@ class ExcelReportGenerator:
 
 ```
 
-### `scanner/pipeline/runtime_market_meta.py`
+### `scanner/pipeline/__init__.py`
 
-**SHA256:** `141820c4f9c0998fbcb5580cb89b09a76922183ded4d24a59841428e81dee150`
+**SHA256:** `3dac464a1ee3991eaa30290a72ac23f8e9e658d7cbd0b801cad66a77706bf87a`
 
 ```python
-"""Runtime market metadata export for each pipeline run."""
+"""
+Pipeline Orchestration
+======================
+
+Orchestrates the full daily scanning pipeline.
+"""
 
 from __future__ import annotations
-
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from ..utils.time_utils import utc_now, timestamp_to_ms
 
-from ..clients.mapping import MappingResult
 from ..config import ScannerConfig
-from ..utils.io_utils import save_json
-from ..utils.time_utils import utc_now
+from ..clients.mexc_client import MEXCClient
+from ..clients.marketcap_client import MarketCapClient
+from ..clients.mapping import SymbolMapper
+from .filters import UniverseFilters
+from .shortlist import ShortlistSelector
+from .ohlcv import OHLCVFetcher
+from .features import FeatureEngine
+from .scoring.reversal import score_reversals
+from .scoring.breakout_trend_1_5d import score_breakout_trend_1_5d
+from .scoring.pullback import score_pullbacks
+from .output import ReportGenerator
+from .global_ranking import compute_global_top20
+from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
+from .snapshot import SnapshotManager
+from .runtime_market_meta import RuntimeMarketMetaExporter
+from .discovery import compute_discovery_fields
+from .regime import compute_btc_regime
 
 logger = logging.getLogger(__name__)
 
 
-class RuntimeMarketMetaExporter:
-    """Builds and writes runtime market metadata export JSON."""
+def run_pipeline(config: ScannerConfig) -> None:
+    """
+    Orchestrates the full daily pipeline:
+    1. Fetch universe (MEXC Spot USDT)
+    2. Fetch market cap listings
+    3. Run mapping layer
+    4. Apply hard filters (market cap, liquidity, exclusions)
+    5. Run cheap pass (shortlist)
+    6. Liquidity stage: orderbook fetch for Top-K only
+    7. Fetch OHLCV for shortlist
+    8. Compute features (1d + 4h)
+    9. Enrich features with price, name, market cap, and volume
+    10. Compute scores (breakout / pullback / reversal)
+    11. Write reports (Markdown + JSON + Excel)
+    12. Write snapshot for backtests
+    """
+    run_mode = config.run_mode
 
-    def __init__(self, config: ScannerConfig | Dict[str, Any]):
-        if hasattr(config, "raw"):
-            self.config = config
-            snapshots_config = config.raw.get("snapshots", {})
+    # As-Of Timestamp (einmal pro Run)
+    asof_dt = utc_now()
+    asof_ts_ms = timestamp_to_ms(asof_dt)
+    asof_iso = asof_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    # Run-Date konsistent aus asof_dt
+    run_date = asof_dt.strftime('%Y-%m-%d')
+    
+    use_cache = run_mode in ['fast', 'standard']
+    
+    logger.info("=" * 80)
+    logger.info(f"PIPELINE STARTING - {run_date}")
+    logger.info(f"Mode: {run_mode}")
+    logger.info("=" * 80)
+    
+    # Initialize clients
+    logger.info("\n[INIT] Initializing clients...")
+    mexc = MEXCClient()
+    cmc = MarketCapClient(api_key=config.cmc_api_key)
+    logger.info("✓ Clients initialized")
+    
+    # Step 1: Fetch universe (MEXC Spot USDT)
+    logger.info("\n[1/12] Fetching MEXC universe...")
+    exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    exchange_info = mexc.get_exchange_info(use_cache=use_cache)
+
+    universe = []
+    for symbol_info in exchange_info.get("symbols", []):
+        if (
+            symbol_info.get("quoteAsset") == "USDT"
+            and symbol_info.get("isSpotTradingAllowed", False)
+            and symbol_info.get("status") == "1"
+        ):
+            universe.append(symbol_info["symbol"])
+
+    logger.info(f"✓ Universe: {len(universe)} USDT pairs")
+    
+    # Get 24h tickers
+    logger.info("  Fetching 24h tickers...")
+    tickers_24h_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    tickers = mexc.get_24h_tickers(use_cache=use_cache)
+    ticker_map = {t['symbol']: t for t in tickers}
+    logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
+    
+    # Step 2 & 3: Fetch market cap + Run mapping layer
+    logger.info("\n[2-3/12] Fetching market cap & mapping...")
+    cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    cmc_listings = cmc.get_listings(use_cache=use_cache)
+    cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
+    logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
+    
+    mapper = SymbolMapper()
+    mapping_results = mapper.map_universe(universe, cmc_symbol_map)
+    logger.info(f"✓ Mapped: {mapper.stats['mapped']}/{mapper.stats['total']} "
+               f"({mapper.stats['mapped']/mapper.stats['total']*100:.1f}%)")
+    
+    # Prepare data for filters
+    symbols_with_data = []
+    for symbol in universe:
+        result = mapping_results.get(symbol)
+        if not result or not result.mapped:
+            continue
+        
+        ticker = ticker_map.get(symbol, {})
+        
+        symbols_with_data.append({
+            'symbol': symbol,
+            'base': symbol.replace('USDT', ''),
+            'quote_volume_24h': float(ticker.get('quoteVolume', 0)),
+            'market_cap': result._get_market_cap()
+        })
+    
+    # Step 4: Apply hard filters
+    logger.info("\n[4/12] Applying universe filters...")
+    filters = UniverseFilters(config.raw)
+    filtered = filters.apply_all(symbols_with_data)
+    logger.info(f"✓ Filtered: {len(filtered)} symbols")
+    
+    # Step 5: Run cheap pass (shortlist)
+    logger.info("\n[5/12] Creating shortlist...")
+    selector = ShortlistSelector(config.raw)
+    shortlist = selector.select(filtered)
+    logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
+    
+    # Step 6: Liquidity Stage (Top-K orderbook budget)
+    logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
+    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
+    logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
+    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
+
+    # Hard Exclude: liquidity grade D must not enter downstream scoring universe
+    before_liquidity_gate = len(shortlist)
+    shortlist = [s for s in shortlist if str(s.get('liquidity_grade') or '').upper() != 'D']
+    if len(shortlist) != before_liquidity_gate:
+        logger.info(
+            "  Liquidity hard gate removed %s symbols with liquidity_grade=D",
+            before_liquidity_gate - len(shortlist),
+        )
+
+    # Step 7: Fetch OHLCV for shortlist
+    logger.info("\n[7/12] Fetching OHLCV data...")
+    ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
+    ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
+    logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
+    
+    # Step 8: Compute features (1d + 4h)
+    logger.info("\n[8/12] Computing features...")
+    feature_engine = FeatureEngine(config.raw)
+    features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
+    logger.info(f"✓ Features: {len(features)} symbols")
+
+    logger.info("  Computing BTC regime...")
+    btc_regime = compute_btc_regime(
+        mexc_client=mexc,
+        feature_engine=feature_engine,
+        lookback_1d=ohlcv_fetcher.lookback.get("1d", 120),
+        asof_ts_ms=asof_ts_ms,
+    )
+    logger.info("  ✓ BTC regime: %s", btc_regime.get("state"))
+
+    # Step 9: Enrich features with price, coin name, market cap, and volume
+    logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
+    for symbol in features.keys():
+        # Add current price from tickers
+        ticker = ticker_map.get(symbol)
+        if ticker:
+            features[symbol]['price_usdt'] = float(ticker.get('lastPrice', 0))
         else:
-            self.config = ScannerConfig(raw=config)
-            snapshots_config = config.get("snapshots", {})
-
-        self.runtime_dir = Path(snapshots_config.get("runtime_dir", "snapshots/runtime"))
-        self.runtime_dir.mkdir(parents=True, exist_ok=True)
-
-    @staticmethod
-    def _to_float(value: Any) -> Optional[float]:
-        if value is None or value == "":
-            return None
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _to_int(value: Any) -> Optional[int]:
-        if value is None or value == "":
-            return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _build_exchange_symbol_map(exchange_info: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        return {
-            symbol_info.get("symbol"): symbol_info
-            for symbol_info in exchange_info.get("symbols", [])
-            if symbol_info.get("symbol")
-        }
-
-    @staticmethod
-    def _extract_filter_value(symbol_info: Dict[str, Any], filter_type: str, field: str) -> Any:
-        for item in symbol_info.get("filters", []):
-            if item.get("filterType") == filter_type:
-                return item.get(field)
-        return None
-
-    def _build_identity(self, mapping: MappingResult) -> Dict[str, Any]:
-        cmc_data = mapping.cmc_data or {}
-        quote_usd = cmc_data.get("quote", {}).get("USD", {})
-
-        market_cap = self._to_float(quote_usd.get("market_cap"))
-        fdv = self._to_float(quote_usd.get("fully_diluted_market_cap"))
-
-        platform = cmc_data.get("platform")
-        platform_obj = None
-        if isinstance(platform, dict):
-            token_address = platform.get("token_address")
-            platform_obj = {
-                "name": platform.get("name"),
-                "symbol": platform.get("symbol"),
-                "token_address": token_address,
-            }
+            features[symbol]['price_usdt'] = None
+    
+        # Add coin name from CMC
+        mapping = mapper.map_symbol(symbol, cmc_symbol_map)
+        if mapping.mapped and mapping.cmc_data:
+            features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
+            features[symbol]['cmc_date_added'] = mapping.cmc_data.get('date_added')
         else:
-            token_address = None
+            features[symbol]['coin_name'] = 'Unknown'
+            features[symbol]['cmc_date_added'] = None
+        
+        # Add market cap and volume from shortlist data
+        shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
+        if shortlist_entry:
+            features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
+            features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
+            features[symbol]['proxy_liquidity_score'] = shortlist_entry.get('proxy_liquidity_score')
+            features[symbol]['spread_bps'] = shortlist_entry.get('spread_bps')
+            features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
+            features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
+            features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
+            features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
+            features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
+        else:
+            features[symbol]['market_cap'] = None
+            features[symbol]['quote_volume_24h'] = None
+            features[symbol]['proxy_liquidity_score'] = None
+            features[symbol]['spread_bps'] = None
+            features[symbol]['slippage_bps'] = None
+            features[symbol]['liquidity_grade'] = None
+            features[symbol]['liquidity_insufficient'] = None
+            features[symbol]['risk_flags'] = []
+            features[symbol]['soft_penalties'] = {}
 
-        fdv_to_mcap = None
-        if fdv is not None and market_cap not in (None, 0):
-            fdv_to_mcap = fdv / market_cap
+        symbol_ohlcv = ohlcv_data.get(symbol, {})
+        first_seen_ts = None
+        if isinstance(symbol_ohlcv, dict) and symbol_ohlcv.get('1d'):
+            first = symbol_ohlcv['1d'][0]
+            if isinstance(first, (list, tuple)) and first:
+                try:
+                    first_seen_ts = int(float(first[0]))
+                except (TypeError, ValueError):
+                    first_seen_ts = None
 
-        return {
-            "cmc_id": cmc_data.get("id"),
-            "name": cmc_data.get("name"),
-            "symbol": cmc_data.get("symbol"),
-            "slug": cmc_data.get("slug"),
-            "category": cmc_data.get("category"),
-            "tags": cmc_data.get("tags"),
-            "platform": platform_obj,
-            "is_token": bool(token_address),
-            "market_cap_usd": market_cap,
-            "circulating_supply": self._to_float(cmc_data.get("circulating_supply")),
-            "total_supply": self._to_float(cmc_data.get("total_supply")),
-            "max_supply": self._to_float(cmc_data.get("max_supply")),
-            "fdv_usd": fdv,
-            "fdv_to_mcap": fdv_to_mcap,
-            "rank": self._to_int(cmc_data.get("cmc_rank")),
+        discovery_cfg = config.raw.get('discovery', {}) if isinstance(config.raw, dict) else {}
+        discovery_fields = compute_discovery_fields(
+            asof_ts_ms=asof_ts_ms,
+            date_added=features[symbol].get('cmc_date_added'),
+            first_seen_ts=first_seen_ts,
+            max_age_days=int(discovery_cfg.get('max_age_days', 180)),
+        )
+        features[symbol]['first_seen_ts'] = first_seen_ts
+        features[symbol].update(discovery_fields)
+
+    logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
+    
+    # Prepare volume map for scoring (backwards compatibility)
+    volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
+    
+    # Step 10: Compute scores (breakout / pullback / reversal)
+    logger.info("\n[10/12] Scoring setups...")
+    
+    logger.info("  Scoring Reversals...")
+    reversal_results = score_reversals(features, volume_map, config.raw)
+    logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
+    
+    logger.info("  Scoring Breakout Trend 1-5D...")
+    breakout_results = score_breakout_trend_1_5d(features, volume_map, config.raw, btc_regime=btc_regime)
+    logger.info(f"  ✓ Breakout Trend 1-5D rows: {len(breakout_results)} scored")
+    
+    logger.info("  Scoring Pullbacks...")
+    pullback_results = score_pullbacks(features, volume_map, config.raw)
+    logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
+
+    global_top20 = compute_global_top20(
+        reversal_results=reversal_results,
+        breakout_results=breakout_results,
+        pullback_results=pullback_results,
+        config=config.raw,
+    )
+    logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
+    
+    # Step 11: Write reports (Markdown + JSON + Excel)
+    logger.info("\n[11/12] Generating reports...")
+    report_gen = ReportGenerator(config.raw)
+    report_paths = report_gen.save_reports(
+        reversal_results,
+        breakout_results,
+        pullback_results,
+        global_top20,
+        run_date,
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
+        },
+        btc_regime=btc_regime,
+    )
+    logger.info(f"✓ Markdown: {report_paths['markdown']}")
+    logger.info(f"✓ JSON: {report_paths['json']}")
+    if 'excel' in report_paths:
+        logger.info(f"✓ Excel: {report_paths['excel']}")
+    
+    # Step 12: Write snapshot for backtests
+    logger.info("\n[12/12] Creating snapshot...")
+    snapshot_mgr = SnapshotManager(config.raw)
+    snapshot_path = snapshot_mgr.create_snapshot(
+        run_date=run_date,
+        universe=[{'symbol': s} for s in universe],
+        filtered=filtered,
+        shortlist=shortlist,
+        features=features,
+        reversal_scores=reversal_results,
+        breakout_scores=breakout_results,
+        pullback_scores=pullback_results,
+        metadata={
+            'mode': run_mode,
+            'asof_ts_ms': asof_ts_ms,
+            'asof_iso': asof_iso,
         }
+    )
+    logger.info(f"✓ Snapshot: {snapshot_path}")
 
-    def _build_symbol_info(self, symbol: str, exchange_symbol: Dict[str, Any]) -> Dict[str, Any]:
-        tick_size = self._extract_filter_value(exchange_symbol, "PRICE_FILTER", "tickSize")
-        step_size = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "stepSize")
-        min_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "minQty")
-        max_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "maxQty")
-
-        min_notional = self._extract_filter_value(exchange_symbol, "MIN_NOTIONAL", "minNotional")
-        max_notional = self._extract_filter_value(exchange_symbol, "NOTIONAL", "maxNotional")
-
-
-        return {
-            "mexc_symbol": symbol,
-            "base_asset": exchange_symbol.get("baseAsset"),
-            "quote_asset": exchange_symbol.get("quoteAsset"),
-            "status": exchange_symbol.get("status"),
-            "price_precision": self._to_int(exchange_symbol.get("quotePrecision") or exchange_symbol.get("priceScale")),
-            "quantity_precision": self._to_int(exchange_symbol.get("baseAssetPrecision") or exchange_symbol.get("quantityScale")),
-            "tick_size": tick_size,
-            "step_size": step_size,
-            "min_qty": self._to_float(min_qty),
-            "max_qty": self._to_float(max_qty),
-            "min_notional": self._to_float(min_notional),
-            "max_notional": self._to_float(max_notional),
-        }
-
-    def _build_ticker(self, ticker: Dict[str, Any]) -> Dict[str, Any]:
-        bid = self._to_float(ticker.get("bidPrice"))
-        ask = self._to_float(ticker.get("askPrice"))
-        mid = None
-        spread_pct = None
-
-        if bid is not None and ask is not None:
-            mid = (bid + ask) / 2
-            if mid != 0:
-                spread_pct = ((ask - bid) / mid) * 100
-
-        return {
-            "last_price": self._to_float(ticker.get("lastPrice")),
-            "high_24h": self._to_float(ticker.get("highPrice")),
-            "low_24h": self._to_float(ticker.get("lowPrice")),
-            "quote_volume_24h": self._to_float(ticker.get("quoteVolume")),
-            "price_change_pct_24h": self._to_float(ticker.get("priceChangePercent")),
-            "bid_price": bid,
-            "ask_price": ask,
-            "spread_pct": spread_pct,
-            "mid_price": mid,
-            "trades_24h": self._to_int(ticker.get("count")),
-            "base_volume_24h": self._to_float(ticker.get("volume")),
-        }
-
-    def _build_quality(
-        self,
-        symbol: str,
-        identity: Dict[str, Any],
-        symbol_info: Dict[str, Any],
-        has_scanner_features: bool,
-        has_ohlcv: bool,
-    ) -> Dict[str, Any]:
-        missing_fields: List[str] = []
-
-        if symbol_info.get("tick_size") in (None, ""):
-            missing_fields.append("tick_size")
-        if symbol_info.get("min_notional") is None:
-            missing_fields.append("min_notional")
-        if identity.get("platform") and not identity["platform"].get("token_address"):
-            missing_fields.append("token_address")
-
-        return {
-            "has_scanner_features": has_scanner_features,
-            "has_ohlcv": has_ohlcv,
-            "missing_fields": missing_fields,
-            "notes": None,
-        }
-
-    def export(
-        self,
-        run_date: str,
-        asof_iso: str,
-        run_id: str,
-        filtered_symbols: List[str],
-        mapping_results: Dict[str, MappingResult],
-        exchange_info: Dict[str, Any],
-        ticker_map: Dict[str, Dict[str, Any]],
-        features: Dict[str, Dict[str, Any]],
-        ohlcv_data: Dict[str, Dict[str, Any]],
-        exchange_info_ts_utc: str,
-        tickers_24h_ts_utc: str,
-        listings_ts_utc: str,
-    ) -> Path:
-        """Create and save runtime market metadata export."""
-        exchange_symbol_map = self._build_exchange_symbol_map(exchange_info)
-
-        coins: Dict[str, Dict[str, Any]] = {}
-        symbols = sorted(filtered_symbols)
-
-        for symbol in symbols:
-            mapping = mapping_results.get(symbol)
-            if not mapping or not mapping.mapped:
-                continue
-
-            exchange_symbol = exchange_symbol_map.get(symbol, {})
-            ticker = ticker_map.get(symbol, {})
-
-            identity = self._build_identity(mapping)
-            symbol_info = self._build_symbol_info(symbol, exchange_symbol)
-            ticker_24h = self._build_ticker(ticker)
-
-            quality = self._build_quality(
-                symbol=symbol,
-                identity=identity,
-                symbol_info=symbol_info,
-                has_scanner_features=symbol in features,
-                has_ohlcv=symbol in ohlcv_data,
-            )
-
-            coins[symbol] = {
-                "identity": identity,
-                "mexc": {
-                    "symbol_info": symbol_info,
-                    "ticker_24h": ticker_24h,
-                },
-                "quality": quality,
-            }
-
-        payload = {
-            "meta": {
-                "run_id": run_id,
-                "asof_utc": asof_iso,
-                "generated_at_utc": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "mexc": {
-                    "api_base": "https://api.mexc.com",
-                    "exchange_info_ts_utc": exchange_info_ts_utc,
-                    "tickers_24h_ts_utc": tickers_24h_ts_utc,
-                },
-                "cmc": {
-                    "listings_ts_utc": listings_ts_utc,
-                    "source": "CoinMarketCap",
-                },
-                "config": {
-                    "mcap_min_usd": self.config.market_cap_min,
-                    "mcap_max_usd": self.config.market_cap_max,
-                    "min_quote_volume_24h_usdt": self.config.min_quote_volume_24h,
-                },
-            },
-            "universe": {
-                "count": len(coins),
-                "symbols": list(coins.keys()),
-            },
-            "coins": coins,
-        }
-
-        output_path = self.runtime_dir / f"runtime_market_meta_{run_date}.json"
-        save_json(payload, output_path)
-
-        logger.info("Runtime market meta export saved: %s", output_path)
-        logger.info("Runtime market meta universe count: %s", payload["universe"]["count"])
-
-        return output_path
+    runtime_meta_exporter = RuntimeMarketMetaExporter(config)
+    runtime_meta_path = runtime_meta_exporter.export(
+        run_date=run_date,
+        asof_iso=asof_iso,
+        run_id=str(asof_ts_ms),
+        filtered_symbols=[entry['symbol'] for entry in filtered],
+        mapping_results=mapping_results,
+        exchange_info=exchange_info,
+        ticker_map=ticker_map,
+        features=features,
+        ohlcv_data=ohlcv_data,
+        exchange_info_ts_utc=exchange_info_ts_utc,
+        tickers_24h_ts_utc=tickers_24h_ts_utc,
+        listings_ts_utc=cmc_listings_ts_utc,
+    )
+    logger.info(f"✓ Runtime Market Meta: {runtime_meta_path}")
+    
+    # Summary
+    logger.info("\n" + "=" * 80)
+    logger.info("PIPELINE COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"Date: {run_date}")
+    logger.info(f"Universe: {len(universe)} symbols")
+    logger.info(f"Filtered: {len(filtered)} symbols")
+    logger.info(f"Shortlist: {len(shortlist)} symbols")
+    logger.info(f"Features: {len(features)} symbols")
+    logger.info(f"\nScored:")
+    logger.info(f"  Reversals: {len(reversal_results)}")
+    logger.info(f"  Breakouts: {len(breakout_results)}")
+    logger.info(f"  Pullbacks: {len(pullback_results)}")
+    logger.info(f"\nOutputs:")
+    logger.info(f"  Report: {report_paths['markdown']}")
+    if 'excel' in report_paths:
+        logger.info(f"  Excel: {report_paths['excel']}")
+    logger.info(f"  Snapshot: {snapshot_path}")
+    logger.info(f"  Runtime Market Meta: {runtime_meta_path}")
+    logger.info("=" * 80)
 
 ```
 
-### `scanner/pipeline/discovery.py`
+### `scanner/pipeline/cross_section.py`
 
-**SHA256:** `af2733523f90f9904ce93e2bcdf1796a878cca11e030cc8a1105ed59c02da41e`
+**SHA256:** `af16010718d0097f9f7adc448602dbc23c6008513524c5e31fa9d359c5ffc773`
 
 ```python
-"""Discovery tag helpers (v2 T6.1)."""
+"""Cross-section helpers for deterministic percent-rank calculations."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Dict, Iterable, List
 
 
-def _iso_to_ts_ms(value: str) -> Optional[int]:
-    if not value:
-        return None
+def percent_rank_average_ties(values: Iterable[float]) -> List[float]:
+    """Return percent-ranks in [0,100] with average-rank tie handling.
 
-    normalized = str(value).strip()
-    if normalized.endswith("Z"):
-        normalized = normalized[:-1] + "+00:00"
+    Ranking is computed against the full provided population and is independent
+    of input order.
+    """
+    value_list = [float(v) for v in values]
+    n = len(value_list)
+    if n == 0:
+        return []
+    if n == 1:
+        return [100.0]
 
-    try:
-        parsed = datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+    sorted_values = sorted(value_list)
+    positions_by_value: Dict[float, List[int]] = {}
+    for idx, value in enumerate(sorted_values, start=1):
+        positions_by_value.setdefault(value, []).append(idx)
 
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return int(parsed.timestamp() * 1000)
-
-
-def compute_discovery_fields(
-    *,
-    asof_ts_ms: int,
-    date_added: Optional[str],
-    first_seen_ts: Optional[int],
-    max_age_days: int = 180,
-) -> Dict[str, Any]:
-    """Compute deterministic discovery metadata for a symbol."""
-    source_ts = _iso_to_ts_ms(date_added) if date_added else None
-    source = "cmc_date_added" if source_ts is not None else None
-
-    if source_ts is None and first_seen_ts is not None:
-        try:
-            source_ts = int(first_seen_ts)
-            source = "first_seen_ts"
-        except (TypeError, ValueError):
-            source_ts = None
-            source = None
-
-    if source_ts is None:
-        return {
-            "discovery": False,
-            "discovery_age_days": None,
-            "discovery_source": None,
-        }
-
-    age_days = max(0, int((asof_ts_ms - source_ts) / 86_400_000))
-    return {
-        "discovery": age_days <= int(max_age_days),
-        "discovery_age_days": age_days,
-        "discovery_source": source,
+    avg_rank_by_value = {
+        value: (sum(positions) / len(positions))
+        for value, positions in positions_by_value.items()
     }
+
+    return [((avg_rank_by_value[value] - 1.0) / (n - 1.0)) * 100.0 for value in value_list]
 
 
 ```
@@ -3959,101 +4835,282 @@ class FeatureEngine:
 
 ```
 
-### `scanner/pipeline/global_ranking.py`
+### `scanner/pipeline/snapshot.py`
 
-**SHA256:** `d6f7546c8cf7c6899a4decb229c45a1a36beeb9d5766aeeba44ed47163552b6c`
+**SHA256:** `7804d11b91f79cff4eb61b20149e8cab07fb72e9d90e5b67d2d534d1045a66d6`
 
 ```python
-"""Global ranking aggregation across setup-specific rankings."""
+"""
+Snapshot System
+===============
+
+Creates deterministic daily snapshots for backtesting and reproducibility.
+Snapshots include all pipeline data at a specific point in time.
+"""
+
+import logging
+from typing import Dict, Any, List
+import re
+from datetime import datetime
+from pathlib import Path
+import json
+
+logger = logging.getLogger(__name__)
+
+
+class SnapshotManager:
+    """Manages daily pipeline snapshots."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize snapshot manager.
+        
+        Args:
+            config: Config dict with 'snapshots' section
+        """
+        # Handle both dict and ScannerConfig object
+        if hasattr(config, 'raw'):
+            snapshot_config = config.raw.get('snapshots', {})
+        else:
+            snapshot_config = config.get('snapshots', {})
+        
+        self.snapshots_dir = Path(
+            snapshot_config.get('history_dir')
+            or snapshot_config.get('snapshot_dir')
+            or 'snapshots/history'
+        )
+
+        # Ensure directory exists
+        self.snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Snapshot Manager initialized: {self.snapshots_dir}")
+    
+    def create_snapshot(
+        self,
+        run_date: str,
+        universe: List[Dict[str, Any]],
+        filtered: List[Dict[str, Any]],
+        shortlist: List[Dict[str, Any]],
+        features: Dict[str, Dict[str, Any]],
+        reversal_scores: List[Dict[str, Any]],
+        breakout_scores: List[Dict[str, Any]],
+        pullback_scores: List[Dict[str, Any]],
+        metadata: Dict[str, Any] = None
+    ) -> Path:
+        """
+        Create a complete snapshot of the pipeline run.
+        
+        Args:
+            run_date: Date string (YYYY-MM-DD)
+            universe: Full MEXC universe
+            filtered: Post-filter universe
+            shortlist: Shortlisted symbols
+            features: Computed features
+            reversal_scores: Reversal scoring results
+            breakout_scores: Breakout scoring results
+            pullback_scores: Pullback scoring results
+            metadata: Optional metadata
+        
+        Returns:
+            Path to saved snapshot file
+        """
+        logger.info(f"Creating snapshot for {run_date}")
+        
+        snapshot = {
+            'meta': {
+                'date': run_date,
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'version': '1.0'
+            },
+            'pipeline': {
+                'universe_count': len(universe),
+                'filtered_count': len(filtered),
+                'shortlist_count': len(shortlist),
+                'features_count': len(features)
+            },
+            'data': {
+                'universe': universe,
+                'filtered': filtered,
+                'shortlist': shortlist,
+                'features': features
+            },
+            'scoring': {
+                'reversals': reversal_scores,
+                'breakouts': breakout_scores,
+                'pullbacks': pullback_scores
+            }
+        }
+        
+        if metadata:
+            snapshot['meta'].update(metadata)
+            
+        # Safety: ensure as-of exists (for reproducibility)
+        if 'asof_ts_ms' not in snapshot['meta']:
+            snapshot['meta']['asof_ts_ms'] = int(datetime.utcnow().timestamp() * 1000)
+
+        if 'asof_iso' not in snapshot['meta']:
+            snapshot['meta']['asof_iso'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            
+        # Save snapshot
+        snapshot_path = self.snapshots_dir / f"{run_date}.json"
+        
+        with open(snapshot_path, 'w', encoding='utf-8') as f:
+            json.dump(snapshot, f, indent=2, ensure_ascii=False)
+        
+        # Get file size
+        size_mb = snapshot_path.stat().st_size / (1024 * 1024)
+        
+        logger.info(f"Snapshot saved: {snapshot_path} ({size_mb:.2f} MB)")
+        
+        return snapshot_path
+    
+    def load_snapshot(self, run_date: str) -> Dict[str, Any]:
+        """
+        Load a snapshot by date.
+        
+        Args:
+            run_date: Date string (YYYY-MM-DD)
+        
+        Returns:
+            Snapshot dict
+        
+        Raises:
+            FileNotFoundError: If snapshot doesn't exist
+        """
+        snapshot_path = self.snapshots_dir / f"{run_date}.json"
+        
+        if not snapshot_path.exists():
+            raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
+        
+        logger.info(f"Loading snapshot: {snapshot_path}")
+        
+        with open(snapshot_path, 'r', encoding='utf-8') as f:
+            snapshot = json.load(f)
+        
+        return snapshot
+    
+    def list_snapshots(self) -> List[str]:
+        """
+        List all available snapshot dates.
+        
+        Returns:
+            List of date strings (YYYY-MM-DD)
+        """
+        snapshots = []
+
+        for path in self.snapshots_dir.glob("*.json"):
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", path.stem):
+                continue
+
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    payload = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+            if not all(key in payload for key in ('meta', 'pipeline', 'data', 'scoring')):
+                continue
+
+            snapshots.append(path.stem)
+
+        snapshots.sort()
+
+        logger.info(f"Found {len(snapshots)} snapshots")
+
+        return snapshots
+    
+    def get_snapshot_stats(self, run_date: str) -> Dict[str, Any]:
+        """
+        Get statistics about a snapshot without loading full data.
+        
+        Args:
+            run_date: Date string
+        
+        Returns:
+            Stats dict
+        """
+        snapshot = self.load_snapshot(run_date)
+        
+        return {
+            'date': snapshot['meta']['date'],
+            'created_at': snapshot['meta']['created_at'],
+            'universe_count': snapshot['pipeline']['universe_count'],
+            'filtered_count': snapshot['pipeline']['filtered_count'],
+            'shortlist_count': snapshot['pipeline']['shortlist_count'],
+            'features_count': snapshot['pipeline']['features_count'],
+            'reversal_count': len(snapshot['scoring']['reversals']),
+            'breakout_count': len(snapshot['scoring']['breakouts']),
+            'pullback_count': len(snapshot['scoring']['pullbacks'])
+        }
+
+```
+
+### `scanner/pipeline/discovery.py`
+
+**SHA256:** `af2733523f90f9904ce93e2bcdf1796a878cca11e030cc8a1105ed59c02da41e`
+
+```python
+"""Discovery tag helpers (v2 T6.1)."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 
-def _config_get(root: Dict[str, Any], path: List[str], default: Any) -> Any:
-    cur: Any = root
-    for key in path:
-        if not isinstance(cur, dict):
-            return default
-        cur = cur.get(key)
-        if cur is None:
-            return default
-    return cur
+def _iso_to_ts_ms(value: str) -> Optional[int]:
+    if not value:
+        return None
+
+    normalized = str(value).strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp() * 1000)
 
 
-def compute_global_top20(
-    reversal_results: List[Dict[str, Any]],
-    breakout_results: List[Dict[str, Any]],
-    pullback_results: List[Dict[str, Any]],
-    config: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    """Build unique global top-20 list from setup results using weighted setup score."""
-    root = config.raw if hasattr(config, "raw") else config
+def compute_discovery_fields(
+    *,
+    asof_ts_ms: int,
+    date_added: Optional[str],
+    first_seen_ts: Optional[int],
+    max_age_days: int = 180,
+) -> Dict[str, Any]:
+    """Compute deterministic discovery metadata for a symbol."""
+    source_ts = _iso_to_ts_ms(date_added) if date_added else None
+    source = "cmc_date_added" if source_ts is not None else None
 
-    setup_map = {
-        "breakout": breakout_results,
-        "pullback": pullback_results,
-        "reversal": reversal_results,
+    if source_ts is None and first_seen_ts is not None:
+        try:
+            source_ts = int(first_seen_ts)
+            source = "first_seen_ts"
+        except (TypeError, ValueError):
+            source_ts = None
+            source = None
+
+    if source_ts is None:
+        return {
+            "discovery": False,
+            "discovery_age_days": None,
+            "discovery_source": None,
+        }
+
+    age_days = max(0, int((asof_ts_ms - source_ts) / 86_400_000))
+    return {
+        "discovery": age_days <= int(max_age_days),
+        "discovery_age_days": age_days,
+        "discovery_source": source,
     }
 
-    by_symbol: Dict[str, Dict[str, Any]] = {}
-
-    for setup_type, entries in setup_map.items():
-        for entry in entries:
-            symbol = entry.get("symbol")
-            if not symbol:
-                continue
-            setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
-            weighted = setup_score
-
-            if symbol not in by_symbol:
-                agg = dict(entry)
-                agg["setup_score"] = setup_score
-                agg["best_setup_type"] = setup_type
-                agg["best_setup_score"] = setup_score
-                agg["setup_weight"] = 1.0
-                agg["global_score"] = round(weighted, 6)
-                agg["confluence"] = 1
-                agg["valid_setups"] = [setup_type]
-                by_symbol[symbol] = agg
-                continue
-
-            prev = by_symbol[symbol]
-            prev_setups = set(prev.get("valid_setups", []))
-            prev_setups.add(setup_type)
-            prev["valid_setups"] = sorted(prev_setups)
-            prev["confluence"] = len(prev_setups)
-
-            prev_weighted = float(prev.get("global_score", 0.0))
-            prev_setup_id = str(prev.get("setup_id", ""))
-            cur_setup_id = str(entry.get("setup_id", ""))
-            prefer_retest = weighted == prev_weighted and cur_setup_id.endswith("retest_1_5d") and not prev_setup_id.endswith("retest_1_5d")
-
-            if weighted > prev_weighted or prefer_retest:
-                prev.update(entry)
-                prev["setup_score"] = setup_score
-                prev["best_setup_type"] = setup_type
-                prev["best_setup_score"] = setup_score
-                prev["setup_weight"] = 1.0
-                prev["global_score"] = round(weighted, 6)
-                prev["confluence"] = len(prev_setups)
-                prev["valid_setups"] = sorted(prev_setups)
-
-    ranked = sorted(
-        by_symbol.values(),
-        key=lambda x: (
-            -float(x.get("global_score", 0.0)),
-            float("inf") if x.get("slippage_bps") is None else float(x.get("slippage_bps")),
-            -float(x.get("proxy_liquidity_score", 0.0) or 0.0),
-            str(x.get("symbol", "")),
-        ),
-    )
-
-    top20 = ranked[:20]
-    for i, e in enumerate(top20, start=1):
-        e["rank"] = i
-    return top20
 
 ```
 
@@ -4487,731 +5544,6 @@ class ReportGenerator:
 
 ```
 
-### `scanner/pipeline/filters.py`
-
-**SHA256:** `8a948f40bbd070ca9e5e78e44defa96d7fc4f2545c08eebedecba3414bb07205`
-
-```python
-"""
-Universe Filtering
-==================
-
-Filters the MEXC universe to create a tradable shortlist:
-1. Market Cap Filter (100M - 3B USD)
-2. Liquidity Filter (minimum volume)
-3. Exclusions (stablecoins, wrapped tokens, leveraged tokens)
-"""
-
-import logging
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-
-import yaml
-
-logger = logging.getLogger(__name__)
-
-
-class UniverseFilters:
-    """Filters for reducing MEXC universe to tradable MidCaps."""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize filters with config.
-        
-        Args:
-            config: Config dict with 'filters' section
-        """
-        legacy_filters = config.get('filters', {})
-        universe_cfg = config.get('universe_filters', {})
-        exclusions_cfg = config.get('exclusions', {})
-        risk_cfg = config.get('risk_flags', {})
-
-        mcap_cfg = universe_cfg.get('market_cap', {})
-        volume_cfg = universe_cfg.get('volume', {})
-        history_cfg = universe_cfg.get('history', {})
-
-        # Market Cap bounds (in USD)
-        self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
-        self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
-
-        # Liquidity (24h volume in USDT)
-        self.min_volume_24h = volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 1_000_000))
-
-        # Minimum 1d history used by OHLCV filtering step.
-        self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
-
-        self.include_only_usdt_pairs = bool(universe_cfg.get('include_only_usdt_pairs', True))
-
-        default_quote_allowlist = ['USDT', 'USDC', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'BUSD']
-        self.quote_allowlist = [str(q).upper() for q in universe_cfg.get('quote_allowlist', default_quote_allowlist)]
-
-        default_patterns = {
-            'stablecoin_patterns': ['USD', 'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD'],
-            'wrapped_patterns': ['WBTC', 'WETH', 'WBNB'],
-            'leveraged_patterns': ['UP', 'DOWN', 'BULL', 'BEAR'],
-            'synthetic_patterns': [],
-        }
-
-        def _build_exclusion_patterns_from_new_config() -> List[str]:
-            patterns: List[str] = []
-            if exclusions_cfg.get('exclude_stablecoins', True):
-                patterns.extend(exclusions_cfg.get('stablecoin_patterns', default_patterns['stablecoin_patterns']))
-            if exclusions_cfg.get('exclude_wrapped_tokens', True):
-                patterns.extend(exclusions_cfg.get('wrapped_patterns', default_patterns['wrapped_patterns']))
-            if exclusions_cfg.get('exclude_leveraged_tokens', True):
-                patterns.extend(exclusions_cfg.get('leveraged_patterns', default_patterns['leveraged_patterns']))
-            if exclusions_cfg.get('exclude_synthetic_derivatives', False):
-                patterns.extend(exclusions_cfg.get('synthetic_patterns', default_patterns['synthetic_patterns']))
-            return [str(p).upper() for p in patterns]
-
-        if 'exclusion_patterns' in legacy_filters:
-            # Legacy override is key-presence based: [] explicitly disables exclusions.
-            # A null value is treated as unset to avoid accidental broad allow-through.
-            legacy_patterns = legacy_filters.get('exclusion_patterns')
-            if legacy_patterns is None:
-                logger.warning(
-                    "filters.exclusion_patterns is null; treating as unset and falling back to exclusions.*"
-                )
-                self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
-            else:
-                self.exclusion_patterns = [str(p).upper() for p in legacy_patterns]
-        else:
-            self.exclusion_patterns = _build_exclusion_patterns_from_new_config()
-
-        self.minor_unlock_penalty_factor = float(risk_cfg.get('minor_unlock_penalty_factor', 0.9))
-        self.denylist_path = Path(risk_cfg.get('denylist_file', 'config/denylist.yaml'))
-        self.unlock_overrides_path = Path(risk_cfg.get('unlock_overrides_file', 'config/unlock_overrides.yaml'))
-
-        self.denylist_symbols, self.denylist_bases = self._load_denylist(self.denylist_path)
-        (
-            self.major_unlock_symbols,
-            self.major_unlock_bases,
-            self.minor_unlock_symbols,
-            self.minor_unlock_bases,
-        ) = self._load_unlock_overrides(self.unlock_overrides_path)
-        
-        logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
-                   f"Min Volume {self.min_volume_24h/1e6:.1f}M")
-
-    @staticmethod
-    def _safe_load_yaml(path: Path) -> Dict[str, Any]:
-        if not path.exists():
-            return {}
-        with path.open('r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else {}
-
-    def _load_denylist(self, path: Path) -> tuple[set[str], set[str]]:
-        data = self._safe_load_yaml(path)
-        symbols = set()
-        bases = set()
-
-        hard_exclude = data.get('hard_exclude', {}) if isinstance(data.get('hard_exclude', {}), dict) else {}
-        for key in ('symbols', 'symbol'):
-            raw = hard_exclude.get(key, [])
-            if isinstance(raw, str):
-                raw = [raw]
-            symbols.update(str(v).upper() for v in raw)
-
-        for key in ('bases', 'base'):
-            raw = hard_exclude.get(key, [])
-            if isinstance(raw, str):
-                raw = [raw]
-            bases.update(str(v).upper() for v in raw)
-
-        return symbols, bases
-
-    def _load_unlock_overrides(self, path: Path) -> tuple[set[str], set[str], set[str], set[str]]:
-        data = self._safe_load_yaml(path)
-        major_symbols: set[str] = set()
-        major_bases: set[str] = set()
-        minor_symbols: set[str] = set()
-        minor_bases: set[str] = set()
-
-        entries = data.get('overrides', [])
-        if isinstance(entries, dict):
-            entries = [entries]
-        if not isinstance(entries, list):
-            return major_symbols, major_bases, minor_symbols, minor_bases
-
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            severity = str(entry.get('severity', '')).lower()
-            days_to_unlock = entry.get('days_to_unlock')
-            symbol = entry.get('symbol')
-            base = entry.get('base')
-
-            parsed_days = self._parse_days_to_unlock(days_to_unlock, symbol=symbol, base=base)
-            if parsed_days is None:
-                continue
-            if parsed_days > 14:
-                continue
-
-            if severity == 'major':
-                if symbol:
-                    major_symbols.add(str(symbol).upper())
-                if base:
-                    major_bases.add(str(base).upper())
-            elif severity == 'minor':
-                if symbol:
-                    minor_symbols.add(str(symbol).upper())
-                if base:
-                    minor_bases.add(str(base).upper())
-
-        return major_symbols, major_bases, minor_symbols, minor_bases
-
-    def _parse_days_to_unlock(
-        self,
-        value: Any,
-        *,
-        symbol: Optional[str] = None,
-        base: Optional[str] = None,
-    ) -> Optional[int]:
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            identifier = symbol or base or '<unknown>'
-            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
-            return None
-
-        if parsed < 0:
-            identifier = symbol or base or '<unknown>'
-            logger.warning("Invalid days_to_unlock for %s: %r", identifier, value)
-            return None
-
-        return parsed
-    
-    def apply_all(
-        self,
-        symbols_with_data: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Apply all filters in sequence.
-        
-        Args:
-            symbols_with_data: List of dicts with keys:
-                - symbol: str (e.g. "BTCUSDT")
-                - base: str (e.g. "BTC")
-                - quote_volume_24h: float
-                - market_cap: float (from CMC mapping)
-        
-        Returns:
-            Filtered list
-        """
-        original_count = len(symbols_with_data)
-        logger.info(f"Starting filters with {original_count} symbols")
-        
-        # Step 1: Market Cap filter
-        filtered = self._filter_mcap(symbols_with_data)
-        logger.info(f"After MCAP filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-
-        # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
-        filtered = self._filter_quote_assets(filtered)
-        logger.info(f"After Quote filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-
-        # Step 3: Liquidity filter
-        filtered = self._filter_liquidity(filtered)
-        logger.info(f"After Liquidity filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-
-        # Step 4: Exclusions
-        filtered = self._filter_exclusions(filtered)
-        logger.info(f"After Exclusions filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-
-        # Step 5: Risk hard-excludes and soft penalties
-        filtered = self._apply_risk_flags(filtered)
-        logger.info(f"After Risk filter: {len(filtered)} symbols "
-                   f"({len(filtered)/original_count*100:.1f}%)")
-        
-        logger.info(f"Final universe: {len(filtered)} symbols "
-                   f"(filtered out {original_count - len(filtered)})")
-        
-        return filtered
-    
-    def _filter_mcap(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by market cap range."""
-        filtered = []
-        
-        for sym_data in symbols:
-            mcap = sym_data.get('market_cap')
-            
-            # Skip if no market cap data
-            if mcap is None:
-                continue
-            
-            # Check bounds
-            if self.mcap_min <= mcap <= self.mcap_max:
-                filtered.append(sym_data)
-        
-        return filtered
-    
-
-    def _extract_quote_asset(self, sym_data: Dict[str, Any]) -> Optional[str]:
-        quote = sym_data.get('quote')
-        if quote:
-            return str(quote).upper()
-
-        symbol = str(sym_data.get('symbol', '')).upper()
-        for q in sorted(self.quote_allowlist, key=len, reverse=True):
-            if symbol.endswith(q):
-                return q
-
-        return None
-
-    def _filter_quote_assets(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by quote asset according to include_only_usdt_pairs semantics."""
-        filtered: List[Dict[str, Any]] = []
-
-        for sym_data in symbols:
-            quote = self._extract_quote_asset(sym_data)
-            if self.include_only_usdt_pairs:
-                if quote == 'USDT':
-                    filtered.append(sym_data)
-            else:
-                if quote in self.quote_allowlist:
-                    filtered.append(sym_data)
-
-        return filtered
-
-    def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by minimum 24h volume."""
-        filtered = []
-        
-        for sym_data in symbols:
-            volume = sym_data.get('quote_volume_24h', 0)
-            
-            if volume >= self.min_volume_24h:
-                filtered.append(sym_data)
-        
-        return filtered
-    
-    def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Exclude stablecoins, wrapped tokens, leveraged tokens."""
-        filtered = []
-        
-        for sym_data in symbols:
-            base = sym_data.get('base', '')
-            
-            # Check if base matches any exclusion pattern
-            is_excluded = False
-            for pattern in self.exclusion_patterns:
-                if pattern in base.upper():
-                    is_excluded = True
-                    break
-            
-            if not is_excluded:
-                filtered.append(sym_data)
-        
-        return filtered
-
-    def _apply_risk_flags(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        filtered = []
-        for sym_data in symbols:
-            symbol = str(sym_data.get('symbol', '')).upper()
-            base = str(sym_data.get('base', '')).upper()
-
-            hard_reasons = []
-            if symbol in self.denylist_symbols or base in self.denylist_bases:
-                hard_reasons.append('denylist')
-            if symbol in self.major_unlock_symbols or base in self.major_unlock_bases:
-                hard_reasons.append('major_unlock_within_14d')
-
-            if hard_reasons:
-                continue
-
-            row = dict(sym_data)
-            row['risk_flags'] = []
-            row['soft_penalties'] = {}
-
-            if symbol in self.minor_unlock_symbols or base in self.minor_unlock_bases:
-                row['risk_flags'].append('minor_unlock_within_14d')
-                row['soft_penalties']['minor_unlock_within_14d'] = self.minor_unlock_penalty_factor
-
-            filtered.append(row)
-
-        return filtered
-    
-    def get_filter_stats(self, symbols: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Get statistics about what would be filtered.
-        
-        Args:
-            symbols: Input symbols
-        
-        Returns:
-            Dict with filter stats
-        """
-        total = len(symbols)
-        
-        # Count what passes each filter
-        mcap_pass = len(self._filter_mcap(symbols))
-        quote_pass = len(self._filter_quote_assets(symbols))
-        liquidity_pass = len(self._filter_liquidity(symbols))
-        exclusion_pass = len(self._filter_exclusions(symbols))
-        
-        # Full pipeline
-        final_pass = len(self.apply_all(symbols))
-        
-        return {
-            'total_input': total,
-            'mcap_pass': mcap_pass,
-            'mcap_fail': total - mcap_pass,
-            'quote_pass': quote_pass,
-            'quote_fail': total - quote_pass,
-            'liquidity_pass': liquidity_pass,
-            'liquidity_fail': total - liquidity_pass,
-            'exclusion_pass': exclusion_pass,
-            'exclusion_fail': total - exclusion_pass,
-            'final_pass': final_pass,
-            'final_fail': total - final_pass,
-            'filter_rate': f"{final_pass/total*100:.1f}%" if total > 0 else "0%"
-        }
-
-```
-
-### `scanner/pipeline/shortlist.py`
-
-**SHA256:** `54ea263030362d03281b41498ce97f12013063cc554fafefde27cc22311dc90c`
-
-```python
-"""
-Shortlist Selection (Cheap Pass)
-=================================
-
-Reduces filtered universe to a shortlist for expensive operations (OHLCV fetch).
-Uses cheap metrics (24h volume) to rank and select top N candidates.
-"""
-
-import logging
-import math
-from typing import List, Dict, Any
-
-from .cross_section import percent_rank_average_ties
-
-logger = logging.getLogger(__name__)
-
-
-class ShortlistSelector:
-    """Selects top candidates based on volume for OHLCV processing."""
-
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize shortlist selector.
-
-        Args:
-            config: Config dict with 'shortlist' section
-        """
-        self.config = config.get('shortlist', {})
-        general_cfg = config.get('general', {})
-
-        # Default: Top 100 by volume
-        self.max_size = int(general_cfg.get('shortlist_size', self.config.get('max_size', 100)))
-
-        # Minimum size (even if fewer pass filters)
-        self.min_size = self.config.get('min_size', 10)
-
-        logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
-
-    def _attach_proxy_liquidity_score(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Attach proxy_liquidity_score based on quote_volume_24h percent-rank (log-scaled input)."""
-        if not rows:
-            return []
-
-        log_volumes: List[float] = []
-        for row in rows:
-            vol = float(row.get('quote_volume_24h', 0) or 0)
-            log_volumes.append(math.log1p(max(0.0, vol)))
-
-        percent_scores = percent_rank_average_ties(log_volumes)
-
-        enriched: List[Dict[str, Any]] = []
-        for row, score in zip(rows, percent_scores):
-            r = dict(row)
-            r['proxy_liquidity_score'] = round(float(score), 6)
-            r['proxy_liquidity_population_n'] = len(rows)
-            enriched.append(r)
-
-        return enriched
-
-    def select(self, filtered_symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Select top N symbols by 24h volume.
-
-        Args:
-            filtered_symbols: List of symbols that passed filters
-                Each dict must have:
-                - symbol: str
-                - base: str
-                - quote_volume_24h: float
-                - market_cap: float
-
-        Returns:
-            Shortlist (top N by volume)
-        """
-        if not filtered_symbols:
-            logger.warning("No symbols to shortlist (empty input)")
-            return []
-
-        with_proxy_score = self._attach_proxy_liquidity_score(filtered_symbols)
-
-        # Sort by proxy liquidity score (descending), then raw volume for deterministic tie-break.
-        sorted_symbols = sorted(
-            with_proxy_score,
-            key=lambda x: (x.get('proxy_liquidity_score', 0), x.get('quote_volume_24h', 0)),
-            reverse=True
-        )
-
-        # Take top N
-        shortlist = sorted_symbols[:self.max_size]
-
-        logger.info(f"Shortlist selected: {len(shortlist)} symbols from {len(filtered_symbols)} "
-                    f"(top {len(shortlist)/len(filtered_symbols)*100:.1f}% by volume)")
-
-        # Log volume range
-        if shortlist:
-            max_vol = shortlist[0].get('quote_volume_24h', 0)
-            min_vol = shortlist[-1].get('quote_volume_24h', 0)
-            logger.info(f"Volume range: ${max_vol/1e6:.2f}M - ${min_vol/1e6:.2f}M")
-
-        return shortlist
-
-    def get_shortlist_stats(
-        self,
-        filtered_symbols: List[Dict[str, Any]],
-        shortlist: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Get statistics about shortlist selection.
-
-        Args:
-            filtered_symbols: Input (post-filter)
-            shortlist: Output (post-shortlist)
-
-        Returns:
-            Stats dict
-        """
-        if not filtered_symbols:
-            return {
-                'input_count': 0,
-                'shortlist_count': 0,
-                'reduction_rate': '0%',
-                'volume_coverage': '0%'
-            }
-
-        # Volume stats
-        total_volume = sum(s.get('quote_volume_24h', 0) for s in filtered_symbols)
-        shortlist_volume = sum(s.get('quote_volume_24h', 0) for s in shortlist)
-
-        coverage = (shortlist_volume / total_volume * 100) if total_volume > 0 else 0
-
-        return {
-            'input_count': len(filtered_symbols),
-            'shortlist_count': len(shortlist),
-            'reduction_rate': f"{(1 - len(shortlist)/len(filtered_symbols))*100:.1f}%",
-            'total_volume': f"${total_volume/1e6:.2f}M",
-            'shortlist_volume': f"${shortlist_volume/1e6:.2f}M",
-            'volume_coverage': f"{coverage:.1f}%"
-        }
-
-```
-
-### `scanner/pipeline/liquidity.py`
-
-**SHA256:** `e6937332aa6d61985e1f71d6156e3c08233e0821d13cd82e4a27ff02ee09e113`
-
-```python
-"""Liquidity stage utilities (Top-K orderbook budget + slippage metrics)."""
-
-from __future__ import annotations
-
-import logging
-
-from typing import Any, Dict, List, Tuple
-
-
-logger = logging.getLogger(__name__)
-
-
-def _root_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    return config.raw if hasattr(config, "raw") else config
-
-
-def get_orderbook_top_k(config: Dict[str, Any]) -> int:
-    root = _root_config(config)
-    return int(root.get("liquidity", {}).get("orderbook_top_k", 200))
-
-
-def get_slippage_notional_usdt(config: Dict[str, Any]) -> float:
-    root = _root_config(config)
-    return float(root.get("liquidity", {}).get("slippage_notional_usdt", 20_000.0))
-
-
-def get_grade_thresholds_bps(config: Dict[str, Any]) -> Tuple[float, float, float]:
-    root = _root_config(config)
-    cfg = root.get("liquidity", {}).get("grade_thresholds_bps", {})
-    a_max = float(cfg.get("a_max", 20.0))
-    b_max = float(cfg.get("b_max", 50.0))
-    c_max = float(cfg.get("c_max", 100.0))
-    return a_max, b_max, c_max
-
-
-def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
-    """Select top-k candidates by proxy_liquidity_score then quote_volume_24h."""
-    ranked = sorted(
-        candidates,
-        key=lambda x: (float(x.get("proxy_liquidity_score", 0.0)), float(x.get("quote_volume_24h", 0.0))),
-        reverse=True,
-    )
-    return ranked[: max(0, top_k)]
-
-
-def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload/None for all symbols."""
-    top_k = get_orderbook_top_k(config)
-    selected = select_top_k_for_orderbook(candidates, top_k)
-
-    payload: Dict[str, Any] = {}
-    for row in candidates:
-        symbol = row.get("symbol")
-        if not symbol:
-            continue
-        payload[symbol] = None
-
-    for row in selected:
-        symbol = row.get("symbol")
-        if not symbol:
-            continue
-        try:
-            payload[symbol] = mexc_client.get_orderbook(symbol)
-        except Exception as exc:
-            logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
-    return payload
-
-
-def _to_levels(levels: Any) -> List[Tuple[float, float]]:
-    out: List[Tuple[float, float]] = []
-    if not isinstance(levels, list):
-        return out
-    for row in levels:
-        if not isinstance(row, (list, tuple)) or len(row) < 2:
-            continue
-        try:
-            p = float(row[0])
-            q = float(row[1])
-        except (TypeError, ValueError):
-            continue
-        if p > 0 and q > 0:
-            out.append((p, q))
-    return out
-
-
-def _compute_buy_vwap(asks: List[Tuple[float, float]], notional_usdt: float) -> Tuple[float, bool]:
-    remaining = float(notional_usdt)
-    if remaining <= 0:
-        return 0.0, False
-
-    spent = 0.0
-    qty = 0.0
-    for price, size in asks:
-        level_quote = price * size
-        take_quote = min(level_quote, remaining)
-        take_qty = take_quote / price
-        spent += take_quote
-        qty += take_qty
-        remaining -= take_quote
-        if remaining <= 1e-9:
-            break
-
-    if qty <= 0:
-        return 0.0, True
-    return spent / qty, remaining > 1e-9
-
-
-def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt: float, thresholds_bps: Tuple[float, float, float]) -> Dict[str, Any]:
-    """Compute spread/slippage/grade from an orderbook snapshot."""
-    bids = _to_levels(orderbook.get("bids"))
-    asks = _to_levels(orderbook.get("asks"))
-
-    if not bids or not asks:
-        return {
-            "spread_bps": None,
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    best_bid = bids[0][0]
-    best_ask = asks[0][0]
-    mid = (best_bid + best_ask) / 2.0
-    if mid <= 0:
-        return {
-            "spread_bps": None,
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    spread_bps = ((best_ask - best_bid) / mid) * 10_000.0
-    vwap_ask, insufficient = _compute_buy_vwap(asks, float(notional_usdt))
-
-    if insufficient or vwap_ask <= 0:
-        return {
-            "spread_bps": round(spread_bps, 6),
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    slippage_bps = ((vwap_ask - mid) / mid) * 10_000.0
-
-    a_max, b_max, c_max = thresholds_bps
-    if slippage_bps <= a_max:
-        grade = "A"
-    elif slippage_bps <= b_max:
-        grade = "B"
-    elif slippage_bps <= c_max:
-        grade = "C"
-    else:
-        grade = "D"
-
-    return {
-        "spread_bps": round(spread_bps, 6),
-        "slippage_bps": round(slippage_bps, 6),
-        "liquidity_grade": grade,
-        "liquidity_insufficient": False,
-    }
-
-
-def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderbooks: Dict[str, Any], config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Attach liquidity fields to shortlist rows when orderbook data is available."""
-    notional = get_slippage_notional_usdt(config)
-    thresholds = get_grade_thresholds_bps(config)
-
-    out: List[Dict[str, Any]] = []
-    for row in shortlist:
-        symbol = row.get("symbol")
-        r = dict(row)
-        if symbol in orderbooks:
-            metrics = compute_orderbook_liquidity_metrics(orderbooks[symbol], notional, thresholds)
-            r.update(metrics)
-        else:
-            r.update(
-                {
-                    "spread_bps": None,
-                    "slippage_bps": None,
-                    "liquidity_grade": None,
-                    "liquidity_insufficient": None,
-                }
-            )
-        out.append(r)
-    return out
-
-```
-
 ### `scanner/pipeline/ohlcv.py`
 
 **SHA256:** `5b15b497293e634782803d809b78160a966ac098878a54626d0e0975c3e4aa59`
@@ -5378,1326 +5710,1485 @@ class OHLCVFetcher:
 
 ```
 
-### `scanner/pipeline/regime.py`
+### `scanner/pipeline/backtest_runner.py`
 
-**SHA256:** `d451dcb35abfa1ae4ca17222e68212049137c202dd81b29c5887e186c20d527e`
+**SHA256:** `d3e0d07cd7845da343c32f58ab88d7c5519dfcd239901e116ac0b26691b1480f`
 
 ```python
-"""BTC regime helpers for report-level risk context."""
+from __future__ import annotations
+
+"""Deterministic backtest runner (Analytics-only, E2-K).
+
+Canonical v2 rules (Feature-Spec section 10):
+- Trigger search on 1D close within ``[t0 .. t0 + T_trigger_max]``
+- ``entry_price = close[trigger_day]``
+- ``hit_10`` / ``hit_20`` use ``max(high[trigger_day+1 .. trigger_day+T_hold])``
+- No exit logic.
+"""
+
+from collections import defaultdict
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+import json
+
+
+DEFAULT_BACKTEST_CFG: Dict[str, Any] = {
+    "t_hold": 10,
+    "t_trigger_max": 5,
+    "thresholds_pct": [10.0, 20.0],
+}
+
+BREAKOUT_TREND_SETUP_IDS = {"breakout_immediate_1_5d", "breakout_retest_1_5d"}
+FOUR_H_TIME_STOP_CANDLES = 42  # 168h / 4h
+
+
+def _float_or_none(value: Any) -> Optional[float]:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f:  # NaN guard
+        return None
+    return f
+
+
+def _extract_backtest_config(config: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    if not config:
+        return dict(DEFAULT_BACKTEST_CFG)
+
+    bt = config.get("backtest", config)
+    out = dict(DEFAULT_BACKTEST_CFG)
+
+    # Canonical aliases in case legacy keys still exist.
+    out["t_hold"] = int(bt.get("t_hold", bt.get("max_holding_days", out["t_hold"])))
+    out["t_trigger_max"] = int(bt.get("t_trigger_max", out["t_trigger_max"]))
+
+    if "thresholds_pct" in bt:
+        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds_pct", [])]
+    elif "thresholds" in bt:
+        out["thresholds_pct"] = [float(x) for x in bt.get("thresholds", [])]
+
+    return out
+
+
+def _setup_triggered(setup_type: str, close: float, trade_levels: Mapping[str, Any]) -> bool:
+    if setup_type == "breakout":
+        trigger = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+        return trigger is not None and close >= trigger
+    if setup_type == "reversal":
+        trigger = _float_or_none(trade_levels.get("entry_trigger"))
+        return trigger is not None and close >= trigger
+    if setup_type == "pullback":
+        zone = trade_levels.get("entry_zone") or {}
+        low = _float_or_none(zone.get("lower"))
+        high = _float_or_none(zone.get("upper"))
+        return low is not None and high is not None and low <= close <= high
+    return False
+
+
+def _evaluate_candidate(
+    *,
+    symbol: str,
+    setup_type: str,
+    t0_date: str,
+    index_by_date: Mapping[str, int],
+    series_close: Sequence[Optional[float]],
+    series_high: Sequence[Optional[float]],
+    trade_levels: Mapping[str, Any],
+    t_trigger_max: int,
+    t_hold: int,
+    thresholds_pct: Sequence[float],
+) -> Dict[str, Any]:
+    def _iso_to_date(value: str) -> Optional[date]:
+        try:
+            return date.fromisoformat(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _calendar_window_indices(
+        *,
+        start_date: date,
+        days_inclusive: int,
+    ) -> Iterable[Tuple[int, int]]:
+        for day_offset in range(days_inclusive + 1):
+            day = (start_date + timedelta(days=day_offset)).isoformat()
+            idx = index_by_date.get(day)
+            if idx is None:
+                continue
+            yield day_offset, idx
+
+    t0_parsed = _iso_to_date(t0_date)
+    if t0_parsed is None:
+        return {
+            "symbol": symbol,
+            "setup_type": setup_type,
+            "t0_date": t0_date,
+            "triggered": False,
+            "trigger_day_offset": None,
+            "entry_price": None,
+            "max_high_after_entry": None,
+            **{f"hit_{int(thr)}": False for thr in thresholds_pct},
+        }
+
+    trigger_idx: Optional[int] = None
+    trigger_day_offset: Optional[int] = None
+    for day_offset, idx in _calendar_window_indices(start_date=t0_parsed, days_inclusive=t_trigger_max):
+        close = series_close[idx]
+        if close is None:
+            continue
+        if _setup_triggered(setup_type, close, trade_levels):
+            trigger_idx = idx
+            trigger_day_offset = day_offset
+            break
+
+    outcome: Dict[str, Any] = {
+        "symbol": symbol,
+        "setup_type": setup_type,
+        "t0_date": t0_date,
+        "triggered": trigger_idx is not None,
+        "trigger_day_offset": None,
+        "entry_price": None,
+        "max_high_after_entry": None,
+    }
+
+    for thr in thresholds_pct:
+        outcome[f"hit_{int(thr)}"] = False
+
+    if trigger_idx is None:
+        return outcome
+
+    entry_price = series_close[trigger_idx]
+    if entry_price is None or entry_price <= 0:
+        return outcome
+
+    trigger_date = t0_parsed + timedelta(days=trigger_day_offset or 0)
+    window_highs: List[float] = []
+    for hold_offset in range(1, t_hold + 1):
+        hold_day = (trigger_date + timedelta(days=hold_offset)).isoformat()
+        hold_idx = index_by_date.get(hold_day)
+        if hold_idx is None:
+            continue
+        high = series_high[hold_idx]
+        if high is None:
+            continue
+        window_highs.append(high)
+
+    max_high = max(window_highs) if window_highs else None
+
+    outcome.update(
+        {
+            "trigger_day_offset": trigger_day_offset,
+            "entry_price": entry_price,
+            "max_high_after_entry": max_high,
+        }
+    )
+
+    if max_high is None:
+        return outcome
+
+    for thr in thresholds_pct:
+        target = entry_price * (1.0 + thr / 100.0)
+        outcome[f"hit_{int(thr)}"] = max_high >= target
+
+    return outcome
+
+
+def _summarize(events: Sequence[Dict[str, Any]], thresholds_pct: Sequence[float]) -> Dict[str, Any]:
+    def _is_executed_trade(event: Mapping[str, Any]) -> bool:
+        if event.get("trade_status") == "TRADE":
+            return True
+
+        entry_price = _float_or_none(event.get("entry_price"))
+        if entry_price is None:
+            return False
+
+        entry_time = event.get("entry_time")
+        if entry_time is not None:
+            return True
+
+        trigger_day_offset = event.get("trigger_day_offset")
+        if isinstance(trigger_day_offset, int) and trigger_day_offset >= 0:
+            return True
+
+        entry_idx = event.get("entry_idx")
+        if isinstance(entry_idx, int) and entry_idx >= 0:
+            return True
+
+        position_size = _float_or_none(event.get("position_size"))
+        return position_size is not None and position_size > 0
+
+    total = len(events)
+    triggered = [e for e in events if e.get("triggered")]
+    trades = [e for e in events if _is_executed_trade(e)]
+    summary: Dict[str, Any] = {
+        "count": total,
+        "signals_count": total,
+        "triggered_count": len(triggered),
+        "trigger_rate": (len(triggered) / total) if total else 0.0,
+        "trades_count": len(trades),
+        "trade_rate_on_signals": (len(trades) / total) if total else 0.0,
+    }
+
+    for thr in thresholds_pct:
+        key = f"hit_{int(thr)}"
+        hit_count = sum(1 for e in triggered if e.get(key))
+        summary[f"{key}_count"] = hit_count
+        summary[f"{key}_rate_on_triggered"] = (hit_count / len(triggered)) if triggered else 0.0
+
+    return summary
+
+
+def _simulate_breakout_4h_trade(entry: Mapping[str, Any], setup_id: str) -> Optional[Dict[str, Any]]:
+    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
+    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
+    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
+    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
+    if not candles:
+        return None
+
+    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+    if breakout_level is None:
+        return None
+
+    trigger_idx = None
+    for idx, candle in enumerate(candles):
+        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
+        if close is not None and close > breakout_level:
+            trigger_idx = idx
+            break
+    if trigger_idx is None:
+        return {
+            "symbol": entry.get("symbol"),
+            "setup_id": setup_id,
+            "triggered": False,
+            "entry_idx": None,
+            "exit_reason": None,
+        }
+
+    if setup_id == "breakout_immediate_1_5d":
+        entry_idx = trigger_idx + 1
+        if entry_idx >= len(candles):
+            return None
+        entry_price = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
+    else:
+        entry_price = breakout_level
+        entry_idx = None
+        for idx in range(trigger_idx + 1, len(candles)):
+            candle = candles[idx]
+            if not isinstance(candle, Mapping):
+                continue
+            close = _float_or_none(candle.get("close"))
+            if close is not None and close < breakout_level:
+                return {
+                    "symbol": entry.get("symbol"),
+                    "setup_id": setup_id,
+                    "triggered": True,
+                    "entry_idx": None,
+                    "entry_price": None,
+                    "retest_invalidated": True,
+                    "exit_reason": None,
+                }
+            low = _float_or_none(candle.get("low"))
+            high = _float_or_none(candle.get("high"))
+            if low is not None and high is not None and low <= entry_price <= high:
+                entry_idx = idx
+                break
+        if entry_idx is None:
+            return None
+
+    if entry_price is None:
+        return None
+
+    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
+    if atr_abs is None:
+        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
+        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
+        if atr_pct is not None and close_4h is not None:
+            atr_abs = (atr_pct / 100.0) * close_4h
+    if atr_abs is None:
+        return None
+
+    stop = entry_price - 1.2 * atr_abs
+    r_val = entry_price - stop
+    partial_target = entry_price + 1.5 * r_val
+
+    partial_hit = False
+    partial_idx = None
+    exit_idx = None
+    exit_reason = None
+    exit_price = None
+
+    for idx in range(entry_idx, len(candles)):
+        candle = candles[idx]
+        if not isinstance(candle, Mapping):
+            continue
+        low = _float_or_none(candle.get("low"))
+        high = _float_or_none(candle.get("high"))
+
+        # Intra-candle priority: STOP > PARTIAL > TRAIL
+        if low is not None and low <= stop:
+            exit_idx = idx
+            exit_reason = "stop"
+            exit_price = stop
+            break
+
+        if (not partial_hit) and high is not None and high >= partial_target:
+            partial_hit = True
+            partial_idx = idx
+
+        if partial_hit:
+            close = _float_or_none(candle.get("close"))
+            ema20 = _float_or_none(candle.get("ema20"))
+            if close is not None and ema20 is not None and close < ema20 and (idx + 1) < len(candles):
+                nxt = candles[idx + 1]
+                if isinstance(nxt, Mapping):
+                    exit_idx = idx + 1
+                    exit_reason = "trail"
+                    exit_price = _float_or_none(nxt.get("open"))
+                    break
+
+        hold_candles = idx - entry_idx + 1
+        if hold_candles >= FOUR_H_TIME_STOP_CANDLES and (idx + 1) < len(candles):
+            nxt = candles[idx + 1]
+            if isinstance(nxt, Mapping):
+                exit_idx = idx + 1
+                exit_reason = "time_stop"
+                exit_price = _float_or_none(nxt.get("open"))
+                break
+
+    return {
+        "symbol": entry.get("symbol"),
+        "setup_id": setup_id,
+        "trade_status": "TRADE",
+        "triggered": True,
+        "entry_idx": entry_idx,
+        "entry_price": entry_price,
+        "stop": stop,
+        "partial_target": partial_target,
+        "partial_hit": partial_hit,
+        "partial_idx": partial_idx,
+        "exit_idx": exit_idx,
+        "exit_reason": exit_reason,
+        "exit_price": exit_price,
+    }
+
+
+def _infer_breakout_no_trade_reason(entry: Mapping[str, Any], setup_id: str) -> str:
+    analysis = entry.get("analysis") if isinstance(entry.get("analysis"), Mapping) else {}
+    trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), Mapping) else {}
+    bt = analysis.get("backtest_4h") if isinstance(analysis.get("backtest_4h"), Mapping) else {}
+    candles = bt.get("candles") if isinstance(bt.get("candles"), list) else []
+    if not candles:
+        return "INSUFFICIENT_4H_HISTORY"
+
+    breakout_level = _float_or_none(trade_levels.get("entry_trigger") or trade_levels.get("breakout_level_20"))
+    if breakout_level is None:
+        return "MISSING_REQUIRED_FEATURES"
+
+    trigger_idx = None
+    for idx, candle in enumerate(candles):
+        close = _float_or_none(candle.get("close") if isinstance(candle, Mapping) else None)
+        if close is not None and close > breakout_level:
+            trigger_idx = idx
+            break
+    if trigger_idx is None:
+        return "MISSING_NEXT_4H_OPEN"
+
+    if setup_id == "breakout_immediate_1_5d":
+        entry_idx = trigger_idx + 1
+        if entry_idx >= len(candles):
+            return "MISSING_NEXT_4H_OPEN"
+        entry_open = _float_or_none(candles[entry_idx].get("open") if isinstance(candles[entry_idx], Mapping) else None)
+        if entry_open is None:
+            return "MISSING_NEXT_4H_OPEN"
+    else:
+        retest_filled = False
+        for idx in range(trigger_idx + 1, len(candles)):
+            candle = candles[idx]
+            if not isinstance(candle, Mapping):
+                continue
+            low = _float_or_none(candle.get("low"))
+            high = _float_or_none(candle.get("high"))
+            if low is not None and high is not None and low <= breakout_level <= high:
+                retest_filled = True
+                break
+        if not retest_filled:
+            return "RETEST_NOT_FILLED"
+
+    atr_abs = _float_or_none(bt.get("atr_abs_4h"))
+    if atr_abs is None:
+        atr_pct = _float_or_none(bt.get("atr_pct_4h_last_closed"))
+        close_4h = _float_or_none(bt.get("close_4h_last_closed"))
+        if atr_pct is None or close_4h is None:
+            return "MISSING_REQUIRED_FEATURES"
+
+    return "MISSING_REQUIRED_FEATURES"
+
+
+def run_backtest_from_snapshots(
+    snapshots: Sequence[Mapping[str, Any]],
+    config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run deterministic E2-K backtest on in-memory snapshot payloads."""
+    cfg = _extract_backtest_config(config)
+    t_hold = cfg["t_hold"]
+    t_trigger_max = cfg["t_trigger_max"]
+    thresholds_pct = cfg["thresholds_pct"]
+
+    sorted_snapshots = sorted(snapshots, key=lambda s: str(s.get("meta", {}).get("date", "")))
+    all_dates = [str(s.get("meta", {}).get("date")) for s in sorted_snapshots]
+    index_by_date = {d: i for i, d in enumerate(all_dates)}
+
+    closes: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
+    highs: Dict[str, List[Optional[float]]] = defaultdict(lambda: [None] * len(all_dates))
+
+    for i, snap in enumerate(sorted_snapshots):
+        features = snap.get("data", {}).get("features", {})
+        for symbol, feat in features.items():
+            one_d = feat.get("1d", {}) if isinstance(feat, Mapping) else {}
+            closes[symbol][i] = _float_or_none(one_d.get("close"))
+            highs[symbol][i] = _float_or_none(one_d.get("high"))
+
+    setup_map = {
+        "breakout": "breakouts",
+        "pullback": "pullbacks",
+        "reversal": "reversals",
+    }
+
+    events_by_setup: Dict[str, List[Dict[str, Any]]] = {k: [] for k in setup_map}
+
+    for snap in sorted_snapshots:
+        t0_date = str(snap.get("meta", {}).get("date"))
+        scoring = snap.get("scoring", {})
+
+        for setup_type, score_key in setup_map.items():
+            for entry in scoring.get(score_key, []):
+                symbol = entry.get("symbol")
+                if symbol not in closes or t0_date not in index_by_date:
+                    continue
+
+                setup_id = str(entry.get("setup_id") or "")
+                if setup_type == "breakout" and setup_id in BREAKOUT_TREND_SETUP_IDS:
+                    event_4h = _simulate_breakout_4h_trade(entry, setup_id)
+                    if event_4h is not None:
+                        event_4h["t0_date"] = t0_date
+                        events_by_setup.setdefault(setup_id, []).append(event_4h)
+                    else:
+                        events_by_setup.setdefault(setup_id, []).append(
+                            {
+                                "symbol": symbol,
+                                "setup_id": setup_id,
+                                "t0_date": t0_date,
+                                "trade_status": "NO_TRADE",
+                                "no_trade_reason": _infer_breakout_no_trade_reason(entry, setup_id),
+                                "triggered": True,
+                                "entry_idx": None,
+                                "entry_price": None,
+                                "exit_reason": None,
+                            }
+                        )
+                    continue
+
+                trade_levels = (
+                    entry.get("analysis", {}).get("trade_levels")
+                    if isinstance(entry.get("analysis"), Mapping)
+                    else None
+                ) or {}
+
+                event = _evaluate_candidate(
+                    symbol=symbol,
+                    setup_type=setup_type,
+                    t0_date=t0_date,
+                    index_by_date=index_by_date,
+                    series_close=closes[symbol],
+                    series_high=highs[symbol],
+                    trade_levels=trade_levels,
+                    t_trigger_max=t_trigger_max,
+                    t_hold=t_hold,
+                    thresholds_pct=thresholds_pct,
+                )
+                events_by_setup[setup_type].append(event)
+
+    summary_by_setup = {
+        setup_type: _summarize(events, thresholds_pct)
+        for setup_type, events in events_by_setup.items()
+    }
+
+    return {
+        "params": {
+            "t_hold": t_hold,
+            "t_trigger_max": t_trigger_max,
+            "thresholds_pct": thresholds_pct,
+        },
+        "by_setup": summary_by_setup,
+        "events": events_by_setup,
+    }
+
+
+def run_backtest_from_history(
+    history_dir: str | Path,
+    config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Load all snapshot json files from ``history_dir`` and run backtest."""
+    history_path = Path(history_dir)
+    snapshots: List[Dict[str, Any]] = []
+
+    for snapshot_file in sorted(history_path.glob("*.json")):
+        with open(snapshot_file, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if isinstance(payload, dict) and payload.get("meta", {}).get("date"):
+            snapshots.append(payload)
+
+    return run_backtest_from_snapshots(snapshots, config=config)
+
+```
+
+### `scanner/pipeline/runtime_market_meta.py`
+
+**SHA256:** `141820c4f9c0998fbcb5580cb89b09a76922183ded4d24a59841428e81dee150`
+
+```python
+"""Runtime market metadata export for each pipeline run."""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from ..clients.mapping import MappingResult
+from ..config import ScannerConfig
+from ..utils.io_utils import save_json
+from ..utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
 
-def compute_btc_regime_from_1d_features(features_1d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Compute canonical BTC regime payload from 1D BTC features."""
-    features_1d = features_1d or {}
-    close = _to_float(features_1d.get("close"))
-    ema20 = _to_float(features_1d.get("ema_20"))
-    ema50 = _to_float(features_1d.get("ema_50"))
+class RuntimeMarketMetaExporter:
+    """Builds and writes runtime market metadata export JSON."""
 
-    close_gt_ema50 = (close is not None and ema50 is not None and close > ema50)
-    ema20_gt_ema50 = (ema20 is not None and ema50 is not None and ema20 > ema50)
-    btc_risk_on = bool(close_gt_ema50 and ema20_gt_ema50)
+    def __init__(self, config: ScannerConfig | Dict[str, Any]):
+        if hasattr(config, "raw"):
+            self.config = config
+            snapshots_config = config.raw.get("snapshots", {})
+        else:
+            self.config = ScannerConfig(raw=config)
+            snapshots_config = config.get("snapshots", {})
 
-    return {
-        "state": "RISK_ON" if btc_risk_on else "RISK_OFF",
-        "multiplier_risk_on": 1.0,
-        "multiplier_risk_off": 0.85,
-        "checks": {
-            "close_gt_ema50": bool(close_gt_ema50),
-            "ema20_gt_ema50": bool(ema20_gt_ema50),
-        },
-    }
+        self.runtime_dir = Path(snapshots_config.get("runtime_dir", "snapshots/runtime"))
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _to_float(value: Any) -> Optional[float]:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _to_int(value: Any) -> Optional[int]:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _build_exchange_symbol_map(exchange_info: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        return {
+            symbol_info.get("symbol"): symbol_info
+            for symbol_info in exchange_info.get("symbols", [])
+            if symbol_info.get("symbol")
+        }
+
+    @staticmethod
+    def _extract_filter_value(symbol_info: Dict[str, Any], filter_type: str, field: str) -> Any:
+        for item in symbol_info.get("filters", []):
+            if item.get("filterType") == filter_type:
+                return item.get(field)
+        return None
+
+    def _build_identity(self, mapping: MappingResult) -> Dict[str, Any]:
+        cmc_data = mapping.cmc_data or {}
+        quote_usd = cmc_data.get("quote", {}).get("USD", {})
+
+        market_cap = self._to_float(quote_usd.get("market_cap"))
+        fdv = self._to_float(quote_usd.get("fully_diluted_market_cap"))
+
+        platform = cmc_data.get("platform")
+        platform_obj = None
+        if isinstance(platform, dict):
+            token_address = platform.get("token_address")
+            platform_obj = {
+                "name": platform.get("name"),
+                "symbol": platform.get("symbol"),
+                "token_address": token_address,
+            }
+        else:
+            token_address = None
+
+        fdv_to_mcap = None
+        if fdv is not None and market_cap not in (None, 0):
+            fdv_to_mcap = fdv / market_cap
+
+        return {
+            "cmc_id": cmc_data.get("id"),
+            "name": cmc_data.get("name"),
+            "symbol": cmc_data.get("symbol"),
+            "slug": cmc_data.get("slug"),
+            "category": cmc_data.get("category"),
+            "tags": cmc_data.get("tags"),
+            "platform": platform_obj,
+            "is_token": bool(token_address),
+            "market_cap_usd": market_cap,
+            "circulating_supply": self._to_float(cmc_data.get("circulating_supply")),
+            "total_supply": self._to_float(cmc_data.get("total_supply")),
+            "max_supply": self._to_float(cmc_data.get("max_supply")),
+            "fdv_usd": fdv,
+            "fdv_to_mcap": fdv_to_mcap,
+            "rank": self._to_int(cmc_data.get("cmc_rank")),
+        }
+
+    def _build_symbol_info(self, symbol: str, exchange_symbol: Dict[str, Any]) -> Dict[str, Any]:
+        tick_size = self._extract_filter_value(exchange_symbol, "PRICE_FILTER", "tickSize")
+        step_size = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "stepSize")
+        min_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "minQty")
+        max_qty = self._extract_filter_value(exchange_symbol, "LOT_SIZE", "maxQty")
+
+        min_notional = self._extract_filter_value(exchange_symbol, "MIN_NOTIONAL", "minNotional")
+        max_notional = self._extract_filter_value(exchange_symbol, "NOTIONAL", "maxNotional")
 
 
-def compute_btc_regime(mexc_client: Any, feature_engine: Any, lookback_1d: int, asof_ts_ms: int) -> Dict[str, Any]:
-    """Fetch BTCUSDT 1D candles and compute report-level regime payload."""
+        return {
+            "mexc_symbol": symbol,
+            "base_asset": exchange_symbol.get("baseAsset"),
+            "quote_asset": exchange_symbol.get("quoteAsset"),
+            "status": exchange_symbol.get("status"),
+            "price_precision": self._to_int(exchange_symbol.get("quotePrecision") or exchange_symbol.get("priceScale")),
+            "quantity_precision": self._to_int(exchange_symbol.get("baseAssetPrecision") or exchange_symbol.get("quantityScale")),
+            "tick_size": tick_size,
+            "step_size": step_size,
+            "min_qty": self._to_float(min_qty),
+            "max_qty": self._to_float(max_qty),
+            "min_notional": self._to_float(min_notional),
+            "max_notional": self._to_float(max_notional),
+        }
+
+    def _build_ticker(self, ticker: Dict[str, Any]) -> Dict[str, Any]:
+        bid = self._to_float(ticker.get("bidPrice"))
+        ask = self._to_float(ticker.get("askPrice"))
+        mid = None
+        spread_pct = None
+
+        if bid is not None and ask is not None:
+            mid = (bid + ask) / 2
+            if mid != 0:
+                spread_pct = ((ask - bid) / mid) * 100
+
+        return {
+            "last_price": self._to_float(ticker.get("lastPrice")),
+            "high_24h": self._to_float(ticker.get("highPrice")),
+            "low_24h": self._to_float(ticker.get("lowPrice")),
+            "quote_volume_24h": self._to_float(ticker.get("quoteVolume")),
+            "price_change_pct_24h": self._to_float(ticker.get("priceChangePercent")),
+            "bid_price": bid,
+            "ask_price": ask,
+            "spread_pct": spread_pct,
+            "mid_price": mid,
+            "trades_24h": self._to_int(ticker.get("count")),
+            "base_volume_24h": self._to_float(ticker.get("volume")),
+        }
+
+    def _build_quality(
+        self,
+        symbol: str,
+        identity: Dict[str, Any],
+        symbol_info: Dict[str, Any],
+        has_scanner_features: bool,
+        has_ohlcv: bool,
+    ) -> Dict[str, Any]:
+        missing_fields: List[str] = []
+
+        if symbol_info.get("tick_size") in (None, ""):
+            missing_fields.append("tick_size")
+        if symbol_info.get("min_notional") is None:
+            missing_fields.append("min_notional")
+        if identity.get("platform") and not identity["platform"].get("token_address"):
+            missing_fields.append("token_address")
+
+        return {
+            "has_scanner_features": has_scanner_features,
+            "has_ohlcv": has_ohlcv,
+            "missing_fields": missing_fields,
+            "notes": None,
+        }
+
+    def export(
+        self,
+        run_date: str,
+        asof_iso: str,
+        run_id: str,
+        filtered_symbols: List[str],
+        mapping_results: Dict[str, MappingResult],
+        exchange_info: Dict[str, Any],
+        ticker_map: Dict[str, Dict[str, Any]],
+        features: Dict[str, Dict[str, Any]],
+        ohlcv_data: Dict[str, Dict[str, Any]],
+        exchange_info_ts_utc: str,
+        tickers_24h_ts_utc: str,
+        listings_ts_utc: str,
+    ) -> Path:
+        """Create and save runtime market metadata export."""
+        exchange_symbol_map = self._build_exchange_symbol_map(exchange_info)
+
+        coins: Dict[str, Dict[str, Any]] = {}
+        symbols = sorted(filtered_symbols)
+
+        for symbol in symbols:
+            mapping = mapping_results.get(symbol)
+            if not mapping or not mapping.mapped:
+                continue
+
+            exchange_symbol = exchange_symbol_map.get(symbol, {})
+            ticker = ticker_map.get(symbol, {})
+
+            identity = self._build_identity(mapping)
+            symbol_info = self._build_symbol_info(symbol, exchange_symbol)
+            ticker_24h = self._build_ticker(ticker)
+
+            quality = self._build_quality(
+                symbol=symbol,
+                identity=identity,
+                symbol_info=symbol_info,
+                has_scanner_features=symbol in features,
+                has_ohlcv=symbol in ohlcv_data,
+            )
+
+            coins[symbol] = {
+                "identity": identity,
+                "mexc": {
+                    "symbol_info": symbol_info,
+                    "ticker_24h": ticker_24h,
+                },
+                "quality": quality,
+            }
+
+        payload = {
+            "meta": {
+                "run_id": run_id,
+                "asof_utc": asof_iso,
+                "generated_at_utc": utc_now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "mexc": {
+                    "api_base": "https://api.mexc.com",
+                    "exchange_info_ts_utc": exchange_info_ts_utc,
+                    "tickers_24h_ts_utc": tickers_24h_ts_utc,
+                },
+                "cmc": {
+                    "listings_ts_utc": listings_ts_utc,
+                    "source": "CoinMarketCap",
+                },
+                "config": {
+                    "mcap_min_usd": self.config.market_cap_min,
+                    "mcap_max_usd": self.config.market_cap_max,
+                    "min_quote_volume_24h_usdt": self.config.min_quote_volume_24h,
+                },
+            },
+            "universe": {
+                "count": len(coins),
+                "symbols": list(coins.keys()),
+            },
+            "coins": coins,
+        }
+
+        output_path = self.runtime_dir / f"runtime_market_meta_{run_date}.json"
+        save_json(payload, output_path)
+
+        logger.info("Runtime market meta export saved: %s", output_path)
+        logger.info("Runtime market meta universe count: %s", payload["universe"]["count"])
+
+        return output_path
+
+```
+
+### `scanner/tools/validate_features.py`
+
+**SHA256:** `be0e041fff94015cfdd32acd4fbcded4dd38daa693bce1f4d3e55fceb701f359`
+
+```python
+"""Validate scanner report feature/scoring plausibility."""
+
+import json
+import os
+from typing import Any, Dict, List
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _error(
+    path: str,
+    code: str,
+    msg: str,
+    got: Any = None,
+    expected: str | None = None,
+) -> Dict[str, Any]:
+    entry: Dict[str, Any] = {"path": path, "code": code, "msg": msg}
+    if got is not None:
+        entry["got"] = got
+    if expected is not None:
+        entry["expected"] = expected
+    return entry
+
+
+def _emit(ok: bool, errors: List[Dict[str, Any]]) -> int:
+    print(json.dumps({"ok": ok, "errors": errors}, ensure_ascii=False))
+    return 0 if ok else 1
+
+
+def validate_features(report_path: str) -> int:
+    """
+    Validate report scoring structure and numeric ranges.
+
+    Checks:
+    - score and raw_score in [0, 100]
+    - each component in [0, 100]
+    - penalty_multiplier in (0, 1]
+
+    Returns process-style status code:
+    - 0 if valid
+    - 1 if report missing/invalid/anomalies found
+    """
+
+    if not os.path.exists(report_path):
+        return _emit(
+            False,
+            [_error("report", "FILE_NOT_FOUND", "Report file not found.", got=report_path)],
+        )
+
     try:
-        btc_klines_1d = mexc_client.get_klines("BTCUSDT", "1d", limit=int(lookback_1d))
-        btc_features = feature_engine.compute_all({"BTCUSDT": {"1d": btc_klines_1d}}, asof_ts_ms=asof_ts_ms)
-        return compute_btc_regime_from_1d_features(btc_features.get("BTCUSDT", {}).get("1d", {}))
-    except Exception as exc:  # pragma: no cover - defensive runtime fallback
-        logger.warning("BTC regime fallback to RISK_OFF due to recoverable error: %s", exc)
-        return compute_btc_regime_from_1d_features({})
+        with open(report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        return _emit(
+            False,
+            [_error("report", "INVALID_JSON", "Report is not valid JSON.", got=str(exc))],
+        )
+
+    if "setups" in data:
+        section_key = "setups"
+    elif "data" in data:
+        section_key = "data"
+    elif "results" in data:
+        section_key = "results"
+    else:
+        return _emit(
+            False,
+            [
+                _error(
+                    "report",
+                    "MISSING_SECTION",
+                    "Report must contain 'setups', 'data' or 'results' section.",
+                )
+            ],
+        )
+
+    results = data[section_key]
+    if not results:
+        return _emit(True, [])
+
+    anomalies: List[Dict[str, Any]] = []
+
+    for setup_type, setups in results.items():
+        for idx, s in enumerate(setups):
+            setup_path = f"{section_key}.{setup_type}[{idx}]"
+
+            for required_key in ("score", "raw_score", "penalty_multiplier", "components"):
+                if required_key not in s:
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.{required_key}",
+                            "MISSING_FIELD",
+                            f"Required field '{required_key}' is missing.",
+                            expected="present",
+                        )
+                    )
+
+            for scalar_key in ("score", "raw_score"):
+                if scalar_key in s:
+                    val = s.get(scalar_key)
+                    if not _is_number(val) or not (0 <= float(val) <= 100):
+                        anomalies.append(
+                            _error(
+                                f"{setup_path}.{scalar_key}",
+                                "RANGE",
+                                f"{scalar_key} must be a number in [0,100].",
+                                got=val,
+                                expected="[0,100]",
+                            )
+                        )
+
+            if "penalty_multiplier" in s:
+                pm = s.get("penalty_multiplier")
+                if not _is_number(pm) or not (0 < float(pm) <= 1):
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.penalty_multiplier",
+                            "RANGE",
+                            "penalty_multiplier must be a number in (0,1].",
+                            got=pm,
+                            expected="(0,1]",
+                        )
+                    )
+
+            comps = s.get("components", {})
+            if not isinstance(comps, dict):
+                anomalies.append(
+                    _error(
+                        f"{setup_path}.components",
+                        "TYPE",
+                        "components must be an object/dict.",
+                        got=comps,
+                        expected="dict",
+                    )
+                )
+                continue
+
+            for key, value in comps.items():
+                if not _is_number(value) or not (0 <= float(value) <= 100):
+                    anomalies.append(
+                        _error(
+                            f"{setup_path}.components.{key}",
+                            "RANGE",
+                            f"Component '{key}' must be a number in [0,100].",
+                            got=value,
+                            expected="[0,100]",
+                        )
+                    )
+
+    if anomalies:
+        return _emit(False, anomalies)
+
+    return _emit(True, [])
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) < 2:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "path": "cli",
+                            "code": "MISSING_ARGUMENT",
+                            "msg": "Please provide report path, e.g. python -m scanner.tools.validate_features reports/2026-01-22.json",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
+        sys.exit(1)
+
+    report_path = sys.argv[1]
+    sys.exit(validate_features(report_path))
+
+```
+
+### `scanner/pipeline/scoring/breakout.py`
+
+**SHA256:** `1d559c7db21ff1f052f5b8ae2e92e39057ee205d8976fad89e49326496c68f1c`
+
+```python
+"""Breakout scoring."""
+
+import logging
+from typing import Dict, Any, List, Optional
+
+from scanner.pipeline.scoring.weights import load_component_weights
+from scanner.pipeline.scoring.trade_levels import breakout_trade_levels
+
+logger = logging.getLogger(__name__)
+
+
+class BreakoutScorer:
+    def __init__(self, config: Dict[str, Any]):
+        root = config.raw if hasattr(config, "raw") else config
+        scoring_cfg = root.get("scoring", {}).get("breakout", {})
+
+        self.min_breakout_pct = float(scoring_cfg.get("min_breakout_pct", 2.0))
+        self.ideal_breakout_pct = float(scoring_cfg.get("ideal_breakout_pct", 5.0))
+        self.max_breakout_pct = float(scoring_cfg.get("max_breakout_pct", 20.0))
+        breakout_curve = scoring_cfg.get("breakout_curve", {})
+        self.breakout_floor_pct = float(breakout_curve.get("floor_pct", -5.0))
+        self.breakout_fresh_cap_pct = float(breakout_curve.get("fresh_cap_pct", 1.0))
+        self.breakout_overextended_cap_pct = float(breakout_curve.get("overextended_cap_pct", 3.0))
+
+        self.min_volume_spike = float(scoring_cfg.get("min_volume_spike", 1.5))
+        self.ideal_volume_spike = float(scoring_cfg.get("ideal_volume_spike", 2.5))
+
+        momentum_cfg = scoring_cfg.get("momentum", {})
+        self.momentum_divisor = float(momentum_cfg.get("r7_divisor", 10.0))
+
+        penalties_cfg = scoring_cfg.get("penalties", {})
+        self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.6))
+        self.max_overextension_ema20_percent = float(
+            penalties_cfg.get("max_overextension_ema20_percent", scoring_cfg.get("max_overextension_ema20_percent", 25.0))
+        )
+        self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
+        self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
+
+        default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
+        self.weights = load_component_weights(
+            scoring_cfg=scoring_cfg,
+            section_name="breakout",
+            default_weights=default_weights,
+            aliases={
+                "breakout": "price_break",
+                "volume": "volume_confirmation",
+                "trend": "volatility_context",
+            },
+)
+    @staticmethod
+    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
+        meta = features.get("meta", {})
+        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
+        idx = idx_map.get(timeframe)
+        if isinstance(idx, int) and idx >= 0:
+            return idx + 1
+        return None
+
+    def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
+        f1d = features.get("1d", {})
+        f4h = features.get("4h", {})
+
+        breakout_score = self._score_breakout(f1d)
+        volume_score = self._score_volume(f1d, f4h)
+        trend_score = self._score_trend(f1d)
+        momentum_score = self._score_momentum(f1d)
+
+        raw_score = (
+            breakout_score * self.weights["breakout"]
+            + volume_score * self.weights["volume"]
+            + trend_score * self.weights["trend"]
+            + momentum_score * self.weights["momentum"]
+        )
+
+        penalties = []
+        flags = []
+
+        breakout_dist = f1d.get("breakout_dist_20", 0)
+        if breakout_dist is not None and breakout_dist > self.breakout_overextended_cap_pct:
+            flags.append("overextended_breakout_zone")
+
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        if dist_ema20 is not None and dist_ema20 > self.max_overextension_ema20_percent:
+            penalties.append(("overextension", self.overextension_factor))
+            flags.append("overextended")
+
+        if quote_volume_24h < self.low_liquidity_threshold:
+            penalties.append(("low_liquidity", self.low_liquidity_factor))
+            flags.append("low_liquidity")
+
+        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
+        if isinstance(soft_penalties, dict):
+            for penalty_name, factor in soft_penalties.items():
+                try:
+                    penalties.append((str(penalty_name), float(factor)))
+                except (TypeError, ValueError):
+                    continue
+
+        penalty_multiplier = 1.0
+        for _, factor in penalties:
+            penalty_multiplier *= factor
+        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
+
+        reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags)
+
+        return {
+            "score": round(final_score, 2),
+            "raw_score": round(raw_score, 6),
+            "penalty_multiplier": round(penalty_multiplier, 6),
+            "final_score": round(final_score, 6),
+            "components": {
+                "breakout": round(breakout_score, 2),
+                "volume": round(volume_score, 2),
+                "trend": round(trend_score, 2),
+                "momentum": round(momentum_score, 2),
+            },
+            "penalties": {name: factor for name, factor in penalties},
+            "flags": flags,
+            "reasons": reasons,
+        }
+
+    def _score_breakout(self, f1d: Dict[str, Any]) -> float:
+        dist = f1d.get("breakout_dist_20")
+        if dist is None:
+            return 0.0
+        if dist <= self.breakout_floor_pct:
+            return 0.0
+        if self.breakout_floor_pct < dist < 0:
+            return 30.0 * (dist - self.breakout_floor_pct) / (0 - self.breakout_floor_pct)
+        if 0 <= dist < self.min_breakout_pct:
+            if self.min_breakout_pct <= 0:
+                return 70.0
+            return 30.0 + 40.0 * (dist / self.min_breakout_pct)
+        if self.min_breakout_pct <= dist <= self.ideal_breakout_pct:
+            denom = self.ideal_breakout_pct - self.min_breakout_pct
+            if denom <= 0:
+                return 100.0
+            return 70.0 + 30.0 * ((dist - self.min_breakout_pct) / denom)
+        if self.ideal_breakout_pct < dist <= self.max_breakout_pct:
+            denom = self.max_breakout_pct - self.ideal_breakout_pct
+            if denom <= 0:
+                return 0.0
+            return 100.0 * (1.0 - ((dist - self.ideal_breakout_pct) / denom))
+        return 0.0
+
+    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        max_spike = max(spike_1d, spike_4h)
+        if max_spike < self.min_volume_spike:
+            return 0.0
+        if max_spike >= self.ideal_volume_spike:
+            return 100.0
+        ratio = (max_spike - self.min_volume_spike) / (self.ideal_volume_spike - self.min_volume_spike)
+        return ratio * 100.0
+
+    def _score_trend(self, f1d: Dict[str, Any]) -> float:
+        score = 0.0
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        dist_ema50 = f1d.get("dist_ema50_pct")
+
+        if dist_ema20 is not None and dist_ema20 > 0:
+            score += 40
+            if dist_ema20 > 5:
+                score += 10
+        if dist_ema50 is not None and dist_ema50 > 0:
+            score += 40
+            if dist_ema50 > 5:
+                score += 10
+        return min(score, 100.0)
+
+    def _score_momentum(self, f1d: Dict[str, Any]) -> float:
+        r7 = f1d.get("r_7")
+        if r7 is None or self.momentum_divisor <= 0:
+            return 0.0
+        return max(0.0, min(100.0, (float(r7) / self.momentum_divisor) * 100.0))
+
+    def _generate_reasons(self, breakout_score: float, volume_score: float, trend_score: float, momentum_score: float,
+                          f1d: Dict[str, Any], f4h: Dict[str, Any], flags: List[str]) -> List[str]:
+        reasons = []
+        dist = f1d.get("breakout_dist_20", 0)
+        if breakout_score > 70:
+            reasons.append(f"Strong breakout ({dist:.1f}% above 20d high)")
+        elif breakout_score > 30:
+            reasons.append(f"Moderate breakout ({dist:.1f}% above high)")
+        elif dist > 0:
+            reasons.append(f"Early breakout ({dist:.1f}% above high)")
+        else:
+            reasons.append("No breakout (below recent high)")
+
+        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
+        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
+        vol_spike = max(spike_1d, spike_4h)
+        if volume_score > 70:
+            reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
+        elif volume_score > 30:
+            reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
+        else:
+            reasons.append("Low volume (no confirmation)")
+
+        if trend_score > 70:
+            reasons.append("In uptrend (above EMAs)")
+        elif trend_score > 30:
+            reasons.append("Neutral trend")
+        else:
+            reasons.append("In downtrend (below EMAs)")
+
+        if "overextended_breakout_zone" in flags:
+            reasons.append(f"⚠️ Breakout in overextended zone ({dist:.1f}% above high)")
+        if "overextended" in flags:
+            reasons.append("⚠️ Overextended vs EMA20")
+        if "low_liquidity" in flags:
+            reasons.append("⚠️ Low liquidity")
+        return reasons
+
+
+def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    scorer = BreakoutScorer(config)
+    results = []
+    root = config.raw if hasattr(config, "raw") else config
+    min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
+    min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
+    for symbol, features in features_data.items():
+        candles_1d = scorer._closed_candle_count(features, "1d")
+        candles_4h = scorer._closed_candle_count(features, "4h")
+        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
+            logger.debug(
+                "Skipping breakout for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
+                symbol,
+                candles_1d,
+                min_1d,
+                candles_4h,
+                min_4h,
+            )
+            continue
+        volume = volumes.get(symbol, 0)
+        try:
+            score_result = scorer.score(symbol, features, volume)
+            trade_levels = breakout_trade_levels(features, target_multipliers)
+            results.append(
+                {
+                    "symbol": symbol,
+                    "price_usdt": features.get("price_usdt"),
+                    "coin_name": features.get("coin_name"),
+                    "market_cap": features.get("market_cap"),
+                    "quote_volume_24h": features.get("quote_volume_24h"),
+                    "proxy_liquidity_score": features.get("proxy_liquidity_score"),
+                    "spread_bps": features.get("spread_bps"),
+                    "slippage_bps": features.get("slippage_bps"),
+                    "liquidity_grade": features.get("liquidity_grade"),
+                    "liquidity_insufficient": features.get("liquidity_insufficient"),
+                    "score": score_result["score"],
+                    "raw_score": score_result["raw_score"],
+                    "penalty_multiplier": score_result["penalty_multiplier"],
+                    "components": score_result["components"],
+                    "penalties": score_result["penalties"],
+                    "flags": score_result["flags"],
+                    "risk_flags": features.get("risk_flags", []),
+                    "reasons": score_result["reasons"],
+                    "analysis": {"trade_levels": trade_levels},
+                    "discovery": features.get("discovery", False),
+                    "discovery_age_days": features.get("discovery_age_days"),
+                    "discovery_source": features.get("discovery_source"),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to score {symbol}: {e}")
+            continue
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
+
+```
+
+### `scanner/pipeline/scoring/trade_levels.py`
+
+**SHA256:** `a6fe26680178f5202c3f4d2900f48f08d5824de83fda748af26ad455039d7cee`
+
+```python
+"""Deterministic trade-level helpers (output-only, no scoring impact)."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
 
 
 def _to_float(value: Any) -> Optional[float]:
     try:
+        if value is None:
+            return None
         return float(value)
     except (TypeError, ValueError):
         return None
 
 
-```
-
-### `scanner/pipeline/cross_section.py`
-
-**SHA256:** `af16010718d0097f9f7adc448602dbc23c6008513524c5e31fa9d359c5ffc773`
-
-```python
-"""Cross-section helpers for deterministic percent-rank calculations."""
-
-from __future__ import annotations
-
-from typing import Dict, Iterable, List
+def _atr_absolute(tf_features: Dict[str, Any]) -> Optional[float]:
+    atr_pct = _to_float(tf_features.get("atr_pct"))
+    close = _to_float(tf_features.get("close"))
+    if atr_pct is None or close is None:
+        return None
+    return (atr_pct / 100.0) * close
 
 
-def percent_rank_average_ties(values: Iterable[float]) -> List[float]:
-    """Return percent-ranks in [0,100] with average-rank tie handling.
+def _targets(base: Optional[float], atr: Optional[float], multipliers: List[float]) -> List[Optional[float]]:
+    if base is None or atr is None:
+        return [None for _ in multipliers]
+    return [base + (k * atr) for k in multipliers]
 
-    Ranking is computed against the full provided population and is independent
-    of input order.
-    """
-    value_list = [float(v) for v in values]
-    n = len(value_list)
-    if n == 0:
-        return []
-    if n == 1:
-        return [100.0]
 
-    sorted_values = sorted(value_list)
-    positions_by_value: Dict[float, List[int]] = {}
-    for idx, value in enumerate(sorted_values, start=1):
-        positions_by_value.setdefault(value, []).append(idx)
+def breakout_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+    f1d = features.get("1d", {})
+    close_1d = _to_float(f1d.get("close"))
+    breakout_dist_20 = _to_float(f1d.get("breakout_dist_20"))
 
-    avg_rank_by_value = {
-        value: (sum(positions) / len(positions))
-        for value, positions in positions_by_value.items()
+    breakout_level_20: Optional[float] = None
+    if close_1d is not None and breakout_dist_20 is not None and (100.0 + breakout_dist_20) != 0.0:
+        breakout_level_20 = close_1d / (1.0 + breakout_dist_20 / 100.0)
+
+    ema20_1d = _to_float(f1d.get("ema_20"))
+    invalidation = min(v for v in [breakout_level_20, ema20_1d] if v is not None) if any(
+        v is not None for v in [breakout_level_20, ema20_1d]
+    ) else None
+
+    atr_1d = _atr_absolute(f1d)
+    return {
+        "entry_trigger": breakout_level_20,
+        "breakout_level_20": breakout_level_20,
+        "invalidation": invalidation,
+        "targets": _targets(breakout_level_20, atr_1d, multipliers),
+        "atr_value": atr_1d,
     }
 
-    return [((avg_rank_by_value[value] - 1.0) / (n - 1.0)) * 100.0 for value in value_list]
+
+def pullback_trade_levels(features: Dict[str, Any], multipliers: List[float], pb_tol_pct: float) -> Dict[str, Any]:
+    f4h = features.get("4h", {})
+    ema20_4h = _to_float(f4h.get("ema_20"))
+    ema50_4h = _to_float(f4h.get("ema_50"))
+
+    zone = {
+        "center": ema20_4h,
+        "lower": None if ema20_4h is None else ema20_4h * (1.0 - pb_tol_pct / 100.0),
+        "upper": None if ema20_4h is None else ema20_4h * (1.0 + pb_tol_pct / 100.0),
+        "tolerance_pct": pb_tol_pct,
+    }
+    atr_4h = _atr_absolute(f4h)
+    return {
+        "entry_zone": zone,
+        "invalidation": ema50_4h,
+        "targets": _targets(ema20_4h, atr_4h, multipliers),
+        "atr_value": atr_4h,
+    }
+
+
+def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+    f1d = features.get("1d", {})
+    ema20_1d = _to_float(f1d.get("ema_20"))
+    base_low = _to_float(f1d.get("base_low"))
+    atr_1d = _atr_absolute(f1d)
+    return {
+        "entry_trigger": ema20_1d,
+        "invalidation": base_low,
+        "targets": _targets(ema20_1d, atr_1d, multipliers),
+        "atr_value": atr_1d,
+    }
 
 
 ```
 
-### `scanner/pipeline/__init__.py`
+### `scanner/pipeline/scoring/weights.py`
 
-**SHA256:** `3dac464a1ee3991eaa30290a72ac23f8e9e658d7cbd0b801cad66a77706bf87a`
+**SHA256:** `06fe401a509b1dbfbdadaaa5243ba31d81b8d60168d473a5b352d2d2042eed4d`
 
 ```python
-"""
-Pipeline Orchestration
-======================
+"""Shared scorer weight loading helpers."""
 
-Orchestrates the full daily scanning pipeline.
-"""
-
-from __future__ import annotations
 import logging
-from ..utils.time_utils import utc_now, timestamp_to_ms
+from typing import Any, Dict
 
-from ..config import ScannerConfig
-from ..clients.mexc_client import MEXCClient
-from ..clients.marketcap_client import MarketCapClient
-from ..clients.mapping import SymbolMapper
-from .filters import UniverseFilters
-from .shortlist import ShortlistSelector
-from .ohlcv import OHLCVFetcher
-from .features import FeatureEngine
-from .scoring.reversal import score_reversals
-from .scoring.breakout_trend_1_5d import score_breakout_trend_1_5d
-from .scoring.pullback import score_pullbacks
-from .output import ReportGenerator
-from .global_ranking import compute_global_top20
-from .liquidity import fetch_orderbooks_for_top_k, apply_liquidity_metrics_to_shortlist
-from .snapshot import SnapshotManager
-from .runtime_market_meta import RuntimeMarketMetaExporter
-from .discovery import compute_discovery_fields
-from .regime import compute_btc_regime
 
 logger = logging.getLogger(__name__)
 
+_WEIGHT_SUM_TOLERANCE = 1e-6
 
-def run_pipeline(config: ScannerConfig) -> None:
+
+def load_component_weights(
+    *,
+    scoring_cfg: Dict[str, Any],
+    section_name: str,
+    default_weights: Dict[str, float],
+    aliases: Dict[str, str],
+) -> Dict[str, float]:
+    """Load scorer component weights with deterministic compatibility behavior.
+
+    Modes:
+    - compat (default): canonical keys may be mixed with legacy aliases; missing keys are
+      filled from defaults; no normalization is applied.
+    - strict: all canonical keys must be present in config.scoring.<section>.weights.
     """
-    Orchestrates the full daily pipeline:
-    1. Fetch universe (MEXC Spot USDT)
-    2. Fetch market cap listings
-    3. Run mapping layer
-    4. Apply hard filters (market cap, liquidity, exclusions)
-    5. Run cheap pass (shortlist)
-    6. Liquidity stage: orderbook fetch for Top-K only
-    7. Fetch OHLCV for shortlist
-    8. Compute features (1d + 4h)
-    9. Enrich features with price, name, market cap, and volume
-    10. Compute scores (breakout / pullback / reversal)
-    11. Write reports (Markdown + JSON + Excel)
-    12. Write snapshot for backtests
-    """
-    run_mode = config.run_mode
 
-    # As-Of Timestamp (einmal pro Run)
-    asof_dt = utc_now()
-    asof_ts_ms = timestamp_to_ms(asof_dt)
-    asof_iso = asof_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-    
-    # Run-Date konsistent aus asof_dt
-    run_date = asof_dt.strftime('%Y-%m-%d')
-    
-    use_cache = run_mode in ['fast', 'standard']
-    
-    logger.info("=" * 80)
-    logger.info(f"PIPELINE STARTING - {run_date}")
-    logger.info(f"Mode: {run_mode}")
-    logger.info("=" * 80)
-    
-    # Initialize clients
-    logger.info("\n[INIT] Initializing clients...")
-    mexc = MEXCClient()
-    cmc = MarketCapClient(api_key=config.cmc_api_key)
-    logger.info("✓ Clients initialized")
-    
-    # Step 1: Fetch universe (MEXC Spot USDT)
-    logger.info("\n[1/12] Fetching MEXC universe...")
-    exchange_info_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    exchange_info = mexc.get_exchange_info(use_cache=use_cache)
-
-    universe = []
-    for symbol_info in exchange_info.get("symbols", []):
-        if (
-            symbol_info.get("quoteAsset") == "USDT"
-            and symbol_info.get("isSpotTradingAllowed", False)
-            and symbol_info.get("status") == "1"
-        ):
-            universe.append(symbol_info["symbol"])
-
-    logger.info(f"✓ Universe: {len(universe)} USDT pairs")
-    
-    # Get 24h tickers
-    logger.info("  Fetching 24h tickers...")
-    tickers_24h_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    tickers = mexc.get_24h_tickers(use_cache=use_cache)
-    ticker_map = {t['symbol']: t for t in tickers}
-    logger.info(f"  ✓ Tickers: {len(ticker_map)} symbols")
-    
-    # Step 2 & 3: Fetch market cap + Run mapping layer
-    logger.info("\n[2-3/12] Fetching market cap & mapping...")
-    cmc_listings_ts_utc = utc_now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    cmc_listings = cmc.get_listings(use_cache=use_cache)
-    cmc_symbol_map = cmc.build_symbol_map(cmc_listings)
-    logger.info(f"  ✓ CMC: {len(cmc_symbol_map)} symbols")
-    
-    mapper = SymbolMapper()
-    mapping_results = mapper.map_universe(universe, cmc_symbol_map)
-    logger.info(f"✓ Mapped: {mapper.stats['mapped']}/{mapper.stats['total']} "
-               f"({mapper.stats['mapped']/mapper.stats['total']*100:.1f}%)")
-    
-    # Prepare data for filters
-    symbols_with_data = []
-    for symbol in universe:
-        result = mapping_results.get(symbol)
-        if not result or not result.mapped:
-            continue
-        
-        ticker = ticker_map.get(symbol, {})
-        
-        symbols_with_data.append({
-            'symbol': symbol,
-            'base': symbol.replace('USDT', ''),
-            'quote_volume_24h': float(ticker.get('quoteVolume', 0)),
-            'market_cap': result._get_market_cap()
-        })
-    
-    # Step 4: Apply hard filters
-    logger.info("\n[4/12] Applying universe filters...")
-    filters = UniverseFilters(config.raw)
-    filtered = filters.apply_all(symbols_with_data)
-    logger.info(f"✓ Filtered: {len(filtered)} symbols")
-    
-    # Step 5: Run cheap pass (shortlist)
-    logger.info("\n[5/12] Creating shortlist...")
-    selector = ShortlistSelector(config.raw)
-    shortlist = selector.select(filtered)
-    logger.info(f"✓ Shortlist: {len(shortlist)} symbols")
-    
-    # Step 6: Liquidity Stage (Top-K orderbook budget)
-    logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
-    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
-    logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
-    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
-
-    # Hard Exclude: liquidity grade D must not enter downstream scoring universe
-    before_liquidity_gate = len(shortlist)
-    shortlist = [s for s in shortlist if str(s.get('liquidity_grade') or '').upper() != 'D']
-    if len(shortlist) != before_liquidity_gate:
-        logger.info(
-            "  Liquidity hard gate removed %s symbols with liquidity_grade=D",
-            before_liquidity_gate - len(shortlist),
+    mode = str(scoring_cfg.get("weights_mode", "compat")).strip().lower()
+    if mode not in {"compat", "strict"}:
+        logger.warning(
+            "Unknown weights_mode '%s' for config.scoring.%s, using compat",
+            mode,
+            section_name,
         )
+        mode = "compat"
 
-    # Step 7: Fetch OHLCV for shortlist
-    logger.info("\n[7/12] Fetching OHLCV data...")
-    ohlcv_fetcher = OHLCVFetcher(mexc, config.raw)
-    ohlcv_data = ohlcv_fetcher.fetch_all(shortlist)
-    logger.info(f"✓ OHLCV: {len(ohlcv_data)} symbols with complete data")
-    
-    # Step 8: Compute features (1d + 4h)
-    logger.info("\n[8/12] Computing features...")
-    feature_engine = FeatureEngine(config.raw)
-    features = feature_engine.compute_all(ohlcv_data, asof_ts_ms=asof_ts_ms)
-    logger.info(f"✓ Features: {len(features)} symbols")
+    cfg_weights = scoring_cfg.get("weights")
+    if not isinstance(cfg_weights, dict):
+        logger.warning("Using default weights for config.scoring.%s.weights", section_name)
+        return default_weights.copy()
 
-    logger.info("  Computing BTC regime...")
-    btc_regime = compute_btc_regime(
-        mexc_client=mexc,
-        feature_engine=feature_engine,
-        lookback_1d=ohlcv_fetcher.lookback.get("1d", 120),
-        asof_ts_ms=asof_ts_ms,
-    )
-    logger.info("  ✓ BTC regime: %s", btc_regime.get("state"))
+    resolved: Dict[str, float] = {}
+    for canonical_key, fallback_value in default_weights.items():
+        alias_key = aliases.get(canonical_key)
+        canonical_present = canonical_key in cfg_weights and cfg_weights.get(canonical_key) is not None
+        alias_present = bool(alias_key) and alias_key in cfg_weights and cfg_weights.get(alias_key) is not None
 
-    # Step 9: Enrich features with price, coin name, market cap, and volume
-    logger.info("\n[9/12] Enriching features with price, name, market cap, and volume...")
-    for symbol in features.keys():
-        # Add current price from tickers
-        ticker = ticker_map.get(symbol)
-        if ticker:
-            features[symbol]['price_usdt'] = float(ticker.get('lastPrice', 0))
-        else:
-            features[symbol]['price_usdt'] = None
-    
-        # Add coin name from CMC
-        mapping = mapper.map_symbol(symbol, cmc_symbol_map)
-        if mapping.mapped and mapping.cmc_data:
-            features[symbol]['coin_name'] = mapping.cmc_data.get('name', 'Unknown')
-            features[symbol]['cmc_date_added'] = mapping.cmc_data.get('date_added')
-        else:
-            features[symbol]['coin_name'] = 'Unknown'
-            features[symbol]['cmc_date_added'] = None
-        
-        # Add market cap and volume from shortlist data
-        shortlist_entry = next((s for s in shortlist if s['symbol'] == symbol), None)
-        if shortlist_entry:
-            features[symbol]['market_cap'] = shortlist_entry.get('market_cap')
-            features[symbol]['quote_volume_24h'] = shortlist_entry.get('quote_volume_24h')
-            features[symbol]['proxy_liquidity_score'] = shortlist_entry.get('proxy_liquidity_score')
-            features[symbol]['spread_bps'] = shortlist_entry.get('spread_bps')
-            features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
-            features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
-            features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
-            features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
-            features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
-        else:
-            features[symbol]['market_cap'] = None
-            features[symbol]['quote_volume_24h'] = None
-            features[symbol]['proxy_liquidity_score'] = None
-            features[symbol]['spread_bps'] = None
-            features[symbol]['slippage_bps'] = None
-            features[symbol]['liquidity_grade'] = None
-            features[symbol]['liquidity_insufficient'] = None
-            features[symbol]['risk_flags'] = []
-            features[symbol]['soft_penalties'] = {}
-
-        symbol_ohlcv = ohlcv_data.get(symbol, {})
-        first_seen_ts = None
-        if isinstance(symbol_ohlcv, dict) and symbol_ohlcv.get('1d'):
-            first = symbol_ohlcv['1d'][0]
-            if isinstance(first, (list, tuple)) and first:
-                try:
-                    first_seen_ts = int(float(first[0]))
-                except (TypeError, ValueError):
-                    first_seen_ts = None
-
-        discovery_cfg = config.raw.get('discovery', {}) if isinstance(config.raw, dict) else {}
-        discovery_fields = compute_discovery_fields(
-            asof_ts_ms=asof_ts_ms,
-            date_added=features[symbol].get('cmc_date_added'),
-            first_seen_ts=first_seen_ts,
-            max_age_days=int(discovery_cfg.get('max_age_days', 180)),
-        )
-        features[symbol]['first_seen_ts'] = first_seen_ts
-        features[symbol].update(discovery_fields)
-
-    logger.info(f"✓ Enriched {len(features)} symbols with price, name, market cap, and volume")
-    
-    # Prepare volume map for scoring (backwards compatibility)
-    volume_map = {s['symbol']: s['quote_volume_24h'] for s in shortlist}
-    
-    # Step 10: Compute scores (breakout / pullback / reversal)
-    logger.info("\n[10/12] Scoring setups...")
-    
-    logger.info("  Scoring Reversals...")
-    reversal_results = score_reversals(features, volume_map, config.raw)
-    logger.info(f"  ✓ Reversals: {len(reversal_results)} scored")
-    
-    logger.info("  Scoring Breakout Trend 1-5D...")
-    breakout_results = score_breakout_trend_1_5d(features, volume_map, config.raw, btc_regime=btc_regime)
-    logger.info(f"  ✓ Breakout Trend 1-5D rows: {len(breakout_results)} scored")
-    
-    logger.info("  Scoring Pullbacks...")
-    pullback_results = score_pullbacks(features, volume_map, config.raw)
-    logger.info(f"  ✓ Pullbacks: {len(pullback_results)} scored")
-
-    global_top20 = compute_global_top20(
-        reversal_results=reversal_results,
-        breakout_results=breakout_results,
-        pullback_results=pullback_results,
-        config=config.raw,
-    )
-    logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
-    
-    # Step 11: Write reports (Markdown + JSON + Excel)
-    logger.info("\n[11/12] Generating reports...")
-    report_gen = ReportGenerator(config.raw)
-    report_paths = report_gen.save_reports(
-        reversal_results,
-        breakout_results,
-        pullback_results,
-        global_top20,
-        run_date,
-        metadata={
-            'mode': run_mode,
-            'asof_ts_ms': asof_ts_ms,
-            'asof_iso': asof_iso,
-        },
-        btc_regime=btc_regime,
-    )
-    logger.info(f"✓ Markdown: {report_paths['markdown']}")
-    logger.info(f"✓ JSON: {report_paths['json']}")
-    if 'excel' in report_paths:
-        logger.info(f"✓ Excel: {report_paths['excel']}")
-    
-    # Step 12: Write snapshot for backtests
-    logger.info("\n[12/12] Creating snapshot...")
-    snapshot_mgr = SnapshotManager(config.raw)
-    snapshot_path = snapshot_mgr.create_snapshot(
-        run_date=run_date,
-        universe=[{'symbol': s} for s in universe],
-        filtered=filtered,
-        shortlist=shortlist,
-        features=features,
-        reversal_scores=reversal_results,
-        breakout_scores=breakout_results,
-        pullback_scores=pullback_results,
-        metadata={
-            'mode': run_mode,
-            'asof_ts_ms': asof_ts_ms,
-            'asof_iso': asof_iso,
-        }
-    )
-    logger.info(f"✓ Snapshot: {snapshot_path}")
-
-    runtime_meta_exporter = RuntimeMarketMetaExporter(config)
-    runtime_meta_path = runtime_meta_exporter.export(
-        run_date=run_date,
-        asof_iso=asof_iso,
-        run_id=str(asof_ts_ms),
-        filtered_symbols=[entry['symbol'] for entry in filtered],
-        mapping_results=mapping_results,
-        exchange_info=exchange_info,
-        ticker_map=ticker_map,
-        features=features,
-        ohlcv_data=ohlcv_data,
-        exchange_info_ts_utc=exchange_info_ts_utc,
-        tickers_24h_ts_utc=tickers_24h_ts_utc,
-        listings_ts_utc=cmc_listings_ts_utc,
-    )
-    logger.info(f"✓ Runtime Market Meta: {runtime_meta_path}")
-    
-    # Summary
-    logger.info("\n" + "=" * 80)
-    logger.info("PIPELINE COMPLETE")
-    logger.info("=" * 80)
-    logger.info(f"Date: {run_date}")
-    logger.info(f"Universe: {len(universe)} symbols")
-    logger.info(f"Filtered: {len(filtered)} symbols")
-    logger.info(f"Shortlist: {len(shortlist)} symbols")
-    logger.info(f"Features: {len(features)} symbols")
-    logger.info(f"\nScored:")
-    logger.info(f"  Reversals: {len(reversal_results)}")
-    logger.info(f"  Breakouts: {len(breakout_results)}")
-    logger.info(f"  Pullbacks: {len(pullback_results)}")
-    logger.info(f"\nOutputs:")
-    logger.info(f"  Report: {report_paths['markdown']}")
-    if 'excel' in report_paths:
-        logger.info(f"  Excel: {report_paths['excel']}")
-    logger.info(f"  Snapshot: {snapshot_path}")
-    logger.info(f"  Runtime Market Meta: {runtime_meta_path}")
-    logger.info("=" * 80)
-
-```
-
-### `scanner/clients/mapping.py`
-
-**SHA256:** `02c9c16ef03964e8bcc92f905fbd0078203bec98cf6099509ae8fb5ffe1617e5`
-
-```python
-"""
-Mapping layer between MEXC symbols and CMC market cap data.
-
-Handles:
-- Symbol-based matching (primary)
-- Collision detection (multiple CMC assets per symbol)
-- Confidence scoring
-- Manual overrides
-- Mapping reports
-
-This is a CRITICAL component - incorrect mapping = corrupted scores.
-"""
-
-from typing import Dict, List, Optional, Tuple, Any
-from pathlib import Path
-import json
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_json, save_json
-
-
-logger = get_logger(__name__)
-
-
-class MappingResult:
-    """Result of a mapping operation."""
-    
-    def __init__(
-        self,
-        mexc_symbol: str,
-        cmc_data: Optional[Dict[str, Any]] = None,
-        confidence: str = "none",
-        method: str = "none",
-        collision: bool = False,
-        notes: Optional[str] = None
-    ):
-        self.mexc_symbol = mexc_symbol
-        self.cmc_data = cmc_data
-        self.confidence = confidence  # "high", "medium", "low", "none"
-        self.method = method
-        self.collision = collision
-        self.notes = notes
-    
-    @property
-    def mapped(self) -> bool:
-        """Check if mapping was successful."""
-        return self.cmc_data is not None
-    
-    @property
-    def base_asset(self) -> str:
-        """Extract base asset from MEXC symbol (e.g., BTCUSDT -> BTC)."""
-        # Remove USDT suffix
-        if self.mexc_symbol.endswith("USDT"):
-            return self.mexc_symbol[:-4]
-        return self.mexc_symbol
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization."""
-        return {
-            "mexc_symbol": self.mexc_symbol,
-            "base_asset": self.base_asset,
-            "mapped": self.mapped,
-            "confidence": self.confidence,
-            "method": self.method,
-            "collision": self.collision,
-            "notes": self.notes,
-            "cmc_data": {
-                "id": self.cmc_data.get("id") if self.cmc_data else None,
-                "symbol": self.cmc_data.get("symbol") if self.cmc_data else None,
-                "name": self.cmc_data.get("name") if self.cmc_data else None,
-                "slug": self.cmc_data.get("slug") if self.cmc_data else None,
-                "market_cap": self._get_market_cap() if self.cmc_data else None,
-            }
-        }
-    
-    def _get_market_cap(self) -> Optional[float]:
-        """Extract market cap from CMC data."""
-        try:
-            return self.cmc_data["quote"]["USD"]["market_cap"]
-        except (KeyError, TypeError):
-            return None
-
-
-class SymbolMapper:
-    """
-    Maps MEXC symbols to CMC market cap data.
-    """
-    
-    def __init__(
-        self,
-        overrides_file: str = "config/mapping_overrides.json"
-    ):
-        """
-        Initialize mapper.
-        
-        Args:
-            overrides_file: Path to manual overrides JSON
-        """
-        self.overrides_file = Path(overrides_file)
-        self.overrides = self._load_overrides()
-        
-        # Statistics
-        self.stats = {
-            "total": 0,
-            "mapped": 0,
-            "unmapped": 0,
-            "collisions": 0,
-            "overrides_used": 0,
-            "confidence": {
-                "high": 0,
-                "medium": 0,
-                "low": 0,
-                "none": 0
-            }
-        }
-    
-    def _load_overrides(self) -> Dict[str, Any]:
-        """Load manual mapping overrides."""
-        if not self.overrides_file.exists():
-            logger.info(f"No overrides file found at {self.overrides_file}")
-            return {}
-        
-        try:
-            overrides = load_json(self.overrides_file)
-            logger.info(f"Loaded {len(overrides)} mapping overrides")
-            return overrides
-        except Exception as e:
-            logger.error(f"Failed to load overrides: {e}")
-            return {}
-    
-    def map_symbol(
-        self,
-        mexc_symbol: str,
-        cmc_symbol_map: Dict[str, Dict[str, Any]]
-    ) -> MappingResult:
-        """
-        Map a single MEXC symbol to CMC data.
-        
-        Args:
-            mexc_symbol: MEXC trading pair (e.g., 'BTCUSDT')
-            cmc_symbol_map: Symbol -> CMC data mapping
-            
-        Returns:
-            MappingResult with confidence + collision info
-        """
-        # Extract base asset
-        base_asset = mexc_symbol[:-4] if mexc_symbol.endswith("USDT") else mexc_symbol
-        base_asset_upper = base_asset.upper()
-        
-        # Check overrides first
-        if base_asset_upper in self.overrides:
-            override = self.overrides[base_asset_upper]
-            
-            # Override can specify CMC symbol or "exclude"
-            if override == "exclude":
-                return MappingResult(
-                    mexc_symbol=mexc_symbol,
-                    cmc_data=None,
-                    confidence="none",
-                    method="override_exclude",
-                    notes="Manually excluded via overrides"
-                )
-            
-            # Try to find CMC data for override symbol
-            override_symbol = override.upper()
-            if override_symbol in cmc_symbol_map:
-                self.stats["overrides_used"] += 1
-                return MappingResult(
-                    mexc_symbol=mexc_symbol,
-                    cmc_data=cmc_symbol_map[override_symbol],
-                    confidence="high",
-                    method="override_match",
-                    notes=f"Overridden to {override_symbol}"
-                )
-        
-        # Direct symbol match
-        if base_asset_upper in cmc_symbol_map:
-            return MappingResult(
-                mexc_symbol=mexc_symbol,
-                cmc_data=cmc_symbol_map[base_asset_upper],
-                confidence="high",
-                method="symbol_exact_match"
+        if canonical_present and alias_present and cfg_weights[canonical_key] != cfg_weights[alias_key]:
+            logger.warning(
+                "Conflicting canonical/legacy weights for config.scoring.%s.weights.%s/%s; using canonical value",
+                section_name,
+                canonical_key,
+                alias_key,
             )
-        
-        # No match found
-        return MappingResult(
-            mexc_symbol=mexc_symbol,
-            cmc_data=None,
-            confidence="none",
-            method="no_match",
-            notes=f"Symbol {base_asset_upper} not found in CMC data"
-        )
-    
-    def map_universe(
-        self,
-        mexc_symbols: List[str],
-        cmc_symbol_map: Dict[str, Dict[str, Any]]
-    ) -> Dict[str, MappingResult]:
-        """
-        Map entire MEXC universe to CMC data.
-        
-        Args:
-            mexc_symbols: List of MEXC trading pairs
-            cmc_symbol_map: CMC symbol -> data mapping
-            
-        Returns:
-            Dict mapping mexc_symbol -> MappingResult
-        """
-        logger.info(f"Mapping {len(mexc_symbols)} MEXC symbols to CMC data")
-        
-        results = {}
-        self.stats["total"] = len(mexc_symbols)
-        
-        for symbol in mexc_symbols:
-            result = self.map_symbol(symbol, cmc_symbol_map)
-            results[symbol] = result
-            
-            # Update stats
-            if result.mapped:
-                self.stats["mapped"] += 1
-            else:
-                self.stats["unmapped"] += 1
-            
-            if result.collision:
-                self.stats["collisions"] += 1
-            
-            self.stats["confidence"][result.confidence] += 1
-        
-        # Log summary
-        logger.info(f"Mapping complete:")
-        logger.info(f"  Mapped: {self.stats['mapped']}/{self.stats['total']}")
-        logger.info(f"  Unmapped: {self.stats['unmapped']}")
-        logger.info(f"  Collisions: {self.stats['collisions']}")
-        logger.info(f"  Confidence: {self.stats['confidence']}")
-        logger.info(f"  Overrides used: {self.stats['overrides_used']}")
-        
-        return results
-    
-    def generate_reports(
-        self,
-        mapping_results: Dict[str, MappingResult],
-        output_dir: str = "reports"
-    ) -> None:
-        """
-        Generate mapping reports.
-        
-        Creates:
-        - unmapped_symbols.json: Symbols without CMC match
-        - mapping_collisions.json: Symbols with multiple CMC candidates
-        - mapping_stats.json: Overall statistics
-        """
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        # Unmapped symbols
-        unmapped = [
-            {
-                "mexc_symbol": result.mexc_symbol,
-                "base_asset": result.base_asset,
-                "notes": result.notes
-            }
-            for result in mapping_results.values()
-            if not result.mapped
-        ]
-        
-        unmapped_file = output_path / "unmapped_symbols.json"
-        save_json(unmapped, unmapped_file)
-        logger.info(f"Saved {len(unmapped)} unmapped symbols to {unmapped_file}")
-        
-        # Collisions
-        collisions = [
-            result.to_dict()
-            for result in mapping_results.values()
-            if result.collision
-        ]
-        
-        collisions_file = output_path / "mapping_collisions.json"
-        save_json(collisions, collisions_file)
-        logger.info(f"Saved {len(collisions)} collisions to {collisions_file}")
-        
-        # Stats
-        stats_file = output_path / "mapping_stats.json"
-        save_json(self.stats, stats_file)
-        logger.info(f"Saved mapping stats to {stats_file}")
-    
-    def suggest_overrides(
-        self,
-        mapping_results: Dict[str, MappingResult],
-        output_file: str = "reports/suggested_overrides.json"
-    ) -> Dict[str, str]:
-        """
-        Generate suggested overrides for unmapped symbols.
-        
-        Returns:
-            Dict of base_asset -> "exclude" (user must review)
-        """
-        suggestions = {}
-        
-        for result in mapping_results.values():
-            if not result.mapped and result.base_asset not in self.overrides:
-                # Suggest exclusion (user can change to proper symbol)
-                suggestions[result.base_asset] = "exclude"
-        
-        if suggestions:
-            output_path = Path(output_file)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            save_json(suggestions, output_path, indent=2)
-            logger.info(f"Generated {len(suggestions)} override suggestions: {output_file}")
-        
-        return suggestions
 
-```
+        if canonical_present:
+            resolved[canonical_key] = float(cfg_weights[canonical_key])
+        elif alias_present and mode == "compat":
+            resolved[canonical_key] = float(cfg_weights[alias_key])
+        elif mode == "compat":
+            resolved[canonical_key] = float(fallback_value)
 
-### `scanner/clients/marketcap_client.py`
-
-**SHA256:** `5d8072e16cc2f3388b6834d559c65d0c04b9557703ab5e62f2c8e7c1ffa03ace`
-
-```python
-"""
-CoinMarketCap API Client for market cap data.
-
-Responsibilities:
-- Fetch bulk cryptocurrency listings
-- Get market cap, rank, supply data
-- Cache daily for rate-limit efficiency
-
-API Docs: https://coinmarketcap.com/api/documentation/v1/
-"""
-
-import os
-from typing import Dict, List, Optional, Any
-import requests
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_cache, save_cache, cache_exists
-
-# 🔹 Neu: zentralisierte Rohdaten-Speicherung
-try:
-    from scanner.utils.raw_collector import collect_raw_marketcap
-except ImportError:
-    collect_raw_marketcap = None
-
-
-logger = get_logger(__name__)
-
-
-class MarketCapClient:
-    """
-    CoinMarketCap API client with caching and rate-limit protection.
-    """
-    
-    BASE_URL = "https://pro-api.coinmarketcap.com"
-    
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        timeout: int = 30
-    ):
-        """
-        Initialize CMC client.
-        
-        Args:
-            api_key: CMC API key (default: from CMC_API_KEY env var)
-            timeout: Request timeout in seconds
-        """
-        self.api_key = api_key or os.getenv("CMC_API_KEY")
-        self.timeout = timeout
-        
-        if not self.api_key:
-            logger.warning("CMC_API_KEY not set - client will fail on API calls")
-        
-        self.session = requests.Session()
-        self.session.headers.update({
-            "X-CMC_PRO_API_KEY": self.api_key or "",
-            "Accept": "application/json"
-        })
-    
-    def _request(
-        self,
-        endpoint: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Make API request.
-        
-        Args:
-            endpoint: API endpoint (e.g., '/v1/cryptocurrency/listings/latest')
-            params: Query parameters
-            
-        Returns:
-            API response data
-            
-        Raises:
-            requests.RequestException: On API failure
-        """
-        url = f"{self.BASE_URL}{endpoint}"
-        
-        try:
-            response = self.session.get(
-                url,
-                params=params,
-                timeout=self.timeout
+    if mode == "strict":
+        missing = [k for k in default_weights if k not in resolved]
+        if missing:
+            logger.warning(
+                "Missing required canonical weight keys for config.scoring.%s.weights: %s. Using defaults.",
+                section_name,
+                ", ".join(missing),
             )
-            
-            # Handle rate limit
-            if response.status_code == 429:
-                logger.error("CMC rate limit hit - check your plan limits")
-                raise requests.RequestException("CMC rate limit exceeded")
-            
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # CMC wraps data in 'data' field
-            if "data" not in data:
-                logger.error(f"Unexpected CMC response structure: {data.keys()}")
-                raise ValueError("Invalid CMC response format")
-            
-            return data
-            
-        except requests.RequestException as e:
-            logger.error(f"CMC API request failed: {e}")
-            raise
-    
-    def get_listings(
-        self,
-        start: int = 1,
-        limit: int = 5000,
-        use_cache: bool = True
-    ) -> List[Dict[str, Any]]:
-        """
-        Get cryptocurrency listings with market cap data.
-        
-        Args:
-            start: Start rank (1-based)
-            limit: Number of results (max 5000)
-            use_cache: Use cached data if available (today)
-            
-        Returns:
-            List of cryptocurrency dicts with keys:
-            - id: CMC ID
-            - symbol: Ticker symbol
-            - name: Full name
-            - slug: URL slug
-            - cmc_rank: CMC rank
-            - quote.USD.market_cap: Market cap in USD
-            - quote.USD.price: Current price
-            - circulating_supply: Circulating supply
-            - total_supply: Total supply
-            - max_supply: Max supply
-        """
-        cache_key = f"cmc_listings_start{start}_limit{limit}"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading CMC listings from cache")
-            cached = load_cache(cache_key)
-            data = cached.get("data", []) if isinstance(cached, dict) else []
+            return default_weights.copy()
 
-            # 🔹 Rohdaten-Snapshot auch bei Cache-Hit speichern
-            if collect_raw_marketcap and data:
-                try:
-                    collect_raw_marketcap(data)
-                except Exception as e:
-                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
+    if any(v < 0 for v in resolved.values()):
+        logger.warning("Negative weights detected for config.scoring.%s.weights. Using defaults.", section_name)
+        return default_weights.copy()
 
-            return data
-        
-        logger.info(f"Fetching CMC listings (start={start}, limit={limit})")
-        
-        params = {
-            "start": start,
-            "limit": min(limit, 5000),  # API max
-            "convert": "USD",
-            "sort": "market_cap",
-            "sort_dir": "desc"
-        }
-        
-        try:
-            response = self._request("/v1/cryptocurrency/listings/latest", params)
-            data = response.get("data", [])
-            
-            logger.info(f"Fetched {len(data)} listings from CMC")
-            
-            # Cache the full response
-            save_cache(response, cache_key)
+    total = sum(resolved.values())
+    if abs(total - 1.0) > _WEIGHT_SUM_TOLERANCE:
+        logger.warning(
+            "Weight sum for config.scoring.%s.weights must be ~1.0 (got %.10f). Using defaults.",
+            section_name,
+            total,
+        )
+        return default_weights.copy()
 
-            # 🔹 Rohdaten-Snapshot über zentralen Collector speichern
-            if collect_raw_marketcap and data:
-                try:
-                    collect_raw_marketcap(data)
-                except Exception as e:
-                    logger.warning(f"Could not collect MarketCap snapshot: {e}")
-            
-            return data
-            
-        except Exception as e:
-            logger.error(f"Failed to fetch CMC listings: {e}")
-            return []
-    
-    def get_all_listings(self, use_cache: bool = True) -> List[Dict[str, Any]]:
-        """
-        Get all available listings (up to 5000).
-        
-        Returns:
-            List of all cryptocurrency dicts
-        """
-        return self.get_listings(start=1, limit=5000, use_cache=use_cache)
-    
-    def build_symbol_map(
-        self,
-        listings: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Build a symbol → data mapping for fast lookups.
-        
-        Args:
-            listings: CMC listings (default: fetch all)
-            
-        Returns:
-            Dict mapping symbol (uppercase) to full CMC data
-            
-        Note:
-            If multiple coins share a symbol, only the highest-ranked is kept.
-        """
-        if listings is None:
-            listings = self.get_all_listings()
-        
-        symbol_map = {}
-        collisions = []
-        
-        for item in listings:
-            symbol = item.get("symbol", "").upper()
-            
-            if not symbol:
-                continue
-            
-            # Collision detection
-            if symbol in symbol_map:
-                # Keep higher-ranked (lower cmc_rank number)
-                existing_rank = symbol_map[symbol].get("cmc_rank", float('inf'))
-                new_rank = item.get("cmc_rank", float('inf'))
-                
-                if new_rank < existing_rank:
-                    collisions.append({
-                        "symbol": symbol,
-                        "replaced": symbol_map[symbol].get("name"),
-                        "with": item.get("name")
-                    })
-                    symbol_map[symbol] = item
-                else:
-                    collisions.append({
-                        "symbol": symbol,
-                        "kept": symbol_map[symbol].get("name"),
-                        "ignored": item.get("name")
-                    })
-            else:
-                symbol_map[symbol] = item
-        
-        if collisions:
-            logger.warning(f"Found {len(collisions)} symbol collisions (kept higher-ranked)")
-            logger.debug(f"Collisions: {collisions[:10]}")  # Show first 10
-        
-        logger.info(f"Built symbol map with {len(symbol_map)} unique symbols")
-        return symbol_map
-    
-    def get_market_cap_for_symbol(
-        self,
-        symbol: str,
-        symbol_map: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> Optional[float]:
-        """
-        Get market cap for a specific symbol.
-        
-        Args:
-            symbol: Ticker symbol (e.g., 'BTC')
-            symbol_map: Pre-built symbol map (default: build from listings)
-            
-        Returns:
-            Market cap in USD or None if not found
-        """
-        if symbol_map is None:
-            symbol_map = self.build_symbol_map()
-        
-        symbol = symbol.upper()
-        data = symbol_map.get(symbol)
-        
-        if not data:
-            return None
-        
-        try:
-            return data["quote"]["USD"]["market_cap"]
-        except (KeyError, TypeError):
-            return None
+    return resolved
 
 ```
 
-### `scanner/clients/mexc_client.py`
+### `scanner/pipeline/scoring/__init__.py`
 
-**SHA256:** `895c43d74c5d963773e503f856a45989c679c665bae91284b5ed3b36b463ab7e`
+**SHA256:** `a6825c25a4e86a74fc0161093fbb40635de680c8d49b0da16935e6ff41c74efc`
 
 ```python
 """
-MEXC API Client for Spot market data.
+Scoring package.
 
-Responsibilities:
-- Fetch spot symbol list (exchangeInfo)
-- Fetch 24h ticker data (bulk)
-- Fetch OHLCV (klines) for specific pairs
+Contains three independent scoring modules:
+- breakout.py
+- breakout_trend_1_5d.py
+- pullback.py
+- reversal.py
 
-API Docs: https://mexcdevelop.github.io/apidocs/spot_v3_en/
+Each module:
+- consumes features
+- applies setup-specific logic
+- outputs normalized scores, components, penalties and flags.
 """
-
-import time
-from typing import Dict, List, Optional, Any
-import requests
-from ..utils.logging_utils import get_logger
-from ..utils.io_utils import load_cache, save_cache, cache_exists
-
-
-logger = get_logger(__name__)
-
-
-class MEXCClient:
-    """
-    MEXC Spot API client with rate-limit handling and caching.
-    """
-    
-    BASE_URL = "https://api.mexc.com"
-    
-    def __init__(
-        self,
-        max_retries: int = 3,
-        retry_backoff: float = 3.0,
-        timeout: int = 30
-    ):
-        """
-        Initialize MEXC client.
-        
-        Args:
-            max_retries: Maximum retry attempts on failure
-            retry_backoff: Seconds to wait between retries
-            timeout: Request timeout in seconds
-        """
-        self.max_retries = max_retries
-        self.retry_backoff = retry_backoff
-        self.timeout = timeout
-        self.session = requests.Session()
-        
-        # Rate limiting (conservative)
-        self.last_request_time = 0
-        self.min_request_interval = 0.1  # 100ms between requests
-    
-    def _rate_limit(self) -> None:
-        """Apply rate limiting between requests."""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.min_request_interval:
-            time.sleep(self.min_request_interval - elapsed)
-        self.last_request_time = time.time()
-    
-    def _request(
-        self,
-        method: str,
-        endpoint: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Make HTTP request with retry logic.
-        
-        Args:
-            method: HTTP method (GET, POST)
-            endpoint: API endpoint (e.g., '/api/v3/exchangeInfo')
-            params: Query parameters
-            
-        Returns:
-            JSON response
-            
-        Raises:
-            requests.RequestException: On persistent failure
-        """
-        url = f"{self.BASE_URL}{endpoint}"
-        
-        for attempt in range(self.max_retries):
-            try:
-                self._rate_limit()
-                
-                response = self.session.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    timeout=self.timeout
-                )
-                
-                # Handle rate limit (429)
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get('Retry-After', self.retry_backoff))
-                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
-                    time.sleep(retry_after)
-                    continue
-                
-                response.raise_for_status()
-                return response.json()
-                
-            except requests.RequestException as e:
-                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
-                
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_backoff * (attempt + 1))  # Exponential backoff
-                else:
-                    logger.error(f"Request failed after {self.max_retries} attempts")
-                    raise
-        
-        raise requests.RequestException("Unexpected error in retry loop")
-    
-    def get_exchange_info(self, use_cache: bool = True) -> Dict[str, Any]:
-        """
-        Get exchange info (symbols, trading rules).
-        
-        Args:
-            use_cache: Use cached data if available (today)
-            
-        Returns:
-            Exchange info dict with 'symbols' list
-        """
-        cache_key = "mexc_exchange_info"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading exchange info from cache")
-            return load_cache(cache_key)
-        
-        logger.info("Fetching exchange info from MEXC API")
-        data = self._request("GET", "/api/v3/exchangeInfo")
-        
-        save_cache(data, cache_key)
-        return data
-    
-    def get_spot_usdt_symbols(self, use_cache: bool = True) -> List[str]:
-        """
-        Get all Spot USDT trading pairs.
-        
-        Returns:
-            List of symbols (e.g., ['BTCUSDT', 'ETHUSDT', ...])
-        """
-        exchange_info = self.get_exchange_info(use_cache=use_cache)
-        
-        symbols = []
-        for symbol_info in exchange_info.get("symbols", []):
-            # Filter: USDT quote, Spot, Trading status
-            # Note: MEXC uses status="1" for enabled (not "ENABLED")
-            if (
-                symbol_info.get("quoteAsset") == "USDT" and
-                symbol_info.get("isSpotTradingAllowed", False) and
-                symbol_info.get("status") == "1"
-            ):
-                symbols.append(symbol_info["symbol"])
-        
-        logger.info(f"Found {len(symbols)} USDT Spot pairs")
-        return symbols
-    
-    def get_24h_tickers(self, use_cache: bool = True) -> List[Dict[str, Any]]:
-        """
-        Get 24h ticker statistics for all symbols (bulk).
-        
-        Returns:
-            List of ticker dicts with keys:
-            - symbol
-            - lastPrice
-            - priceChangePercent
-            - quoteVolume
-            - volume
-            etc.
-        """
-        cache_key = "mexc_24h_tickers"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.info("Loading 24h tickers from cache")
-            return load_cache(cache_key)
-        
-        logger.info("Fetching 24h tickers from MEXC API")
-        data = self._request("GET", "/api/v3/ticker/24hr")
-        
-        save_cache(data, cache_key)
-        logger.info(f"Fetched {len(data)} ticker entries")
-        return data
-    
-
-    def get_orderbook(self, symbol: str, limit: int = 200) -> Dict[str, Any]:
-        """Get orderbook depth snapshot for a symbol."""
-        return self._request("GET", "/api/v3/depth", params={"symbol": symbol, "limit": int(limit)})
-
-    def get_klines(
-        self,
-        symbol: str,
-        interval: str = "1d",
-        limit: int = 120,
-        use_cache: bool = True
-    ) -> List[List]:
-        """
-        Get candlestick/kline data for a symbol.
-        
-        Args:
-            symbol: Trading pair (e.g., 'BTCUSDT')
-            interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d, 1w)
-            limit: Number of candles (max 1000)
-            use_cache: Use cached data if available
-            
-        Returns:
-            List of klines, each kline is a list:
-            [openTime, open, high, low, close, volume, closeTime, quoteVolume, ...]
-        """
-        cache_key = f"mexc_klines_{symbol}_{interval}"
-        
-        if use_cache and cache_exists(cache_key):
-            logger.debug(f"Loading klines from cache: {symbol} {interval}")
-            return load_cache(cache_key)
-        
-        logger.debug(f"Fetching klines: {symbol} {interval} (limit={limit})")
-        
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "limit": min(limit, 1000)  # API max is 1000
-        }
-        
-        data = self._request("GET", "/api/v3/klines", params=params)
-        
-        save_cache(data, cache_key)
-        return data
-    
-    def get_multiple_klines(
-        self,
-        symbols: List[str],
-        interval: str = "1d",
-        limit: int = 120,
-        use_cache: bool = True
-    ) -> Dict[str, List[List]]:
-        """
-        Get klines for multiple symbols (sequential, rate-limited).
-        
-        Args:
-            symbols: List of trading pairs
-            interval: Timeframe
-            limit: Candles per symbol
-            use_cache: Use cached data
-            
-        Returns:
-            Dict mapping symbol -> klines
-        """
-        results = {}
-        total = len(symbols)
-        
-        logger.info(f"Fetching klines for {total} symbols ({interval})")
-        
-        for i, symbol in enumerate(symbols, 1):
-            try:
-                results[symbol] = self.get_klines(symbol, interval, limit, use_cache)
-                
-                if i % 10 == 0:
-                    logger.info(f"Progress: {i}/{total} symbols")
-                    
-            except Exception as e:
-                logger.error(f"Failed to fetch klines for {symbol}: {e}")
-                results[symbol] = []
-        
-        logger.info(f"Successfully fetched klines for {len(results)} symbols")
-        return results
-
-```
-
-### `scanner/clients/__init__.py`
-
-**SHA256:** `01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b`
-
-```python
 
 
 ```
@@ -6956,380 +7447,6 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
         try:
             score_result = scorer.score(symbol, features, volume)
             trade_levels = pullback_trade_levels(features, target_multipliers, pb_tol_pct=pb_tol_pct)
-            results.append(
-                {
-                    "symbol": symbol,
-                    "price_usdt": features.get("price_usdt"),
-                    "coin_name": features.get("coin_name"),
-                    "market_cap": features.get("market_cap"),
-                    "quote_volume_24h": features.get("quote_volume_24h"),
-                    "proxy_liquidity_score": features.get("proxy_liquidity_score"),
-                    "spread_bps": features.get("spread_bps"),
-                    "slippage_bps": features.get("slippage_bps"),
-                    "liquidity_grade": features.get("liquidity_grade"),
-                    "liquidity_insufficient": features.get("liquidity_insufficient"),
-                    "score": score_result["score"],
-                    "raw_score": score_result["raw_score"],
-                    "penalty_multiplier": score_result["penalty_multiplier"],
-                    "components": score_result["components"],
-                    "penalties": score_result["penalties"],
-                    "flags": score_result["flags"],
-                    "risk_flags": features.get("risk_flags", []),
-                    "reasons": score_result["reasons"],
-                    "analysis": {"trade_levels": trade_levels},
-                    "discovery": features.get("discovery", False),
-                    "discovery_age_days": features.get("discovery_age_days"),
-                    "discovery_source": features.get("discovery_source"),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Failed to score {symbol}: {e}")
-            continue
-
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results
-
-```
-
-### `scanner/pipeline/scoring/weights.py`
-
-**SHA256:** `06fe401a509b1dbfbdadaaa5243ba31d81b8d60168d473a5b352d2d2042eed4d`
-
-```python
-"""Shared scorer weight loading helpers."""
-
-import logging
-from typing import Any, Dict
-
-
-logger = logging.getLogger(__name__)
-
-_WEIGHT_SUM_TOLERANCE = 1e-6
-
-
-def load_component_weights(
-    *,
-    scoring_cfg: Dict[str, Any],
-    section_name: str,
-    default_weights: Dict[str, float],
-    aliases: Dict[str, str],
-) -> Dict[str, float]:
-    """Load scorer component weights with deterministic compatibility behavior.
-
-    Modes:
-    - compat (default): canonical keys may be mixed with legacy aliases; missing keys are
-      filled from defaults; no normalization is applied.
-    - strict: all canonical keys must be present in config.scoring.<section>.weights.
-    """
-
-    mode = str(scoring_cfg.get("weights_mode", "compat")).strip().lower()
-    if mode not in {"compat", "strict"}:
-        logger.warning(
-            "Unknown weights_mode '%s' for config.scoring.%s, using compat",
-            mode,
-            section_name,
-        )
-        mode = "compat"
-
-    cfg_weights = scoring_cfg.get("weights")
-    if not isinstance(cfg_weights, dict):
-        logger.warning("Using default weights for config.scoring.%s.weights", section_name)
-        return default_weights.copy()
-
-    resolved: Dict[str, float] = {}
-    for canonical_key, fallback_value in default_weights.items():
-        alias_key = aliases.get(canonical_key)
-        canonical_present = canonical_key in cfg_weights and cfg_weights.get(canonical_key) is not None
-        alias_present = bool(alias_key) and alias_key in cfg_weights and cfg_weights.get(alias_key) is not None
-
-        if canonical_present and alias_present and cfg_weights[canonical_key] != cfg_weights[alias_key]:
-            logger.warning(
-                "Conflicting canonical/legacy weights for config.scoring.%s.weights.%s/%s; using canonical value",
-                section_name,
-                canonical_key,
-                alias_key,
-            )
-
-        if canonical_present:
-            resolved[canonical_key] = float(cfg_weights[canonical_key])
-        elif alias_present and mode == "compat":
-            resolved[canonical_key] = float(cfg_weights[alias_key])
-        elif mode == "compat":
-            resolved[canonical_key] = float(fallback_value)
-
-    if mode == "strict":
-        missing = [k for k in default_weights if k not in resolved]
-        if missing:
-            logger.warning(
-                "Missing required canonical weight keys for config.scoring.%s.weights: %s. Using defaults.",
-                section_name,
-                ", ".join(missing),
-            )
-            return default_weights.copy()
-
-    if any(v < 0 for v in resolved.values()):
-        logger.warning("Negative weights detected for config.scoring.%s.weights. Using defaults.", section_name)
-        return default_weights.copy()
-
-    total = sum(resolved.values())
-    if abs(total - 1.0) > _WEIGHT_SUM_TOLERANCE:
-        logger.warning(
-            "Weight sum for config.scoring.%s.weights must be ~1.0 (got %.10f). Using defaults.",
-            section_name,
-            total,
-        )
-        return default_weights.copy()
-
-    return resolved
-
-```
-
-### `scanner/pipeline/scoring/breakout.py`
-
-**SHA256:** `1d559c7db21ff1f052f5b8ae2e92e39057ee205d8976fad89e49326496c68f1c`
-
-```python
-"""Breakout scoring."""
-
-import logging
-from typing import Dict, Any, List, Optional
-
-from scanner.pipeline.scoring.weights import load_component_weights
-from scanner.pipeline.scoring.trade_levels import breakout_trade_levels
-
-logger = logging.getLogger(__name__)
-
-
-class BreakoutScorer:
-    def __init__(self, config: Dict[str, Any]):
-        root = config.raw if hasattr(config, "raw") else config
-        scoring_cfg = root.get("scoring", {}).get("breakout", {})
-
-        self.min_breakout_pct = float(scoring_cfg.get("min_breakout_pct", 2.0))
-        self.ideal_breakout_pct = float(scoring_cfg.get("ideal_breakout_pct", 5.0))
-        self.max_breakout_pct = float(scoring_cfg.get("max_breakout_pct", 20.0))
-        breakout_curve = scoring_cfg.get("breakout_curve", {})
-        self.breakout_floor_pct = float(breakout_curve.get("floor_pct", -5.0))
-        self.breakout_fresh_cap_pct = float(breakout_curve.get("fresh_cap_pct", 1.0))
-        self.breakout_overextended_cap_pct = float(breakout_curve.get("overextended_cap_pct", 3.0))
-
-        self.min_volume_spike = float(scoring_cfg.get("min_volume_spike", 1.5))
-        self.ideal_volume_spike = float(scoring_cfg.get("ideal_volume_spike", 2.5))
-
-        momentum_cfg = scoring_cfg.get("momentum", {})
-        self.momentum_divisor = float(momentum_cfg.get("r7_divisor", 10.0))
-
-        penalties_cfg = scoring_cfg.get("penalties", {})
-        self.overextension_factor = float(penalties_cfg.get("overextension_factor", 0.6))
-        self.max_overextension_ema20_percent = float(
-            penalties_cfg.get("max_overextension_ema20_percent", scoring_cfg.get("max_overextension_ema20_percent", 25.0))
-        )
-        self.low_liquidity_threshold = float(penalties_cfg.get("low_liquidity_threshold", 500_000))
-        self.low_liquidity_factor = float(penalties_cfg.get("low_liquidity_factor", 0.8))
-
-        default_weights = {"breakout": 0.35, "volume": 0.30, "trend": 0.20, "momentum": 0.15}
-        self.weights = load_component_weights(
-            scoring_cfg=scoring_cfg,
-            section_name="breakout",
-            default_weights=default_weights,
-            aliases={
-                "breakout": "price_break",
-                "volume": "volume_confirmation",
-                "trend": "volatility_context",
-            },
-)
-    @staticmethod
-    def _closed_candle_count(features: Dict[str, Any], timeframe: str) -> Optional[int]:
-        meta = features.get("meta", {})
-        idx_map = meta.get("last_closed_idx", {}) if isinstance(meta, dict) else {}
-        idx = idx_map.get(timeframe)
-        if isinstance(idx, int) and idx >= 0:
-            return idx + 1
-        return None
-
-    def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float) -> Dict[str, Any]:
-        f1d = features.get("1d", {})
-        f4h = features.get("4h", {})
-
-        breakout_score = self._score_breakout(f1d)
-        volume_score = self._score_volume(f1d, f4h)
-        trend_score = self._score_trend(f1d)
-        momentum_score = self._score_momentum(f1d)
-
-        raw_score = (
-            breakout_score * self.weights["breakout"]
-            + volume_score * self.weights["volume"]
-            + trend_score * self.weights["trend"]
-            + momentum_score * self.weights["momentum"]
-        )
-
-        penalties = []
-        flags = []
-
-        breakout_dist = f1d.get("breakout_dist_20", 0)
-        if breakout_dist is not None and breakout_dist > self.breakout_overextended_cap_pct:
-            flags.append("overextended_breakout_zone")
-
-        dist_ema20 = f1d.get("dist_ema20_pct")
-        if dist_ema20 is not None and dist_ema20 > self.max_overextension_ema20_percent:
-            penalties.append(("overextension", self.overextension_factor))
-            flags.append("overextended")
-
-        if quote_volume_24h < self.low_liquidity_threshold:
-            penalties.append(("low_liquidity", self.low_liquidity_factor))
-            flags.append("low_liquidity")
-
-        soft_penalties = features.get("soft_penalties", {}) if isinstance(features, dict) else {}
-        if isinstance(soft_penalties, dict):
-            for penalty_name, factor in soft_penalties.items():
-                try:
-                    penalties.append((str(penalty_name), float(factor)))
-                except (TypeError, ValueError):
-                    continue
-
-        penalty_multiplier = 1.0
-        for _, factor in penalties:
-            penalty_multiplier *= factor
-        final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
-
-        reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags)
-
-        return {
-            "score": round(final_score, 2),
-            "raw_score": round(raw_score, 6),
-            "penalty_multiplier": round(penalty_multiplier, 6),
-            "final_score": round(final_score, 6),
-            "components": {
-                "breakout": round(breakout_score, 2),
-                "volume": round(volume_score, 2),
-                "trend": round(trend_score, 2),
-                "momentum": round(momentum_score, 2),
-            },
-            "penalties": {name: factor for name, factor in penalties},
-            "flags": flags,
-            "reasons": reasons,
-        }
-
-    def _score_breakout(self, f1d: Dict[str, Any]) -> float:
-        dist = f1d.get("breakout_dist_20")
-        if dist is None:
-            return 0.0
-        if dist <= self.breakout_floor_pct:
-            return 0.0
-        if self.breakout_floor_pct < dist < 0:
-            return 30.0 * (dist - self.breakout_floor_pct) / (0 - self.breakout_floor_pct)
-        if 0 <= dist < self.min_breakout_pct:
-            if self.min_breakout_pct <= 0:
-                return 70.0
-            return 30.0 + 40.0 * (dist / self.min_breakout_pct)
-        if self.min_breakout_pct <= dist <= self.ideal_breakout_pct:
-            denom = self.ideal_breakout_pct - self.min_breakout_pct
-            if denom <= 0:
-                return 100.0
-            return 70.0 + 30.0 * ((dist - self.min_breakout_pct) / denom)
-        if self.ideal_breakout_pct < dist <= self.max_breakout_pct:
-            denom = self.max_breakout_pct - self.ideal_breakout_pct
-            if denom <= 0:
-                return 0.0
-            return 100.0 * (1.0 - ((dist - self.ideal_breakout_pct) / denom))
-        return 0.0
-
-    def _score_volume(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> float:
-        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
-        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        max_spike = max(spike_1d, spike_4h)
-        if max_spike < self.min_volume_spike:
-            return 0.0
-        if max_spike >= self.ideal_volume_spike:
-            return 100.0
-        ratio = (max_spike - self.min_volume_spike) / (self.ideal_volume_spike - self.min_volume_spike)
-        return ratio * 100.0
-
-    def _score_trend(self, f1d: Dict[str, Any]) -> float:
-        score = 0.0
-        dist_ema20 = f1d.get("dist_ema20_pct")
-        dist_ema50 = f1d.get("dist_ema50_pct")
-
-        if dist_ema20 is not None and dist_ema20 > 0:
-            score += 40
-            if dist_ema20 > 5:
-                score += 10
-        if dist_ema50 is not None and dist_ema50 > 0:
-            score += 40
-            if dist_ema50 > 5:
-                score += 10
-        return min(score, 100.0)
-
-    def _score_momentum(self, f1d: Dict[str, Any]) -> float:
-        r7 = f1d.get("r_7")
-        if r7 is None or self.momentum_divisor <= 0:
-            return 0.0
-        return max(0.0, min(100.0, (float(r7) / self.momentum_divisor) * 100.0))
-
-    def _generate_reasons(self, breakout_score: float, volume_score: float, trend_score: float, momentum_score: float,
-                          f1d: Dict[str, Any], f4h: Dict[str, Any], flags: List[str]) -> List[str]:
-        reasons = []
-        dist = f1d.get("breakout_dist_20", 0)
-        if breakout_score > 70:
-            reasons.append(f"Strong breakout ({dist:.1f}% above 20d high)")
-        elif breakout_score > 30:
-            reasons.append(f"Moderate breakout ({dist:.1f}% above high)")
-        elif dist > 0:
-            reasons.append(f"Early breakout ({dist:.1f}% above high)")
-        else:
-            reasons.append("No breakout (below recent high)")
-
-        spike_1d = f1d.get("volume_quote_spike") if f1d.get("volume_quote_spike") is not None else f1d.get("volume_spike", 1.0)
-        spike_4h = f4h.get("volume_quote_spike") if f4h.get("volume_quote_spike") is not None else f4h.get("volume_spike", 1.0)
-        vol_spike = max(spike_1d, spike_4h)
-        if volume_score > 70:
-            reasons.append(f"Strong volume ({vol_spike:.1f}x average)")
-        elif volume_score > 30:
-            reasons.append(f"Moderate volume ({vol_spike:.1f}x)")
-        else:
-            reasons.append("Low volume (no confirmation)")
-
-        if trend_score > 70:
-            reasons.append("In uptrend (above EMAs)")
-        elif trend_score > 30:
-            reasons.append("Neutral trend")
-        else:
-            reasons.append("In downtrend (below EMAs)")
-
-        if "overextended_breakout_zone" in flags:
-            reasons.append(f"⚠️ Breakout in overextended zone ({dist:.1f}% above high)")
-        if "overextended" in flags:
-            reasons.append("⚠️ Overextended vs EMA20")
-        if "low_liquidity" in flags:
-            reasons.append("⚠️ Low liquidity")
-        return reasons
-
-
-def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str, float], config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    scorer = BreakoutScorer(config)
-    results = []
-    root = config.raw if hasattr(config, "raw") else config
-    min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
-    min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
-    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
-    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
-    for symbol, features in features_data.items():
-        candles_1d = scorer._closed_candle_count(features, "1d")
-        candles_4h = scorer._closed_candle_count(features, "4h")
-        if (candles_1d is not None and candles_1d < min_1d) or (candles_4h is not None and candles_4h < min_4h):
-            logger.debug(
-                "Skipping breakout for %s due to insufficient history (1d=%s/%s, 4h=%s/%s)",
-                symbol,
-                candles_1d,
-                min_1d,
-                candles_4h,
-                min_4h,
-            )
-            continue
-        volume = volumes.get(symbol, 0)
-        try:
-            score_result = scorer.score(symbol, features, volume)
-            trade_levels = breakout_trade_levels(features, target_multipliers)
             results.append(
                 {
                     "symbol": symbol,
@@ -7665,100 +7782,6 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ```
 
-### `scanner/pipeline/scoring/trade_levels.py`
-
-**SHA256:** `a6fe26680178f5202c3f4d2900f48f08d5824de83fda748af26ad455039d7cee`
-
-```python
-"""Deterministic trade-level helpers (output-only, no scoring impact)."""
-
-from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
-
-
-def _to_float(value: Any) -> Optional[float]:
-    try:
-        if value is None:
-            return None
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _atr_absolute(tf_features: Dict[str, Any]) -> Optional[float]:
-    atr_pct = _to_float(tf_features.get("atr_pct"))
-    close = _to_float(tf_features.get("close"))
-    if atr_pct is None or close is None:
-        return None
-    return (atr_pct / 100.0) * close
-
-
-def _targets(base: Optional[float], atr: Optional[float], multipliers: List[float]) -> List[Optional[float]]:
-    if base is None or atr is None:
-        return [None for _ in multipliers]
-    return [base + (k * atr) for k in multipliers]
-
-
-def breakout_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
-    f1d = features.get("1d", {})
-    close_1d = _to_float(f1d.get("close"))
-    breakout_dist_20 = _to_float(f1d.get("breakout_dist_20"))
-
-    breakout_level_20: Optional[float] = None
-    if close_1d is not None and breakout_dist_20 is not None and (100.0 + breakout_dist_20) != 0.0:
-        breakout_level_20 = close_1d / (1.0 + breakout_dist_20 / 100.0)
-
-    ema20_1d = _to_float(f1d.get("ema_20"))
-    invalidation = min(v for v in [breakout_level_20, ema20_1d] if v is not None) if any(
-        v is not None for v in [breakout_level_20, ema20_1d]
-    ) else None
-
-    atr_1d = _atr_absolute(f1d)
-    return {
-        "entry_trigger": breakout_level_20,
-        "breakout_level_20": breakout_level_20,
-        "invalidation": invalidation,
-        "targets": _targets(breakout_level_20, atr_1d, multipliers),
-        "atr_value": atr_1d,
-    }
-
-
-def pullback_trade_levels(features: Dict[str, Any], multipliers: List[float], pb_tol_pct: float) -> Dict[str, Any]:
-    f4h = features.get("4h", {})
-    ema20_4h = _to_float(f4h.get("ema_20"))
-    ema50_4h = _to_float(f4h.get("ema_50"))
-
-    zone = {
-        "center": ema20_4h,
-        "lower": None if ema20_4h is None else ema20_4h * (1.0 - pb_tol_pct / 100.0),
-        "upper": None if ema20_4h is None else ema20_4h * (1.0 + pb_tol_pct / 100.0),
-        "tolerance_pct": pb_tol_pct,
-    }
-    atr_4h = _atr_absolute(f4h)
-    return {
-        "entry_zone": zone,
-        "invalidation": ema50_4h,
-        "targets": _targets(ema20_4h, atr_4h, multipliers),
-        "atr_value": atr_4h,
-    }
-
-
-def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
-    f1d = features.get("1d", {})
-    ema20_1d = _to_float(f1d.get("ema_20"))
-    base_low = _to_float(f1d.get("base_low"))
-    atr_1d = _atr_absolute(f1d)
-    return {
-        "entry_trigger": ema20_1d,
-        "invalidation": base_low,
-        "targets": _targets(ema20_1d, atr_1d, multipliers),
-        "atr_value": atr_1d,
-    }
-
-
-```
-
 ### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
 
 **SHA256:** `3fa8b85f8b4577349c95d37c42f5dd39c0c2f6288bb5c585c1a2485e9da8013a`
@@ -8025,29 +8048,6 @@ def score_breakout_trend_1_5d(
 
 ```
 
-### `scanner/pipeline/scoring/__init__.py`
-
-**SHA256:** `a6825c25a4e86a74fc0161093fbb40635de680c8d49b0da16935e6ff41c74efc`
-
-```python
-"""
-Scoring package.
-
-Contains three independent scoring modules:
-- breakout.py
-- breakout_trend_1_5d.py
-- pullback.py
-- reversal.py
-
-Each module:
-- consumes features
-- applies setup-specific logic
-- outputs normalized scores, components, penalties and flags.
-"""
-
-
-```
-
 ### `docs/spec.md`
 
 **SHA256:** `b0c5ad329e4d3d78eb8fbfd282cc9df48f1975288fb1eb32ea42854ed81209ca`
@@ -8091,4 +8091,4 @@ Do **not** use this file as a source of truth.
 
 ---
 
-_Generated by GitHub Actions • 2026-02-25 07:45 UTC_
+_Generated by GitHub Actions • 2026-02-25 19:45 UTC_
