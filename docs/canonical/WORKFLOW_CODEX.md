@@ -22,9 +22,9 @@ Diese Arbeitsanweisung beschreibt den **verbindlichen Bearbeitungsprozess** für
 
 - Codex holt **genau ein Ticket** aus `docs/tickets/`
 - Codex bearbeitet es vollständig
-- Codex erstellt **genau einen PR pro Ticket**
 - Codex aktualisiert **Canonical Docs** konsequent nach dem Authority-Prozess
 - Danach verschiebt Codex das Ticket nach `docs/legacy/tickets/`
+- Codex erstellt **genau einen PR pro Ticket**
 
 **Wichtig:** Canonical Docs sind die Single Source of Truth. Tickets sind Arbeitsaufträge, keine Wahrheit.
 
