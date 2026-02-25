@@ -1,3 +1,7 @@
+ARCHIVED: Superseded by `docs/canonical/MAPPING.md`.
+
+Start here: `docs/canonical/INDEX.md`
+
 # Mapping Layer Specification
 Version: v1.0  
 Language: English  

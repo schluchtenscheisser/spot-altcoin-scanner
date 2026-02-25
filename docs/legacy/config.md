@@ -1,3 +1,7 @@
+ARCHIVED: Superseded by `docs/canonical/CONFIGURATION.md`.
+
+Start here: `docs/canonical/INDEX.md`
+
 # Configuration Specification
 Version: v1.0  
 Language: English  

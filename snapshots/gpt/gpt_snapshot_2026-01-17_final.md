@@ -258,7 +258,7 @@ See `docs/future_extensions.md` for complete roadmap.
 ### Reference Docs:
 - `docs/scoring.md` - Setup scoring details
 - `docs/features.md` - Feature definitions
-- `docs/mapping.md` - Mapping layer spec
+- `docs/canonical/MAPPING.md` - Mapping layer spec
 - `docs/pipeline.md` - Pipeline architecture
 
 ---

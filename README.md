@@ -156,7 +156,7 @@ Edit `config/config.yml` to customize:
 - **Scoring:** Component weights, penalties
 - **Output:** Report format, top N count
 
-See `docs/config.md` for details.
+See `docs/canonical/CONFIGURATION.md` for details.
 
 ---
 

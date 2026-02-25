@@ -1,3 +1,7 @@
+ARCHIVED: Superseded by `docs/canonical/OUTPUT_SCHEMA.md`.
+
+Start here: `docs/canonical/INDEX.md`
+
 # Data Model Specification
 Version: v1.0  
 Language: English  

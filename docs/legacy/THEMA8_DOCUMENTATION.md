@@ -1,3 +1,7 @@
+ARCHIVED: Superseded by canonical docs under `docs/canonical/`.
+
+Start here: `docs/canonical/INDEX.md`
+
 # Thema 8 – Dokumentationskonsolidierung (Closed-Candle, Baselines, EMA/ATR, QuoteVolume)
 
 Diese Datei bündelt die für Thema 8 bestätigten Konventionen in kompakter Form, um Konflikte in stark frequentierten Kern-Dokumenten zu vermeiden.
