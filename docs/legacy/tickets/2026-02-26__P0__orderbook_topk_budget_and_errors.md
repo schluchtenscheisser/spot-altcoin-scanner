@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # 1) 2026-02-26__P0__orderbook_topk_budget_and_errors.md
 
 ## Title

@@ -44,16 +44,11 @@ def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> 
 
 
 def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload/None for all symbols."""
+    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload for fetched snapshots."""
     top_k = get_orderbook_top_k(config)
     selected = select_top_k_for_orderbook(candidates, top_k)
 
     payload: Dict[str, Any] = {}
-    for row in candidates:
-        symbol = row.get("symbol")
-        if not symbol:
-            continue
-        payload[symbol] = None
 
     for row in selected:
         symbol = row.get("symbol")
@@ -169,8 +164,9 @@ def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderb
     for row in shortlist:
         symbol = row.get("symbol")
         r = dict(row)
-        if symbol in orderbooks:
-            metrics = compute_orderbook_liquidity_metrics(orderbooks[symbol], notional, thresholds)
+        orderbook = orderbooks.get(symbol)
+        if isinstance(orderbook, dict):
+            metrics = compute_orderbook_liquidity_metrics(orderbook, notional, thresholds)
             r.update(metrics)
         else:
             r.update(

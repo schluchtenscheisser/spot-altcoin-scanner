@@ -32,7 +32,7 @@ def test_select_top_k_for_orderbook_uses_proxy_liquidity_score_desc():
     assert [r["symbol"] for r in selected] == ["C", "B"]
 
 
-def test_fetch_orderbooks_for_top_k_respects_budget_and_sets_none_for_rest():
+def test_fetch_orderbooks_for_top_k_respects_budget_and_returns_only_selected_symbols():
     rows = [
         {"symbol": "A", "proxy_liquidity_score": 10.0, "quote_volume_24h": 100},
         {"symbol": "B", "proxy_liquidity_score": 40.0, "quote_volume_24h": 100},
@@ -45,11 +45,9 @@ def test_fetch_orderbooks_for_top_k_respects_budget_and_sets_none_for_rest():
     payload = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
-    assert set(payload.keys()) == {"A", "B", "C", "D"}
+    assert set(payload.keys()) == {"C", "D"}
     assert payload["D"] is not None
     assert payload["C"] is not None
-    assert payload["B"] is None
-    assert payload["A"] is None
 
 
 def test_fetch_orderbooks_for_top_k_soft_fails_per_symbol_and_keeps_budget():
@@ -65,8 +63,6 @@ def test_fetch_orderbooks_for_top_k_soft_fails_per_symbol_and_keeps_budget():
     payload = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
-    assert set(payload.keys()) == {"A", "B", "C", "D"}
-    assert payload["D"] is None
+    assert set(payload.keys()) == {"C"}
+    assert "D" not in payload
     assert payload["C"] is not None
-    assert payload["B"] is None
-    assert payload["A"] is None
