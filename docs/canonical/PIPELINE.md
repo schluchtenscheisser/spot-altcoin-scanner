@@ -44,6 +44,9 @@ Canonical hard gates include:
 - Liquidity gates (quote_volume_24h_usd thresholds; may be BTC-regime dependent)
 - Risk flags (denylist, deposit/withdraw suspended, delisting risk, major unlock within 14d, liquidity grade D, etc.)
 - Minimum history requirements per setup/timeframe
+  - Closed-candle counts are derived from `meta.last_closed_idx` as `count = idx + 1`.
+  - If `last_closed_idx` for a required timeframe is missing/invalid (`None`), history is insufficient and the symbol is rejected for that setup.
+  - Boundary rule: `count == min_history` is sufficient (reject only when `count < min_history`).
 
 Output:
 - `eligible_universe` (this is the canonical `percent_rank` population baseline)
