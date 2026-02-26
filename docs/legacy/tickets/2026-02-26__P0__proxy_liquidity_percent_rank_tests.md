@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # 3) 2026-02-26__P0__proxy_liquidity_percent_rank_tests.md
 
 ## Title
