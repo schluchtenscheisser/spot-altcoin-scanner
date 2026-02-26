@@ -69,10 +69,18 @@ jobs:
             if doc_path.exists():
               include.append(str(doc_path))
 
-          # Ensure full legacy scoring rules are part of the snapshot even if docs/scoring.md is a redirect stub
-          legacy_scoring = Path("docs/legacy/scoring.md")
-          if legacy_scoring.exists():
-            include.append(str(legacy_scoring))
+          # Canonical docs are the single source of truth for model-facing snapshot context.
+          canonical_docs = [
+            "docs/canonical/INDEX.md",
+            "docs/canonical/CONFIGURATION.md",
+            "docs/canonical/OUTPUT_SCHEMA.md",
+            "docs/canonical/VERIFICATION_FOR_AI.md",
+            "docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md",
+            "docs/canonical/SCORING/GLOBAL_RANKING_TOP20.md",
+          ]
+          for doc in canonical_docs:
+            if Path(doc).exists():
+              include.append(doc)
           
           def sha256(p):
             h = hashlib.sha256()
