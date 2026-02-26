@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-26 22:36 UTC  
-**Commit:** `f7565ca` (f7565caf9b5103c7c7c685faec97b1df3d0826be)  
+**Generated:** 2026-02-26 22:45 UTC  
+**Commit:** `4c60714` (4c60714fd867ecc8de07f9cbf3a8826eea2ae062)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -600,7 +600,7 @@ jobs:
 
 ### `.github/workflows/generate-gpt-snapshot.yml`
 
-**SHA256:** `3564238c84527f94daeb2377c5acf70db6c3f9fc4a5118f70926a7781ead6b34`
+**SHA256:** `9dd793c29c5db9204a20ac8e65e5315de69b667c7d1cc049bd6d2fd6fee1632d`
 
 ```yaml
 name: gpt-snapshot
@@ -674,10 +674,18 @@ jobs:
             if doc_path.exists():
               include.append(str(doc_path))
 
-          # Ensure full legacy scoring rules are part of the snapshot even if docs/scoring.md is a redirect stub
-          legacy_scoring = Path("docs/legacy/scoring.md")
-          if legacy_scoring.exists():
-            include.append(str(legacy_scoring))
+          # Canonical docs are the single source of truth for model-facing snapshot context.
+          canonical_docs = [
+            "docs/canonical/INDEX.md",
+            "docs/canonical/CONFIGURATION.md",
+            "docs/canonical/OUTPUT_SCHEMA.md",
+            "docs/canonical/VERIFICATION_FOR_AI.md",
+            "docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md",
+            "docs/canonical/SCORING/GLOBAL_RANKING_TOP20.md",
+          ]
+          for doc in canonical_docs:
+            if Path(doc).exists():
+              include.append(doc)
           
           def sha256(p):
             h = hashlib.sha256()
@@ -7851,434 +7859,694 @@ Do **not** use this file as a source of truth.
 
 ```
 
-### `docs/legacy/scoring.md`
+### `docs/canonical/INDEX.md`
 
-**SHA256:** `63afdf61d6613c1f30a78f0ef10f1acce82f4731d2f8692911071b001ed11c6a`
+**SHA256:** `ba4f15b54b79017b2e7805b8fd85b92b51a0be2a6312c2f6a6a78909540240b4`
 
 ```markdown
-# Scoring Modules Specification
-Version: v1.0  
-Language: English  
-Audience: Developer + GPT
+# Canonical Documentation — Index
 
----
+## Machine Header (YAML)
+```yaml
+id: CANON_INDEX
+status: canonical
+canonical_root: docs/canonical
+last_updated_utc: "2026-02-25T14:41:04Z"
+```
 
-## 1. Purpose
+## Start here
+- [AUTHORITY](AUTHORITY.md)
+- [INDEX](INDEX.md)
+- [SCOPE](SCOPE.md)
+- [PIPELINE](PIPELINE.md)
+- [DATA_SOURCES](DATA_SOURCES.md)
+- [CONFIGURATION](CONFIGURATION.md)
+- [OUTPUT_SCHEMA](OUTPUT_SCHEMA.md)
+- [VERIFICATION_FOR_AI](VERIFICATION_FOR_AI.md)
+- [MAPPING](MAPPING.md)
+- [GLOSSARY](GLOSSARY.md)
+- [CHANGELOG](CHANGELOG.md)
 
-This document specifies the three scoring modules used by the scanner:
+## Scoring
+- [SETUP_VALIDITY_RULES](SCORING/SETUP_VALIDITY_RULES.md)
+- [SCORE_BREAKOUT_TREND_1_5D](SCORING/SCORE_BREAKOUT_TREND_1_5D.md)
+- [GLOBAL_RANKING_TOP20](SCORING/GLOBAL_RANKING_TOP20.md)
+- [DISCOVERY_TAG](SCORING/DISCOVERY_TAG.md)
 
-1. Breakout Score
-2. Trend Pullback Score
-3. Reversal Score
+## Liquidity
+- [ORDERBOOK_TOPK_POLICY](LIQUIDITY/ORDERBOOK_TOPK_POLICY.md)
+- [SLIPPAGE_CALCULATION](LIQUIDITY/SLIPPAGE_CALCULATION.md)
+- [RE_RANK_RULE](LIQUIDITY/RE_RANK_RULE.md)
 
-Each scoring module must:
-- operate independently
-- normalize scores to [0, 100]
-- decompose into weighted components
-- apply contextual penalties
-- output ranked candidates
-- surface flags + reasons
-- remain deterministic
+## Features
+- [FEAT_EMA_STANDARD](FEATURES/FEAT_EMA_STANDARD.md)
+- [FEAT_ATR_WILDER](FEATURES/FEAT_ATR_WILDER.md)
+- [FEAT_PERCENT_RANK](FEATURES/FEAT_PERCENT_RANK.md)
+- [FEAT_VOLUME_SPIKE](FEATURES/FEAT_VOLUME_SPIKE.md)
+- [FEAT_ATR_PCT_RANK_120_1D](FEATURES/FEAT_ATR_PCT_RANK_120_1D.md)
+- [FEAT_BB_WIDTH_4H_RANK_120](FEATURES/FEAT_BB_WIDTH_4H_RANK_120.md)
 
-There is **no global fused score**.
+## Outputs
+- [RUNTIME_MARKET_META_EXPORT](OUTPUTS/RUNTIME_MARKET_META_EXPORT.md)
 
----
+## Backtest / Analytics-only
+- [MODEL_E2](BACKTEST/MODEL_E2.md)
+- [TRADE_MODEL_4H_IMMEDIATE_RETEST](BACKTEST/TRADE_MODEL_4H_IMMEDIATE_RETEST.md)
 
-## 1.1 Canonical v1.3 Notes
+```
 
-The canonical implementation is in:
-- `scanner/pipeline/scoring/breakout.py`
-- `scanner/pipeline/scoring/pullback.py`
-- `scanner/pipeline/scoring/reversal.py`
+### `docs/canonical/CONFIGURATION.md`
 
-Critical canonical rules:
-- Pullback uptrend guard uses `dist_ema50_pct >= 0` (EMA50 touch is valid uptrend; only `< 0` is broken trend).
-- Volume reason text must use the exact same spike datapath/fallback as scoring (no divergence between displayed and scored spike).
-- Reversal base component consumes `base_score` from FeatureEngine directly (no scorer-side base detection).
-- Missing/NaN/non-finite `base_score` is treated as `0` (never coerced to 100 by clamping side effects).
-- Momentum scaling is continuous and linear: `clamp((r_7 / 10) * 100, 0, 100)`.
-- Penalties/thresholds are config-driven via `scoring.*.penalties` and `scoring.*.momentum`.
+**SHA256:** `74d31eee4238a11dcc24d2f0d3439aefdc297356cc70a37e2e74192f75d27f1b`
 
----
+```markdown
+# Configuration — Keys, Defaults, Limits (Canonical)
 
-## 2. Shared Scoring Principles
+## Machine Header (YAML)
+```yaml
+id: CANON_CONFIG
+status: canonical
+intent: "single machine-readable source for defaults/limits and their meanings"
+runtime_config_file: config/config.yml
+```
 
-### 2.1 Independence
+## 0) Canonical principle
+This document defines canonical defaults, limits, and parameter meanings.
+If the implementation deviates, either:
+- update code to match canonical, or
+- update canonical explicitly (AUTHORITY process).
 
-Each setup represents a distinct trading archetype.  
-Mixing setup signals degrades performance.
+## 1) Machine Defaults (VALID YAML)
+```yaml
+limits:
+  universe:
+    market_cap_usd_default: {min: 100_000_000, max: 10_000_000_000}
+  outputs:
+    global_top_n_default: 20
 
-### 2.2 Determinism
+liquidity:
+  orderbook_top_k_default: 200
+  slippage_notional_usdt_default: 20_000
+  grade_thresholds_bps_default:
+    A_max: 20
+    B_max: 50
+    C_max: 100
+    D_rule: "> C_max OR insufficient_depth"
 
-Same data + same config → same score.
+discovery:
+  max_age_days_default: 180
+  primary_source: cmc_date_added
+  fallback_source: first_seen_ts
 
-### 2.3 Explainability
+backtest:
+  model_e2:
+    T_hold_days_default: 10
+    T_trigger_max_days_default: 5
+    thresholds_pct_default: [10, 20]
+    entry_price_default: close
 
-Scores must return:
-- components
-- weights
-- penalties
-- flags
-- structured reasons
+history_minimums_default:
+  breakout: { "1d": 30, "4h": 50 }
+  pullback: { "1d": 60, "4h": 80 }
+  reversal: { "1d": 120, "4h": 80 }
+  # alias (doc-level): breakout_trend_1_5d setups use breakout thresholds
+  breakout_trend_1_5d_uses: breakout
 
-### 2.4 Normalization
+features:
+  ema_periods_default: [20, 50]
+  atr_period_default: 14
+  volume_sma_periods_default: { "1d": 20, "4h": 20 }
+  bb:
+    period_default: 20
+    stddev_default: 2.0
+    rank_lookback_4h_default: 120
+  atr_pct_rank_lookback_1d_default: 120
 
-Raw score ∈ [0, 1]  
-Normalized score ∈ [0, 100]
+percent_rank_cross_section:
+  population_definition: "eligible universe after hard gates with non-NaN feature value"
+  tie_handling: average_rank
+  equality: ieee754_exact
+  rounding_before_compare: none
+  formula: "(count_less + 0.5*count_equal) / N"
 
-### 2.5 Penalty System
+rolling_percent_rank_time_series:
+  tie_handling: average_rank
+  equality: ieee754_exact
+  nan_policy:
+    population_excludes_nan: true
+  formula: "(count_less + 0.5*count_equal) / N"
+```
 
-Penalties reduce normalized score based on flags:
+## 2) Units & conventions
+- Percent ranks are in `[0..1]`
+- Scores are in `[0..100]`
+- `*_pct` is percent (e.g., 7.5 means 7.5%)
+- `*_bps` is basis points (1% = 100 bps)
+- All timestamps in canonical docs are milliseconds unless explicitly stated.
 
-| Flag | Penalty |
+## 3) Canonical → runtime config key mapping (config/config.yml)
+Canonical rule:
+- If a runtime key exists, it must match this mapping.
+- If a runtime key does **not** exist, the canonical default applies (still deterministic) and the manifest must report that the runtime key was absent.
+
+| Canonical key | Runtime key in `config/config.yml` |
 |---|---|
-| low_liquidity | strong |
-| extreme_volatility | moderate |
-| falling_knife | strong |
-| late_stage_move | moderate |
-| mapping_low_confidence | optional |
-| regime_mismatch (optional future) | mild |
+| limits.universe.market_cap_usd_default.min | universe_filters.market_cap.min_usd |
+| limits.universe.market_cap_usd_default.max | universe_filters.market_cap.max_usd |
+| limits.outputs.global_top_n_default | outputs.global_top_n |
+| liquidity.orderbook_top_k_default | liquidity.orderbook_top_k |
+| liquidity.slippage_notional_usdt_default | liquidity.slippage_notional_usdt |
+| liquidity.grade_thresholds_bps_default.A_max | liquidity.grade_thresholds_bps.a_max |
+| liquidity.grade_thresholds_bps_default.B_max | liquidity.grade_thresholds_bps.b_max |
+| liquidity.grade_thresholds_bps_default.C_max | liquidity.grade_thresholds_bps.c_max |
+| discovery.max_age_days_default | discovery.max_age_days |
+| backtest.model_e2.T_hold_days_default | backtest.t_hold_days |
+| backtest.model_e2.T_trigger_max_days_default | backtest.t_trigger_max_days |
+| backtest.model_e2.thresholds_pct_default | backtest.thresholds_pct |
+| backtest.model_e2.entry_price_default | backtest.entry_price_field |
+| history_minimums_default.breakout.1d | setup_validation.min_history_breakout_1d |
+| history_minimums_default.breakout.4h | setup_validation.min_history_breakout_4h |
+| history_minimums_default.pullback.1d | setup_validation.min_history_pullback_1d |
+| history_minimums_default.pullback.4h | setup_validation.min_history_pullback_4h |
+| history_minimums_default.reversal.1d | setup_validation.min_history_reversal_1d |
+| history_minimums_default.reversal.4h | setup_validation.min_history_reversal_4h |
+| features.ema_periods_default | features.ema_periods |
+| features.atr_period_default | features.atr_period |
+| features.volume_sma_periods_default.1d | features.volume_sma_periods.1d |
+| features.volume_sma_periods_default.4h | features.volume_sma_periods.4h |
+| features.bb.period_default | features.bollinger.period |
+| features.bb.stddev_default | features.bollinger.stddev |
+| features.bb.rank_lookback_4h_default | features.bollinger.rank_lookback_bars.4h |
+| features.atr_pct_rank_lookback_1d_default | features.atr_rank_lookback_bars.1d |
 
-Penalties must be multiplicative, not subtractive.
-
-Example:
+Notes:
+- `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
 
 ```
-S_final = S_raw * P_low_liquidity * P_late_stage * ...
+
+### `docs/canonical/OUTPUT_SCHEMA.md`
+
+**SHA256:** `0c96b550d93a52df71441f4e6432413e8e1b8bdca96910c228c538c6c389d2cd`
+
+```markdown
+# Output Schema — JSON / Markdown / Excel (Canonical)
+
+## Machine Header (YAML)
+```yaml
+id: CANON_OUTPUT_SCHEMA
+status: canonical
+schema_version: v1.9
+meta_version: 1.9
+outputs:
+  - json
+  - markdown
+  - excel
+limits:
+  global_top_n_default: 20
+manifest:
+  config_hash_required: true
+  config_version_optional: true
+  asof_ts_ms_required: true
+  asof_iso_utc_optional: true
+trade_levels:
+  status: canonical_output_only
+  levels_timeframe_default_by_setup_id:
+    breakout_immediate_1_5d: 4h
+    breakout_retest_1_5d: 4h
+  levels_timeframe_default_fallback: 4h
+  atr_timeframe_rule: "atr_pct uses the same timeframe as levels_timeframe"
+  rounding:
+    mode: none
+discovery:
+  discovery_source_values:
+    cmc_date_added: string
+    first_seen_ts: string
+    none: null
 ```
 
-### 2.6 Output Structure
+## 1) JSON output
 
-Each score returns:
+### 1.1 Schema contract version (required)
+- `schema_version` MUST be `v1.9`.
+- `meta.version` MUST be `1.9`.
 
-```json
-{
-  "score": float (0–100),
-  "normalized": float (0–1),
-  "rank": int,
-  "components": { ... },
-  "penalties": { ... },
-  "flags": { ... },
-  "metadata": { ... }
-}
+### 1.1 Run manifest (required)
+Required:
+- `commit_hash`
+- `schema_version`
+- `providers_used`
+- `config_hash`
+- `asof_ts_ms` (int, epoch ms UTC)
+
+Optional:
+- `config_version`
+- `asof_iso_utc` (string, RFC3339 UTC)
+
+### 1.2 Candidate row (required, minimal set)
+- `symbol`, `setup_id`
+- `base_score`, `final_score`, `global_score`
+- Liquidity: `proxy_liquidity_score`, `quote_volume_24h_usd`, `spread_bps`, `slippage_bps`, `liquidity_grade`
+- Optional discovery: `discovery`, `age_days`, `discovery_source` ("cmc_date_added" | "first_seen_ts" | null)
+
+### 1.3 Ordering and limits
+- Top-n inclusion: `SCORING/GLOBAL_RANKING_TOP20.md`
+- Final ordering: `LIQUIDITY/RE_RANK_RULE.md`
+
+## 2) Trade levels (informational output, deterministic)
+If present:
+- `levels_timeframe` default: per setup_id map; fallback `levels_timeframe_default_fallback`
+- ATR% uses the same timeframe as levels_timeframe.
+- No rounding (raw floats).
+
 ```
+
+### `docs/canonical/VERIFICATION_FOR_AI.md`
+
+**SHA256:** `2961e6a2ae5f019c12c87a79bbcb7227a2d34135df4736513463ce6fa0ea1e2c`
+
+```markdown
+# Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
+
+## Machine Header (YAML)
+```yaml
+id: CANON_VERIFICATION_FOR_AI
+status: canonical
+comparison:
+  method: numeric_abs_tolerance
+  abs_tolerance: 1e-9
+```
+
+## Comparison rule
+Compare expected numeric values as floats with absolute tolerance 1e-9. No rounding.
+
+## Fixture A trace (key point)
+dist_pct=1.643406808 lies in [0,2):
+breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
+
+```
+
+### `docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md`
+
+**SHA256:** `69eceb455bf39d7ab09ce59d67f3d70d7c334a076bf63c3ba218d91cc8e4ba11`
+
+```markdown
+# SCORE_BREAKOUT_TREND_1_5D — Immediate + Retest (Canonical)
+
+## Machine Header (YAML)
+```yaml
+id: SCORE_BREAKOUT_TREND_1_5D
+status: canonical
+setup_ids:
+  - breakout_immediate_1_5d
+  - breakout_retest_1_5d
+timeframes:
+  - 1d
+  - 4h
+determinism:
+  closed_candle_only: true
+  no_lookahead: true
+universe_defaults:
+  market_cap_usd: {min: 100_000_000, max: 10_000_000_000}
+liquidity_gates:
+  normal_quote_volume_24h_usd_min: 10_000_000
+  btc_risk_off_quote_volume_24h_usd_min: 15_000_000
+gates_1d:
+  trend_gate: "(ema20_1d > ema50_1d) AND (close_1d > ema20_1d)"
+  atr_chaos_gate: "atr_pct_rank_120_1d <= 0.80"
+  momentum_gate: "r_7_1d > 0"
+  overextension_hard_gate: "dist_ema20_pct_1d < 28.0"
+trigger_4h:
+  window_bars: 6
+  breakout_level: "high_20d_1d"
+retest_4h:
+  tolerance_pct: 1.0
+  window_bars: 12
+weights_fixed:
+  breakout_distance: 0.35
+  volume: 0.35
+  trend: 0.15
+  bb_score: 0.15
+multipliers:
+  anti_chase: {start: 30, full: 60, min_mult: 0.75}
+  overextension: {start: 12, strong: 20, hard_gate: 28}
+  btc_regime:
+    risk_on_definition: "(btc_close_1d > btc_ema50_1d) AND (btc_ema20_1d > btc_ema50_1d)"
+    risk_off_multiplier: 0.85
+```
+
+## 0) Ziel
+Kurzfristige Trendfolge-Setups (Hold 1–5 Tage), Breakout aus 1D-Struktur mit 4H-Bestätigung, inkl.:
+- Immediate: Breakout bestätigt in der aktuellen “fresh” 4H-Window
+- Retest: Breakout + Retest/Touch + Reclaim in definierter Zone
+
+Alle Regeln sind deterministisch und verwenden ausschließlich **abgeschlossene** 1D/4H Candles.
 
 ---
 
-## 3. Breakout Score
+## 1) Zeitindizes & Closed-Candle Realität
+### 1.1 Indizes
+- `t1d`: Index der **letzten abgeschlossenen** 1D Candle
+- `t4h`: Index der **letzten abgeschlossenen** 4H Candle
 
-### 3.1 Setup Definition
+Regel: Alle Referenzen auf “current” meinen **last closed**.
 
-Breakout = range break + volume confirmation
-
-Breakouts occur when price exceeds prior resistance, typically measured using:
-
-- 20d high
-- 30d high
-
-Volume confirms conviction.
-
-### 3.2 Required Inputs
-
-From features:
-
-- `close`
-- `high_20d`, `high_30d`
-- `ema20`, `ema50`
-- `volume_spike_7d`
-- `atr_pct`
-
-### 3.3 Gates
-
-Breakout gates:
-
-```
-close > high_20d or close > high_30d
-```
-
-Volume gate:
-
-```
-volume_spike_7d ≥ threshold (config, e.g. 1.5)
-```
-
-### 3.4 Overextension Check
-
-To avoid late-stage moves:
-
-```
-oe_ema20 = close / ema20 - 1
-overextended = oe_ema20 > limit (config, e.g. 25%)
-```
-
-Late-stage moves produce penalty, not exclusion.
-
-### 3.5 Components
-
-Example weights:
-
-| Component | Weight |
-|---|---|
-| price_break | 0.40 |
-| volume_confirmation | 0.40 |
-| volatility_context | 0.20 |
-
-Normalized subcomponents:
-
-```
-s_price = clip((close - high_20d) / (0.05*high_20d), 0, 1)
-s_volume = clip((vol_spike - 1.0) / (min_spike - 1.0), 0, 1)
-s_vol_ctx = clip(atr_limit / atr_pct, 0, 1)
-```
-
-### 3.6 Penalties
-
-```
-if extreme_volatility → penalty
-if low_liquidity → penalty
-if late_stage_move → penalty
-```
-
-### 3.7 Interpretation
-
-Breakouts are high-momentum, fragile setups.
+### 1.2 No Lookahead
+Kein Feature, Gate oder Score darf Candles mit Index > `t1d` (1D) bzw. > `t4h` (4H) verwenden.
 
 ---
 
-## 4. Trend Pullback Score
+## 2) Universe & Setup-übergreifende Hard Gates
 
-### 4.1 Setup Definition
+### 2.1 Market Cap Universe (CMC)
+Canonical Default für diesen Setup-Typ:
+- `100M <= market_cap_usd <= 10B`
 
-Trend Pullback = trend continuation after retracement
+### 2.2 Liquidity Gates (CMC quoteVol24h USD)
+- Normal: `quote_volume_24h_usd >= 10_000_000`
+- BTC Risk-Off Override: `quote_volume_24h_usd >= 15_000_000` (nur wenn BTC Risk-Off)
 
-Trend must be established before retracement.
-
-### 4.2 Required Inputs
-
-- `close`
-- `ema20`, `ema50`
-- HH/HL structure
-- pullback %
-- volume
-- 4h refinement (optional)
-
-### 4.3 Trend Gate
-
-Trend is up if:
-
-```
-close >= ema50 (1d, EMA50 touch allowed)
-ema50 rising or flat
-```
-
-### 4.4 Pullback Detection
-
-Compute:
-
-```
-recent_high = max(high over 20–30d)
-pullback_pct = (recent_high - close) / recent_high
-```
-
-Configurable limits:
-
-```
-min_pullback_pct
-max_pullback_pct (e.g. 25%)
-```
-
-### 4.5 Rebound Detection
-
-Rebound conditions:
-
-- HH over prior HL
-- or reclaim above ema20
-- or positive 3-day momentum
-
-Optional 4h confirmation:
-- ema20/ema50 cross
-- volume uptick
-- HH/HL on 4h
-
-### 4.6 Components
-
-Example weights:
-
-| Component | Weight |
-|---|---|
-| trend_quality | 0.40 |
-| pullback_quality | 0.40 |
-| rebound_signal | 0.20 |
-
-Component logic:
-
-```
-s_trend = f(close>ema50, ema50_slope, HH/HL_count)
-s_pullback = f(pullback_pct range)
-s_rebound = f(ema_reclaim + r_3d + vol_spike)
-```
-
-### 4.7 Penalties
-
-- low liquidity
-- late stage (if pullback shallow + extended trend)
-- extreme volatility
-
-### 4.8 Interpretation
-
-Pullbacks are lower-volatility, medium-risk setups.
+> Der genaue Feldname im Code kann abweichen; canonical meint Quote-Volumen in USD.
 
 ---
 
-## 5. Reversal Score
+## 3) Setup-spezifische 1D Gates (Hard)
 
-### 5.1 Setup Definition
+### 3.1 Trend Gate (1D)
+Setup ist nur zulässig wenn:
+- `ema20_1d > ema50_1d`
+- `close_1d > ema20_1d`
 
-Reversal = downtrend → base → reclaim + volume
+### 3.2 ATR Chaos Gate (1D)
+Setup ist nur zulässig wenn:
+- `atr_pct_rank_120_1d <= 0.80`
 
-This setup captures structural transitions from bear to bull state.
+**Definition `atr_pct_rank_120_1d`:**
+- `atr_pct_1d[t] = atr_1d[t] / close_1d[t] * 100`
+- Ranking wird als rolling percent_rank über die letzten 120 **abgeschlossenen** 1D Candles berechnet.
+- Tie-Handling: average-rank (siehe `FEATURES/FEAT_PERCENT_RANK`)
 
-### 5.2 Required Inputs
+### 3.3 Momentum Gate (1D)
+Setup ist nur zulässig wenn:
+- `r_7_1d > 0`
 
-- drawdown from ATH
-- base low & no-new-lows window
-- volume SMA & spike
-- reclaim vs EMA20/EMA50
-- 3-day return
-- volatility context
-
-### 5.3 Gates (Strict)
-
-Reversal gates:
-
-**Gate 1: Drawdown**
-
-```
-min_dd ≤ drawdown ≤ max_dd
-e.g. -40% ≤ dd ≤ -90%
-```
-
-**Gate 2: Base**
-
-```
-base_low = min(low over base_lookback)
-no new lows for ≥ K days
-```
-
-**Gate 3: Reclaim**
-
-```
-close > ema20 (min 1 day)
-optional: close > ema50
-```
-
-Volume Gate:
-
-```
-vol_spike ≥ threshold (e.g. 1.5)
-```
-
-### 5.4 Components
-
-Example weights:
-
-| Component | Weight |
-|---|---|
-| base_structure | 0.30 |
-| reclaim_signal | 0.40 |
-| volume_confirmation | 0.30 |
-
-Normalized subcomponents:
-
-```
-s_base = g(days_without_new_low)
-s_reclaim = g(close/ema20, close/ema50, r_3d)
-s_vol = g(vol_spike)
-```
-
-### 5.5 Penalties
-
-- falling_knife (strong penalty)
-- extreme_volatility
-- low_liquidity
-
-### 5.6 Interpretation
-
-Reversals are high-risk, high-reward setups and must be surfaced early.
+### 3.4 Overextension Hard Gate (1D)
+Setup ist nur zulässig wenn:
+- `dist_ema20_pct_1d < 28.0`
 
 ---
 
-## 6. Ranking
+## 4) Breakout Level (1D Struktur)
 
-Each score produces:
+### 4.1 Definition `high_20d_1d`
+Sei `t1d` der Index der letzten abgeschlossenen 1D Candle.
 
-- sorted list
-- deterministic ordering
-- stable tiebreaks via:
-  1. score
-  2. normalized
-  3. market cap (optional descending)
-  4. ticker (alphabetical)
+Dann:
+- `high_20d_1d = max(high_1d[t1d-20 .. t1d-1])`
 
-Ranking must not change across runs for identical input.
+Wichtig:
+- Die aktuelle (letzte abgeschlossene) 1D Candle **t1d** ist **nicht** Teil des 20D-High-Fensters.
+- Das verhindert Lookahead und “self-referential” Levels.
 
 ---
 
-## 7. Backtest Compatibility
+## 5) Trigger-Definition (4H “fresh window”)
 
-Scores are snapshot-stored for backtesting.  
-Forward returns must reference the score valid on day `t`.
+### 5.1 Fresh Trigger Window (4H)
+Sei `t4h` der Index der letzten abgeschlossenen 4H Candle.
 
----
+Das Trigger-Fenster umfasst die letzten 6 abgeschlossenen 4H Candles:
+- Window: `[t4h-5 .. t4h]`
 
-## 8. Scoring Anti-Goals
+### 5.2 Trigger Condition
+- `triggered = any(close_4h[i] > high_20d_1d for i in [t4h-5 .. t4h])`
 
-Scoring must not:
-
-- mix setup types
-- use sentiment/news (v1)
-- use ML/AI predictions
-- incorporate execution logic
-- overfit thresholds
-- guess mapping
+Wenn `triggered == false`:
+- Setup ist **invalid** (nicht in Top-Listen).
 
 ---
 
-## 9. Tuning Philosophy
+## 6) Retest Setup (Break-and-Retest)
 
-Tuning is done via:
-- backtests
-- hit/miss review
-- qualitative inspection
-- cluster performance analysis
+### 6.1 Retest Zone
+`retest_tolerance_pct = 1.0%` (default)
 
-No hyperparameter grid search in v1.
+- `zone_low  = high_20d_1d * (1 - 0.01)`
+- `zone_high = high_20d_1d * (1 + 0.01)`
 
----
+### 6.2 First breakout index
+Im Trigger Window `[t4h-5 .. t4h]`:
+- `first_breakout_idx = first index i where close_4h[i] > high_20d_1d`
 
-## 10. Future Extensions
+### 6.3 Retest Search Window
+Suche in den nächsten 12 abgeschlossenen 4H Candles nach dem ersten Breakout:
+- `j in [first_breakout_idx+1 .. first_breakout_idx+12]`
 
-Future scores may include:
+### 6.4 Retest Valid
+Retest ist **valid**, wenn es ein `j` im Window gibt mit:
+- Touch: `low_4h[j] >= zone_low AND low_4h[j] <= zone_high`
+- Reclaim: `close_4h[j] >= high_20d_1d`
 
-- breakout fakeout detection
-- sideways acceptance signals
-- capitulation reversal scoring
-- regime-based weighting
-- risk-adjusted scoring
-- volume signature profiles
-
-v1 provides the structural foundation.
-
----
+### 6.5 Retest Hard Invalidation
+Retest ist **invalid**, wenn im Retest Window irgendeine Candle `k` gilt:
+- `close_4h[k] < high_20d_1d`
 
 ---
 
-## 11. Phase Appendix Reference
+## 7) Component Scores (0..100) & Formeln
 
-Phase-specific scoring additions are maintained in:
-- `docs/feature_improvements/PHASE_APPENDIX_FEATURES_SCORING.md`
+> Alle Scores werden deterministisch berechnet und am Ende geclamped.
 
-This keeps high-traffic core docs conflict-stable while preserving exact phase semantics.
+### 7.1 Breakout Distance Score (4H close vs 1D level)
+Input:
+- `dist_pct = ((close_4h_last_closed / high_20d_1d) - 1) * 100`
+
+Piecewise-Kurve (canonical defaults):
+- `floor = -5.0`
+- `min_breakout = 2.0`
+- `ideal_breakout = 5.0`
+- `max_breakout = 20.0`
+
+Mapping:
+- Wenn `dist_pct <= floor` → `0`
+- Wenn `floor < dist_pct < 0` → `30 * (dist_pct - floor) / (0 - floor)`
+- Wenn `0 <= dist_pct < min_breakout` → `30 + 40 * (dist_pct / min_breakout)`
+- Wenn `min_breakout <= dist_pct <= ideal_breakout` → `70 + 30 * (dist_pct - min_breakout) / (ideal_breakout - min_breakout)`
+  - falls Nenner `<=0` → `100`
+- Wenn `ideal_breakout < dist_pct <= max_breakout` → `100 * (1 - (dist_pct - ideal_breakout) / (max_breakout - ideal_breakout))`
+  - falls Nenner `<=0` → `0`
+- Sonst → `0`
+
+### 7.2 Volume Score (combined spike)
+Spikes:
+- `spike_1d = volume_quote_spike_1d` (SMA exclude current closed candle)
+- `spike_4h = volume_quote_spike_4h` (SMA exclude current closed candle)
+- `spike_combined = 0.7*spike_1d + 0.3*spike_4h`
+
+Mapping:
+- Wenn `spike_combined < 1.5` → `0`
+- Wenn `spike_combined >= 2.5` → `100`
+- Sonst linear:
+  - `((spike_combined - 1.5) / (2.5 - 1.5)) * 100`
+
+### 7.3 Trend Score (Option A)
+Voraussetzung: Trend Gate ist erfüllt (sonst Setup invalid).
+- `trend_score = 70`
+- `+15` wenn `close_4h_last_closed > ema20_4h_last_closed`
+- `+15` wenn `ema20_4h_last_closed > ema50_4h_last_closed`
+- cap: `trend_score = min(trend_score, 100)`
+
+### 7.4 BB Score (Compression Bonus)
+Input:
+- `r = bb_width_rank_120_4h` in `[0..1]`
+
+Mapping:
+- Wenn `r <= 0.20` → `100`
+- Wenn `0.20 < r <= 0.60` → linear `100 -> 40`:
+  - `100 - (r - 0.20) * (100-40) / (0.60-0.20)`
+- Wenn `r > 0.60` → `0`
+
+### 7.5 Base Score (fixed weights)
+Fixed weights:
+- breakout_distance: `0.35`
+- volume: `0.35`
+- trend: `0.15`
+- bb_score: `0.15`
+
+- `base_score = 0.35*breakout_distance_score + 0.35*volume_score + 0.15*trend_score + 0.15*bb_score`
+
+---
+
+## 8) Multipliers (applied at end)
+
+### 8.1 Anti-Chase Multiplier (based on r_7_1d)
+Parameters:
+- start = 30
+- full = 60
+- min_mult = 0.75
+
+Piecewise:
+- Wenn `r_7_1d < 30` → `1.0`
+- Wenn `30 <= r_7_1d <= 60` → linear `1.0 -> 0.75`
+- Wenn `r_7_1d > 60` → `0.75`
+
+### 8.2 Overextension Multiplier (based on dist_ema20_pct_1d)
+Parameters:
+- penalty_start = 12
+- strong = 20
+- hard_gate = 28 (bereits in Gates)
+
+Piecewise:
+- Wenn `d < 12` → `1.0`
+- Wenn `12 <= d <= 20` → linear `1.0 -> 0.85`
+- Wenn `20 < d < 28` → linear `0.85 -> 0.70`
+- Wenn `d >= 28` → invalid (Hard Gate)
+
+### 8.3 BTC Regime Multiplier (forced)
+BTC Risk-On Definition:
+- `btc_risk_on = (btc_close_1d > btc_ema50_1d) AND (btc_ema20_1d > btc_ema50_1d)`
+
+Wenn `btc_risk_on == true`:
+- `btc_multiplier = 1.0`
+
+Wenn `btc_risk_on == false` (Risk-Off):
+- Kandidat ist nur eligible wenn:
+  - `quote_volume_24h_usd >= 15_000_000`
+  - UND RS override true:
+    - `(alt_r7_1d - btc_r7_1d) >= 7.5` ODER `(alt_r3_1d - btc_r3_1d) >= 3.5`
+- Wenn eligible:
+  - `btc_multiplier = 0.85`
+- Sonst:
+  - setup invalid
+
+---
+
+## 9) Final Score
+- `final_score = clamp(base_score * anti_chase_multiplier * overextension_multiplier * btc_multiplier, 0..100)`
+
+---
+
+## 10) Setup IDs & Output-Pflichtfelder
+
+### 10.1 Setup IDs
+- `breakout_immediate_1_5d`
+- `breakout_retest_1_5d`
+
+### 10.2 Pflichtfelder pro Row (JSON/MD/Excel)
+Mindestens:
+- `setup_id`
+- `base_score`, `final_score`
+- Level & Distanz: `high_20d_1d`, `dist_pct`
+- Volume: `volume_quote_spike_1d`, `volume_quote_spike_4h`, `spike_combined`
+- ATR: `atr_pct_rank_120_1d`
+- BB: `bb_width_pct_4h`, `bb_width_rank_120_4h`
+- Multipliers: `anti_chase_multiplier`, `overextension_multiplier`, `btc_multiplier`
+- Gates/Flags: `triggered`, `retest_valid`, `retest_invalidated` (wo relevant)
+
+### 10.3 Dedup (global)
+Wenn ein Symbol beide Setups erfüllt:
+- Retest wird bevorzugt (Tie-break).
+Global Top-N dedup & Setup-Gewichte sind in `GLOBAL_RANKING_TOP20.md` zu definieren.
+
+---
+
+## 11) Test/Fixture Anker
+Golden fixtures & deterministische Tabellen liegen in:
+- `docs/canonical/VERIFICATION_FOR_AI.md`
+
+```
+
+### `docs/canonical/SCORING/GLOBAL_RANKING_TOP20.md`
+
+**SHA256:** `aea45f306198fca4f3805440fba85849c59fc843c213465c7e4595cd46abfcb8`
+
+```markdown
+# Global Ranking — Top-N, Dedup, Setup Weights (Canonical)
+
+## Machine Header (YAML)
+```yaml
+id: SCORE_GLOBAL_RANKING_TOP20
+status: canonical
+global_top_n_default: 20
+phase_policy:
+  phase1_single_setup_type: true
+  setup_weights_active: false
+setup_weights_by_category_reserved_for_future:
+  breakout_trend: 1.0
+  pullback: 0.9
+  reversal: 0.8
+setup_id_to_weight_category_active:
+  breakout_immediate_1_5d: breakout_trend
+  breakout_retest_1_5d: breakout_trend
+dedup:
+  per_symbol_max_rows: 1
+  prefer_setup_id_order:
+    - breakout_retest_1_5d
+    - breakout_immediate_1_5d
+setup_preference:
+  mapping:
+    breakout_retest_1_5d: 1
+    breakout_immediate_1_5d: 0
+  default_for_unknown_setup_id: -1
+top_n_selection_order_before_truncation:
+  - key: global_score
+    order: desc
+  - key: setup_preference
+    order: desc
+  - key: symbol
+    order: asc
+composition:
+  final_ordering_defined_by: docs/canonical/LIQUIDITY/RE_RANK_RULE.md
+```
+
+## 0) Purpose
+Define how per-setup scores become a single **deduplicated** global list (Top-N input list).
+
+Important:
+- This document defines **selection + dedup + top-n inclusion**.
+- Final ordering of the published list is defined by `LIQUIDITY/RE_RANK_RULE.md`.
+
+## 1) Inputs
+Scored setup rows, each with:
+- `symbol`
+- `setup_id`
+- `final_score` (0..100)
+
+## 2) Setup weights (Phase policy)
+Phase 1 (current canonical):
+- `setup_weights_active = false`
+- Effective weight is `1.0` for all active setup_ids.
+
+Reserved for future multi-setup phases:
+- breakout_trend: 1.0
+- pullback: 0.9
+- reversal: 0.8
+
+If/when pullback/reversal setups are added, their `setup_id` strings must be added to the Machine Header mapping and the weights activation must be explicitly switched on.
+
+## 3) Global score definition
+For a given symbol:
+- `global_score(symbol) = max(final_score over all valid setups for symbol)`
+- `best_setup_id = argmax(final_score)`
+
+## 4) Setup preference (deterministic)
+- `setup_preference(setup_id)` is defined by the mapping in the Machine Header and is used only as a deterministic tie-breaker.
+
+## 5) Dedup rule (one row per symbol)
+1) For each symbol, select the row with the highest `final_score`.
+2) If multiple rows tie on `final_score`, select the one whose `setup_id` appears earliest in `prefer_setup_id_order`.
+3) If still tied, tie-break by `setup_id` lexicographically ascending.
+4) If still tied, tie-break by `symbol` ascending.
+
+## 6) Top-N selection (deterministic inclusion)
+Before truncation, order rows using **exactly**:
+1) `global_score` descending
+2) `setup_preference` descending
+3) `symbol` ascending
+
+Then take the first `global_top_n` rows (default 20).
+
+## 7) Final ordering
+After top-n inclusion is determined, apply `LIQUIDITY/RE_RANK_RULE.md` to produce the final published ordering.
 
 ```
 
@@ -8293,4 +8561,4 @@ This keeps high-traffic core docs conflict-stable while preserving exact phase s
 
 ---
 
-_Generated by GitHub Actions • 2026-02-26 22:36 UTC_
+_Generated by GitHub Actions • 2026-02-26 22:45 UTC_
