@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket: Fix GPT snapshot sources + sync canonical schema version
 
 ## Title

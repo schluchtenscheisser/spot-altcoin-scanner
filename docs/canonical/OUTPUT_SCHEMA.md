@@ -4,7 +4,8 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: 1
+schema_version: v1.9
+meta_version: 1.9
 outputs:
   - json
   - markdown
@@ -33,6 +34,10 @@ discovery:
 ```
 
 ## 1) JSON output
+
+### 1.1 Schema contract version (required)
+- `schema_version` MUST be `v1.9`.
+- `meta.version` MUST be `1.9`.
 
 ### 1.1 Run manifest (required)
 Required:

@@ -64,7 +64,7 @@ Dieses Dokument protokolliert alle Änderungen an:
   - `discovery`
   - `discovery_age_days`
   - `discovery_source`
-- GPT Snapshot Build (`.github/workflows/generate-gpt-snapshot.yml`) inkludiert zusätzlich `docs/legacy/scoring.md`, damit die vollständigen Scoring-Regeln weiterhin im Snapshot landen, selbst wenn `docs/scoring.md` nur ein Redirect-Stub ist.
+- GPT Snapshot Build (`.github/workflows/generate-gpt-snapshot.yml`) inkludiert Canonical-Scoring-Dokumente explizit, damit Snapshot-Scoring-Regeln aus `docs/canonical/*` stammen.
 
 #### Warum?
 - Neue Discovery-Outputfelder benötigen einen klaren Schema-Bump inkl. Changelog.
