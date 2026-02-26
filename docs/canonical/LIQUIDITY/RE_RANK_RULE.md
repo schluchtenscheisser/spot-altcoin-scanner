@@ -10,10 +10,11 @@ composition:
   input_score_field: global_score
 proxy_liquidity_score_definition:
   output_field: proxy_liquidity_score
-  range: [0.0, 1.0]
+  range: [0.0, 100.0]
   meaning: "cross-sectional percent-rank of quote_volume_24h_usd across the eligible universe after hard gates"
   source_field: quote_volume_24h_usd
-  formula: "(count_less + 0.5*count_equal) / N"
+  formula_rank01: "(count_less + 0.5*count_equal) / N"
+  formula_percent_rank: "100 * rank01"
   tie_handling: average_rank
   equality: ieee754_exact
   nan_policy:
@@ -43,9 +44,10 @@ Canonical rule:
 - The first sort key in liquidity re-rank is always **`global_score`** (not setup_score, not raw final_score).
 
 ## 3) Proxy liquidity score (canonical)
-Canonical proxy field used for re-rank is `proxy_liquidity_score` (range 0..1), defined as:
+Canonical proxy field used for re-rank is `proxy_liquidity_score` (range 0..100), defined as:
 
 - Cross-sectional percent-rank of `quote_volume_24h_usd` over the eligible universe after hard gates.
+- `rank01 = (count_less + 0.5*count_equal) / N`, `proxy_liquidity_score = 100 * rank01`.
 - Tie handling: average-rank.
 - Equality: exact IEEE-754 float equality (no rounding).
 - If `quote_volume_24h_usd` is missing/NaN: `proxy_liquidity_score = 0.0`.

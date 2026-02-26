@@ -33,7 +33,7 @@ Verify each default appears **exactly once** as canonical, and all other docs re
 - [ ] percent_rank:
   - population definition
   - tie-handling formula
-  - output range [0..1]
+  - output range [0..100] for cross-sectional `percent_rank` (and explicit rank01 naming for rolling time-series ranks)
 - [ ] Score range: all scores in [0..100] with clamping rules.
 - [ ] Discovery:
   - max_age_days

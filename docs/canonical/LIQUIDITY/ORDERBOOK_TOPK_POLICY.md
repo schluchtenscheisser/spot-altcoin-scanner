@@ -27,12 +27,15 @@ Orderbook-Fetch ist teuer. Canonical Policy:
 - Default: `K = 200`.
 
 ## 3) Pre-Rank (Proxy)
-- Pre-rank uses `proxy_liquidity_score` (0..1) computed from cross-sectional percent-rank of `quote_volume_24h_usd`.
+- Pre-rank uses `proxy_liquidity_score` (0..100) computed from cross-sectional percent-rank of `quote_volume_24h_usd`.
 - This stage must not change the percent-rank population definition.
 
 ## 4) Fetch Policy (deterministic)
 - Fetch orderbooks for candidates in descending proxy rank order.
 - Ties are broken by `symbol` ascending, where `symbol` is the full exchange pair string (e.g., `ETHUSDT`).
 
-## 5) Failure handling
-- If orderbook missing: mark slippage as missing and treat as worst in re-rank.
+## 5) Fetch payload semantics & failure isolation
+- Per-symbol orderbook fetch failures MUST NOT fail the whole run (failure isolation).
+- The returned orderbook map contains only symbols with a successfully fetched payload of type `dict`.
+- Symbols with missing keys or non-`dict` payloads are treated as `missing orderbook` downstream.
+- `missing orderbook` => slippage missing => worst-case handling in re-rank per `RE_RANK_RULE.md`.

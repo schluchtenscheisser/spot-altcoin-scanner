@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket: Align percent-rank scale + document orderbook Top-K payload semantics
 
 ## Title

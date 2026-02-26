@@ -6,12 +6,13 @@ id: FEAT_PERCENT_RANK
 status: canonical
 type: cross_section_rank
 population_definition: "eligible universe after hard gates with non-NaN feature value"
-output_range: [0.0, 1.0]
+output_range: [0.0, 100.0]
 tie_handling: average_rank
 equality: ieee754_exact
 rounding_before_compare: none
 formula:
-  rank: "(count_less + 0.5*count_equal) / N"
+  rank01: "(count_less + 0.5*count_equal) / N"
+  percent_rank: "100 * rank01"
 ```
 
 ## Purpose
@@ -25,7 +26,8 @@ formula:
 For current value `x` and population `P` (N elements):
 - `count_less  = |{p in P : p < x}|`
 - `count_equal = |{p in P : p == x}|`
-- `rank = (count_less + 0.5*count_equal) / N`  (range 0..1)
+- `rank01 = (count_less + 0.5*count_equal) / N`  (range 0..1)
+- `percent_rank = 100 * rank01` (range 0..100)
 
 ## Equality rule (canonical)
 - Equality is **exact IEEE-754 float equality** on the computed values.

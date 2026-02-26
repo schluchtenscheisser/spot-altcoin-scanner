@@ -62,10 +62,12 @@ features:
 
 percent_rank_cross_section:
   population_definition: "eligible universe after hard gates with non-NaN feature value"
+  output_scale: percent_0_100
   tie_handling: average_rank
   equality: ieee754_exact
   rounding_before_compare: none
-  formula: "(count_less + 0.5*count_equal) / N"
+  formula_rank01: "(count_less + 0.5*count_equal) / N"
+  formula_percent_rank: "100 * rank01"
 
 rolling_percent_rank_time_series:
   tie_handling: average_rank
@@ -76,8 +78,9 @@ rolling_percent_rank_time_series:
 ```
 
 ## 2) Units & conventions
-- Percent ranks are in `[0..1]`
-- Scores are in `[0..100]`
+- Cross-sectional `percent_rank` values are in `[0..100]` (percent scale).
+- Rolling time-series ranks (e.g., `*_rank_120_*`) remain in `[0..1]` and use explicit rank01-style field names/units.
+- Scores are in `[0..100]`.
 - `*_pct` is percent (e.g., 7.5 means 7.5%)
 - `*_bps` is basis points (1% = 100 bps)
 - All timestamps in canonical docs are milliseconds unless explicitly stated.

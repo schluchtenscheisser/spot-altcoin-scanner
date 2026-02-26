@@ -55,6 +55,7 @@ Optional:
 - `symbol`, `setup_id`
 - `base_score`, `final_score`, `global_score`
 - Liquidity: `proxy_liquidity_score`, `quote_volume_24h_usd`, `spread_bps`, `slippage_bps`, `liquidity_grade`
+- `proxy_liquidity_score` is a percent-rank on scale `[0.0, 100.0]` (not rank01).
 - Optional discovery: `discovery`, `age_days`, `discovery_source` ("cmc_date_added" | "first_seen_ts" | null)
 
 ### 1.3 Ordering and limits
