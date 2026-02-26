@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # 2) 2026-02-26__P0__closed_candle_gate_breakout_pullback.md
 
 ## Title

@@ -112,6 +112,7 @@ def test_setup_payload_propagates_raw_score_and_penalty_multiplier() -> None:
                 "r_3": 0.4,
             },
             "4h": {"volume_spike": 1.5, "r_3": 0.2},
+            "meta": {"last_closed_idx": {"1d": 99, "4h": 99}},
         }
     }
     volumes = {"XUSDT": 1_000_000.0}
