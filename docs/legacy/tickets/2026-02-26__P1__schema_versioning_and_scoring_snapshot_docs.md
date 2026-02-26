@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # 4) 2026-02-26__P1__schema_versioning_and_scoring_snapshot_docs.md
 
 ## Title

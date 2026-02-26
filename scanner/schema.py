@@ -1,4 +1,4 @@
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.8"
-REPORT_META_VERSION = "1.8"
+REPORT_SCHEMA_VERSION = "v1.9"
+REPORT_META_VERSION = "1.9"

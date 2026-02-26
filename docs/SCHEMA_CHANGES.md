@@ -54,6 +54,48 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-26 — schema_version v1.8 → v1.9 — Discovery-Outputfelder versioniert + Snapshot-Scoring abgesichert
+**PR:** (branch-local, ticket/schema_versioning_and_scoring_snapshot_docs)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- JSON-Reports sind auf `schema_version: v1.9` / `meta.version: 1.9` angehoben.
+- Discovery-Felder in Setup-Outputs sind damit explizit versioniert:
+  - `discovery`
+  - `discovery_age_days`
+  - `discovery_source`
+- GPT Snapshot Build (`.github/workflows/generate-gpt-snapshot.yml`) inkludiert zusätzlich `docs/legacy/scoring.md`, damit die vollständigen Scoring-Regeln weiterhin im Snapshot landen, selbst wenn `docs/scoring.md` nur ein Redirect-Stub ist.
+
+#### Warum?
+- Neue Discovery-Outputfelder benötigen einen klaren Schema-Bump inkl. Changelog.
+- Snapshot-Workflows sollen keine fachlichen Scoring-Inhalte verlieren.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additive Felder; bestehende Felder bleiben erhalten).
+- Consumer sollten `schema_version` für Contract-Gating verwenden.
+
+#### Migration / Vorgehen
+- Bei Versionserkennung `schema_version >= v1.9` als Discovery-contract-stabil behandeln.
+- Snapshot-Consumer können Scoring-Regeln weiterhin aus `docs/GPT_SNAPSHOT.md` extrahieren.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.9",
+  "meta": {"version": "1.9"},
+  "setups": {
+    "reversals": [
+      {
+        "symbol": "ABCUSDT",
+        "discovery": true,
+        "discovery_age_days": 30,
+        "discovery_source": "cmc_date_added"
+      }
+    ]
+  }
+}
+```
+
 ### 2026-02-22 — schema_version v1.7 → v1.8 — `btc_regime` dokumentiert + Top-N-Limits für Breakout-Listen vereinheitlicht
 **PR:** (branch-local, v2 Ticket PR7)  
 **Typ:** additiv

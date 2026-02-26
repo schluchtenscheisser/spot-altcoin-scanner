@@ -28,7 +28,7 @@ def test_pr7_json_schema_version_and_btc_regime_present() -> None:
 
     report = generator.generate_json_report([], [], [], [], "2026-02-22", btc_regime=btc_regime)
 
-    assert report["schema_version"] == "v1.8"
+    assert report["schema_version"] == "v1.9"
     assert report["btc_regime"]["state"] == "RISK_ON"
 
 

@@ -68,6 +68,11 @@ jobs:
             doc_path = Path("docs") / doc
             if doc_path.exists():
               include.append(str(doc_path))
+
+          # Ensure full legacy scoring rules are part of the snapshot even if docs/scoring.md is a redirect stub
+          legacy_scoring = Path("docs/legacy/scoring.md")
+          if legacy_scoring.exists():
+            include.append(str(legacy_scoring))
           
           def sha256(p):
             h = hashlib.sha256()
