@@ -146,3 +146,67 @@ def test_missing_local_ohlcv_source_fails_clearly(tmp_path: Path):
 
     assert result.returncode != 0
     assert "No local OHLCV cache files found" in result.stderr
+
+
+def test_strict_missing_is_atomic_for_minimal_mode(tmp_path: Path):
+    snapshots_dir = tmp_path / "snapshots" / "history"
+    ohlcv_root = tmp_path / "data" / "raw"
+    _write_ohlcv_day(ohlcv_root, "2026-02-01", "AAAUSDT", high=12.5, low=10.0, close=11.5)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scanner.tools.backfill_snapshots",
+            "--from",
+            "2026-02-01",
+            "--to",
+            "2026-02-02",
+            "--strict-missing",
+            "--snapshots-dir",
+            str(snapshots_dir),
+            "--ohlcv-cache-dir",
+            str(ohlcv_root),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Strict preflight failed" in result.stderr
+    assert not (snapshots_dir / "2026-02-01.json").exists()
+
+
+def test_uses_snapshot_dir_fallback(tmp_path: Path):
+    snapshot_dir = tmp_path / "custom_snapshots"
+    history_dir = snapshot_dir / "history"
+    ohlcv_root = tmp_path / "data" / "raw"
+    _write_ohlcv_day(ohlcv_root, "2026-02-01", "AAAUSDT", high=12.5, low=10.0, close=11.5)
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(f"snapshots:\n  snapshot_dir: \"{snapshot_dir.as_posix()}\"\n", encoding="utf-8")
+
+    rc = tool.main([
+        "--from",
+        "2026-02-01",
+        "--to",
+        "2026-02-01",
+        "--config",
+        str(config_path),
+        "--ohlcv-cache-dir",
+        str(ohlcv_root),
+    ])
+
+    assert rc == 0
+    assert (history_dir / "2026-02-01.json").exists()
+
+
+def test_full_mode_time_patch_uses_target_cache_date(tmp_path: Path):
+    from datetime import date
+    from scanner.utils import io_utils
+    from scanner.tools.backfill_snapshots import _patched_full_mode_time_sources
+
+    with _patched_full_mode_time_sources(date(2026, 2, 1)):
+        cache_path = io_utils.get_cache_path("probe")
+
+    assert cache_path.parts[-2] == "2026-02-01"

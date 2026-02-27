@@ -10,6 +10,7 @@ from typing import Any, Iterable
 
 from scanner.config import load_config
 from scanner.pipeline.regime import compute_btc_regime_from_1d_features
+from scanner.pipeline.snapshot import SnapshotManager
 
 
 @dataclass(frozen=True)
@@ -47,7 +48,7 @@ def _ensure_minimum_version(meta: dict[str, Any]) -> bool:
     return False
 
 
-def _compute_regime(snapshot: dict[str, Any]) -> dict[str, Any]:
+def _extract_btc_features_1d(snapshot: dict[str, Any]) -> dict[str, Any]:
     features = snapshot.get("data", {}).get("features", {})
     btc_features_1d = {}
     if isinstance(features, dict):
@@ -56,7 +57,24 @@ def _compute_regime(snapshot: dict[str, Any]) -> dict[str, Any]:
             maybe_1d = btc.get("1d", {})
             if isinstance(maybe_1d, dict):
                 btc_features_1d = maybe_1d
+    return btc_features_1d
+
+
+def _compute_regime(snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    btc_features_1d = _extract_btc_features_1d(snapshot)
+    if not btc_features_1d:
+        return None
     return compute_btc_regime_from_1d_features(btc_features_1d)
+
+
+def _resolve_snapshots_dir(args: argparse.Namespace) -> Path:
+    if args.snapshots_dir:
+        return Path(args.snapshots_dir)
+    return SnapshotManager.resolve_history_dir(load_config(args.config))
+
+
+def _preflight_missing_paths(start: date, end: date, snapshots_dir: Path) -> list[Path]:
+    return [snapshots_dir / f"{day.isoformat()}.json" for day in _daterange(start, end) if not (snapshots_dir / f"{day.isoformat()}.json").exists()]
 
 
 def backfill(args: argparse.Namespace) -> BackfillStats:
@@ -65,12 +83,16 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
     if end < start:
         raise ValueError("--to must be >= --from")
 
-    snapshots_dir = Path(args.snapshots_dir) if args.snapshots_dir else Path(
-        load_config(args.config).raw.get("snapshots", {}).get("history_dir", "snapshots/history")
-    )
+    snapshots_dir = _resolve_snapshots_dir(args)
 
     stats = BackfillStats()
     missing_paths: list[Path] = []
+
+    if args.strict_missing:
+        missing_paths = _preflight_missing_paths(start, end, snapshots_dir)
+        if missing_paths:
+            msg = f"Missing {len(missing_paths)} snapshot file(s): " + ", ".join(str(p) for p in missing_paths)
+            raise FileNotFoundError(msg)
 
     for day in _daterange(start, end):
         stats = BackfillStats(
@@ -109,7 +131,14 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
             )
             continue
 
-        meta["btc_regime"] = _compute_regime(snapshot)
+        regime = _compute_regime(snapshot)
+        if regime is None:
+            meta["btc_regime"] = None
+            meta["btc_regime_status"] = "missing_btc_features"
+        else:
+            meta["btc_regime"] = regime
+            if meta.get("btc_regime_status") == "missing_btc_features":
+                meta.pop("btc_regime_status", None)
         _ensure_minimum_version(meta)
 
         if not args.dry_run:
@@ -134,7 +163,7 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Backfill meta.btc_regime in snapshot history")
+    parser = argparse.ArgumentParser(description="Backfill meta.btc_regime in snapshot history (missing BTC features => btc_regime=null)")
     parser.add_argument("--from", dest="from_date", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--to", dest="to_date", required=True, help="End date YYYY-MM-DD")
     parser.add_argument("--dry-run", action="store_true", help="Do not modify files")

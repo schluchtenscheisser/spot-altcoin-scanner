@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from scanner.config import ScannerConfig, load_config
+from scanner.pipeline.snapshot import SnapshotManager
 
 SYMBOL_CACHE_RE = re.compile(r"^mexc_klines_(?P<symbol>[A-Z0-9]+)_1d\.json$")
 
@@ -20,6 +21,7 @@ class BackfillStats:
     scanned: int = 0
     created: int = 0
     skipped_existing: int = 0
+    missing: int = 0
 
 
 def _parse_date(value: str) -> date:
@@ -129,22 +131,6 @@ def _build_minimal_features(ohlcv_cache_dir: Path, target_date: str) -> dict[str
     return dict(sorted(features.items(), key=lambda item: item[0]))
 
 
-@contextmanager
-def _patched_pipeline_now(target_day: date):
-    from scanner import pipeline as pipeline_module
-
-    original_utc_now = pipeline_module.utc_now
-
-    def _fake_now() -> datetime:
-        return datetime(target_day.year, target_day.month, target_day.day, 0, 0, 0, tzinfo=timezone.utc)
-
-    pipeline_module.utc_now = _fake_now
-    try:
-        yield
-    finally:
-        pipeline_module.utc_now = original_utc_now
-
-
 def _run_full_mode(target_day: date, config_path: str, snapshots_dir: Path, dry_run: bool) -> None:
     if dry_run:
         return
@@ -158,7 +144,7 @@ def _run_full_mode(target_day: date, config_path: str, snapshots_dir: Path, dry_
     raw_copy["snapshots"] = snapshots_cfg
     patched_config = ScannerConfig(raw=raw_copy)
 
-    with _patched_pipeline_now(target_day):
+    with _patched_full_mode_time_sources(target_day):
         run_pipeline(patched_config)
 
 
@@ -182,20 +168,97 @@ def _mark_full_backfill(snapshot_path: Path) -> None:
         fh.write("\n")
 
 
+def _resolve_snapshots_dir(args: argparse.Namespace) -> Path:
+    if args.snapshots_dir:
+        return Path(args.snapshots_dir)
+    return SnapshotManager.resolve_history_dir(load_config(args.config))
+
+
+def _preflight_requirements(args: argparse.Namespace, start: date, end: date, snapshots_dir: Path, ohlcv_cache_dir: Path) -> None:
+    errors: list[str] = []
+    for day in _daterange(start, end):
+        run_date = day.isoformat()
+        snapshot_path = snapshots_dir / f"{run_date}.json"
+        if snapshot_path.exists():
+            if args.strict_existing:
+                errors.append(f"Snapshot already exists for {run_date}: {snapshot_path}")
+            continue
+
+        if args.mode == "minimal":
+            try:
+                _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=run_date)
+            except Exception as exc:  # preflight aggregation
+                errors.append(f"{run_date}: {exc}")
+
+    if errors:
+        raise FileNotFoundError("Strict preflight failed: " + " | ".join(errors))
+
+
+def _resolve_cache_date(target_day: date) -> str:
+    return target_day.isoformat()
+
+
+@contextmanager
+def _patched_full_mode_time_sources(target_day: date):
+    from scanner import pipeline as pipeline_module
+    from scanner.utils import io_utils, time_utils
+
+    fake_now = datetime(target_day.year, target_day.month, target_day.day, 0, 0, 0, tzinfo=timezone.utc)
+
+    original_pipeline_utc_now = pipeline_module.utc_now
+    original_pipeline_timestamp_to_ms = pipeline_module.timestamp_to_ms
+    original_time_utils_utc_now = time_utils.utc_now
+    original_time_utils_utc_date = time_utils.utc_date
+    original_time_utils_utc_timestamp = time_utils.utc_timestamp
+    original_io_get_cache_path = io_utils.get_cache_path
+
+    def _fake_utc_now() -> datetime:
+        return fake_now
+
+    def _fake_utc_date() -> str:
+        return _resolve_cache_date(target_day)
+
+    def _fake_utc_timestamp() -> str:
+        return fake_now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _fake_timestamp_to_ms(dt: datetime) -> int:
+        return int(dt.timestamp() * 1000)
+
+    def _fake_get_cache_path(cache_type: str, date: str | None = None) -> Path:
+        return original_io_get_cache_path(cache_type, date or _resolve_cache_date(target_day))
+
+    pipeline_module.utc_now = _fake_utc_now
+    pipeline_module.timestamp_to_ms = _fake_timestamp_to_ms
+    time_utils.utc_now = _fake_utc_now
+    time_utils.utc_date = _fake_utc_date
+    time_utils.utc_timestamp = _fake_utc_timestamp
+    io_utils.get_cache_path = _fake_get_cache_path
+    try:
+        yield
+    finally:
+        pipeline_module.utc_now = original_pipeline_utc_now
+        pipeline_module.timestamp_to_ms = original_pipeline_timestamp_to_ms
+        time_utils.utc_now = original_time_utils_utc_now
+        time_utils.utc_date = original_time_utils_utc_date
+        time_utils.utc_timestamp = original_time_utils_utc_timestamp
+        io_utils.get_cache_path = original_io_get_cache_path
+
+
 def backfill(args: argparse.Namespace) -> BackfillStats:
     start = _parse_date(args.from_date)
     end = _parse_date(args.to_date)
     if end < start:
         raise ValueError("--to must be >= --from")
 
-    snapshots_dir = Path(args.snapshots_dir) if args.snapshots_dir else Path(
-        load_config(args.config).raw.get("snapshots", {}).get("history_dir", "snapshots/history")
-    )
+    snapshots_dir = _resolve_snapshots_dir(args)
     snapshots_dir.mkdir(parents=True, exist_ok=True)
 
     ohlcv_cache_dir = Path(args.ohlcv_cache_dir)
 
     stats = BackfillStats()
+
+    if args.strict_missing:
+        _preflight_requirements(args=args, start=start, end=end, snapshots_dir=snapshots_dir, ohlcv_cache_dir=ohlcv_cache_dir)
 
     for day in _daterange(start, end):
         run_date = day.isoformat()
@@ -205,6 +268,7 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
             scanned=stats.scanned + 1,
             created=stats.created,
             skipped_existing=stats.skipped_existing,
+            missing=stats.missing,
         )
 
         if snapshot_path.exists():
@@ -214,8 +278,10 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
                 scanned=stats.scanned,
                 created=stats.created,
                 skipped_existing=stats.skipped_existing + 1,
+                missing=stats.missing,
             )
             continue
+
 
         if args.mode == "minimal":
             features = _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=run_date)
@@ -244,6 +310,7 @@ def backfill(args: argparse.Namespace) -> BackfillStats:
             scanned=stats.scanned,
             created=stats.created + 1,
             skipped_existing=stats.skipped_existing,
+            missing=stats.missing,
         )
 
     return stats
@@ -256,6 +323,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=["minimal", "full"], default="minimal")
     parser.add_argument("--dry-run", action="store_true", help="Do not write files")
     parser.add_argument("--strict-existing", action="store_true", help="Fail if any target date already has a snapshot")
+    parser.add_argument("--strict-missing", action="store_true", help="Preflight dates and fail atomically before writes if any target snapshot is missing")
     parser.add_argument("--config", default="config/config.yml", help="Path to scanner config (used for snapshots dir and full mode)")
     parser.add_argument("--snapshots-dir", default=None, help="Override snapshots history directory")
     parser.add_argument(
@@ -275,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    print(f"mode={args.mode} scanned={stats.scanned} created={stats.created} skipped_existing={stats.skipped_existing}")
+    print(f"mode={args.mode} scanned={stats.scanned} created={stats.created} skipped_existing={stats.skipped_existing} missing={stats.missing}")
     return 0
 
 

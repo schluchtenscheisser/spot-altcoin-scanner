@@ -109,3 +109,75 @@ def test_backfill_strict_missing_exits_nonzero(tmp_path: Path):
 
     assert result.returncode != 0
     assert "Missing" in result.stderr
+
+
+def test_backfill_missing_btc_features_sets_null_status(tmp_path: Path):
+    snapshots_dir = tmp_path / "snapshots" / "history"
+    path = snapshots_dir / "2026-02-01.json"
+    _write_snapshot(path, _base_snapshot(version="1.0", btc_1d=None))
+
+    rc = tool.main([
+        "--from",
+        "2026-02-01",
+        "--to",
+        "2026-02-01",
+        "--snapshots-dir",
+        str(snapshots_dir),
+    ])
+
+    assert rc == 0
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["meta"]["version"] == "1.1"
+    assert payload["meta"]["btc_regime"] is None
+    assert payload["meta"]["btc_regime_status"] == "missing_btc_features"
+
+
+def test_backfill_strict_missing_is_atomic(tmp_path: Path):
+    snapshots_dir = tmp_path / "snapshots" / "history"
+    path = snapshots_dir / "2026-02-01.json"
+    _write_snapshot(path, _base_snapshot(version="1.0", btc_1d={"close": 110, "ema_20": 105, "ema_50": 100}))
+    before = path.read_text(encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scanner.tools.backfill_btc_regime",
+            "--from",
+            "2026-02-01",
+            "--to",
+            "2026-02-02",
+            "--strict-missing",
+            "--snapshots-dir",
+            str(snapshots_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing" in result.stderr
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_backfill_uses_snapshot_dir_fallback(tmp_path: Path):
+    snapshot_dir = tmp_path / "my_snapshots"
+    history_dir = snapshot_dir / "history"
+    path = history_dir / "2026-02-01.json"
+    _write_snapshot(path, _base_snapshot(version="1.0", btc_1d={"close": 110, "ema_20": 105, "ema_50": 100}))
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text(f"snapshots:\n  snapshot_dir: \"{snapshot_dir.as_posix()}\"\n", encoding="utf-8")
+
+    rc = tool.main([
+        "--from",
+        "2026-02-01",
+        "--to",
+        "2026-02-01",
+        "--config",
+        str(config_path),
+    ])
+
+    assert rc == 0
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["meta"]["btc_regime"]["state"] == "RISK_ON"

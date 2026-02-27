@@ -19,6 +19,25 @@ logger = logging.getLogger(__name__)
 class SnapshotManager:
     """Manages daily pipeline snapshots."""
     
+    @staticmethod
+    def resolve_history_dir(config: Dict[str, Any]) -> Path:
+        """Resolve the snapshot history directory from config with fallback semantics."""
+        if hasattr(config, 'raw'):
+            snapshot_config = config.raw.get('snapshots', {})
+        else:
+            snapshot_config = config.get('snapshots', {})
+
+        history_dir = snapshot_config.get('history_dir')
+        if history_dir:
+            return Path(history_dir)
+
+        snapshot_dir = snapshot_config.get('snapshot_dir')
+        if snapshot_dir:
+            base = Path(snapshot_dir)
+            return base if base.name == 'history' else (base / 'history')
+
+        return Path('snapshots/history')
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize snapshot manager.
@@ -26,17 +45,7 @@ class SnapshotManager:
         Args:
             config: Config dict with 'snapshots' section
         """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            snapshot_config = config.raw.get('snapshots', {})
-        else:
-            snapshot_config = config.get('snapshots', {})
-        
-        self.snapshots_dir = Path(
-            snapshot_config.get('history_dir')
-            or snapshot_config.get('snapshot_dir')
-            or 'snapshots/history'
-        )
+        self.snapshots_dir = self.resolve_history_dir(config)
 
         # Ensure directory exists
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)

@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## 2026-02-27__05_P1__backfill_tools_atomicity_time_sources_snapshot_path.md
 
 ### Title
