@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## 2026-02-27__04_P1__liquidity_fetch_payload_semantics_alignment.md
 
 ### Title

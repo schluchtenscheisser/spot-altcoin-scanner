@@ -7,7 +7,7 @@ class _DummyMexc:
 
     def get_orderbook(self, symbol, limit=200):
         self.calls.append((symbol, limit))
-        return {"symbol": symbol, "bids": [], "asks": []}
+        return {"symbol": symbol, "bids": [["99", "10"]], "asks": [["101", "10"]]}
 
 
 class _DummyMexcWithOneFailure:
@@ -19,7 +19,7 @@ class _DummyMexcWithOneFailure:
         self.calls.append((symbol, limit))
         if symbol == self.failing_symbol:
             raise RuntimeError("simulated orderbook failure")
-        return {"symbol": symbol, "bids": [], "asks": []}
+        return {"symbol": symbol, "bids": [["99", "10"]], "asks": [["101", "10"]]}
 
 
 def test_select_top_k_for_orderbook_uses_proxy_liquidity_score_desc():

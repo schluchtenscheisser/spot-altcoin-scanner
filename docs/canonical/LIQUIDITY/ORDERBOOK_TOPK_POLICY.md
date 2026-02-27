@@ -36,6 +36,8 @@ Orderbook-Fetch ist teuer. Canonical Policy:
 
 ## 5) Fetch payload semantics & failure isolation
 - Per-symbol orderbook fetch failures MUST NOT fail the whole run (failure isolation).
-- The returned orderbook map contains only symbols with a successfully fetched payload of type `dict`.
-- Symbols with missing keys or non-`dict` payloads are treated as `missing orderbook` downstream.
+- The returned orderbook map contains only symbols with a successfully fetched and **validated** payload.
+- Validation for map inclusion is strict: payload is `dict`, includes `bids` and `asks`, and both are non-empty lists.
+- Non-`dict` payloads or dict payloads with missing/empty `bids`/`asks` MUST be ignored at fetch stage and logged as malformed payload.
+- Downstream, symbols without validated payload are treated as `missing orderbook`: `spread_bps=null`, `slippage_bps=null`, `liquidity_grade="D"`, `liquidity_insufficient=true`.
 - `missing orderbook` => slippage missing => worst-case handling in re-rank per `RE_RANK_RULE.md`.

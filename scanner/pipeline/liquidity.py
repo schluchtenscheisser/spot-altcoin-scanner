@@ -44,7 +44,7 @@ def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> 
 
 
 def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch orderbooks for Top-K symbols and return mapping symbol->payload for fetched snapshots."""
+    """Fetch Top-K orderbooks and keep only validated payloads in mapping symbol->orderbook."""
     top_k = get_orderbook_top_k(config)
     selected = select_top_k_for_orderbook(candidates, top_k)
 
@@ -55,7 +55,16 @@ def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]
         if not symbol:
             continue
         try:
-            payload[symbol] = mexc_client.get_orderbook(symbol)
+            fetched = mexc_client.get_orderbook(symbol)
+            if not isinstance(fetched, dict):
+                logger.debug("Malformed orderbook payload ignored for %s: non-dict", symbol)
+                continue
+            bids = fetched.get("bids")
+            asks = fetched.get("asks")
+            if not isinstance(bids, list) or not bids or not isinstance(asks, list) or not asks:
+                logger.debug("Malformed orderbook payload ignored for %s: missing/empty bids or asks", symbol)
+                continue
+            payload[symbol] = fetched
         except Exception as exc:
             logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
     return payload
@@ -173,8 +182,8 @@ def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderb
                 {
                     "spread_bps": None,
                     "slippage_bps": None,
-                    "liquidity_grade": None,
-                    "liquidity_insufficient": None,
+                    "liquidity_grade": "D",
+                    "liquidity_insufficient": True,
                 }
             )
         out.append(r)

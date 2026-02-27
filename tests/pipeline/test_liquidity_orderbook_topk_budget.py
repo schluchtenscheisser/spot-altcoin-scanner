@@ -31,5 +31,5 @@ def test_topk_budget_does_not_insert_none_orderbooks_and_does_not_crash():
     assert by_symbol["D"]["liquidity_grade"] in {"A", "B", "C", "D"}
     assert by_symbol["A"]["spread_bps"] is None
     assert by_symbol["A"]["slippage_bps"] is None
-    assert by_symbol["A"]["liquidity_grade"] is None
-    assert by_symbol["A"]["liquidity_insufficient"] is None
+    assert by_symbol["A"]["liquidity_grade"] == "D"
+    assert by_symbol["A"]["liquidity_insufficient"] is True
