@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P2] Tool: Backfill missing snapshots (by date range) — default minimal, optional --full
 
