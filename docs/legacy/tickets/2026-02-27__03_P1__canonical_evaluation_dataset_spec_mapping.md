@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Canonical: Evaluation Dataset JSONL Spec + Snapshot Field Mapping
 
