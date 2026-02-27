@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Implement: scanner/backtest/e2_model.py gemäß Canonical MODEL_E2 + Tests
 
