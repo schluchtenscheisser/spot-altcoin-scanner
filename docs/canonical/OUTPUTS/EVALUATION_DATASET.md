@@ -55,9 +55,13 @@ Missing scoring lists rule:
 
 ### 3.1 `run_id`
 Default derivation:
-- Source: `snapshot.meta.asof_iso` (UTC RFC3339, e.g. `2026-02-27T00:00:00Z`)
-- Transform: `YYYY-MM-DD_HHMMZ`
-- Example: `2026-02-27_0000Z`
+- Source: exporter wall-clock at export start (`UTC now`)
+- Format: `YYYY-MM-DD_HHMMZ`
+- Example: `2026-02-27_0005Z`
+
+Scope:
+- `run_id` is file-scope (one JSONL export = one `run_id`).
+- All candidate rows MUST reuse the same file-scope `run_id`.
 
 Override:
 - A CLI/runtime override may replace derived `run_id`.
@@ -110,7 +114,7 @@ Required outcome fields on each candidate record:
 - `entry_price`
 - `hit_10` (always present)
 - `hit_20` (always present)
-- `hits` (object with string keys like `"5"`, `"10"`, `"20"` and boolean values)
+- `hits` (object with string keys like `"5"`, `"10"`, `"20"` and nullable boolean values)
 - `mfe_pct`
 - `mae_pct`
 
@@ -122,9 +126,11 @@ Required outcome fields on each candidate record:
 ```json
 {
   "type": "meta",
-  "run_id": "2026-02-27_0000Z",
+  "run_id": "2026-02-27_0005Z",
+  "export_run_id": "2026-02-27_0005Z",
   "exported_at_iso": "2026-02-27T00:05:10Z",
   "source_snapshot_count": 31,
+  "source_snapshot_dates": ["2026-01-28", "...", "2026-02-27"],
   "thresholds_pct": [10, 20],
   "notes": null
 }
@@ -134,8 +140,8 @@ Required outcome fields on each candidate record:
 ```json
 {
   "type": "candidate_setup",
-  "record_id": "2026-02-27_0000Z:2026-02-15:ABCUSDT:breakout:breakout_retest_1_5d",
-  "run_id": "2026-02-27_0000Z",
+  "record_id": "2026-02-27_0005Z:2026-02-15:ABCUSDT:breakout:breakout_retest_1_5d",
+  "run_id": "2026-02-27_0005Z",
   "t0_date": "2026-02-15",
   "symbol": "ABCUSDT",
   "setup_type": "breakout",
@@ -167,7 +173,7 @@ Required outcome fields on each candidate record:
 |---|---|---:|:---:|
 | `type` | Constant `"candidate_setup"` | string | no |
 | `record_id` | `"{run_id}:{t0_date}:{symbol}:{setup_type}:{setup_id}"` | string | no |
-| `run_id` | Derived from `snapshot.meta.asof_iso` as `YYYY-MM-DD_HHMMZ` unless override is provided | string | no |
+| `run_id` | File-scope export identifier: CLI override or derived once from export start UTC as `YYYY-MM-DD_HHMMZ` | string | no |
 | `t0_date` | `snapshot.meta.date` | string (`YYYY-MM-DD`) | no |
 | `symbol` | `scoring_entry.symbol` | string | no |
 | `setup_type` | Iteration context (`reversal` for `scoring.reversals`, `breakout` for `scoring.breakouts`, `pullback` for `scoring.pullbacks`) | string | no |
@@ -186,9 +192,9 @@ Required outcome fields on each candidate record:
 | `t_trigger_date` | Recomputed E2 trigger date | string (`YYYY-MM-DD`) | yes |
 | `t_trigger_day_offset` | Recomputed E2 offset from `t0_date` | integer | yes |
 | `entry_price` | Recomputed E2 entry price | number | yes |
-| `hit_10` | Recomputed E2 hit for threshold 10% | boolean | no |
-| `hit_20` | Recomputed E2 hit for threshold 20% | boolean | no |
-| `hits` | Recomputed E2 threshold map (string threshold -> boolean) | object | no |
+| `hit_10` | Recomputed E2 hit for threshold 10% | boolean | yes |
+| `hit_20` | Recomputed E2 hit for threshold 20% | boolean | yes |
+| `hits` | Recomputed E2 threshold map (string threshold -> nullable boolean) | object | no |
 | `mfe_pct` | Recomputed E2 MFE in percent | number | yes |
 | `mae_pct` | Recomputed E2 MAE in percent | number | yes |
 

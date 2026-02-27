@@ -54,6 +54,39 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-27 — dataset_schema_version 1.0 → 1.1 — Evaluation Dataset run_id file-scope + nullable Hits
+**PR:** (branch-local, ticket/2026-02-27__02_P0__evaluation_dataset_run_id_and_hits_consistency)  
+**Typ:** semantisch
+
+#### Was hat sich geändert?
+- Evaluation-Dataset-Exporter erhöht `dataset_schema_version` auf `"1.1"`.
+- `run_id` wird standardmäßig einmalig aus Exportzeit (`UTC now`) erzeugt und als file-scope Kennung für alle Zeilen verwendet.
+- Meta-Record enthält zusätzliche Felder `export_run_id` und `source_snapshot_dates`.
+- E2-Hitfelder bleiben nullable (`hit_10`, `hit_20`, `hits[*]`) und werden nicht mehr auf `false` coerced.
+
+#### Warum?
+- Mehrtages-Exporte in einer JSONL benötigen einen stabilen, dateiunabhängigen `run_id` für konsistente `record_id`s.
+- Unevaluable-Fälle (`insufficient_forward_history`) müssen semantisch `null` statt `false` abbilden.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Teilweise.
+- Consumer mit harter Annahme `dataset_schema_version == "1.0"` oder non-null booleans für `hit_*` müssen angepasst werden.
+
+#### Migration / Vorgehen
+- Version via `dataset_schema_version` prüfen.
+- Bei `>=1.1`: `hit_10`/`hit_20` als nullable booleans behandeln und `null` als „nicht evaluierbar“ interpretieren.
+- `run_id` als file-scope behandeln; optional `export_run_id` als Alias lesen.
+
+#### Beispiel (kurz)
+```json
+{
+  "type": "candidate_setup",
+  "hit_10": null,
+  "hit_20": null,
+  "hits": {"10": null, "20": null}
+}
+```
+
 ### 2026-02-27 — Snapshot-Meta v1.0 → v1.1 — `meta.btc_regime` persistiert
 **PR:** (branch-local, ticket/2026-02-27__02_P1__snapshot_persist_btc_regime_version_1_1)  
 **Typ:** additiv
