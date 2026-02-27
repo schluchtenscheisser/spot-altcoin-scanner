@@ -35,6 +35,19 @@ Let:
 - `T_hold_days` default = 10
 - thresholds: `+10%`, `+20%` (configurable list)
 
+### 1.2 Parameter aliases
+Canonical parameter aliases (equivalent names):
+- Trigger window: `T_trigger_max`, `t_trigger_max`, `T_trigger_max_days`, `t_trigger_max_days`
+- Hold window: `T_hold`, `t_hold`, `T_hold_days`, `t_hold_days`
+
+Conflict rule:
+- If multiple aliases for the same parameter are provided with different values, evaluation must fail with a clear `ValueError` (no silent fallback).
+
+Threshold parsing:
+- `thresholds_pct` missing or `null` → use defaults `[10, 20]`.
+- Allowed input types: list/tuple/set of numeric-like values.
+- Scalar values (`int`, `float`, `str`) are invalid and must raise `ValueError` with a clear message (e.g. `thresholds_pct must be list-like or null`).
+
 ### 1.1 Closed-candle rule
 All references to day indices are closed 1D candles only.
 No intraday candles are used in E2 (unless explicitly extended later).
@@ -66,6 +79,8 @@ If a trigger day exists:
 
 Entry validity rule:
 - If `entry_price` is null or `entry_price <= 0`, mark as `invalid_entry_price`.
+- `invalid_entry_price` must only be evaluated when a trigger exists (`t_trigger != null`).
+- If no trigger exists in the trigger window, the reason remains `no_trigger` (unless a higher-precedence reason matches).
 
 Setup-specific trade-level requirements (required input metadata):
 - `breakout` setup:
@@ -112,6 +127,18 @@ If computed, define relative to entry_price, over the same hold window:
 
 If hold_window is empty (insufficient future history):
 - `hit_x`, `mfe_pct`, `mae_pct` are undefined (NaN) and should be reported as insufficient evaluation horizon.
+
+Nullable outcome rule:
+- For `reason` in {
+  `insufficient_forward_history`,
+  `missing_price_series`,
+  `missing_trade_levels`,
+  `invalid_trade_levels`,
+  `invalid_entry_price`,
+  `no_trigger`
+  }
+  all outcome fields remain nullable: `hit_10`, `hit_20`, `hits`, `mfe_pct`, `mae_pct`.
+- For `reason = ok`, `hit_10`, `hit_20`, and entries in `hits` are booleans.
 
 ---
 
