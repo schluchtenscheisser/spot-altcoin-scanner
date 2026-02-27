@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Canonical: MODEL_E2 Reason Codes erweitern + Precedence definieren
 

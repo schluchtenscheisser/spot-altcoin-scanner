@@ -52,6 +52,10 @@ Canonical trigger search:
 If no trigger occurs in that window:
 - Mark as `no_trigger`.
 
+Data availability rule for trigger search window (`t0 .. t0 + T_trigger_max_days`):
+- Missing days or missing single `close[t]` values inside the window are allowed and must be skipped.
+- If there is no single evaluable day in the full search window with numeric `close[t]`, mark as `missing_price_series`.
+
 ---
 
 ## 3) Entry price
@@ -59,6 +63,23 @@ If a trigger day exists:
 - `entry_price = close[t_trigger]`
 
 (If a different entry price policy is used in code, it must be explicitly specified in canonical docs. E2 default is close.)
+
+Entry validity rule:
+- If `entry_price` is null or `entry_price <= 0`, mark as `invalid_entry_price`.
+
+Setup-specific trade-level requirements (required input metadata):
+- `breakout` setup:
+  - requires `trade_levels.entry_trigger` (`numeric > 0`) **or** `trade_levels.breakout_level_20` (`numeric > 0`)
+- `reversal` setup:
+  - requires `trade_levels.entry_trigger` (`numeric > 0`)
+- `pullback` setup:
+  - requires `trade_levels.entry_zone.lower` and `trade_levels.entry_zone.upper`
+  - both must be numeric and `> 0`
+  - must satisfy `lower <= upper`
+
+Trade-level validity classification:
+- `missing_trade_levels`: at least one required field for the setup type is absent.
+- `invalid_trade_levels`: required field exists but is null, non-numeric, `<= 0`, or logically inconsistent (e.g., `lower > upper`).
 
 ---
 
@@ -76,6 +97,10 @@ For each threshold `x` in `thresholds_pct`:
 Canonical notes:
 - The high values are from closed daily candles; this implies the price could have traded above the target intraday, captured by daily high.
 - No lookahead is respected because the evaluation uses only days after the trigger.
+
+Forward history completeness rule (strict):
+- For all days in `hold_window = [t_trigger+1 .. t_trigger+T_hold_days]`, both `high[t]` and `low[t]` must exist and be valid numerics.
+- If any day in the hold window is missing, or `high[t]`/`low[t]` is missing for any day, mark as `insufficient_forward_history`.
 
 ---
 
@@ -97,7 +122,29 @@ Per evaluated setup instance:
 - `entry_price` (or null if no trigger)
 - `hit_10` / `hit_20` (or for general thresholds list)
 - optional: `mfe_pct`, `mae_pct`
-- `reason` in {"ok", "no_trigger", "insufficient_forward_history"}
+- `reason` in {
+  - `ok`
+  - `no_trigger`
+  - `insufficient_forward_history`
+  - `missing_price_series`
+  - `invalid_entry_price`
+  - `missing_trade_levels`
+  - `invalid_trade_levels`
+}
+
+Reason precedence (exactly one final `reason` value per evaluated setup):
+1. `missing_price_series`
+2. `invalid_entry_price`
+3. `missing_trade_levels`
+4. `invalid_trade_levels`
+5. `no_trigger`
+6. `insufficient_forward_history`
+7. `ok`
+
+Normative interpretation of precedence:
+- Apply checks in the listed order and assign the first matching reason.
+- `no_trigger` is valid only if no higher-priority data-quality/validity reason matched.
+- `ok` is valid only if a trigger was found and the strict forward history rule is satisfied.
 
 ---
 
