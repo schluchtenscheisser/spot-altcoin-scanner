@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## 2026-02-27__01_P0__e2_spec_and_impl_corrections.md
 
 ### Title

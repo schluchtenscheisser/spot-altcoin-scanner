@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, Mapping, Optional, Sequence
+from collections.abc import Iterable
+from typing import Any, Dict, Mapping, Optional
 
 
 DEFAULT_T_TRIGGER_MAX = 5
@@ -30,8 +31,15 @@ def _parse_date(value: str) -> Optional[date]:
         return None
 
 
-def _resolve_thresholds(params: Mapping[str, Any]) -> list[float]:
-    raw = params.get("thresholds_pct", DEFAULT_THRESHOLDS_PCT)
+def _resolve_thresholds(thresholds_pct: Any) -> list[float]:
+    if thresholds_pct is None:
+        raw = DEFAULT_THRESHOLDS_PCT
+    else:
+        raw = thresholds_pct
+
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, Iterable):
+        raise ValueError("thresholds_pct must be list-like or null")
+
     resolved: set[float] = set()
     for value in raw:
         numeric = _to_float(value)
@@ -41,6 +49,23 @@ def _resolve_thresholds(params: Mapping[str, Any]) -> list[float]:
     resolved.add(10.0)
     resolved.add(20.0)
     return sorted(resolved)
+
+
+def _resolve_param_int(params: Mapping[str, Any], aliases: tuple[str, ...], default: int) -> int:
+    values: list[int] = []
+    for alias in aliases:
+        if alias not in params:
+            continue
+        values.append(int(params[alias]))
+
+    if not values:
+        return default
+
+    if any(value != values[0] for value in values[1:]):
+        alias_list = ", ".join(aliases)
+        raise ValueError(f"Conflicting values for parameter aliases: {alias_list}")
+
+    return values[0]
 
 
 def _trade_level_status(setup_type: str, trade_levels: Mapping[str, Any]) -> tuple[bool, bool]:
@@ -125,9 +150,17 @@ def evaluate_e2_candidate(
     params: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     runtime_params = params or {}
-    t_trigger_max = int(runtime_params.get("T_trigger_max", DEFAULT_T_TRIGGER_MAX))
-    t_hold = int(runtime_params.get("T_hold", DEFAULT_T_HOLD))
-    thresholds = _resolve_thresholds(runtime_params)
+    t_trigger_max = _resolve_param_int(
+        runtime_params,
+        ("T_trigger_max", "t_trigger_max", "T_trigger_max_days", "t_trigger_max_days"),
+        DEFAULT_T_TRIGGER_MAX,
+    )
+    t_hold = _resolve_param_int(
+        runtime_params,
+        ("T_hold", "t_hold", "T_hold_days", "t_hold_days"),
+        DEFAULT_T_HOLD,
+    )
+    thresholds = _resolve_thresholds(runtime_params.get("thresholds_pct"))
 
     hits: Dict[str, Optional[bool]] = {_threshold_key(threshold): None for threshold in thresholds}
 

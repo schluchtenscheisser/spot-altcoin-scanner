@@ -1,3 +1,4 @@
+import pytest
 from scanner.backtest.e2_model import evaluate_e2_candidate
 
 
@@ -145,3 +146,66 @@ def test_e2_insufficient_forward_history_when_hold_window_has_missing_day():
     assert result["reason"] == "insufficient_forward_history"
     assert result["hit_10"] is None
     assert result["hit_20"] is None
+
+
+def test_e2_param_alias_t_hold_applies_window():
+    series = {
+        "2026-02-01": {"close": 100.0, "high": 100.0, "low": 99.0},
+        "2026-02-02": {"close": 105.0, "high": 105.0, "low": 103.0},
+        "2026-02-03": {"close": 106.0, "high": 106.0, "low": 104.0},
+        "2026-02-04": {"close": 107.0, "high": 107.0, "low": 105.0},
+        "2026-02-05": {"close": 108.0, "high": 130.0, "low": 106.0},
+    }
+
+    result_short = evaluate_e2_candidate(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 105.0},
+        price_series=series,
+        params={"T_trigger_max": 1, "T_hold": 2, "thresholds_pct": [20]},
+    )
+    result_alias = evaluate_e2_candidate(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 105.0},
+        price_series=series,
+        params={"t_trigger_max": 1, "t_hold": 3, "thresholds_pct": [20]},
+    )
+
+    assert result_short["hit_20"] is False
+    assert result_alias["hit_20"] is True
+
+
+def test_e2_thresholds_none_uses_defaults():
+    result = evaluate_e2_candidate(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 130.0},
+        price_series=_base_series(),
+        params={"T_trigger_max": 2, "T_hold": 2, "thresholds_pct": None},
+    )
+
+    assert result["reason"] == "no_trigger"
+    assert set(result["hits"].keys()) == {"10", "20"}
+
+
+def test_e2_thresholds_scalar_raises_value_error():
+    with pytest.raises(ValueError, match="thresholds_pct must be list-like or null"):
+        evaluate_e2_candidate(
+            t0_date="2026-02-01",
+            setup_type="breakout",
+            trade_levels={"entry_trigger": 130.0},
+            price_series=_base_series(),
+            params={"thresholds_pct": 10},
+        )
+
+
+def test_e2_conflicting_aliases_raise_value_error():
+    with pytest.raises(ValueError, match="Conflicting values for parameter aliases"):
+        evaluate_e2_candidate(
+            t0_date="2026-02-01",
+            setup_type="breakout",
+            trade_levels={"entry_trigger": 130.0},
+            price_series=_base_series(),
+            params={"T_hold": 2, "t_hold": 3},
+        )
