@@ -75,8 +75,10 @@ jobs:
             "docs/canonical/CONFIGURATION.md",
             "docs/canonical/OUTPUT_SCHEMA.md",
             "docs/canonical/VERIFICATION_FOR_AI.md",
+            "docs/canonical/SCORING/SETUP_VALIDITY_RULES.md",
             "docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md",
             "docs/canonical/SCORING/GLOBAL_RANKING_TOP20.md",
+            "docs/canonical/SCORING/DISCOVERY_TAG.md",
           ]
           for doc in canonical_docs:
             if Path(doc).exists():

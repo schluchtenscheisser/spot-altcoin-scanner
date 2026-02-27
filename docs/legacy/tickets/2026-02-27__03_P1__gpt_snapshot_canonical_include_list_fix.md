@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## 2026-02-27__03_P1__gpt_snapshot_canonical_include_list_fix.md
 
 ### Title
