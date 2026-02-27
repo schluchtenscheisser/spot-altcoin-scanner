@@ -23,9 +23,11 @@ def _load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def test_export_meta_and_candidate_count_and_run_id_derivation(tmp_path: Path):
+def test_export_meta_and_candidate_count_and_file_scope_run_id(tmp_path: Path, monkeypatch):
     snapshots_dir = _copy_snapshots(tmp_path)
     output_dir = tmp_path / "datasets" / "eval"
+
+    monkeypatch.setattr(exporter, "_utc_now_iso", lambda: "2026-02-10T11:22:33Z")
 
     rc = exporter.main([
         "--from",
@@ -39,15 +41,18 @@ def test_export_meta_and_candidate_count_and_run_id_derivation(tmp_path: Path):
     ])
 
     assert rc == 0
-    out = output_dir / "eval_2026-02-03_0123Z.jsonl"
+    out = output_dir / "eval_2026-02-10_1122Z.jsonl"
     rows = _load_jsonl(out)
     assert rows[0]["type"] == "meta"
-    assert rows[0]["run_id"] == "2026-02-03_0123Z"
+    assert rows[0]["run_id"] == "2026-02-10_1122Z"
+    assert rows[0]["export_run_id"] == "2026-02-10_1122Z"
+    assert rows[0]["source_snapshot_dates"] == ["2026-02-01", "2026-02-02", "2026-02-03"]
     assert rows[0]["source_snapshot_count"] == 3
 
     candidates = [r for r in rows[1:] if r["type"] == "candidate_setup"]
     # day1: 22 setups, day2: 1 setup, day3: 0
     assert len(candidates) == 23
+    assert {candidate["run_id"] for candidate in candidates} == {"2026-02-10_1122Z"}
 
 
 def test_export_ordering_btc_regime_and_global_rank_top20_only(tmp_path: Path):
@@ -132,8 +137,8 @@ def test_golden_jsonl_output(tmp_path: Path, monkeypatch):
 
     content = (output_dir / "eval_RID.jsonl").read_text(encoding="utf-8")
     expected = "\n".join([
-        '{"type":"meta","run_id":"RID","from_date":"2026-02-02","to_date":"2026-02-02","exported_at_iso":"2026-02-10T00:00:00Z","source_snapshot_count":1,"thresholds_pct":[10.0,20.0],"T_hold":10,"T_trigger_max":5,"dataset_schema_version":"1.0","notes":null}',
-        '{"asof_iso":"2026-02-02T00:00:00Z","asof_ts_ms":1770086400000,"btc_regime":null,"entry_price":10.0,"global_rank":1,"hit_10":false,"hit_20":false,"hits":{"10":false,"20":false},"liquidity_grade":"C","mae_pct":null,"market_cap_usd":1234,"mfe_pct":null,"quote_volume_24h_usd":4567,"reason":"insufficient_forward_history","record_id":"RID:2026-02-02:PULLUSDT:pullback:pb_test","run_id":"RID","score":55.5,"setup_id":"pb_test","setup_rank":1,"setup_type":"pullback","snapshot_version":"1.1","symbol":"PULLUSDT","t0_date":"2026-02-02","t_trigger_date":"2026-02-02","t_trigger_day_offset":0,"type":"candidate_setup"}',
+        '{"type":"meta","run_id":"RID","from_date":"2026-02-02","to_date":"2026-02-02","exported_at_iso":"2026-02-10T00:00:00Z","export_run_id":"RID","source_snapshot_count":1,"source_snapshot_dates":["2026-02-02"],"thresholds_pct":[10.0,20.0],"T_hold":10,"T_trigger_max":5,"dataset_schema_version":"1.1","notes":null}',
+        '{"asof_iso":"2026-02-02T00:00:00Z","asof_ts_ms":1770086400000,"btc_regime":null,"entry_price":10.0,"global_rank":1,"hit_10":null,"hit_20":null,"hits":{"10":null,"20":null},"liquidity_grade":"C","mae_pct":null,"market_cap_usd":1234,"mfe_pct":null,"quote_volume_24h_usd":4567,"reason":"insufficient_forward_history","record_id":"RID:2026-02-02:PULLUSDT:pullback:pb_test","run_id":"RID","score":55.5,"setup_id":"pb_test","setup_rank":1,"setup_type":"pullback","snapshot_version":"1.1","symbol":"PULLUSDT","t0_date":"2026-02-02","t_trigger_date":"2026-02-02","t_trigger_day_offset":0,"type":"candidate_setup"}',
         "",
     ])
 

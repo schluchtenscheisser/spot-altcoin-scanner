@@ -16,7 +16,7 @@ from scanner.backtest.e2_model import (
 from scanner.config import load_config
 from scanner.pipeline.global_ranking import compute_global_top20
 
-DATASET_SCHEMA_VERSION = "1.0"
+DATASET_SCHEMA_VERSION = "1.1"
 
 
 def _parse_date(value: str) -> date:
@@ -30,8 +30,8 @@ def _daterange(start: date, end: date) -> Iterable[date]:
         current += timedelta(days=1)
 
 
-def _run_id_from_asof(asof_iso: str) -> str:
-    dt = datetime.strptime(asof_iso, "%Y-%m-%dT%H:%M:%SZ")
+def _run_id_from_export_time(exported_at_iso: str) -> str:
+    dt = datetime.strptime(exported_at_iso, "%Y-%m-%dT%H:%M:%SZ")
     return dt.strftime("%Y-%m-%d_%H%MZ")
 
 
@@ -115,9 +115,8 @@ def export_dataset(args: argparse.Namespace) -> Path:
     if not snapshots:
         raise ValueError("No snapshots loaded for requested range")
 
-    run_id = args.run_id
-    if not run_id:
-        run_id = _run_id_from_asof(snapshots[-1].get("meta", {}).get("asof_iso"))
+    exported_at_iso = _utc_now_iso()
+    run_id = args.run_id or _run_id_from_export_time(exported_at_iso)
 
     price_series_by_symbol = _build_price_series_by_symbol(snapshots)
 
@@ -185,9 +184,9 @@ def export_dataset(args: argparse.Namespace) -> Path:
                     "t_trigger_date": e2.get("t_trigger_date"),
                     "t_trigger_day_offset": e2.get("t_trigger_day_offset"),
                     "entry_price": e2.get("entry_price"),
-                    "hit_10": bool(e2.get("hit_10")),
-                    "hit_20": bool(e2.get("hit_20")),
-                    "hits": {k: bool(v) for k, v in (e2.get("hits") or {}).items()},
+                    "hit_10": e2.get("hit_10"),
+                    "hit_20": e2.get("hit_20"),
+                    "hits": e2.get("hits"),
                     "mfe_pct": e2.get("mfe_pct"),
                     "mae_pct": e2.get("mae_pct"),
                 }
@@ -198,9 +197,6 @@ def export_dataset(args: argparse.Namespace) -> Path:
                     "asof_iso",
                     "score",
                     "reason",
-                    "hit_10",
-                    "hit_20",
-                    "hits",
                 ]
                 for required in required_non_nullable:
                     if row.get(required) is None:
@@ -215,8 +211,10 @@ def export_dataset(args: argparse.Namespace) -> Path:
         "run_id": run_id,
         "from_date": start.isoformat(),
         "to_date": end.isoformat(),
-        "exported_at_iso": _utc_now_iso(),
+        "exported_at_iso": exported_at_iso,
+        "export_run_id": run_id,
         "source_snapshot_count": len(snapshots),
+        "source_snapshot_dates": [snapshot.get("meta", {}).get("date") for snapshot in snapshots],
         "thresholds_pct": thresholds_pct,
         "T_hold": t_hold,
         "T_trigger_max": t_trigger_max,
