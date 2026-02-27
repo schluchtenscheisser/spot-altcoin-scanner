@@ -54,6 +54,38 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-27 — Snapshot-Meta v1.0 → v1.1 — `meta.btc_regime` persistiert
+**PR:** (branch-local, ticket/2026-02-27__02_P1__snapshot_persist_btc_regime_version_1_1)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Snapshot-Metadaten wurden von `meta.version: "1.0"` auf `"1.1"` erhöht.
+- Neues optionales Feld in Snapshot-Meta: `meta.btc_regime`.
+- Pipeline übergibt das bereits deterministisch berechnete `btc_regime` unverändert in die Snapshot-Persistenz.
+
+#### Warum?
+- Offline-Reproduzierbarkeit und nachgelagerte Dataset-Exporte benötigen `btc_regime` direkt im Snapshot, ohne zusätzliche API-Calls oder Re-Computing.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Alte Snapshots ohne `meta.btc_regime` bleiben gültig und lesbar; Consumer müssen das Feld optional behandeln.
+
+#### Migration / Vorgehen
+- Neue Snapshots über `meta.version == "1.1"` erkennen.
+- Bei älteren Snapshots (`1.0`) `meta.btc_regime` als `null`/fehlend behandeln.
+
+#### Beispiel (kurz)
+```json
+{
+  "meta": {
+    "version": "1.1",
+    "btc_regime": {
+      "state": "RISK_ON"
+    }
+  }
+}
+```
+
 ### 2026-02-26 — schema_version v1.8 → v1.9 — Discovery-Outputfelder versioniert + Snapshot-Scoring abgesichert
 **PR:** (branch-local, ticket/schema_versioning_and_scoring_snapshot_docs)  
 **Typ:** additiv

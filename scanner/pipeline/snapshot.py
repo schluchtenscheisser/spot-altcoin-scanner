@@ -78,7 +78,7 @@ class SnapshotManager:
             'meta': {
                 'date': run_date,
                 'created_at': datetime.utcnow().isoformat() + 'Z',
-                'version': '1.0'
+                'version': '1.1'
             },
             'pipeline': {
                 'universe_count': len(universe),

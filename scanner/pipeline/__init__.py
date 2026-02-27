@@ -296,6 +296,7 @@ def run_pipeline(config: ScannerConfig) -> None:
             'mode': run_mode,
             'asof_ts_ms': asof_ts_ms,
             'asof_iso': asof_iso,
+            'btc_regime': btc_regime,
         }
     )
     logger.info(f"✓ Snapshot: {snapshot_path}")

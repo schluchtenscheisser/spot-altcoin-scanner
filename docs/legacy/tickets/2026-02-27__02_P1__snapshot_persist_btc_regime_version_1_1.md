@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Snapshot: meta.btc_regime persistieren + snapshot.version auf 1.1 bumpen
 
