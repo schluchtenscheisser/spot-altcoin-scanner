@@ -1,0 +1,416 @@
+{
+  "meta": {
+    "date": "2026-02-01",
+    "version": "1.1",
+    "asof_ts_ms": 1770000000000,
+    "asof_iso": "2026-02-01T00:00:00Z",
+    "btc_regime": "range"
+  },
+  "data": {
+    "features": {
+      "S01USDT": {
+        "market_cap": 1000001,
+        "quote_volume_24h": 2000001,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S02USDT": {
+        "market_cap": 1000002,
+        "quote_volume_24h": 2000002,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S03USDT": {
+        "market_cap": 1000003,
+        "quote_volume_24h": 2000003,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S04USDT": {
+        "market_cap": 1000004,
+        "quote_volume_24h": 2000004,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S05USDT": {
+        "market_cap": 1000005,
+        "quote_volume_24h": 2000005,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S06USDT": {
+        "market_cap": 1000006,
+        "quote_volume_24h": 2000006,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S07USDT": {
+        "market_cap": 1000007,
+        "quote_volume_24h": 2000007,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S08USDT": {
+        "market_cap": 1000008,
+        "quote_volume_24h": 2000008,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S09USDT": {
+        "market_cap": 1000009,
+        "quote_volume_24h": 2000009,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S10USDT": {
+        "market_cap": 1000010,
+        "quote_volume_24h": 2000010,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S11USDT": {
+        "market_cap": 1000011,
+        "quote_volume_24h": 2000011,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S12USDT": {
+        "market_cap": 1000012,
+        "quote_volume_24h": 2000012,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S13USDT": {
+        "market_cap": 1000013,
+        "quote_volume_24h": 2000013,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S14USDT": {
+        "market_cap": 1000014,
+        "quote_volume_24h": 2000014,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S15USDT": {
+        "market_cap": 1000015,
+        "quote_volume_24h": 2000015,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S16USDT": {
+        "market_cap": 1000016,
+        "quote_volume_24h": 2000016,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S17USDT": {
+        "market_cap": 1000017,
+        "quote_volume_24h": 2000017,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S18USDT": {
+        "market_cap": 1000018,
+        "quote_volume_24h": 2000018,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S19USDT": {
+        "market_cap": 1000019,
+        "quote_volume_24h": 2000019,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S20USDT": {
+        "market_cap": 1000020,
+        "quote_volume_24h": 2000020,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "S21USDT": {
+        "market_cap": 1000021,
+        "quote_volume_24h": 2000021,
+        "liquidity_grade": "A",
+        "1d": {
+          "close": 100.0,
+          "high": 101.0,
+          "low": 99.0
+        }
+      },
+      "REVUSDT": {
+        "market_cap": 999,
+        "quote_volume_24h": 888,
+        "liquidity_grade": "B",
+        "1d": {
+          "close": 50.0,
+          "high": 50.0,
+          "low": 49.0
+        }
+      }
+    }
+  },
+  "scoring": {
+    "reversals": [
+      {
+        "symbol": "REVUSDT",
+        "setup_id": "rev_base",
+        "score": 77.0,
+        "trade_levels": {
+          "entry_trigger": 45.0
+        }
+      }
+    ],
+    "breakouts": [
+      {
+        "symbol": "S01USDT",
+        "setup_id": "breakout_retest_1_5d",
+        "score": 99.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S02USDT",
+        "setup_id": "breakout_2",
+        "score": 98.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S03USDT",
+        "setup_id": "breakout_3",
+        "score": 97.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S04USDT",
+        "setup_id": "breakout_4",
+        "score": 96.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S05USDT",
+        "setup_id": "breakout_5",
+        "score": 95.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S06USDT",
+        "setup_id": "breakout_6",
+        "score": 94.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S07USDT",
+        "setup_id": "breakout_7",
+        "score": 93.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S08USDT",
+        "setup_id": "breakout_8",
+        "score": 92.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S09USDT",
+        "setup_id": "breakout_9",
+        "score": 91.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S10USDT",
+        "setup_id": "breakout_10",
+        "score": 90.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S11USDT",
+        "setup_id": "breakout_11",
+        "score": 89.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S12USDT",
+        "setup_id": "breakout_12",
+        "score": 88.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S13USDT",
+        "setup_id": "breakout_13",
+        "score": 87.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S14USDT",
+        "setup_id": "breakout_14",
+        "score": 86.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S15USDT",
+        "setup_id": "breakout_15",
+        "score": 85.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S16USDT",
+        "setup_id": "breakout_16",
+        "score": 84.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S17USDT",
+        "setup_id": "breakout_17",
+        "score": 83.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S18USDT",
+        "setup_id": "breakout_18",
+        "score": 82.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S19USDT",
+        "setup_id": "breakout_19",
+        "score": 81.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S20USDT",
+        "setup_id": "breakout_20",
+        "score": 80.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      },
+      {
+        "symbol": "S21USDT",
+        "setup_id": "breakout_21",
+        "score": 79.0,
+        "trade_levels": {
+          "entry_trigger": 100.0
+        }
+      }
+    ],
+    "pullbacks": []
+  }
+}

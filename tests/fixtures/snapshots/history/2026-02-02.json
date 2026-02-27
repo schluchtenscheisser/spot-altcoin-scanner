@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "date": "2026-02-02",
+    "version": "1.1",
+    "asof_ts_ms": 1770086400000,
+    "asof_iso": "2026-02-02T00:00:00Z"
+  },
+  "data": {
+    "features": {
+      "PULLUSDT": {
+        "market_cap": 1234,
+        "quote_volume_24h": 4567,
+        "liquidity_grade": "C",
+        "1d": {
+          "close": 10.0,
+          "high": 10.2,
+          "low": 9.8
+        }
+      }
+    }
+  },
+  "scoring": {
+    "reversals": [],
+    "breakouts": [],
+    "pullbacks": [
+      {
+        "symbol": "PULLUSDT",
+        "setup_id": "pb_test",
+        "score": 55.5,
+        "trade_levels": {
+          "entry_zone": {
+            "lower": 9.0,
+            "upper": 11.0
+          }
+        }
+      }
+    ]
+  }
+}

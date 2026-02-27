@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "date": "2026-02-03",
+    "version": "1.1",
+    "asof_ts_ms": 1770172800000,
+    "asof_iso": "2026-02-03T01:23:00Z",
+    "btc_regime": "uptrend"
+  },
+  "data": {
+    "features": {
+      "PULLUSDT": {
+        "1d": {
+          "close": 10.5,
+          "high": 11.5,
+          "low": 10.0
+        }
+      },
+      "S01USDT": {
+        "1d": {
+          "close": 110.0,
+          "high": 121.0,
+          "low": 105.0
+        }
+      },
+      "REVUSDT": {
+        "1d": {
+          "close": 60.0,
+          "high": 61.0,
+          "low": 59.0
+        }
+      }
+    }
+  },
+  "scoring": {
+    "reversals": [],
+    "breakouts": [],
+    "pullbacks": []
+  }
+}
