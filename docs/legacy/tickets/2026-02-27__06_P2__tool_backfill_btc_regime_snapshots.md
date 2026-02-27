@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P2] Tool: Backfill btc_regime in historischen Snapshots (date range)
 
