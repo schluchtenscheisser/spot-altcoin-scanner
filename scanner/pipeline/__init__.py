@@ -86,6 +86,17 @@ def _build_scoring_volume_maps(shortlist, root_config):
     return volume_map, volume_source_map
 
 
+
+
+def _enrich_scored_entries_with_market_activity(entries, features):
+    for entry in entries:
+        symbol = entry.get('symbol')
+        feature_row = features.get(symbol, {}) if symbol else {}
+        entry['global_volume_24h_usd'] = feature_row.get('global_volume_24h_usd')
+        entry['turnover_24h'] = feature_row.get('turnover_24h')
+        entry['mexc_share_24h'] = feature_row.get('mexc_share_24h')
+    return entries
+
 def run_pipeline(config: ScannerConfig) -> None:
     """
     Orchestrates the full daily pipeline:
@@ -336,8 +347,14 @@ def run_pipeline(config: ScannerConfig) -> None:
         pullback_results=pullback_results,
         config=config.raw,
     )
+
+    reversal_results = _enrich_scored_entries_with_market_activity(reversal_results, features)
+    breakout_results = _enrich_scored_entries_with_market_activity(breakout_results, features)
+    pullback_results = _enrich_scored_entries_with_market_activity(pullback_results, features)
+    global_top20 = _enrich_scored_entries_with_market_activity(global_top20, features)
+
     logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
-    
+
     # Step 11: Write reports (Markdown + JSON + Excel)
     logger.info("\n[11/12] Generating reports...")
     report_gen = ReportGenerator(config.raw)

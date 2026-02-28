@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket Template (for AI-generated tickets)
 
 > Place new tickets in `docs/tickets/`.
