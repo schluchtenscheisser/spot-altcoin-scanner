@@ -117,16 +117,20 @@ Wichtig:
 
 ---
 
-## 5) Trigger-Definition (4H “fresh window”)
+## 5) Trigger-Definition (4H lookback window)
 
-### 5.1 Fresh Trigger Window (4H)
+### 5.1 Trigger Window (4H)
 Sei `t4h` der Index der letzten abgeschlossenen 4H Candle.
 
-Das Trigger-Fenster umfasst die letzten 6 abgeschlossenen 4H Candles:
-- Window: `[t4h-5 .. t4h]`
+Das Trigger-Fenster umfasst die letzten `N` abgeschlossenen 4H Candles mit
+- `N = trigger_4h_lookback_bars`
+- canonical default: `N = 30` (≈ 5 Tage)
+
+Window:
+- `[t4h-(N-1) .. t4h]`
 
 ### 5.2 Trigger Condition
-- `triggered = any(close_4h[i] > high_20d_1d for i in [t4h-5 .. t4h])`
+- `triggered = any(close_4h[i] > high_20d_1d for i in [t4h-(N-1) .. t4h])`
 
 Wenn `triggered == false`:
 - Setup ist **invalid** (nicht in Top-Listen).
@@ -141,9 +145,14 @@ Wenn `triggered == false`:
 - `zone_low  = high_20d_1d * (1 - 0.01)`
 - `zone_high = high_20d_1d * (1 + 0.01)`
 
-### 6.2 First breakout index
-Im Trigger Window `[t4h-5 .. t4h]`:
+### 6.2 Breakout-Indizes im Trigger Window
+Im Trigger Window `[t4h-(N-1) .. t4h]`:
 - `first_breakout_idx = first index i where close_4h[i] > high_20d_1d`
+- `last_breakout_idx = last index i where close_4h[i] > high_20d_1d`
+
+Usage:
+- Immediate-Setup verwendet `last_breakout_idx` (jüngster Breakout im 5D-Fenster).
+- Retest-Setup verwendet `first_breakout_idx` als Startpunkt des 12x4H-Fensters.
 
 ### 6.3 Retest Search Window
 Suche in den nächsten 12 abgeschlossenen 4H Candles nach dem ersten Breakout:
@@ -205,13 +214,14 @@ Voraussetzung: Trend Gate ist erfüllt (sonst Setup invalid).
 
 ### 7.4 BB Score (Compression Bonus)
 Input:
-- `r = bb_width_rank_120_4h` in `[0..1]`
+- `r = bb_width_rank_120_4h` im Percent-Scale `[0..100]`
+- Defensive compatibility: wenn `r <= 1.0`, dann `rank_pct = r*100`
 
-Mapping:
-- Wenn `r <= 0.20` → `100`
-- Wenn `0.20 < r <= 0.60` → linear `100 -> 40`:
-  - `100 - (r - 0.20) * (100-40) / (0.60-0.20)`
-- Wenn `r > 0.60` → `0`
+Mapping auf `rank_pct`:
+- Wenn `rank_pct <= 20` → `100`
+- Wenn `20 < rank_pct <= 60` → linear `100 -> 40`:
+  - `100 - (rank_pct - 20) * (100-40) / (60-20)`
+- Wenn `rank_pct > 60` → `0`
 
 ### 7.5 Base Score (fixed weights)
 Fixed weights:
@@ -257,14 +267,10 @@ Wenn `btc_risk_on == true`:
 - `btc_multiplier = 1.0`
 
 Wenn `btc_risk_on == false` (Risk-Off):
-- Kandidat ist nur eligible wenn:
-  - `quote_volume_24h_usd >= 15_000_000`
-  - UND RS override true:
-    - `(alt_r7_1d - btc_r7_1d) >= 7.5` ODER `(alt_r3_1d - btc_r3_1d) >= 3.5`
-- Wenn eligible:
-  - `btc_multiplier = 0.85`
-- Sonst:
-  - setup invalid
+- `rs_override = ((alt_r7_1d - btc_r7_1d) >= 7.5) OR ((alt_r3_1d - btc_r3_1d) >= 3.5)`
+- `liq_ok = quote_volume_24h_usd >= 15_000_000`
+- `btc_multiplier = 0.85` wenn `rs_override AND liq_ok`, sonst `0.75`
+- Kandidat bleibt immer gelistet (kein Hard-Exclude durch BTC-Regime)
 
 ---
 
@@ -288,6 +294,7 @@ Mindestens:
 - ATR: `atr_pct_rank_120_1d`
 - BB: `bb_width_pct_4h`, `bb_width_rank_120_4h`
 - Multipliers: `anti_chase_multiplier`, `overextension_multiplier`, `btc_multiplier`
+- BTC Regime Flags: `btc_state`, `btc_rs_override`, `btc_liq_ok_risk_off`
 - Gates/Flags: `triggered`, `retest_valid`, `retest_invalidated` (wo relevant)
 
 ### 10.3 Dedup (global)

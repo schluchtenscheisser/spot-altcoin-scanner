@@ -100,6 +100,7 @@ scoring:
 
   breakout_trend_1_5d:
     risk_off_min_quote_volume_24h: 15000000
+    trigger_4h_lookback_bars: 30
 
   pullback:
     weights_mode: "compat"

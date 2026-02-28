@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # PR14 — Breakout Trend 1–5D: restore candidate coverage (5D trigger window + Risk-Off listing + BB-rank scaling)
 
 ## Why this PR (critical verification summary)

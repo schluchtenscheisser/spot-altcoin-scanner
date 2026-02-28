@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class BreakoutTrend1to5DScorer:
@@ -11,6 +11,7 @@ class BreakoutTrend1to5DScorer:
         cfg = root.get("scoring", {}).get("breakout_trend_1_5d", {})
 
         self.min_24h_risk_off = float(cfg.get("risk_off_min_quote_volume_24h", 15_000_000))
+        self.trigger_4h_lookback_bars = int(cfg.get("trigger_4h_lookback_bars", 30))
 
     @staticmethod
     def _calc_high_20d_excluding_current(f1d: Dict[str, Any]) -> Optional[float]:
@@ -20,16 +21,15 @@ class BreakoutTrend1to5DScorer:
         window = highs[-21:-1]
         return float(max(window)) if window else None
 
-    @staticmethod
-    def _find_first_breakout_idx(f4h: Dict[str, Any], high_20d_1d: float) -> Optional[int]:
+    def _find_breakout_indices(self, f4h: Dict[str, Any], high_20d_1d: float) -> Optional[Tuple[int, int]]:
         closes = f4h.get("close_series") or []
         if not closes:
             return None
-        start = max(0, len(closes) - 6)
-        for idx in range(start, len(closes)):
-            if float(closes[idx]) > high_20d_1d:
-                return idx
-        return None
+        start = max(0, len(closes) - self.trigger_4h_lookback_bars)
+        breakout_idxs = [idx for idx in range(start, len(closes)) if float(closes[idx]) > high_20d_1d]
+        if not breakout_idxs:
+            return None
+        return breakout_idxs[0], breakout_idxs[-1]
 
     @staticmethod
     def _anti_chase_multiplier(r7: float) -> float:
@@ -87,22 +87,21 @@ class BreakoutTrend1to5DScorer:
 
     @staticmethod
     def _bb_score(rank: float) -> float:
-        if rank <= 0.2:
+        rank_pct = rank * 100.0 if rank <= 1.0 else rank
+        if rank_pct <= 20.0:
             return 100.0
-        if rank <= 0.6:
-            return 100.0 - (rank - 0.2) * (60.0 / 0.4)
+        if rank_pct <= 60.0:
+            return 100.0 - (rank_pct - 20.0) * (60.0 / 40.0)
         return 0.0
 
     def _btc_multiplier(
         self,
         feature_row: Dict[str, Any],
         btc_regime: Optional[Dict[str, Any]],
-    ) -> Optional[float]:
-        if not btc_regime or btc_regime.get("state") == "RISK_ON":
-            return 1.0
-
-        if float(feature_row.get("quote_volume_24h") or 0.0) < self.min_24h_risk_off:
-            return None
+    ) -> Tuple[float, str, bool, bool]:
+        state = (btc_regime or {}).get("state") or "UNKNOWN"
+        if not btc_regime or state == "RISK_ON":
+            return 1.0, state, False, False
 
         f1d = feature_row.get("1d", {})
         alt_r7 = float(f1d.get("r_7") or 0.0)
@@ -110,8 +109,10 @@ class BreakoutTrend1to5DScorer:
         btc_r7 = float((btc_regime.get("btc_returns") or {}).get("r_7") or 0.0)
         btc_r3 = float((btc_regime.get("btc_returns") or {}).get("r_3") or 0.0)
 
-        override = (alt_r7 - btc_r7) >= 7.5 or (alt_r3 - btc_r3) >= 3.5
-        return 0.85 if override else None
+        rs_override = (alt_r7 - btc_r7) >= 7.5 or (alt_r3 - btc_r3) >= 3.5
+        liq_ok = float(feature_row.get("quote_volume_24h") or 0.0) >= self.min_24h_risk_off
+        multiplier = 0.85 if rs_override and liq_ok else 0.75
+        return multiplier, state, rs_override, liq_ok
 
     def score_symbol(
         self,
@@ -127,9 +128,10 @@ class BreakoutTrend1to5DScorer:
         if high_20 is None:
             return []
 
-        first_breakout_idx = self._find_first_breakout_idx(f4h, high_20)
-        if first_breakout_idx is None:
+        breakout_indices = self._find_breakout_indices(f4h, high_20)
+        if breakout_indices is None:
             return []
+        first_breakout_idx, last_breakout_idx = breakout_indices
 
         if not (
             float(f1d.get("close") or 0.0) > float(f1d.get("ema_20") or 0.0)
@@ -145,8 +147,9 @@ class BreakoutTrend1to5DScorer:
         if dist_ema20 >= 28.0:
             return []
 
-        close_4h_last = float(f4h.get("close") or 0.0)
-        dist_pct = ((close_4h_last / high_20) - 1.0) * 100.0
+        closes = f4h.get("close_series") or []
+        close_4h_trigger = float(closes[last_breakout_idx]) if last_breakout_idx < len(closes) else float(f4h.get("close") or 0.0)
+        dist_pct = ((close_4h_trigger / high_20) - 1.0) * 100.0
 
         spike_1d = float(f1d.get("volume_quote_spike") or 0.0)
         spike_4h = float(f4h.get("volume_quote_spike") or 0.0)
@@ -167,9 +170,9 @@ class BreakoutTrend1to5DScorer:
 
         anti = self._anti_chase_multiplier(float(f1d.get("r_7") or 0.0))
         over = self._overextension_multiplier(dist_ema20)
-        btc_mult = self._btc_multiplier({**feature_row, "quote_volume_24h": quote_volume_24h}, btc_regime)
-        if btc_mult is None:
-            return []
+        btc_mult, btc_state, btc_rs_override, btc_liq_ok_risk_off = self._btc_multiplier(
+            {**feature_row, "quote_volume_24h": quote_volume_24h}, btc_regime
+        )
 
         final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
 
@@ -189,6 +192,9 @@ class BreakoutTrend1to5DScorer:
             "overextension_multiplier": round(over, 6),
             "anti_chase_multiplier": round(anti, 6),
             "btc_multiplier": round(btc_mult, 6),
+            "btc_state": btc_state,
+            "btc_rs_override": btc_rs_override,
+            "btc_liq_ok_risk_off": btc_liq_ok_risk_off,
             "breakout_distance_score": round(breakout_distance_score, 6),
             "volume_score": round(volume_score, 6),
             "trend_score": round(trend_score, 6),
@@ -209,7 +215,6 @@ class BreakoutTrend1to5DScorer:
         results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False}]
 
         lows = f4h.get("low_series") or []
-        closes = f4h.get("close_series") or []
         zone_low = high_20 * 0.99
         zone_high = high_20 * 1.01
         retest_valid = False

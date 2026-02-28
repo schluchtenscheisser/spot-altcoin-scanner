@@ -52,19 +52,70 @@ def test_high_20d_excludes_current_1d_candle() -> None:
     assert high_20 == 100.0
 
 
-def test_trigger_detection_uses_last_6_closed_4h_candles() -> None:
-    scorer = BreakoutTrend1to5DScorer({})
+def test_trigger_detection_uses_configured_4h_lookback_window() -> None:
+    scorer = BreakoutTrend1to5DScorer({"scoring": {"breakout_trend_1_5d": {"trigger_4h_lookback_bars": 30}}})
     feature = _feature_row()
     high_20 = 100.0
 
-    # trigger older than 6 bars -> invalid
+    # trigger older than lookback -> invalid
     feature["4h"]["close_series"] = [101.0] + [90.0] * 47
-    assert scorer._find_first_breakout_idx(feature["4h"], high_20) is None  # noqa: SLF001
+    assert scorer._find_breakout_indices(feature["4h"], high_20) is None  # noqa: SLF001
 
-    # trigger in last 6 bars -> valid
-    feature["4h"]["close_series"] = [90.0] * 43 + [99.0, 101.0, 99.0, 98.0, 97.0]
-    idx = scorer._find_first_breakout_idx(feature["4h"], high_20)  # noqa: SLF001
-    assert idx == 44
+    # trigger in lookback window -> valid (earliest and latest index)
+    feature["4h"]["close_series"] = [90.0] * 20 + [101.0] + [90.0] * 20 + [102.0] + [90.0] * 7
+    indices = scorer._find_breakout_indices(feature["4h"], high_20)  # noqa: SLF001
+    assert indices == (20, 41)
+
+
+def test_trigger_window_expansion_lists_4_day_old_breakout() -> None:
+    cfg = {
+        "setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40},
+        "scoring": {"breakout_trend_1_5d": {"trigger_4h_lookback_bars": 30}},
+    }
+    feature = _feature_row()
+    feature["4h"]["close_series"] = [90.0] * 18 + [101.0] + [90.0] * 29
+    feature["4h"]["low_series"] = [89.0] * 48
+    feature["4h"]["close"] = 99.0
+
+    rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": feature},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+
+    assert rows
+    assert any(row["setup_id"] == "breakout_immediate_1_5d" for row in rows)
+
+
+def test_risk_off_downweights_without_excluding_and_emits_btc_fields() -> None:
+    cfg = {
+        "setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40},
+        "scoring": {"breakout_trend_1_5d": {"trigger_4h_lookback_bars": 30}},
+    }
+    rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 10_000_000},
+        cfg,
+        btc_regime={"state": "RISK_OFF", "btc_returns": {"r_7": 15.0, "r_3": 6.0}},
+    )
+
+    assert rows
+    immediate = next(r for r in rows if r["setup_id"] == "breakout_immediate_1_5d")
+    assert immediate["btc_multiplier"] == 0.75
+    assert immediate["btc_state"] == "RISK_OFF"
+    assert immediate["btc_rs_override"] is False
+    assert immediate["btc_liq_ok_risk_off"] is False
+
+
+def test_bb_score_uses_percent_scale_with_defensive_rank01_support() -> None:
+    scorer = BreakoutTrend1to5DScorer({})
+
+    assert scorer._bb_score(20.0) == 100.0  # noqa: SLF001
+    assert scorer._bb_score(40.0) == 70.0  # noqa: SLF001
+    assert scorer._bb_score(60.0) == 40.0  # noqa: SLF001
+    assert scorer._bb_score(61.0) == 0.0  # noqa: SLF001
+    assert scorer._bb_score(0.4) == 70.0  # noqa: SLF001
 
 
 def test_multipliers_boundaries() -> None:

@@ -122,3 +122,8 @@ Canonical rule:
 
 Notes:
 - `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
+
+
+## 4) Setup-specific runtime keys (scoring.breakout_trend_1_5d)
+- `risk_off_min_quote_volume_24h` default: `15_000_000`
+- `trigger_4h_lookback_bars` default: `30`
