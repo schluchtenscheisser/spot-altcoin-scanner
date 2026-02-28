@@ -198,6 +198,12 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = shortlist_entry.get('slippage_bps')
             features[symbol]['liquidity_grade'] = shortlist_entry.get('liquidity_grade')
             features[symbol]['liquidity_insufficient'] = shortlist_entry.get('liquidity_insufficient')
+            features[symbol]['spread_pct'] = shortlist_entry.get('spread_pct')
+            features[symbol]['depth_bid_0_5pct_usd'] = shortlist_entry.get('depth_bid_0_5pct_usd')
+            features[symbol]['depth_ask_0_5pct_usd'] = shortlist_entry.get('depth_ask_0_5pct_usd')
+            features[symbol]['depth_bid_1pct_usd'] = shortlist_entry.get('depth_bid_1pct_usd')
+            features[symbol]['depth_ask_1pct_usd'] = shortlist_entry.get('depth_ask_1pct_usd')
+            features[symbol]['orderbook_ok'] = shortlist_entry.get('orderbook_ok')
             features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
             features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
         else:
@@ -208,6 +214,12 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['slippage_bps'] = None
             features[symbol]['liquidity_grade'] = None
             features[symbol]['liquidity_insufficient'] = None
+            features[symbol]['spread_pct'] = None
+            features[symbol]['depth_bid_0_5pct_usd'] = None
+            features[symbol]['depth_ask_0_5pct_usd'] = None
+            features[symbol]['depth_bid_1pct_usd'] = None
+            features[symbol]['depth_ask_1pct_usd'] = None
+            features[symbol]['orderbook_ok'] = None
             features[symbol]['risk_flags'] = []
             features[symbol]['soft_penalties'] = {}
 

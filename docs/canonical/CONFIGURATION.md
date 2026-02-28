@@ -31,6 +31,15 @@ liquidity:
     C_max: 100
     D_rule: "> C_max OR insufficient_depth"
 
+execution_gates:
+  mexc_orderbook:
+    enabled_default: true
+    max_spread_pct_default: 0.15
+    bands_pct_default: [0.5, 1.0]
+    min_depth_usd_default:
+      "0.5": 80_000
+      "1.0": 200_000
+
 discovery:
   max_age_days_default: 180
   primary_source: cmc_date_added
@@ -100,6 +109,11 @@ Canonical rule:
 | liquidity.grade_thresholds_bps_default.A_max | liquidity.grade_thresholds_bps.a_max |
 | liquidity.grade_thresholds_bps_default.B_max | liquidity.grade_thresholds_bps.b_max |
 | liquidity.grade_thresholds_bps_default.C_max | liquidity.grade_thresholds_bps.c_max |
+| execution_gates.mexc_orderbook.enabled_default | execution_gates.mexc_orderbook.enabled |
+| execution_gates.mexc_orderbook.max_spread_pct_default | execution_gates.mexc_orderbook.max_spread_pct |
+| execution_gates.mexc_orderbook.bands_pct_default | execution_gates.mexc_orderbook.bands_pct |
+| execution_gates.mexc_orderbook.min_depth_usd_default.0.5 | execution_gates.mexc_orderbook.min_depth_usd."0.5" |
+| execution_gates.mexc_orderbook.min_depth_usd_default.1.0 | execution_gates.mexc_orderbook.min_depth_usd."1.0" |
 | discovery.max_age_days_default | discovery.max_age_days |
 | backtest.model_e2.T_hold_days_default | backtest.t_hold_days |
 | backtest.model_e2.T_trigger_max_days_default | backtest.t_trigger_max_days |

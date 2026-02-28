@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # PR15 — Execution Gate: Orderbook spread + depth filters for 5k–10k USDT trades (MEXC)
 
 ## Kurze Erläuterung

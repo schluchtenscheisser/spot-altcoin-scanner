@@ -1,5 +1,9 @@
 from scanner.pipeline.global_ranking import compute_global_top20
-from scanner.pipeline.liquidity import compute_orderbook_liquidity_metrics, apply_liquidity_metrics_to_shortlist
+from scanner.pipeline.liquidity import (
+    apply_liquidity_metrics_to_shortlist,
+    compute_orderbook_liquidity_metrics,
+    compute_orderbook_metrics,
+)
 
 
 def test_compute_orderbook_liquidity_metrics_returns_spread_slippage_and_grade():
@@ -45,3 +49,27 @@ def test_global_ranking_uses_slippage_then_proxy_tiebreak():
     pullbacks = []
     out = compute_global_top20(reversals, breakouts, pullbacks, {})
     assert [x["symbol"] for x in out[:3]] == ["C", "B", "A"]
+
+
+def test_compute_orderbook_metrics_spread_and_depth_correctness():
+    ob = {
+        "bids": [[99, 10], [98, 10]],
+        "asks": [[101, 10], [102, 10]],
+    }
+    out = compute_orderbook_metrics(ob, bands_pct=[1.0])
+
+    assert out["orderbook_ok"] is True
+    assert out["spread_pct"] == 2.0
+    assert out["depth_bid_1pct_usd"] == 990
+    assert out["depth_ask_1pct_usd"] == 1010
+
+
+def test_compute_orderbook_metrics_missing_book_returns_nan_like_fields():
+    out = compute_orderbook_metrics({"bids": [], "asks": []}, bands_pct=[0.5, 1.0])
+
+    assert out["orderbook_ok"] is False
+    assert out["spread_pct"] is None
+    assert out["depth_bid_0_5pct_usd"] is None
+    assert out["depth_ask_0_5pct_usd"] is None
+    assert out["depth_bid_1pct_usd"] is None
+    assert out["depth_ask_1pct_usd"] is None

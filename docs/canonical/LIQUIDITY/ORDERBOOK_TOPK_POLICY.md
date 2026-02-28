@@ -45,3 +45,15 @@ Orderbook-Fetch ist teuer. Canonical Policy:
   - Not fetched (outside Top-K budget): `spread_bps=null`, `slippage_bps=null`, `liquidity_grade=null`, `liquidity_insufficient=null`.
 - Only fetched symbols may receive a liquidity grade.
 - For re-rank, missing `slippage_bps` remains worst-case handling per `RE_RANK_RULE.md`.
+
+
+## 6) Execution metrics from orderbook snapshot
+- Derived metrics per symbol (deterministic):
+  - `spread_pct = (best_ask - best_bid)/mid * 100`, `mid=(best_bid+best_ask)/2`
+  - `depth_bid_0_5pct_usd`, `depth_ask_0_5pct_usd`
+  - `depth_bid_1pct_usd`, `depth_ask_1pct_usd`
+  - `orderbook_ok` (bool)
+- Depth bands are computed around mid:
+  - bid cutoff `mid * (1 - band/100)`
+  - ask cutoff `mid * (1 + band/100)`
+- Missing/empty/invalid books produce null metrics and `orderbook_ok=false`.

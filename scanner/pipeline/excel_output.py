@@ -264,7 +264,10 @@ class ExcelReportGenerator:
         
         # Headers
         headers = [
-            'Rank', 'Symbol', 'Name', 'Price (USDT)', 
+            'Rank', 'Symbol', 'Name', 'Price (USDT)',
+            'Execution Gate Pass', 'Spread %',
+            'Depth Bid 0.5% USD', 'Depth Ask 0.5% USD',
+            'Depth Bid 1.0% USD', 'Depth Ask 1.0% USD',
             'Market Cap', '24h Volume', 'Score'
         ] + component_names + ['Flags']
         
@@ -292,30 +295,37 @@ class ExcelReportGenerator:
             else:
                 ws.cell(row=row_idx, column=4, value='N/A')
             
+            ws.cell(row=row_idx, column=5, value=bool(result.get('execution_gate_pass', False)))
+            ws.cell(row=row_idx, column=6, value=result.get('spread_pct'))
+            ws.cell(row=row_idx, column=7, value=result.get('depth_bid_0_5pct_usd'))
+            ws.cell(row=row_idx, column=8, value=result.get('depth_ask_0_5pct_usd'))
+            ws.cell(row=row_idx, column=9, value=result.get('depth_bid_1pct_usd'))
+            ws.cell(row=row_idx, column=10, value=result.get('depth_ask_1pct_usd'))
+
             # Market Cap (abbreviated)
             market_cap = result.get('market_cap')
             if market_cap:
-                ws.cell(row=row_idx, column=5, value=self._format_large_number(market_cap))
+                ws.cell(row=row_idx, column=11, value=self._format_large_number(market_cap))
             else:
-                ws.cell(row=row_idx, column=5, value='N/A')
-            
+                ws.cell(row=row_idx, column=11, value='N/A')
+
             # 24h Volume (abbreviated)
             volume = result.get('quote_volume_24h')
             if volume:
-                ws.cell(row=row_idx, column=6, value=self._format_large_number(volume))
+                ws.cell(row=row_idx, column=12, value=self._format_large_number(volume))
             else:
-                ws.cell(row=row_idx, column=6, value='N/A')
-            
+                ws.cell(row=row_idx, column=12, value='N/A')
+
             # Score
-            ws.cell(row=row_idx, column=7, value=result.get('score', 0))
-            
+            ws.cell(row=row_idx, column=13, value=result.get('score', 0))
+
             # Component scores
             components = result.get('components', {})
             for col_offset, comp_name in enumerate(component_names):
                 comp_key = comp_name.lower()
                 comp_value = components.get(comp_key, 0)
-                ws.cell(row=row_idx, column=8 + col_offset, value=comp_value)
-            
+                ws.cell(row=row_idx, column=14 + col_offset, value=comp_value)
+
             # Flags
             flags = result.get('flags', [])
             if isinstance(flags, list):
@@ -324,7 +334,7 @@ class ExcelReportGenerator:
                 flag_str = ', '.join([k for k, v in flags.items() if v])
             else:
                 flag_str = ''
-            ws.cell(row=row_idx, column=8 + len(component_names), value=flag_str)
+            ws.cell(row=row_idx, column=14 + len(component_names), value=flag_str)
         
         # Freeze top row
         ws.freeze_panes = 'A2'
@@ -333,21 +343,27 @@ class ExcelReportGenerator:
         ws.auto_filter.ref = ws.dimensions
         
         # Column widths
-        ws.column_dimensions['A'].width = 6   # Rank
-        ws.column_dimensions['B'].width = 14  # Symbol
-        ws.column_dimensions['C'].width = 20  # Name
-        ws.column_dimensions['D'].width = 13  # Price
-        ws.column_dimensions['E'].width = 13  # Market Cap
-        ws.column_dimensions['F'].width = 13  # Volume
-        ws.column_dimensions['G'].width = 8   # Score
-        
+        ws.column_dimensions['A'].width = 6
+        ws.column_dimensions['B'].width = 14
+        ws.column_dimensions['C'].width = 20
+        ws.column_dimensions['D'].width = 13
+        ws.column_dimensions['E'].width = 18
+        ws.column_dimensions['F'].width = 10
+        ws.column_dimensions['G'].width = 18
+        ws.column_dimensions['H'].width = 18
+        ws.column_dimensions['I'].width = 18
+        ws.column_dimensions['J'].width = 18
+        ws.column_dimensions['K'].width = 13
+        ws.column_dimensions['L'].width = 13
+        ws.column_dimensions['M'].width = 8
+
         # Component columns
         for i in range(len(component_names)):
-            col_letter = get_column_letter(8 + i)
+            col_letter = get_column_letter(14 + i)
             ws.column_dimensions[col_letter].width = 12
-        
+
         # Flags column
-        flags_col = get_column_letter(8 + len(component_names))
+        flags_col = get_column_letter(14 + len(component_names))
         ws.column_dimensions[flags_col].width = 25
     
     def _format_large_number(self, num: float) -> str:

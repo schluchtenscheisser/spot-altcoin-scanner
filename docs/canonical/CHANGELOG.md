@@ -12,6 +12,7 @@ status: canonical
 
 ## Unreleased
 - Initial canonical documentation split from legacy v2.
+- PR15 execution gate: added deterministic orderbook execution metrics (spread/depth), config defaults, breakout output fields, and verification boundaries.
 
 ## 2026-02-23
 - Established `docs/canonical/` as the canonical documentation root (rename from temporary v2).

@@ -13,6 +13,15 @@ class BreakoutTrend1to5DScorer:
         self.min_24h_risk_off = float(cfg.get("risk_off_min_quote_volume_24h", 15_000_000))
         self.trigger_4h_lookback_bars = int(cfg.get("trigger_4h_lookback_bars", 30))
 
+        gate_cfg = root.get("execution_gates", {}).get("mexc_orderbook", {})
+        self.execution_gate_enabled = bool(gate_cfg.get("enabled", True))
+        self.max_spread_pct = float(gate_cfg.get("max_spread_pct", 0.15))
+        self.execution_bands = [float(v) for v in gate_cfg.get("bands_pct", [0.5, 1.0])]
+        self.execution_min_depth = {
+            str(k): float(v)
+            for k, v in (gate_cfg.get("min_depth_usd", {"0.5": 80_000, "1.0": 200_000}) or {}).items()
+        }
+
     @staticmethod
     def _calc_high_20d_excluding_current(f1d: Dict[str, Any]) -> Optional[float]:
         highs = f1d.get("high_series") or []
@@ -114,6 +123,42 @@ class BreakoutTrend1to5DScorer:
         multiplier = 0.85 if rs_override and liq_ok else 0.75
         return multiplier, state, rs_override, liq_ok
 
+
+    @staticmethod
+    def _band_label(band: float) -> str:
+        bf = float(band)
+        if bf.is_integer():
+            return str(int(bf))
+        return str(bf).replace(".", "_")
+
+    @staticmethod
+    def _band_reason(band: float) -> str:
+        return f"DEPTH_TOO_LOW_{str(float(band)).replace('.', '_')}"
+
+    def _evaluate_execution_gate(self, feature_row: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        if not self.execution_gate_enabled:
+            return True, []
+
+        fail_reasons: List[str] = []
+        if feature_row.get("orderbook_ok") is not True:
+            fail_reasons.append("ORDERBOOK_MISSING")
+            return False, fail_reasons
+
+        spread_pct = feature_row.get("spread_pct")
+        if spread_pct is None or float(spread_pct) > self.max_spread_pct:
+            fail_reasons.append("SPREAD_TOO_WIDE")
+
+        for band in self.execution_bands:
+            label = self._band_label(band)
+            reason = self._band_reason(band)
+            bid = feature_row.get(f"depth_bid_{label}pct_usd")
+            ask = feature_row.get(f"depth_ask_{label}pct_usd")
+            threshold = self.execution_min_depth.get(str(band), self.execution_min_depth.get(f"{band:.1f}", 0.0))
+            if bid is None or ask is None or min(float(bid), float(ask)) < float(threshold):
+                fail_reasons.append(reason)
+
+        return len(fail_reasons) == 0, fail_reasons
+
     def score_symbol(
         self,
         symbol: str,
@@ -209,8 +254,18 @@ class BreakoutTrend1to5DScorer:
             "slippage_bps": feature_row.get("slippage_bps"),
             "liquidity_grade": feature_row.get("liquidity_grade"),
             "liquidity_insufficient": feature_row.get("liquidity_insufficient"),
+            "spread_pct": feature_row.get("spread_pct"),
+            "depth_bid_0_5pct_usd": feature_row.get("depth_bid_0_5pct_usd"),
+            "depth_ask_0_5pct_usd": feature_row.get("depth_ask_0_5pct_usd"),
+            "depth_bid_1pct_usd": feature_row.get("depth_bid_1pct_usd"),
+            "depth_ask_1pct_usd": feature_row.get("depth_ask_1pct_usd"),
+            "orderbook_ok": feature_row.get("orderbook_ok"),
             "risk_flags": feature_row.get("risk_flags", []),
         }
+
+        execution_gate_pass, execution_gate_fail_reasons = self._evaluate_execution_gate(feature_row)
+        base["execution_gate_pass"] = execution_gate_pass
+        base["execution_gate_fail_reasons"] = execution_gate_fail_reasons
 
         results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False}]
 

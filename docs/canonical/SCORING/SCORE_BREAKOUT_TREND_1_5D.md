@@ -307,3 +307,17 @@ Global Top-N dedup & Setup-Gewichte sind in `GLOBAL_RANKING_TOP20.md` zu definie
 ## 11) Test/Fixture Anker
 Golden fixtures & deterministische Tabellen liegen in:
 - `docs/canonical/VERIFICATION_FOR_AI.md`
+
+
+## 9) Execution Gate (MEXC orderbook)
+- This setup keeps discovery candidates in output even if execution gate fails.
+- Gate is controlled by `execution_gates.mexc_orderbook.*` config.
+- `execution_gate_pass = true` iff all are true:
+  1) `orderbook_ok == true`
+  2) `spread_pct <= max_spread_pct`
+  3) for each configured band `b`: `min(depth_bid_b_pct_usd, depth_ask_b_pct_usd) >= min_depth_usd[b]`
+- Fail reason enum is closed and deterministic:
+  - `ORDERBOOK_MISSING`
+  - `SPREAD_TOO_WIDE`
+  - `DEPTH_TOO_LOW_0_5`
+  - `DEPTH_TOO_LOW_1_0`
