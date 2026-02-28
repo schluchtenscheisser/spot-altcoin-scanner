@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-02-28 12:19 UTC  
-**Commit:** `90ace9d` (90ace9d53950f230c24ebfa52a6eef30837c0de5)  
+**Generated:** 2026-02-28 12:35 UTC  
+**Commit:** `087874d` (087874dc66be9be8df60df2c59da069f292b9e3b)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -62,7 +62,7 @@
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
 | `scanner/schema.py` | - | - |
 | `scanner/tools/backfill_btc_regime.py` | `BackfillStats` | `_parse_date`, `_daterange`, `_load_snapshot`, `_ensure_minimum_version`, `_extract_btc_features_1d` ... (+6 more) |
-| `scanner/tools/backfill_snapshots.py` | `BackfillStats` | `_parse_date`, `_daterange`, `_snapshot_base`, `_extract_ohlcv_row`, `_build_minimal_features` ... (+9 more) |
+| `scanner/tools/backfill_snapshots.py` | `BackfillStats` | `_parse_date`, `_daterange`, `_snapshot_base`, `_extract_ohlcv_row`, `_build_minimal_features` ... (+10 more) |
 | `scanner/tools/export_evaluation_dataset.py` | - | `_parse_date`, `_daterange`, `_run_id_from_export_start`, `_utc_now`, `_utc_iso` ... (+6 more) |
 | `scanner/tools/validate_features.py` | - | `_is_number`, `_error`, `_emit`, `validate_features` |
 | `scanner/utils/__init__.py` | - | - |
@@ -75,7 +75,7 @@
 **Statistics:**
 - Total Modules: 42
 - Total Classes: 19
-- Total Functions: 109
+- Total Functions: 110
 
 ---
 
@@ -3391,7 +3391,7 @@ def compute_global_top20(
 
 ### `scanner/pipeline/liquidity.py`
 
-**SHA256:** `3921c4549afa576d8c6a751c21d2d7e5d03de534d58b43e4864568bf95a1139e`
+**SHA256:** `ef8be7360af6d90e8dc999cbfbf9391075b6fff1467910b2f2ca1499775c285a`
 
 ```python
 """Liquidity stage utilities (Top-K orderbook budget + slippage metrics)."""
@@ -3400,7 +3400,7 @@ from __future__ import annotations
 
 import logging
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -3439,17 +3439,23 @@ def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> 
     return ranked[: max(0, top_k)]
 
 
-def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch Top-K orderbooks and keep only validated payloads in mapping symbol->orderbook."""
+def fetch_orderbooks_for_top_k(
+    mexc_client: Any,
+    candidates: List[Dict[str, Any]],
+    config: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Set[str]]:
+    """Fetch Top-K orderbooks and return (validated_payloads, selected_symbols)."""
     top_k = get_orderbook_top_k(config)
     selected = select_top_k_for_orderbook(candidates, top_k)
 
     payload: Dict[str, Any] = {}
+    selected_symbols: Set[str] = set()
 
     for row in selected:
         symbol = row.get("symbol")
         if not symbol:
             continue
+        selected_symbols.add(symbol)
         try:
             fetched = mexc_client.get_orderbook(symbol)
             if not isinstance(fetched, dict):
@@ -3463,7 +3469,7 @@ def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]
             payload[symbol] = fetched
         except Exception as exc:
             logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
-    return payload
+    return payload, selected_symbols
 
 
 def _to_levels(levels: Any) -> List[Tuple[float, float]]:
@@ -3560,8 +3566,13 @@ def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt
     }
 
 
-def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderbooks: Dict[str, Any], config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Attach liquidity fields to shortlist rows when orderbook data is available."""
+def apply_liquidity_metrics_to_shortlist(
+    shortlist: List[Dict[str, Any]],
+    orderbooks: Dict[str, Any],
+    config: Dict[str, Any],
+    selected_symbols: Set[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """Attach liquidity fields for fetched symbols and leave non-fetched symbols untouched."""
     notional = get_slippage_notional_usdt(config)
     thresholds = get_grade_thresholds_bps(config)
 
@@ -3573,13 +3584,22 @@ def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderb
         if isinstance(orderbook, dict):
             metrics = compute_orderbook_liquidity_metrics(orderbook, notional, thresholds)
             r.update(metrics)
-        else:
+        elif selected_symbols is not None and symbol in selected_symbols:
             r.update(
                 {
                     "spread_bps": None,
                     "slippage_bps": None,
                     "liquidity_grade": "D",
                     "liquidity_insufficient": True,
+                }
+            )
+        else:
+            r.update(
+                {
+                    "spread_bps": None,
+                    "slippage_bps": None,
+                    "liquidity_grade": None,
+                    "liquidity_insufficient": None,
                 }
             )
         out.append(r)
@@ -3967,7 +3987,7 @@ class ExcelReportGenerator:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `68b804cff590d864488597431f01876b73876316eea9af9d09bbf559ef1437b0`
+**SHA256:** `52a87ce164f0a26099e646ddf099c51bc8dc9332994001230f593119a2f35632`
 
 ```python
 """
@@ -4107,9 +4127,9 @@ def run_pipeline(config: ScannerConfig) -> None:
     
     # Step 6: Liquidity Stage (Top-K orderbook budget)
     logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
-    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
+    orderbooks, selected_symbols = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
-    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
+    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw, selected_symbols=selected_symbols)
 
     # Hard Exclude: liquidity grade D must not enter downstream scoring universe
     before_liquidity_gate = len(shortlist)
@@ -7081,7 +7101,7 @@ if __name__ == "__main__":
 
 ### `scanner/tools/backfill_snapshots.py`
 
-**SHA256:** `123552c229599629143c9f408eaaeed217b436f55a3934d005d4d86178b1ecff`
+**SHA256:** `c076e1cea93bfd91dab9c6f6a3f7a18b072e0756357d199fb9656fee7a1a2c6f`
 
 ```python
 from __future__ import annotations
@@ -7275,6 +7295,11 @@ def _preflight_requirements(args: argparse.Namespace, start: date, end: date, sn
                 _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=run_date)
             except Exception as exc:  # preflight aggregation
                 errors.append(f"{run_date}: {exc}")
+        else:
+            try:
+                _validate_full_mode_prerequisites(target_day=day, config_path=args.config, ohlcv_cache_dir=ohlcv_cache_dir)
+            except Exception as exc:  # preflight aggregation
+                errors.append(f"{run_date}: {exc}")
 
     if errors:
         raise FileNotFoundError("Strict preflight failed: " + " | ".join(errors))
@@ -7282,6 +7307,25 @@ def _preflight_requirements(args: argparse.Namespace, start: date, end: date, sn
 
 def _resolve_cache_date(target_day: date) -> str:
     return target_day.isoformat()
+
+
+def _validate_full_mode_prerequisites(target_day: date, config_path: str, ohlcv_cache_dir: Path) -> None:
+    """Validate deterministic full-mode prerequisites for one target date.
+
+    Full-mode backfill is expected to replay a historical day from local inputs.
+    In strict mode we fail early unless all required local artifacts are present.
+    """
+
+    config = load_config(config_path)
+    run_mode = str(config.raw.get("general", {}).get("run_mode", "")).lower()
+    if run_mode != "standard":
+        raise ValueError(
+            "Full-mode strict backfill requires config.general.run_mode='standard' "
+            f"(current: {run_mode or 'unset'})."
+        )
+
+    # Full mode depends on complete local OHLCV for the target day.
+    _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=target_day.isoformat())
 
 
 @contextmanager
@@ -9836,4 +9880,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-02-28 12:19 UTC_
+_Generated by GitHub Actions • 2026-02-28 12:35 UTC_
