@@ -20,11 +20,11 @@ liquidity_gates:
   btc_risk_off_quote_volume_24h_usd_min: 15_000_000
 gates_1d:
   trend_gate: "(ema20_1d > ema50_1d) AND (close_1d > ema20_1d)"
-  atr_chaos_gate: "atr_pct_rank_120_1d <= 0.80"
+  atr_chaos_gate: "atr_pct_rank_120_1d <= 80.0"
   momentum_gate: "r_7_1d > 0"
   overextension_hard_gate: "dist_ema20_pct_1d < 28.0"
 trigger_4h:
-  window_bars: 6
+  window_bars: 30
   breakout_level: "high_20d_1d"
 retest_4h:
   tolerance_pct: 1.0
@@ -70,6 +70,7 @@ Canonical Default für diesen Setup-Typ:
 - `100M <= market_cap_usd <= 10B`
 
 ### 2.2 Liquidity Gates (CMC quoteVol24h USD)
+Die Gates nutzen die konfigurierte Volume-Quelle (Default: MEXC `quote_volume_24h`; optional global fallback wenn konfiguriert).
 - Normal: `quote_volume_24h_usd >= 10_000_000`
 - BTC Risk-Off Override: `quote_volume_24h_usd >= 15_000_000` (nur wenn BTC Risk-Off)
 
@@ -91,7 +92,7 @@ Setup ist nur zulässig wenn:
 
 ### 3.2 ATR Chaos Gate (1D)
 Setup ist nur zulässig wenn:
-- `atr_pct_rank_120_1d <= 0.80`
+- `atr_pct_rank_120_1d <= 80.0`
 
 **Definition `atr_pct_rank_120_1d`:**
 - `atr_pct_1d[t] = atr_1d[t] / close_1d[t] * 100`
@@ -284,13 +285,28 @@ Wenn `btc_risk_on == false` (Risk-Off):
 
 ---
 
-## 10) Setup IDs & Output-Pflichtfelder
+## 10) Execution Gate (MEXC orderbook)
+- Discovery candidates remain listed even if execution gate fails.
+- Gate is controlled by `execution_gates.mexc_orderbook.*` config.
+- `execution_gate_pass = true` iff all are true:
+  1) `orderbook_ok == true`
+  2) `spread_pct <= max_spread_pct`
+  3) for each configured band `b`: `min(depth_bid_b_pct_usd, depth_ask_b_pct_usd) >= min_depth_usd[b]`
+- Fail reason enum is closed and deterministic:
+  - `ORDERBOOK_MISSING`
+  - `SPREAD_TOO_WIDE`
+  - `DEPTH_TOO_LOW_0_5`
+  - `DEPTH_TOO_LOW_1_0`
 
-### 10.1 Setup IDs
+---
+
+## 11) Setup IDs & Output-Pflichtfelder
+
+### 11.1 Setup IDs
 - `breakout_immediate_1_5d`
 - `breakout_retest_1_5d`
 
-### 10.2 Pflichtfelder pro Row (JSON/MD/Excel)
+### 11.2 Pflichtfelder pro Row (JSON/MD/Excel)
 Mindestens:
 - `setup_id`
 - `base_score`, `final_score`
@@ -302,27 +318,13 @@ Mindestens:
 - BTC Regime Flags: `btc_state`, `btc_rs_override`, `btc_liq_ok_risk_off`
 - Gates/Flags: `triggered`, `retest_valid`, `retest_invalidated` (wo relevant)
 
-### 10.3 Dedup (global)
+### 11.3 Dedup (global)
 Wenn ein Symbol beide Setups erfüllt:
 - Retest wird bevorzugt (Tie-break).
 Global Top-N dedup & Setup-Gewichte sind in `GLOBAL_RANKING_TOP20.md` zu definieren.
 
 ---
 
-## 11) Test/Fixture Anker
+## 12) Test/Fixture Anker
 Golden fixtures & deterministische Tabellen liegen in:
 - `docs/canonical/VERIFICATION_FOR_AI.md`
-
-
-## 9) Execution Gate (MEXC orderbook)
-- This setup keeps discovery candidates in output even if execution gate fails.
-- Gate is controlled by `execution_gates.mexc_orderbook.*` config.
-- `execution_gate_pass = true` iff all are true:
-  1) `orderbook_ok == true`
-  2) `spread_pct <= max_spread_pct`
-  3) for each configured band `b`: `min(depth_bid_b_pct_usd, depth_ask_b_pct_usd) >= min_depth_usd[b]`
-- Fail reason enum is closed and deterministic:
-  - `ORDERBOOK_MISSING`
-  - `SPREAD_TOO_WIDE`
-  - `DEPTH_TOO_LOW_0_5`
-  - `DEPTH_TOO_LOW_1_0`
