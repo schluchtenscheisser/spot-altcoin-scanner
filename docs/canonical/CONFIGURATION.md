@@ -153,6 +153,13 @@ Notes:
   - `universe_filters.volume.min_quote_volume_24h` aliases to `universe_filters.volume.min_mexc_quote_volume_24h_usdt`.
   - If both keys are present, `min_mexc_quote_volume_24h_usdt` wins.
 
+### Volume-gate semantics (deterministic)
+- `min_turnover_24h` unit: ratio in `[0, +inf)`; default `0.03`.
+- `min_mexc_quote_volume_24h_usdt` unit: USDT in `[0, +inf)`; default `5_000_000`.
+- `min_mexc_share_24h` unit: ratio in `[0, 1]`; default `0.01`.
+- Missing key => canonical default applies.
+- Invalid value (NaN, non-castable, negative, out-of-range for share) => config validation error (fail-fast).
+
 
 ## 4) Setup-specific runtime keys (scoring.breakout_trend_1_5d)
 - `risk_off_min_quote_volume_24h` default: `15_000_000`

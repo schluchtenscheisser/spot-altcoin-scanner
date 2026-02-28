@@ -48,7 +48,8 @@ Canonical hard gates include:
     - `mexc_share_24h >= min_mexc_share_24h`
   - Fallback path (turnover unavailable): require only
     - `mexc_quote_volume_24h_usdt >= min_mexc_quote_volume_24h_usdt`
-  - Per-symbol invalid values (negative / NaN / non-castable) fail deterministically.
+    - `mexc_share_24h` gate is NOT evaluated in fallback (not computable without global volume)
+  - Per-symbol invalid values (negative / NaN / non-castable) fail deterministically (drop symbol, no silent correction).
 - Risk flags (denylist, deposit/withdraw suspended, delisting risk, major unlock within 14d, liquidity grade D, etc.)
 - Minimum history requirements per setup/timeframe
   - Closed-candle counts are derived from `meta.last_closed_idx` as `count = idx + 1`.

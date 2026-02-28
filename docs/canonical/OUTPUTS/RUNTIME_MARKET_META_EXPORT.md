@@ -75,7 +75,10 @@ in die Analyse-Pipeline aufgenommen wurden.
 - `config` (object, recommended):
   - `mcap_min_usd` (number)
   - `mcap_max_usd` (number)
-  - `min_quote_volume_24h_usd` (number, if used)
+  - `min_turnover_24h` (number, if used)
+  - `min_mexc_quote_volume_24h_usdt` (number, if used)
+  - `min_mexc_share_24h` (number, if used)
+  - `min_quote_volume_24h` (number, optional legacy alias mirror)
 
 ### Zweck
 - Reproduzierbarkeit & Vergleich mit späteren Daten.
