@@ -59,6 +59,17 @@ Optional:
 - `proxy_liquidity_score` is a percent-rank on scale `[0.0, 100.0]` (not rank01).
 - Optional discovery: `discovery`, `age_days`, `discovery_source` ("cmc_date_added" | "first_seen_ts" | null)
 
+### 1.2.1 Report-layer market activity fields (additive, nullable)
+For JSON/Markdown/Excel reports, candidate rows MAY include the following additive fields:
+- `global_volume_24h_usd` (number | null)
+- `turnover_24h` (number | null)
+- `mexc_share_24h` (number | null)
+
+Rules:
+- Missing value => MUST remain `null` in JSON and empty cell in Excel.
+- Invalid report-layer numeric (`NaN`, negative, non-castable) => treat as `null` in report serialization.
+- These fields are informational only and MUST NOT alter ranking/selection/scoring.
+
 ### 1.3 Ordering and limits
 - Top-n inclusion: `SCORING/GLOBAL_RANKING_TOP20.md`
 - Final ordering: `LIQUIDITY/RE_RANK_RULE.md`

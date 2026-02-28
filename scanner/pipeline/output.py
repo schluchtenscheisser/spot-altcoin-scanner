@@ -242,6 +242,17 @@ class ReportGenerator:
             if fail_reasons:
                 lines.append(f"**Execution Gate Fail Reasons:** {', '.join(fail_reasons)}")
             lines.append("")
+
+        global_volume_24h_usd = self._sanitize_optional_metric(data.get('global_volume_24h_usd'))
+        turnover_24h = self._sanitize_optional_metric(data.get('turnover_24h'))
+        mexc_share_24h = self._sanitize_optional_metric(data.get('mexc_share_24h'))
+        lines.append(
+            "**Market Activity:** "
+            f"global_volume_24h_usd={global_volume_24h_usd}, "
+            f"turnover_24h={turnover_24h}, "
+            f"mexc_share_24h={mexc_share_24h}"
+        )
+        lines.append("")
         
         # Components
         components = data.get('components', {})
@@ -284,8 +295,27 @@ class ReportGenerator:
         for idx, entry in enumerate(entries, start=1):
             ranked_entry = dict(entry)
             ranked_entry["rank"] = idx
+            ranked_entry["global_volume_24h_usd"] = ReportGenerator._sanitize_optional_metric(entry.get("global_volume_24h_usd"))
+            ranked_entry["turnover_24h"] = ReportGenerator._sanitize_optional_metric(entry.get("turnover_24h"))
+            ranked_entry["mexc_share_24h"] = ReportGenerator._sanitize_optional_metric(entry.get("mexc_share_24h"))
             ranked.append(ranked_entry)
         return ranked
+
+
+    @staticmethod
+    def _sanitize_optional_metric(value: Any) -> Any:
+        """Return nullable numeric metric; invalid values become None."""
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if numeric < 0:
+            return None
+        if numeric != numeric:  # NaN
+            return None
+        return numeric
 
     def generate_json_report(
         self,

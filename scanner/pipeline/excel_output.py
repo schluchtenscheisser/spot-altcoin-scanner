@@ -214,7 +214,7 @@ class ExcelReportGenerator:
         ws = wb.create_sheet("Global Top 20", 1)
         headers = [
             'Rank', 'Symbol', 'Name', 'Best Setup', 'Global Score', 'Setup Score', 'Confluence',
-            'Price (USDT)', 'Market Cap', '24h Volume', 'Flags'
+            'Price (USDT)', 'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Flags'
         ]
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_idx, value=header)
@@ -237,9 +237,12 @@ class ExcelReportGenerator:
             ws.cell(row=row, column=9, value=self._format_large_number(market_cap) if market_cap else 'N/A')
             volume = result.get('quote_volume_24h')
             ws.cell(row=row, column=10, value=self._format_large_number(volume) if volume else 'N/A')
+            ws.cell(row=row, column=11, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
+            ws.cell(row=row, column=12, value=self._sanitize_optional_metric(result.get('turnover_24h')))
+            ws.cell(row=row, column=13, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
             flags = result.get('flags', [])
             flag_str = ', '.join(flags) if isinstance(flags, list) else ''
-            ws.cell(row=row, column=11, value=flag_str)
+            ws.cell(row=row, column=14, value=flag_str)
 
         ws.freeze_panes = 'A2'
         ws.auto_filter.ref = ws.dimensions
@@ -268,7 +271,7 @@ class ExcelReportGenerator:
             'Execution Gate Pass', 'Spread %',
             'Depth Bid 0.5% USD', 'Depth Ask 0.5% USD',
             'Depth Bid 1.0% USD', 'Depth Ask 1.0% USD',
-            'Market Cap', '24h Volume', 'Score'
+            'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Score'
         ] + component_names + ['Flags']
         
         # Write headers
@@ -316,15 +319,19 @@ class ExcelReportGenerator:
             else:
                 ws.cell(row=row_idx, column=12, value='N/A')
 
+            ws.cell(row=row_idx, column=13, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
+            ws.cell(row=row_idx, column=14, value=self._sanitize_optional_metric(result.get('turnover_24h')))
+            ws.cell(row=row_idx, column=15, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
+
             # Score
-            ws.cell(row=row_idx, column=13, value=result.get('score', 0))
+            ws.cell(row=row_idx, column=16, value=result.get('score', 0))
 
             # Component scores
             components = result.get('components', {})
             for col_offset, comp_name in enumerate(component_names):
                 comp_key = comp_name.lower()
                 comp_value = components.get(comp_key, 0)
-                ws.cell(row=row_idx, column=14 + col_offset, value=comp_value)
+                ws.cell(row=row_idx, column=17 + col_offset, value=comp_value)
 
             # Flags
             flags = result.get('flags', [])
@@ -334,7 +341,7 @@ class ExcelReportGenerator:
                 flag_str = ', '.join([k for k, v in flags.items() if v])
             else:
                 flag_str = ''
-            ws.cell(row=row_idx, column=14 + len(component_names), value=flag_str)
+            ws.cell(row=row_idx, column=17 + len(component_names), value=flag_str)
         
         # Freeze top row
         ws.freeze_panes = 'A2'
@@ -355,17 +362,36 @@ class ExcelReportGenerator:
         ws.column_dimensions['J'].width = 18
         ws.column_dimensions['K'].width = 13
         ws.column_dimensions['L'].width = 13
-        ws.column_dimensions['M'].width = 8
+        ws.column_dimensions['M'].width = 18
+        ws.column_dimensions['N'].width = 14
+        ws.column_dimensions['O'].width = 14
+        ws.column_dimensions['P'].width = 8
 
         # Component columns
         for i in range(len(component_names)):
-            col_letter = get_column_letter(14 + i)
+            col_letter = get_column_letter(17 + i)
             ws.column_dimensions[col_letter].width = 12
 
         # Flags column
-        flags_col = get_column_letter(14 + len(component_names))
+        flags_col = get_column_letter(17 + len(component_names))
         ws.column_dimensions[flags_col].width = 25
     
+
+    @staticmethod
+    def _sanitize_optional_metric(value: Any) -> Any:
+        """Return nullable numeric metric; invalid values become None."""
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if numeric < 0:
+            return None
+        if numeric != numeric:  # NaN
+            return None
+        return numeric
+
     def _format_large_number(self, num: float) -> str:
         """
         Format large numbers with M/B suffix.
