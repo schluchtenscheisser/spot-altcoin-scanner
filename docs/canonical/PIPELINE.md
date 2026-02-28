@@ -41,7 +41,14 @@ Outputs:
 Applied before expensive computations and before `percent_rank` populations are formed.
 Canonical hard gates include:
 - Market cap range (default: 100M..10B USD; per-setup may override)
-- Liquidity gates (quote_volume_24h_usd thresholds; may be BTC-regime dependent)
+- Liquidity gates (Universe hard gate):
+  - Primary path (turnover available): require all of
+    - `turnover_24h >= min_turnover_24h`
+    - `mexc_quote_volume_24h_usdt >= min_mexc_quote_volume_24h_usdt`
+    - `mexc_share_24h >= min_mexc_share_24h`
+  - Fallback path (turnover unavailable): require only
+    - `mexc_quote_volume_24h_usdt >= min_mexc_quote_volume_24h_usdt`
+  - Per-symbol invalid values (negative / NaN / non-castable) fail deterministically.
 - Risk flags (denylist, deposit/withdraw suspended, delisting risk, major unlock within 14d, liquidity grade D, etc.)
 - Minimum history requirements per setup/timeframe
   - Closed-candle counts are derived from `meta.last_closed_idx` as `count = idx + 1`.

@@ -40,8 +40,15 @@ class UniverseFilters:
         self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
         self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
 
-        # Liquidity (24h volume in USDT)
-        self.min_volume_24h = volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 1_000_000))
+        # Liquidity gates (global turnover + MEXC volume/share with fallback)
+        self.min_turnover_24h = float(volume_cfg.get('min_turnover_24h', 0.03))
+        if 'min_mexc_quote_volume_24h_usdt' in volume_cfg:
+            self.min_mexc_quote_volume_24h_usdt = float(volume_cfg.get('min_mexc_quote_volume_24h_usdt', 5_000_000))
+        else:
+            self.min_mexc_quote_volume_24h_usdt = float(
+                volume_cfg.get('min_quote_volume_24h', legacy_filters.get('min_volume_24h', 5_000_000))
+            )
+        self.min_mexc_share_24h = float(volume_cfg.get('min_mexc_share_24h', 0.01))
 
         # Minimum 1d history used by OHLCV filtering step.
         self.min_history_days_1d = int(history_cfg.get('min_history_days_1d', 60))
@@ -96,8 +103,12 @@ class UniverseFilters:
             self.minor_unlock_bases,
         ) = self._load_unlock_overrides(self.unlock_overrides_path)
         
-        logger.info(f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
-                   f"Min Volume {self.min_volume_24h/1e6:.1f}M")
+        logger.info(
+            f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
+            f"Turnover>={self.min_turnover_24h:.4f}, "
+            f"MEXC Vol>={self.min_mexc_quote_volume_24h_usdt/1e6:.1f}M, "
+            f"MEXC Share>={self.min_mexc_share_24h:.4f}"
+        )
 
     @staticmethod
     def _safe_load_yaml(path: Path) -> Dict[str, Any]:
@@ -283,16 +294,50 @@ class UniverseFilters:
 
         return filtered
 
+    @staticmethod
+    def _is_valid_non_negative_number(value: Any) -> bool:
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            return False
+        return num == num and num >= 0  # NaN check: NaN != NaN
+
     def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by minimum 24h volume."""
-        filtered = []
-        
+        """Apply turnover + MEXC volume/share gates with explicit turnover-missing fallback."""
+        filtered: List[Dict[str, Any]] = []
+
         for sym_data in symbols:
-            volume = sym_data.get('quote_volume_24h', 0)
-            
-            if volume >= self.min_volume_24h:
-                filtered.append(sym_data)
-        
+            mexc_volume = sym_data.get('quote_volume_24h')
+            if not self._is_valid_non_negative_number(mexc_volume):
+                continue
+            mexc_volume_f = float(mexc_volume)
+
+            turnover = sym_data.get('turnover_24h')
+            turnover_available = self._is_valid_non_negative_number(turnover)
+
+            # Fallback path: turnover unavailable -> require only MEXC minimum volume.
+            if not turnover_available:
+                if mexc_volume_f >= self.min_mexc_quote_volume_24h_usdt:
+                    filtered.append(sym_data)
+                continue
+
+            # Primary path: turnover available -> require turnover + MEXC volume + MEXC share.
+            turnover_f = float(turnover)
+            if turnover_f < self.min_turnover_24h:
+                continue
+
+            if mexc_volume_f < self.min_mexc_quote_volume_24h_usdt:
+                continue
+
+            mexc_share = sym_data.get('mexc_share_24h')
+            if not self._is_valid_non_negative_number(mexc_share):
+                continue
+
+            if float(mexc_share) < self.min_mexc_share_24h:
+                continue
+
+            filtered.append(sym_data)
+
         return filtered
     
     def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

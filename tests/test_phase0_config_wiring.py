@@ -75,6 +75,7 @@ def test_scorer_weights_are_config_driven():
 def test_legacy_exclusion_patterns_empty_list_disables_exclusions() -> None:
     cfg = {
         "filters": {"exclusion_patterns": []},
+        "universe_filters": {"volume": {"min_mexc_quote_volume_24h_usdt": 0}},
         "exclusions": {
             "exclude_stablecoins": True,
             "stablecoin_patterns": ["USD"],
@@ -94,6 +95,7 @@ def test_legacy_exclusion_patterns_empty_list_disables_exclusions() -> None:
 def test_legacy_exclusion_patterns_override_new_exclusions_when_present() -> None:
     cfg = {
         "filters": {"exclusion_patterns": ["WRAP"]},
+        "universe_filters": {"volume": {"min_mexc_quote_volume_24h_usdt": 0}},
         "exclusions": {
             "exclude_stablecoins": True,
             "stablecoin_patterns": ["USD"],

@@ -19,6 +19,11 @@ If the implementation deviates, either:
 limits:
   universe:
     market_cap_usd_default: {min: 100_000_000, max: 10_000_000_000}
+    volume_gates_default:
+      min_turnover_24h: 0.03
+      min_mexc_quote_volume_24h_usdt: 5_000_000
+      min_mexc_share_24h: 0.01
+      fallback_when_turnover_unavailable: "require only min_mexc_quote_volume_24h_usdt"
   outputs:
     global_top_n_default: 20
 
@@ -103,6 +108,9 @@ Canonical rule:
 |---|---|
 | limits.universe.market_cap_usd_default.min | universe_filters.market_cap.min_usd |
 | limits.universe.market_cap_usd_default.max | universe_filters.market_cap.max_usd |
+| limits.universe.volume_gates_default.min_turnover_24h | universe_filters.volume.min_turnover_24h |
+| limits.universe.volume_gates_default.min_mexc_quote_volume_24h_usdt | universe_filters.volume.min_mexc_quote_volume_24h_usdt |
+| limits.universe.volume_gates_default.min_mexc_share_24h | universe_filters.volume.min_mexc_share_24h |
 | limits.outputs.global_top_n_default | outputs.global_top_n |
 | liquidity.orderbook_top_k_default | liquidity.orderbook_top_k |
 | liquidity.slippage_notional_usdt_default | liquidity.slippage_notional_usdt |
@@ -136,6 +144,9 @@ Canonical rule:
 
 Notes:
 - `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
+- Legacy alias for backward compatibility:
+  - `universe_filters.volume.min_quote_volume_24h` aliases to `universe_filters.volume.min_mexc_quote_volume_24h_usdt`.
+  - If both keys are present, `min_mexc_quote_volume_24h_usdt` wins.
 
 
 ## 4) Setup-specific runtime keys (scoring.breakout_trend_1_5d)

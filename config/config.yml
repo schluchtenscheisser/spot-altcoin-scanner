@@ -26,7 +26,9 @@ universe_filters:
     min_usd: 100000000      # 100M
     max_usd: 10000000000    # 10B
   volume:
-    min_quote_volume_24h: 1000000
+    min_turnover_24h: 0.03
+    min_mexc_quote_volume_24h_usdt: 5000000
+    min_mexc_share_24h: 0.01
   history:
     min_history_days_1d: 60
   include_only_usdt_pairs: true

@@ -46,3 +46,11 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `global_volume_24h_usd` is nullable and sourced from CMC `quote.USD.volume_24h`; missing value stays `null`.
 - `turnover_24h` is `null` when `market_cap_usd` is missing or zero.
 - `mexc_share_24h` is `null` when `global_volume_24h_usd` is missing or zero.
+
+
+## Universe volume-gate verification boundaries
+- Config defaults when keys are missing: `min_turnover_24h=0.03`, `min_mexc_quote_volume_24h_usdt=5_000_000`, `min_mexc_share_24h=0.01`.
+- Legacy alias behavior: `universe_filters.volume.min_quote_volume_24h` aliases to `min_mexc_quote_volume_24h_usdt` only when the new key is absent; if both exist, new key wins.
+- Primary path (turnover available): all three gates are required (turnover + mexc min volume + mexc share).
+- Fallback path (turnover unavailable): require only mexc min volume; `mexc_share_24h` is not evaluated.
+- Invalid per-symbol values (`NaN`, negative, non-castable) are rejected deterministically at liquidity gate stage.
