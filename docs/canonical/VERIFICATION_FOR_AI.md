@@ -33,3 +33,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `_find_breakout_indices` returns `(first_breakout_idx, last_breakout_idx)` over the configured trigger window.
 - In `RISK_OFF`, BTC multiplier never excludes candidates: `0.85` when `rs_override AND liq_ok`, otherwise `0.75`.
 - `bb_width_rank_120_4h` is interpreted on percent scale `[0..100]`; defensive rank01 input (`<=1.0`) is multiplied by 100 before scoring.
+
+
+## Execution gate verification boundaries
+- Synthetic book test case: bids `[[99,10],[98,10]]`, asks `[[101,10],[102,10]]` gives `mid=100`, `spread_pct=2.0`, `depth_bid_1pct_usd=990`, `depth_ask_1pct_usd=1010`.
+- Gate pass example: `max_spread_pct=2.5`, `min_depth_usd[1.0]=900`.
+- Gate fail by spread: `max_spread_pct=1.0` => includes `SPREAD_TOO_WIDE`.
+- Gate fail by depth: high min depth for 1.0 band => includes `DEPTH_TOO_LOW_1_0`.

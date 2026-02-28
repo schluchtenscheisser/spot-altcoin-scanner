@@ -170,6 +170,55 @@ def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt
     }
 
 
+def _band_label(band: float) -> str:
+    bf = float(band)
+    if bf.is_integer():
+        return str(int(bf))
+    return str(bf).replace(".", "_")
+
+
+def _empty_orderbook_metrics(bands_pct: List[float]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"spread_pct": None, "orderbook_ok": False}
+    for band in bands_pct:
+        label = _band_label(band)
+        out[f"depth_bid_{label}pct_usd"] = None
+        out[f"depth_ask_{label}pct_usd"] = None
+    return out
+
+
+def compute_orderbook_metrics(orderbook: Dict[str, Any], bands_pct: List[float]) -> Dict[str, Any]:
+    """Compute deterministic spread/depth metrics for execution gating."""
+    metrics = _empty_orderbook_metrics(bands_pct)
+    bids = _to_levels(orderbook.get("bids"))
+    asks = _to_levels(orderbook.get("asks"))
+    if not bids or not asks:
+        return metrics
+
+    best_bid = max(p for p, _ in bids)
+    best_ask = min(p for p, _ in asks)
+    if best_bid <= 0 or best_ask <= 0:
+        return metrics
+
+    mid = (best_bid + best_ask) / 2.0
+    if mid <= 0:
+        return metrics
+
+    metrics["spread_pct"] = ((best_ask - best_bid) / mid) * 100.0
+    for band in bands_pct:
+        band_f = float(band)
+        label = _band_label(band_f)
+        bid_cutoff = mid * (1.0 - band_f / 100.0)
+        ask_cutoff = mid * (1.0 + band_f / 100.0)
+
+        bid_depth = sum(price * qty for price, qty in bids if price >= bid_cutoff)
+        ask_depth = sum(price * qty for price, qty in asks if price <= ask_cutoff)
+        metrics[f"depth_bid_{label}pct_usd"] = bid_depth
+        metrics[f"depth_ask_{label}pct_usd"] = ask_depth
+
+    metrics["orderbook_ok"] = True
+    return metrics
+
+
 def apply_liquidity_metrics_to_shortlist(
     shortlist: List[Dict[str, Any]],
     orderbooks: Dict[str, Any],
@@ -180,6 +229,11 @@ def apply_liquidity_metrics_to_shortlist(
     notional = get_slippage_notional_usdt(config)
     thresholds = get_grade_thresholds_bps(config)
 
+    root = _root_config(config)
+    gate_cfg = root.get("execution_gates", {}).get("mexc_orderbook", {})
+    bands_cfg = gate_cfg.get("bands_pct", [0.5, 1.0])
+    bands_pct = [float(v) for v in bands_cfg]
+
     out: List[Dict[str, Any]] = []
     for row in shortlist:
         symbol = row.get("symbol")
@@ -188,6 +242,7 @@ def apply_liquidity_metrics_to_shortlist(
         if isinstance(orderbook, dict):
             metrics = compute_orderbook_liquidity_metrics(orderbook, notional, thresholds)
             r.update(metrics)
+            r.update(compute_orderbook_metrics(orderbook, bands_pct))
         elif selected_symbols is not None and symbol in selected_symbols:
             r.update(
                 {
@@ -197,6 +252,7 @@ def apply_liquidity_metrics_to_shortlist(
                     "liquidity_insufficient": True,
                 }
             )
+            r.update(_empty_orderbook_metrics(bands_pct))
         else:
             r.update(
                 {
@@ -206,5 +262,8 @@ def apply_liquidity_metrics_to_shortlist(
                     "liquidity_insufficient": None,
                 }
             )
+            metrics = _empty_orderbook_metrics(bands_pct)
+            metrics["orderbook_ok"] = None
+            r.update(metrics)
         out.append(r)
     return out

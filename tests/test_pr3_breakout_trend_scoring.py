@@ -42,6 +42,12 @@ def _feature_row(dist_pct: float = 10.0, r7: float = 10.0) -> dict:
             "low_series": low_4h,
         },
         "quote_volume_24h": 30_000_000,
+        "spread_pct": 0.05,
+        "depth_bid_0_5pct_usd": 100_000,
+        "depth_ask_0_5pct_usd": 100_000,
+        "depth_bid_1pct_usd": 300_000,
+        "depth_ask_1pct_usd": 300_000,
+        "orderbook_ok": True,
         "meta": {"last_closed_idx": {"1d": 20, "4h": 47}},
     }
 
@@ -241,3 +247,66 @@ def test_atr_gate_passes_typical_percent_rank_values() -> None:
         btc_regime={"state": "RISK_ON"},
     )
     assert rows_pass
+
+
+def test_execution_gate_pass_and_fail_reasons():
+    base_cfg = {
+        "setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40},
+        "scoring": {"breakout_trend_1_5d": {"trigger_4h_lookback_bars": 30}},
+        "execution_gates": {
+            "mexc_orderbook": {
+                "enabled": True,
+                "max_spread_pct": 2.5,
+                "bands_pct": [1.0],
+                "min_depth_usd": {"1.0": 900},
+            }
+        },
+    }
+
+    rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 30_000_000},
+        base_cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows and rows[0]["execution_gate_pass"] is True
+    assert rows[0]["execution_gate_fail_reasons"] == []
+
+    spread_fail_cfg = {**base_cfg, "execution_gates": {"mexc_orderbook": {**base_cfg["execution_gates"]["mexc_orderbook"], "max_spread_pct": 0.01}}}
+    spread_rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 30_000_000},
+        spread_fail_cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert spread_rows and "SPREAD_TOO_WIDE" in spread_rows[0]["execution_gate_fail_reasons"]
+
+    depth_fail_cfg = {**base_cfg, "execution_gates": {"mexc_orderbook": {**base_cfg["execution_gates"]["mexc_orderbook"], "min_depth_usd": {"1.0": 999_999}}}}
+    depth_rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 30_000_000},
+        depth_fail_cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert depth_rows and "DEPTH_TOO_LOW_1_0" in depth_rows[0]["execution_gate_fail_reasons"]
+
+
+def test_breakout_row_includes_execution_and_depth_fields():
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows
+    row = rows[0]
+    for key in [
+        "execution_gate_pass",
+        "spread_pct",
+        "depth_bid_0_5pct_usd",
+        "depth_ask_0_5pct_usd",
+        "depth_bid_1pct_usd",
+        "depth_ask_1pct_usd",
+    ]:
+        assert key in row

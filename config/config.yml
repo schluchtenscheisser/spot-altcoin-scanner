@@ -187,6 +187,16 @@ liquidity:
     c_max: 100
 
 
+
+execution_gates:
+  mexc_orderbook:
+    enabled: true
+    max_spread_pct: 0.15
+    bands_pct: [0.5, 1.0]
+    min_depth_usd:
+      "0.5": 80000
+      "1.0": 200000
+
 risk_flags:
   denylist_file: "config/denylist.yaml"
   unlock_overrides_file: "config/unlock_overrides.yaml"

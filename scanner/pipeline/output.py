@@ -232,6 +232,16 @@ class ReportGenerator:
         if price is not None:
             lines.append(f"**Price:** ${price:.6f} USDT")
             lines.append("")
+
+        if "execution_gate_pass" in data:
+            lines.append(f"**Execution Gate:** {bool(data.get('execution_gate_pass'))}")
+            lines.append(f"**Spread %:** {data.get('spread_pct')}")
+            lines.append(f"**Depth Bid 1.0% (USD):** {data.get('depth_bid_1pct_usd')}")
+            lines.append(f"**Depth Ask 1.0% (USD):** {data.get('depth_ask_1pct_usd')}")
+            fail_reasons = data.get('execution_gate_fail_reasons') or []
+            if fail_reasons:
+                lines.append(f"**Execution Gate Fail Reasons:** {', '.join(fail_reasons)}")
+            lines.append("")
         
         # Components
         components = data.get('components', {})
