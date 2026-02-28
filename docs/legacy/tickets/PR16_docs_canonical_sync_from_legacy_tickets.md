@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # PR16 — Docs-only: Canonical docs sync & consistency fixes (based on docs/legacy/tickets)
 
 ## Kurze Erläuterung
