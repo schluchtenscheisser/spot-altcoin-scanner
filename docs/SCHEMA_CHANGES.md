@@ -54,6 +54,37 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-28 — dataset_schema_version 1.1 → 1.2 — Evaluation Export run_id millisecond uniqueness
+**PR:** (branch-local, ticket/exporter_run_id_uniqueness_nanosecond_or_suffix)  
+**Typ:** semantisch
+
+#### Was hat sich geändert?
+- Evaluation-Dataset-Exporter erhöht `dataset_schema_version` auf `"1.2"`.
+- Default-`run_id` wird aus UTC-Startzeit mit Sekunden + Millisekunden abgeleitet (`YYYY-MM-DD_HHMMSSZ_mmm`).
+- Meta-Record enthält zusätzlich `export_started_at_ts_ms` (UTC Epoch-Millis des Exportstarts).
+
+#### Warum?
+- Verhindert Dateiname- und `record_id`-Namespace-Kollisionen bei mehreren Exports innerhalb derselben Minute.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Teilweise.
+- Consumer mit starrer Regex/Parsing auf altes `run_id`-Muster (`YYYY-MM-DD_HHMMZ`) müssen das neue Suffix-Format akzeptieren.
+
+#### Migration / Vorgehen
+- Version via `dataset_schema_version` prüfen.
+- Bei `>=1.2` `run_id` als opaken String behandeln (nicht auf Minutenauflösung hart parsen).
+- Optional `export_started_at_ts_ms` als präzise Startzeitquelle nutzen.
+
+#### Beispiel (kurz)
+```json
+{
+  "type": "meta",
+  "run_id": "2026-02-27_151233Z_482",
+  "export_started_at_ts_ms": 1772205153482,
+  "dataset_schema_version": "1.2"
+}
+```
+
 ### 2026-02-27 — dataset_schema_version 1.0 → 1.1 — Evaluation Dataset run_id file-scope + nullable Hits
 **PR:** (branch-local, ticket/2026-02-27__02_P0__evaluation_dataset_run_id_and_hits_consistency)  
 **Typ:** semantisch

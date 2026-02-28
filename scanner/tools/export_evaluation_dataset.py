@@ -16,7 +16,7 @@ from scanner.backtest.e2_model import (
 from scanner.config import load_config
 from scanner.pipeline.global_ranking import compute_global_top20
 
-DATASET_SCHEMA_VERSION = "1.1"
+DATASET_SCHEMA_VERSION = "1.2"
 
 
 def _parse_date(value: str) -> date:
@@ -30,13 +30,17 @@ def _daterange(start: date, end: date) -> Iterable[date]:
         current += timedelta(days=1)
 
 
-def _run_id_from_export_time(exported_at_iso: str) -> str:
-    dt = datetime.strptime(exported_at_iso, "%Y-%m-%dT%H:%M:%SZ")
-    return dt.strftime("%Y-%m-%d_%H%MZ")
+def _run_id_from_export_start(export_started_at: datetime) -> str:
+    millis = export_started_at.microsecond // 1000
+    return f"{export_started_at.strftime('%Y-%m-%d_%H%M%SZ')}_{millis:03d}"
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _utc_iso(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _score_from_entry(entry: dict[str, Any]) -> float:
@@ -115,8 +119,9 @@ def export_dataset(args: argparse.Namespace) -> Path:
     if not snapshots:
         raise ValueError("No snapshots loaded for requested range")
 
-    exported_at_iso = _utc_now_iso()
-    run_id = args.run_id or _run_id_from_export_time(exported_at_iso)
+    export_started_at = _utc_now()
+    exported_at_iso = _utc_iso(export_started_at)
+    run_id = args.run_id or _run_id_from_export_start(export_started_at)
 
     price_series_by_symbol = _build_price_series_by_symbol(snapshots)
 
@@ -212,6 +217,7 @@ def export_dataset(args: argparse.Namespace) -> Path:
         "from_date": start.isoformat(),
         "to_date": end.isoformat(),
         "exported_at_iso": exported_at_iso,
+        "export_started_at_ts_ms": int(export_started_at.timestamp() * 1000),
         "export_run_id": run_id,
         "source_snapshot_count": len(snapshots),
         "source_snapshot_dates": [snapshot.get("meta", {}).get("date") for snapshot in snapshots],

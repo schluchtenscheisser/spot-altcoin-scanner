@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Evaluation Dataset Exporter: run_id standardmäßig eindeutig (keine Overwrites/Namespace-Kollisionen)
 

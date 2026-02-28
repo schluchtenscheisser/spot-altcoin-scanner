@@ -56,8 +56,8 @@ Missing scoring lists rule:
 ### 3.1 `run_id`
 Default derivation:
 - Source: exporter wall-clock at export start (`UTC now`)
-- Format: `YYYY-MM-DD_HHMMZ`
-- Example: `2026-02-27_0005Z`
+- Format: `YYYY-MM-DD_HHMMSSZ_mmm`
+- Example: `2026-02-27_000510Z_482`
 
 Scope:
 - `run_id` is file-scope (one JSONL export = one `run_id`).
@@ -126,9 +126,10 @@ Required outcome fields on each candidate record:
 ```json
 {
   "type": "meta",
-  "run_id": "2026-02-27_0005Z",
-  "export_run_id": "2026-02-27_0005Z",
+  "run_id": "2026-02-27_000510Z_482",
+  "export_run_id": "2026-02-27_000510Z_482",
   "exported_at_iso": "2026-02-27T00:05:10Z",
+  "export_started_at_ts_ms": 1772141110482,
   "source_snapshot_count": 31,
   "source_snapshot_dates": ["2026-01-28", "...", "2026-02-27"],
   "thresholds_pct": [10, 20],
@@ -140,8 +141,8 @@ Required outcome fields on each candidate record:
 ```json
 {
   "type": "candidate_setup",
-  "record_id": "2026-02-27_0005Z:2026-02-15:ABCUSDT:breakout:breakout_retest_1_5d",
-  "run_id": "2026-02-27_0005Z",
+  "record_id": "2026-02-27_000510Z_482:2026-02-15:ABCUSDT:breakout:breakout_retest_1_5d",
+  "run_id": "2026-02-27_000510Z_482",
   "t0_date": "2026-02-15",
   "symbol": "ABCUSDT",
   "setup_type": "breakout",
@@ -173,7 +174,7 @@ Required outcome fields on each candidate record:
 |---|---|---:|:---:|
 | `type` | Constant `"candidate_setup"` | string | no |
 | `record_id` | `"{run_id}:{t0_date}:{symbol}:{setup_type}:{setup_id}"` | string | no |
-| `run_id` | File-scope export identifier: CLI override or derived once from export start UTC as `YYYY-MM-DD_HHMMZ` | string | no |
+| `run_id` | File-scope export identifier: CLI override or derived once from export start UTC as `YYYY-MM-DD_HHMMSSZ_mmm` | string | no |
 | `t0_date` | `snapshot.meta.date` | string (`YYYY-MM-DD`) | no |
 | `symbol` | `scoring_entry.symbol` | string | no |
 | `setup_type` | Iteration context (`reversal` for `scoring.reversals`, `breakout` for `scoring.breakouts`, `pullback` for `scoring.pullbacks`) | string | no |
