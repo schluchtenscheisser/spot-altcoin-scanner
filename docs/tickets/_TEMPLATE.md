@@ -68,6 +68,16 @@ Describe intended behavior (not implementation details unless necessary):
 - Edge cases:
 - Backward compatibility impact:
 
+## Codex Implementation Guardrails (No-Guesswork, Pflicht bei Code-Tickets)
+
+> Diese Sektion ist eine **Ausführungsanweisung** für Codex. Wenn hier etwas nicht eindeutig ist, muss das Ticket angepasst werden (kein Raten).
+
+- **Config/Defaults:** Wenn Config-Werte gelesen/validiert werden: **ScannerConfig-Defaults** verwenden (oder zentrale Accessors). *Missing key ≠ invalid*, außer ausdrücklich so spezifiziert.
+- **Nullability:** Keine implizite `bool(...)`-Coercion für Felder, die `null` sein dürfen/müssen. `None` bleibt `null`.
+- **Strict/Preflight:** Wenn `--strict-*` existiert: Preflight vor allen Writes; bei Failure **0 Partial Writes** (atomar).
+- **Not-evaluated vs failed:** “nicht evaluiert” (z. B. Budget/Not fetched) ist strikt getrennt von “evaluiert aber fail” (z. B. malformed/outage).
+- **Determinismus:** stabile Sortierung, klare Tie-breaker, keine zufälligen Suffixe ohne Spec.
+
 ## Implementation Notes (optional but useful)
 - Dataflow / pipeline stage impacts
 - Determinism (sorting, tie-breaks, NaN policies, closed-candle/no-lookahead)
@@ -79,6 +89,21 @@ Write these as verifiable statements. No “usually”, “roughly”, “should
 1) ...
 2) ...
 3) ...
+
+## Default-/Edgecase-Abdeckung (Pflicht bei Code-Tickets)
+
+> Markiere explizit, was dieses Ticket abdeckt. Jeder ✅ braucht einen Verweis auf Acceptance Criteria/Test(s).
+> Jeder ❌ muss entweder “nicht relevant” sein oder als Follow-up Ticket eingeplant werden.
+
+- **Config Defaults (Missing key → Default):** ✅/❌ (AC: #__ ; Test: __)
+- **Config Invalid Value Handling:** ✅/❌ (AC: #__ ; Test: __)
+- **Nullability / kein bool()-Coercion:** ✅/❌ (AC: #__ ; Test: __)
+- **Not-evaluated vs failed getrennt:** ✅/❌ (AC: #__ ; Test: __)
+- **Strict/Preflight Atomizität (0 Partial Writes):** ✅/❌ (AC: #__ ; Test: __)
+- **ID/Dateiname Namespace-Kollisionen (falls relevant):** ✅/❌ (AC: #__ ; Test: __)
+- **Deterministische Sortierung/Tie-breaker:** ✅/❌ (AC: #__ ; Test: __)
+> Hinweis: Bei Tickets, wo ein Punkt nicht relevant ist: markiere ✅ und schreibe “N/A” statt AC/Test (damit klar ist, dass es geprüft wurde, aber nicht gilt), z. B.
+✅ (N/A – Ticket liest keine Config)
 
 ## Tests (required if logic changes)
 - Unit:
