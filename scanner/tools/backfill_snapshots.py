@@ -189,6 +189,11 @@ def _preflight_requirements(args: argparse.Namespace, start: date, end: date, sn
                 _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=run_date)
             except Exception as exc:  # preflight aggregation
                 errors.append(f"{run_date}: {exc}")
+        else:
+            try:
+                _validate_full_mode_prerequisites(target_day=day, config_path=args.config, ohlcv_cache_dir=ohlcv_cache_dir)
+            except Exception as exc:  # preflight aggregation
+                errors.append(f"{run_date}: {exc}")
 
     if errors:
         raise FileNotFoundError("Strict preflight failed: " + " | ".join(errors))
@@ -196,6 +201,25 @@ def _preflight_requirements(args: argparse.Namespace, start: date, end: date, sn
 
 def _resolve_cache_date(target_day: date) -> str:
     return target_day.isoformat()
+
+
+def _validate_full_mode_prerequisites(target_day: date, config_path: str, ohlcv_cache_dir: Path) -> None:
+    """Validate deterministic full-mode prerequisites for one target date.
+
+    Full-mode backfill is expected to replay a historical day from local inputs.
+    In strict mode we fail early unless all required local artifacts are present.
+    """
+
+    config = load_config(config_path)
+    run_mode = str(config.raw.get("general", {}).get("run_mode", "")).lower()
+    if run_mode != "standard":
+        raise ValueError(
+            "Full-mode strict backfill requires config.general.run_mode='standard' "
+            f"(current: {run_mode or 'unset'})."
+        )
+
+    # Full mode depends on complete local OHLCV for the target day.
+    _build_minimal_features(ohlcv_cache_dir=ohlcv_cache_dir, target_date=target_day.isoformat())
 
 
 @contextmanager

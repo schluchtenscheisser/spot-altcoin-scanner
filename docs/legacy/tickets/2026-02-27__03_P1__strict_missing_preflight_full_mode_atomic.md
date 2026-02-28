@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Backfill Snapshots: strict-missing Preflight auch in Full-Mode (atomar, keine Partial Writes)
 

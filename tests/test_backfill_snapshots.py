@@ -210,3 +210,77 @@ def test_full_mode_time_patch_uses_target_cache_date(tmp_path: Path):
         cache_path = io_utils.get_cache_path("probe")
 
     assert cache_path.parts[-2] == "2026-02-01"
+
+
+def test_strict_missing_is_atomic_for_full_mode(tmp_path: Path):
+    snapshots_dir = tmp_path / "snapshots" / "history"
+    ohlcv_root = tmp_path / "data" / "raw"
+    _write_ohlcv_day(ohlcv_root, "2026-02-01", "AAAUSDT", high=12.5, low=10.0, close=11.5)
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("general:\n  run_mode: standard\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scanner.tools.backfill_snapshots",
+            "--from",
+            "2026-02-01",
+            "--to",
+            "2026-02-02",
+            "--mode",
+            "full",
+            "--strict-missing",
+            "--config",
+            str(config_path),
+            "--snapshots-dir",
+            str(snapshots_dir),
+            "--ohlcv-cache-dir",
+            str(ohlcv_root),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Strict preflight failed" in result.stderr
+    assert not (snapshots_dir / "2026-02-01.json").exists()
+
+
+def test_strict_missing_full_mode_success_writes_files(tmp_path: Path, monkeypatch):
+    snapshots_dir = tmp_path / "snapshots" / "history"
+    ohlcv_root = tmp_path / "data" / "raw"
+    _write_ohlcv_day(ohlcv_root, "2026-02-01", "AAAUSDT", high=12.5, low=10.0, close=11.5)
+    _write_ohlcv_day(ohlcv_root, "2026-02-02", "AAAUSDT", high=13.0, low=10.5, close=12.0)
+
+    config_path = tmp_path / "config.yml"
+    config_path.write_text("general:\n  run_mode: standard\n", encoding="utf-8")
+
+    def fake_run_full_mode(target_day, config_path, snapshots_dir, dry_run):
+        if dry_run:
+            return
+        path = snapshots_dir / f"{target_day.isoformat()}.json"
+        _write_json(path, {"meta": {"date": target_day.isoformat()}, "pipeline": {}, "data": {"features": {}}, "scoring": {}})
+
+    monkeypatch.setattr(tool, "_run_full_mode", fake_run_full_mode)
+
+    rc = tool.main([
+        "--from",
+        "2026-02-01",
+        "--to",
+        "2026-02-02",
+        "--mode",
+        "full",
+        "--strict-missing",
+        "--config",
+        str(config_path),
+        "--snapshots-dir",
+        str(snapshots_dir),
+        "--ohlcv-cache-dir",
+        str(ohlcv_root),
+    ])
+
+    assert rc == 0
+    assert (snapshots_dir / "2026-02-01.json").exists()
+    assert (snapshots_dir / "2026-02-02.json").exists()
