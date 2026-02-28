@@ -1,0 +1,2157 @@
+{
+  "schema_version": "v1.9",
+  "meta": {
+    "date": "2026-02-28",
+    "generated_at": "2026-02-28T05:01:30.488201Z",
+    "version": "1.9",
+    "mode": "standard",
+    "asof_ts_ms": 1772254855896,
+    "asof_iso": "2026-02-28T05:00:55Z"
+  },
+  "summary": {
+    "reversal_count": 52,
+    "breakout_count": 0,
+    "pullback_count": 54,
+    "total_scored": 106,
+    "global_top20_count": 20
+  },
+  "setups": {
+    "reversals": [
+      {
+        "symbol": "VIRTUALUSDT",
+        "price_usdt": 0.6704,
+        "coin_name": "Virtuals Protocol",
+        "market_cap": 439610994.045055,
+        "quote_volume_24h": 1444911.8515,
+        "proxy_liquidity_score": 16.949153,
+        "spread_bps": 1.492426,
+        "slippage_bps": 22.45514,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 77.47,
+        "raw_score": 77.473091,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 82.18,
+          "reclaim": 59.65,
+          "volume": 96.53
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (62.7% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress",
+          "Strong volume (2.9x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.647680136528805,
+            "invalidation": 0.4617,
+            "targets": [
+              0.7143956091548758,
+              0.7811110817809465,
+              0.8478265544070172
+            ],
+            "atr_value": 0.06671547262607075
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 743,
+        "discovery_source": "cmc_date_added",
+        "rank": 1
+      },
+      {
+        "symbol": "ICPUSDT",
+        "price_usdt": 2.454,
+        "coin_name": "Internet Computer",
+        "market_cap": 1346297332.5616777,
+        "quote_volume_24h": 7619557.242,
+        "proxy_liquidity_score": 83.050847,
+        "spread_bps": 4.077472,
+        "slippage_bps": 21.970947,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 72.15,
+        "raw_score": 72.150391,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 80.69,
+          "reclaim": 70.0,
+          "volume": 66.48
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (72.2% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (-10.0% above EMA50)",
+          "Strong volume (2.5x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 2.398237175907525,
+            "invalidation": 2.002,
+            "targets": [
+              2.607776772879432,
+              2.8173163698513384,
+              3.0268559668232453
+            ],
+            "atr_value": 0.20953959697190677
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 1803,
+        "discovery_source": "cmc_date_added",
+        "rank": 2
+      },
+      {
+        "symbol": "DOTUSDT",
+        "price_usdt": 1.555,
+        "coin_name": "Polkadot",
+        "market_cap": 2596401135.055808,
+        "quote_volume_24h": 12852209.007,
+        "proxy_liquidity_score": 94.915254,
+        "spread_bps": 6.424671,
+        "slippage_bps": 3.212335,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 67.8,
+        "raw_score": 67.804594,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 65.78,
+          "reclaim": 70.0,
+          "volume": 66.9
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.1% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (-0.4% above EMA50)",
+          "Strong volume (2.5x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 1.4384113085473427,
+            "invalidation": 1.105,
+            "targets": [
+              1.5642204667054733,
+              1.6900296248636038,
+              1.8158387830217344
+            ],
+            "atr_value": 0.12580915815813057
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2019,
+        "discovery_source": "cmc_date_added",
+        "rank": 3
+      },
+      {
+        "symbol": "PENDLEUSDT",
+        "price_usdt": 1.249,
+        "coin_name": "Pendle",
+        "market_cap": 206449437.9775922,
+        "quote_volume_24h": 1068652.915,
+        "proxy_liquidity_score": 1.694915,
+        "spread_bps": 8.009612,
+        "slippage_bps": 26.596534,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 67.3,
+        "raw_score": 67.297747,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 90.23,
+          "reclaim": 25.57,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (59.9% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (5.6x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 1.2818970065418265,
+            "invalidation": 1.028,
+            "targets": [
+              1.392053583267928,
+              1.5022101599940296,
+              1.612366736720131
+            ],
+            "atr_value": 0.11015657672610156
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 1766,
+        "discovery_source": "cmc_date_added",
+        "rank": 4
+      },
+      {
+        "symbol": "LUNCUSDT",
+        "price_usdt": 4.334e-05,
+        "coin_name": "Terra Classic",
+        "market_cap": 236936808.77237603,
+        "quote_volume_24h": 5683965.88026385,
+        "proxy_liquidity_score": 71.186441,
+        "spread_bps": 2.306007,
+        "slippage_bps": 80.419879,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 64.77,
+        "raw_score": 92.526072,
+        "penalty_multiplier": 0.7,
+        "components": {
+          "drawdown": 0.0,
+          "base": 75.09,
+          "reclaim": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {
+          "overextension": 0.7
+        },
+        "flags": [
+          "overextended"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Clean base formation detected",
+          "Reclaimed EMAs (16.2% above EMA50)",
+          "Strong volume (12.4x average)",
+          "⚠️ Overextended (16.2% above EMA50)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 3.6522153704988746e-05,
+            "invalidation": 3e-05,
+            "targets": [
+              3.965914478476694e-05,
+              4.2796135864545134e-05,
+              4.5933126944323335e-05
+            ],
+            "atr_value": 3.136991079778195e-06
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2409,
+        "discovery_source": "cmc_date_added",
+        "rank": 5
+      },
+      {
+        "symbol": "DCRUSDT",
+        "price_usdt": 32.616,
+        "coin_name": "Decred",
+        "market_cap": 568433970.1829139,
+        "quote_volume_24h": 1434894.886,
+        "proxy_liquidity_score": 15.254237,
+        "spread_bps": 6.177415,
+        "slippage_bps": 80.789855,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 58.95,
+        "raw_score": 84.219947,
+        "penalty_multiplier": 0.7,
+        "components": {
+          "drawdown": 0.0,
+          "base": 47.4,
+          "reclaim": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {
+          "overextension": 0.7
+        },
+        "flags": [
+          "overextended"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Reclaimed EMAs (45.9% above EMA50)",
+          "Strong volume (3.4x average)",
+          "⚠️ Overextended (45.9% above EMA50)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 26.016913128278755,
+            "invalidation": 16.997,
+            "targets": [
+              28.952618193270453,
+              31.888323258262155,
+              34.824028323253856
+            ],
+            "atr_value": 2.9357050649916996
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 3671,
+        "discovery_source": "cmc_date_added",
+        "rank": 6
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.6944,
+        "coin_name": "Aster",
+        "market_cap": 1720933390.8455265,
+        "quote_volume_24h": 2967948.0802,
+        "proxy_liquidity_score": 54.237288,
+        "spread_bps": 10.082823,
+        "slippage_bps": 10.376512,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 52.6,
+        "raw_score": 52.601439,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 95.89,
+          "base": 95.34,
+          "reclaim": 60.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (49.2% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.6896625630534914,
+            "invalidation": 0.404,
+            "targets": [
+              0.7370388414281676,
+              0.7844151198028437,
+              0.83179139817752
+            ],
+            "atr_value": 0.04737627837467619
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 308,
+        "discovery_source": "cmc_date_added",
+        "rank": 7
+      },
+      {
+        "symbol": "POLUSDT",
+        "price_usdt": 0.10747,
+        "coin_name": "Polygon (prev. MATIC)",
+        "market_cap": 1139403085.419139,
+        "quote_volume_24h": 1101434.49176,
+        "proxy_liquidity_score": 3.389831,
+        "spread_bps": 0.930709,
+        "slippage_bps": 18.296013,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 49.53,
+        "raw_score": 49.532303,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 67.56,
+          "base": 91.38,
+          "reclaim": 55.3,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Moderate drawdown (43.5% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.10810608952059224,
+            "invalidation": 0.084,
+            "targets": [
+              0.11643813859903657,
+              0.1247701876774809,
+              0.13310223675592522
+            ],
+            "atr_value": 0.008332049078444329
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 851,
+        "discovery_source": "cmc_date_added",
+        "rank": 8
+      },
+      {
+        "symbol": "ETHFIUSDT",
+        "price_usdt": 0.4913,
+        "coin_name": "ether.fi",
+        "market_cap": 365276251.1106263,
+        "quote_volume_24h": 1332958.7283,
+        "proxy_liquidity_score": 11.864407,
+        "spread_bps": 4.070004,
+        "slippage_bps": 13.390746,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 49.0,
+        "raw_score": 48.998935,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 83.68,
+          "reclaim": 59.74,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.4% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.48820443708249867,
+            "invalidation": 0.3792,
+            "targets": [
+              0.5308511451888207,
+              0.5734978532951427,
+              0.6161445614014647
+            ],
+            "atr_value": 0.04264670810632202
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 716,
+        "discovery_source": "cmc_date_added",
+        "rank": 9
+      },
+      {
+        "symbol": "FILUSDT",
+        "price_usdt": 0.9813,
+        "coin_name": "Filecoin",
+        "market_cap": 740716154.2600049,
+        "quote_volume_24h": 3978772.3064,
+        "proxy_liquidity_score": 66.101695,
+        "spread_bps": 6.117455,
+        "slippage_bps": 11.277041,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 46.88,
+        "raw_score": 46.875442,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 79.16,
+          "reclaim": 57.82,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (70.7% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.986242330763983,
+            "invalidation": 0.773,
+            "targets": [
+              1.0688609523910957,
+              1.1514795740182084,
+              1.2340981956453212
+            ],
+            "atr_value": 0.08261862162711268
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2999,
+        "discovery_source": "cmc_date_added",
+        "rank": 10
+      }
+    ],
+    "breakouts": [],
+    "breakout_immediate_1_5d": [],
+    "breakout_retest_1_5d": [],
+    "pullbacks": [
+      {
+        "symbol": "LUNCUSDT",
+        "price_usdt": 4.334e-05,
+        "coin_name": "Terra Classic",
+        "market_cap": 236936808.77237603,
+        "quote_volume_24h": 5683965.88026385,
+        "proxy_liquidity_score": 71.186441,
+        "spread_bps": 2.306007,
+        "slippage_bps": 80.419879,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 68.0,
+        "raw_score": 68.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (16.2% above EMA50)",
+          "No clear pullback",
+          "Strong rebound (24.3% in 3d)",
+          "Strong volume (12.4x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 3.891893644633918e-05,
+              "lower": 3.852974708187579e-05,
+              "upper": 3.9308125810802576e-05,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 3.7124261716875e-05,
+            "targets": [
+              4.104994281096204e-05,
+              4.31809491755849e-05,
+              4.5311955540207764e-05
+            ],
+            "atr_value": 2.131006364622859e-06
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2409,
+        "discovery_source": "cmc_date_added",
+        "rank": 1
+      },
+      {
+        "symbol": "PIPPINUSDT",
+        "price_usdt": 0.665102,
+        "coin_name": "pippin",
+        "market_cap": 660889719.8199704,
+        "quote_volume_24h": 5294419.715978,
+        "proxy_liquidity_score": 69.491525,
+        "spread_bps": 12.503799,
+        "slippage_bps": 17.949413,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 60.0,
+        "raw_score": 60.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 60.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (42.1% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.7130490800876268,
+              "lower": 0.7059185892867506,
+              "upper": 0.720179570888503,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.6759185466509388,
+            "targets": [
+              0.7858914826327665,
+              0.8587338851779063,
+              0.9315762877230461
+            ],
+            "atr_value": 0.07284240254513977
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 417,
+        "discovery_source": "cmc_date_added",
+        "rank": 2
+      },
+      {
+        "symbol": "DCRUSDT",
+        "price_usdt": 32.616,
+        "coin_name": "Decred",
+        "market_cap": 568433970.1829139,
+        "quote_volume_24h": 1434894.886,
+        "proxy_liquidity_score": 15.254237,
+        "spread_bps": 6.177415,
+        "slippage_bps": 80.789855,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 60.0,
+        "raw_score": 60.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 60.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (45.9% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (3.4x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 31.831029428275727,
+              "lower": 31.51271913399297,
+              "upper": 32.14933972255849,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 28.875200584838105,
+            "targets": [
+              33.93134746724431,
+              36.03166550621289,
+              38.13198354518147
+            ],
+            "atr_value": 2.1003180389685805
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 3671,
+        "discovery_source": "cmc_date_added",
+        "rank": 3
+      },
+      {
+        "symbol": "CCUSDT",
+        "price_usdt": 0.16846,
+        "coin_name": "Canton",
+        "market_cap": 6377989258.05764,
+        "quote_volume_24h": 37025385.40556,
+        "proxy_liquidity_score": 100.0,
+        "spread_bps": 3.561254,
+        "slippage_bps": 42.771775,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 59.84,
+        "raw_score": 59.842381,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 90.0,
+          "pullback": 40.0,
+          "rebound": 39.21,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (10.2% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (50.1x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.1691740230091623,
+              "lower": 0.16748228277907065,
+              "upper": 0.17086576323925393,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.16604650031701443,
+            "targets": [
+              0.17392227904469632,
+              0.17867053508023037,
+              0.18341879111576442
+            ],
+            "atr_value": 0.00474825603553404
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 235,
+        "discovery_source": "cmc_date_added",
+        "rank": 4
+      },
+      {
+        "symbol": "STABLEUSDT",
+        "price_usdt": 0.031774,
+        "coin_name": "Stable",
+        "market_cap": 560394805.7911782,
+        "quote_volume_24h": 2027682.685718,
+        "proxy_liquidity_score": 35.59322,
+        "spread_bps": 2.219298,
+        "slippage_bps": 96.721824,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 59.5,
+        "raw_score": 59.502149,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 57.51,
+          "volume": 55.96
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (36.9% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Moderate volume (1.9x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.033332966695313174,
+              "lower": 0.03299963702836004,
+              "upper": 0.033666296362266306,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.03117681017648943,
+            "targets": [
+              0.03514415994862045,
+              0.03695535320192772,
+              0.038766546455234994
+            ],
+            "atr_value": 0.0018111932533072738
+          }
+        },
+        "discovery": true,
+        "discovery_age_days": 113,
+        "discovery_source": "cmc_date_added",
+        "rank": 5
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.6944,
+        "coin_name": "Aster",
+        "market_cap": 1720933390.8455265,
+        "quote_volume_24h": 2967948.0802,
+        "proxy_liquidity_score": 54.237288,
+        "spread_bps": 10.082823,
+        "slippage_bps": 10.376512,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 51.2,
+        "raw_score": 51.2,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 20.0,
+          "pullback": 100.0,
+          "rebound": 16.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (1.8% from EMA20)",
+          "No rebound yet"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.6989257518274514,
+              "lower": 0.6919364943091769,
+              "upper": 0.7059150093457259,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.700465718799943,
+            "targets": [
+              0.7141211089426318,
+              0.7293164660578122,
+              0.7445118231729926
+            ],
+            "atr_value": 0.015195357115180401
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 308,
+        "discovery_source": "cmc_date_added",
+        "rank": 6
+      },
+      {
+        "symbol": "NEARUSDT",
+        "price_usdt": 1.0818,
+        "coin_name": "NEAR Protocol",
+        "market_cap": 1395324143.9919257,
+        "quote_volume_24h": 6462108.4095,
+        "proxy_liquidity_score": 76.271186,
+        "spread_bps": 4.624277,
+        "slippage_bps": 11.319333,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 24.78,
+        "raw_score": 49.568702,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 47.84,
+          "volume": 6.89
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (0.8% from EMA20)",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 1.0925989216928491,
+              "lower": 1.0816729324759207,
+              "upper": 1.1035249109097776,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 1.065269036668295,
+            "targets": [
+              1.1245786263737962,
+              1.1565583310547436,
+              1.1885380357356907
+            ],
+            "atr_value": 0.0319797046809472
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2027,
+        "discovery_source": "cmc_date_added",
+        "rank": 7
+      },
+      {
+        "symbol": "FILUSDT",
+        "price_usdt": 0.9813,
+        "coin_name": "Filecoin",
+        "market_cap": 740716154.2600049,
+        "quote_volume_24h": 3978772.3064,
+        "proxy_liquidity_score": 66.101695,
+        "spread_bps": 6.117455,
+        "slippage_bps": 11.277041,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 24.78,
+        "raw_score": 49.563218,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 47.82,
+          "volume": 7.39
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (0.8% from EMA20)",
+          "Moderate rebound",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.9894703510243322,
+              "lower": 0.9795756475140889,
+              "upper": 0.9993650545345756,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.9678630985292387,
+            "targets": [
+              1.0199606568227655,
+              1.0504509626211989,
+              1.0809412684196322
+            ],
+            "atr_value": 0.030490305798433353
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2999,
+        "discovery_source": "cmc_date_added",
+        "rank": 8
+      },
+      {
+        "symbol": "DOTUSDT",
+        "price_usdt": 1.555,
+        "coin_name": "Polkadot",
+        "market_cap": 2596401135.055808,
+        "quote_volume_24h": 12852209.007,
+        "proxy_liquidity_score": 94.915254,
+        "spread_bps": 6.424671,
+        "slippage_bps": 3.212335,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 22.8,
+        "raw_score": 45.6,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 80.0,
+          "rebound": 68.0,
+          "volume": 100.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (11.2% from EMA20)",
+          "Strong rebound (29.1% in 3d)",
+          "Strong volume (2.5x)",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 1.5336753874319098,
+              "lower": 1.5183386335575906,
+              "upper": 1.549012141306229,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 1.444833958475123,
+            "targets": [
+              1.6011874260193737,
+              1.6686994646068374,
+              1.7362115031943013
+            ],
+            "atr_value": 0.06751203858746382
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2019,
+        "discovery_source": "cmc_date_added",
+        "rank": 9
+      },
+      {
+        "symbol": "HBARUSDT",
+        "price_usdt": 0.09979,
+        "coin_name": "Hedera",
+        "market_cap": 4290074059.562162,
+        "quote_volume_24h": 3855145.44191,
+        "proxy_liquidity_score": 64.40678,
+        "spread_bps": 1.002255,
+        "slippage_bps": 6.489197,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 22.53,
+        "raw_score": 45.056642,
+        "penalty_multiplier": 0.5,
+        "components": {
+          "trend": 0.0,
+          "pullback": 100.0,
+          "rebound": 25.28,
+          "volume": 0.0
+        },
+        "penalties": {
+          "broken_trend": 0.5
+        },
+        "flags": [
+          "broken_trend"
+        ],
+        "risk_flags": [],
+        "reasons": [
+          "Weak/no uptrend",
+          "At support level (1.7% from EMA20)",
+          "No rebound yet",
+          "⚠️ Below EMA50 (trend broken)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.10033653136062676,
+              "lower": 0.09933316604702049,
+              "upper": 0.10133989667423303,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.0992973166961898,
+            "targets": [
+              0.1026358445811906,
+              0.10493515780175443,
+              0.10723447102231827
+            ],
+            "atr_value": 0.002299313220563837
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2356,
+        "discovery_source": "cmc_date_added",
+        "rank": 10
+      }
+    ],
+    "global_top20": [
+      {
+        "symbol": "VIRTUALUSDT",
+        "price_usdt": 0.6704,
+        "coin_name": "Virtuals Protocol",
+        "market_cap": 439610994.045055,
+        "quote_volume_24h": 1444911.8515,
+        "proxy_liquidity_score": 16.949153,
+        "spread_bps": 1.492426,
+        "slippage_bps": 22.45514,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 77.47,
+        "raw_score": 77.473091,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 82.18,
+          "reclaim": 59.65,
+          "volume": 96.53
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (62.7% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress",
+          "Strong volume (2.9x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.647680136528805,
+            "invalidation": 0.4617,
+            "targets": [
+              0.7143956091548758,
+              0.7811110817809465,
+              0.8478265544070172
+            ],
+            "atr_value": 0.06671547262607075
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 743,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 77.47,
+        "best_setup_type": "reversal",
+        "best_setup_score": 77.47,
+        "setup_weight": 1.0,
+        "global_score": 77.47,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 1
+      },
+      {
+        "symbol": "ICPUSDT",
+        "price_usdt": 2.454,
+        "coin_name": "Internet Computer",
+        "market_cap": 1346297332.5616777,
+        "quote_volume_24h": 7619557.242,
+        "proxy_liquidity_score": 83.050847,
+        "spread_bps": 4.077472,
+        "slippage_bps": 21.970947,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 72.15,
+        "raw_score": 72.150391,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 80.69,
+          "reclaim": 70.0,
+          "volume": 66.48
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (72.2% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (-10.0% above EMA50)",
+          "Strong volume (2.5x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 2.398237175907525,
+            "invalidation": 2.002,
+            "targets": [
+              2.607776772879432,
+              2.8173163698513384,
+              3.0268559668232453
+            ],
+            "atr_value": 0.20953959697190677
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 1803,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 72.15,
+        "best_setup_type": "reversal",
+        "best_setup_score": 72.15,
+        "setup_weight": 1.0,
+        "global_score": 72.15,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 2
+      },
+      {
+        "symbol": "LUNCUSDT",
+        "price_usdt": 4.334e-05,
+        "coin_name": "Terra Classic",
+        "market_cap": 236936808.77237603,
+        "quote_volume_24h": 5683965.88026385,
+        "proxy_liquidity_score": 71.186441,
+        "spread_bps": 2.306007,
+        "slippage_bps": 80.419879,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 68.0,
+        "raw_score": 68.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 100.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (16.2% above EMA50)",
+          "No clear pullback",
+          "Strong rebound (24.3% in 3d)",
+          "Strong volume (12.4x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 3.891893644633918e-05,
+              "lower": 3.852974708187579e-05,
+              "upper": 3.9308125810802576e-05,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 3.7124261716875e-05,
+            "targets": [
+              4.104994281096204e-05,
+              4.31809491755849e-05,
+              4.5311955540207764e-05
+            ],
+            "atr_value": 2.131006364622859e-06
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2409,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 68.0,
+        "best_setup_type": "pullback",
+        "best_setup_score": 68.0,
+        "setup_weight": 1.0,
+        "global_score": 68.0,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 3
+      },
+      {
+        "symbol": "DOTUSDT",
+        "price_usdt": 1.555,
+        "coin_name": "Polkadot",
+        "market_cap": 2596401135.055808,
+        "quote_volume_24h": 12852209.007,
+        "proxy_liquidity_score": 94.915254,
+        "spread_bps": 6.424671,
+        "slippage_bps": 3.212335,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 67.8,
+        "raw_score": 67.804594,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 65.78,
+          "reclaim": 70.0,
+          "volume": 66.9
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.1% from ATH)",
+          "Clean base formation detected",
+          "Reclaimed EMAs (-0.4% above EMA50)",
+          "Strong volume (2.5x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 1.4384113085473427,
+            "invalidation": 1.105,
+            "targets": [
+              1.5642204667054733,
+              1.6900296248636038,
+              1.8158387830217344
+            ],
+            "atr_value": 0.12580915815813057
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2019,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 67.8,
+        "best_setup_type": "reversal",
+        "best_setup_score": 67.8,
+        "setup_weight": 1.0,
+        "global_score": 67.8,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 4
+      },
+      {
+        "symbol": "PENDLEUSDT",
+        "price_usdt": 1.249,
+        "coin_name": "Pendle",
+        "market_cap": 206449437.9775922,
+        "quote_volume_24h": 1068652.915,
+        "proxy_liquidity_score": 1.694915,
+        "spread_bps": 8.009612,
+        "slippage_bps": 26.596534,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 67.3,
+        "raw_score": 67.297747,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 90.23,
+          "reclaim": 25.57,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (59.9% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)",
+          "Strong volume (5.6x average)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 1.2818970065418265,
+            "invalidation": 1.028,
+            "targets": [
+              1.392053583267928,
+              1.5022101599940296,
+              1.612366736720131
+            ],
+            "atr_value": 0.11015657672610156
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 1766,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 67.3,
+        "best_setup_type": "reversal",
+        "best_setup_score": 67.3,
+        "setup_weight": 1.0,
+        "global_score": 67.3,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 5
+      },
+      {
+        "symbol": "PIPPINUSDT",
+        "price_usdt": 0.665102,
+        "coin_name": "pippin",
+        "market_cap": 660889719.8199704,
+        "quote_volume_24h": 5294419.715978,
+        "proxy_liquidity_score": 69.491525,
+        "spread_bps": 12.503799,
+        "slippage_bps": 17.949413,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 60.0,
+        "raw_score": 60.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 60.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (42.1% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.7130490800876268,
+              "lower": 0.7059185892867506,
+              "upper": 0.720179570888503,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.6759185466509388,
+            "targets": [
+              0.7858914826327665,
+              0.8587338851779063,
+              0.9315762877230461
+            ],
+            "atr_value": 0.07284240254513977
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 417,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 60.0,
+        "best_setup_type": "pullback",
+        "best_setup_score": 60.0,
+        "setup_weight": 1.0,
+        "global_score": 60.0,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 6
+      },
+      {
+        "symbol": "DCRUSDT",
+        "price_usdt": 32.616,
+        "coin_name": "Decred",
+        "market_cap": 568433970.1829139,
+        "quote_volume_24h": 1434894.886,
+        "proxy_liquidity_score": 15.254237,
+        "spread_bps": 6.177415,
+        "slippage_bps": 80.789855,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 60.0,
+        "raw_score": 60.0,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 60.0,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (45.9% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (3.4x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 31.831029428275727,
+              "lower": 31.51271913399297,
+              "upper": 32.14933972255849,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 28.875200584838105,
+            "targets": [
+              33.93134746724431,
+              36.03166550621289,
+              38.13198354518147
+            ],
+            "atr_value": 2.1003180389685805
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 3671,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 60.0,
+        "best_setup_type": "pullback",
+        "best_setup_score": 60.0,
+        "setup_weight": 1.0,
+        "global_score": 60.0,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 7
+      },
+      {
+        "symbol": "CCUSDT",
+        "price_usdt": 0.16846,
+        "coin_name": "Canton",
+        "market_cap": 6377989258.05764,
+        "quote_volume_24h": 37025385.40556,
+        "proxy_liquidity_score": 100.0,
+        "spread_bps": 3.561254,
+        "slippage_bps": 42.771775,
+        "liquidity_grade": "B",
+        "liquidity_insufficient": false,
+        "score": 59.84,
+        "raw_score": 59.842381,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 90.0,
+          "pullback": 40.0,
+          "rebound": 39.21,
+          "volume": 100.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (10.2% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Strong volume (50.1x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.1691740230091623,
+              "lower": 0.16748228277907065,
+              "upper": 0.17086576323925393,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.16604650031701443,
+            "targets": [
+              0.17392227904469632,
+              0.17867053508023037,
+              0.18341879111576442
+            ],
+            "atr_value": 0.00474825603553404
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 235,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 59.84,
+        "best_setup_type": "pullback",
+        "best_setup_score": 59.84,
+        "setup_weight": 1.0,
+        "global_score": 59.84,
+        "confluence": 1,
+        "valid_setups": [
+          "pullback"
+        ],
+        "rank": 8
+      },
+      {
+        "symbol": "STABLEUSDT",
+        "price_usdt": 0.031774,
+        "coin_name": "Stable",
+        "market_cap": 560394805.7911782,
+        "quote_volume_24h": 2027682.685718,
+        "proxy_liquidity_score": 35.59322,
+        "spread_bps": 2.219298,
+        "slippage_bps": 96.721824,
+        "liquidity_grade": "C",
+        "liquidity_insufficient": false,
+        "score": 59.5,
+        "raw_score": 59.502149,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "trend": 100.0,
+          "pullback": 20.0,
+          "rebound": 57.51,
+          "volume": 55.96
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong uptrend (36.9% above EMA50)",
+          "No clear pullback",
+          "Moderate rebound",
+          "Moderate volume (1.9x)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_zone": {
+              "center": 0.033332966695313174,
+              "lower": 0.03299963702836004,
+              "upper": 0.033666296362266306,
+              "tolerance_pct": 1.0
+            },
+            "invalidation": 0.03117681017648943,
+            "targets": [
+              0.03514415994862045,
+              0.03695535320192772,
+              0.038766546455234994
+            ],
+            "atr_value": 0.0018111932533072738
+          }
+        },
+        "discovery": true,
+        "discovery_age_days": 113,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 59.5,
+        "best_setup_type": "pullback",
+        "best_setup_score": 59.5,
+        "setup_weight": 1.0,
+        "global_score": 59.5,
+        "confluence": 1,
+        "valid_setups": [
+          "pullback"
+        ],
+        "rank": 9
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "price_usdt": 0.6944,
+        "coin_name": "Aster",
+        "market_cap": 1720933390.8455265,
+        "quote_volume_24h": 2967948.0802,
+        "proxy_liquidity_score": 54.237288,
+        "spread_bps": 10.082823,
+        "slippage_bps": 10.376512,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 52.6,
+        "raw_score": 52.601439,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 95.89,
+          "base": 95.34,
+          "reclaim": 60.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (49.2% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.6896625630534914,
+            "invalidation": 0.404,
+            "targets": [
+              0.7370388414281676,
+              0.7844151198028437,
+              0.83179139817752
+            ],
+            "atr_value": 0.04737627837467619
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 308,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 52.6,
+        "best_setup_type": "reversal",
+        "best_setup_score": 52.6,
+        "setup_weight": 1.0,
+        "global_score": 52.6,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 10
+      },
+      {
+        "symbol": "POLUSDT",
+        "price_usdt": 0.10747,
+        "coin_name": "Polygon (prev. MATIC)",
+        "market_cap": 1139403085.419139,
+        "quote_volume_24h": 1101434.49176,
+        "proxy_liquidity_score": 3.389831,
+        "spread_bps": 0.930709,
+        "slippage_bps": 18.296013,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 49.53,
+        "raw_score": 49.532303,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 67.56,
+          "base": 91.38,
+          "reclaim": 55.3,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Moderate drawdown (43.5% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.10810608952059224,
+            "invalidation": 0.084,
+            "targets": [
+              0.11643813859903657,
+              0.1247701876774809,
+              0.13310223675592522
+            ],
+            "atr_value": 0.008332049078444329
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 851,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 49.53,
+        "best_setup_type": "reversal",
+        "best_setup_score": 49.53,
+        "setup_weight": 1.0,
+        "global_score": 49.53,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 11
+      },
+      {
+        "symbol": "ETHFIUSDT",
+        "price_usdt": 0.4913,
+        "coin_name": "ether.fi",
+        "market_cap": 365276251.1106263,
+        "quote_volume_24h": 1332958.7283,
+        "proxy_liquidity_score": 11.864407,
+        "spread_bps": 4.070004,
+        "slippage_bps": 13.390746,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 49.0,
+        "raw_score": 48.998935,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 83.68,
+          "reclaim": 59.74,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (51.4% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.48820443708249867,
+            "invalidation": 0.3792,
+            "targets": [
+              0.5308511451888207,
+              0.5734978532951427,
+              0.6161445614014647
+            ],
+            "atr_value": 0.04264670810632202
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 716,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 49.0,
+        "best_setup_type": "reversal",
+        "best_setup_score": 49.0,
+        "setup_weight": 1.0,
+        "global_score": 49.0,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 12
+      },
+      {
+        "symbol": "FILUSDT",
+        "price_usdt": 0.9813,
+        "coin_name": "Filecoin",
+        "market_cap": 740716154.2600049,
+        "quote_volume_24h": 3978772.3064,
+        "proxy_liquidity_score": 66.101695,
+        "spread_bps": 6.117455,
+        "slippage_bps": 11.277041,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 46.88,
+        "raw_score": 46.875442,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 79.16,
+          "reclaim": 57.82,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (70.7% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.986242330763983,
+            "invalidation": 0.773,
+            "targets": [
+              1.0688609523910957,
+              1.1514795740182084,
+              1.2340981956453212
+            ],
+            "atr_value": 0.08261862162711268
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2999,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 46.88,
+        "best_setup_type": "reversal",
+        "best_setup_score": 46.88,
+        "setup_weight": 1.0,
+        "global_score": 46.88,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 13
+      },
+      {
+        "symbol": "NEARUSDT",
+        "price_usdt": 1.0818,
+        "coin_name": "NEAR Protocol",
+        "market_cap": 1395324143.9919257,
+        "quote_volume_24h": 6462108.4095,
+        "proxy_liquidity_score": 76.271186,
+        "spread_bps": 4.624277,
+        "slippage_bps": 11.319333,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 46.79,
+        "raw_score": 46.793696,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 78.85,
+          "reclaim": 57.84,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (64.4% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 1.085896582044296,
+            "invalidation": 0.843,
+            "targets": [
+              1.1751160994382512,
+              1.2643356168322066,
+              1.3535551342261618
+            ],
+            "atr_value": 0.08921951739395527
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2027,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 46.79,
+        "best_setup_type": "reversal",
+        "best_setup_score": 46.79,
+        "setup_weight": 1.0,
+        "global_score": 46.79,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 14
+      },
+      {
+        "symbol": "UNIUSDT",
+        "price_usdt": 3.721,
+        "coin_name": "Uniswap",
+        "market_cap": 2358266414.1389832,
+        "quote_volume_24h": 6312955.632,
+        "proxy_liquidity_score": 72.881356,
+        "spread_bps": 5.374899,
+        "slippage_bps": 17.769175,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 41.3,
+        "raw_score": 41.303624,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 78.42,
+          "reclaim": 44.44,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (59.9% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 3.667738267697122,
+            "invalidation": 2.848,
+            "targets": [
+              4.0094155045168804,
+              4.351092741336638,
+              4.692769978156396
+            ],
+            "atr_value": 0.34167723681975787
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 1990,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 41.3,
+        "best_setup_type": "reversal",
+        "best_setup_score": 41.3,
+        "setup_weight": 1.0,
+        "global_score": 41.3,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 15
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "price_usdt": 8.888,
+        "coin_name": "Avalanche",
+        "market_cap": 3836837733.8361177,
+        "quote_volume_24h": 14196899.043,
+        "proxy_liquidity_score": 96.610169,
+        "spread_bps": 4.500956,
+        "slippage_bps": 4.436438,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 40.77,
+        "raw_score": 40.771431,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 85.14,
+          "reclaim": 20.0,
+          "volume": 24.1
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (52.4% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 9.235402207810884,
+            "invalidation": 7.55,
+            "targets": [
+              9.849516265993714,
+              10.463630324176542,
+              11.077744382359372
+            ],
+            "atr_value": 0.6141140581828294
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2056,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 40.77,
+        "best_setup_type": "reversal",
+        "best_setup_score": 40.77,
+        "setup_weight": 1.0,
+        "global_score": 40.77,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 16
+      },
+      {
+        "symbol": "HBARUSDT",
+        "price_usdt": 0.09979,
+        "coin_name": "Hedera",
+        "market_cap": 4290074059.562162,
+        "quote_volume_24h": 3855145.44191,
+        "proxy_liquidity_score": 64.40678,
+        "spread_bps": 1.002255,
+        "slippage_bps": 6.489197,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 40.09,
+        "raw_score": 40.086232,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 91.91,
+          "reclaim": 31.28,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (50.0% from ATH)",
+          "Clean base formation detected",
+          "Partial reclaim in progress"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.09867833001178464,
+            "invalidation": 0.07229,
+            "targets": [
+              0.10492193890453806,
+              0.11116554779729149,
+              0.1174091566900449
+            ],
+            "atr_value": 0.006243608892753423
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 2356,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 40.09,
+        "best_setup_type": "reversal",
+        "best_setup_score": 40.09,
+        "setup_weight": 1.0,
+        "global_score": 40.09,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 17
+      },
+      {
+        "symbol": "LTCUSDT",
+        "price_usdt": 54.74,
+        "coin_name": "Litecoin",
+        "market_cap": 4205455728.8710213,
+        "quote_volume_24h": 8407586.82,
+        "proxy_liquidity_score": 84.745763,
+        "spread_bps": 1.827318,
+        "slippage_bps": 4.121329,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 34.72,
+        "raw_score": 34.722048,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 89.07,
+          "reclaim": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (50.5% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 55.35493525582775,
+            "invalidation": 45.0,
+            "targets": [
+              58.604680675338045,
+              61.85442609484834,
+              65.10417151435864
+            ],
+            "atr_value": 3.249745419510296
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 4689,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 34.72,
+        "best_setup_type": "reversal",
+        "best_setup_score": 34.72,
+        "setup_weight": 1.0,
+        "global_score": 34.72,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 18
+      },
+      {
+        "symbol": "LINKUSDT",
+        "price_usdt": 8.68,
+        "coin_name": "Chainlink",
+        "market_cap": 6148094966.242761,
+        "quote_volume_24h": 11343115.895,
+        "proxy_liquidity_score": 91.525424,
+        "spread_bps": 3.456819,
+        "slippage_bps": 3.989981,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 34.09,
+        "raw_score": 34.088547,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 86.96,
+          "reclaim": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (50.5% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 8.989550811511299,
+            "invalidation": 7.16,
+            "targets": [
+              9.587022583129587,
+              10.184494354747876,
+              10.781966126366164
+            ],
+            "atr_value": 0.5974717716182886
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 3083,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 34.09,
+        "best_setup_type": "reversal",
+        "best_setup_score": 34.09,
+        "setup_weight": 1.0,
+        "global_score": 34.09,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 19
+      },
+      {
+        "symbol": "ADAUSDT",
+        "price_usdt": 0.2767,
+        "coin_name": "Cardano",
+        "market_cap": 9982443977.838644,
+        "quote_volume_24h": 11954626.2036,
+        "proxy_liquidity_score": 93.220339,
+        "spread_bps": 3.613369,
+        "slippage_bps": 2.363435,
+        "liquidity_grade": "A",
+        "liquidity_insufficient": false,
+        "score": 33.52,
+        "raw_score": 33.522042,
+        "penalty_multiplier": 1.0,
+        "components": {
+          "drawdown": 100.0,
+          "base": 85.07,
+          "reclaim": 20.0,
+          "volume": 0.0
+        },
+        "penalties": {},
+        "flags": [],
+        "risk_flags": [],
+        "reasons": [
+          "Strong drawdown setup (54.7% from ATH)",
+          "Clean base formation detected",
+          "Below EMAs (no reclaim yet)"
+        ],
+        "analysis": {
+          "trade_levels": {
+            "entry_trigger": 0.28228346381417735,
+            "invalidation": 0.2208,
+            "targets": [
+              0.3032027024065466,
+              0.3241219409989159,
+              0.3450411795912851
+            ],
+            "atr_value": 0.020919238592369264
+          }
+        },
+        "discovery": false,
+        "discovery_age_days": 3072,
+        "discovery_source": "cmc_date_added",
+        "setup_score": 33.52,
+        "best_setup_type": "reversal",
+        "best_setup_score": 33.52,
+        "setup_weight": 1.0,
+        "global_score": 33.52,
+        "confluence": 2,
+        "valid_setups": [
+          "pullback",
+          "reversal"
+        ],
+        "rank": 20
+      }
+    ]
+  },
+  "btc_regime": {
+    "state": "RISK_OFF",
+    "multiplier_risk_on": 1.0,
+    "multiplier_risk_off": 0.85,
+    "checks": {
+      "close_gt_ema50": false,
+      "ema20_gt_ema50": false
+    }
+  }
+}
