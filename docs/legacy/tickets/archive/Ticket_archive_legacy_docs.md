@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## Implementation Notes
 ### Ticket-Autor Checklistle (No-Guesswork, Pflicht bei Code-Tickets)
 
