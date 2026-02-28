@@ -70,6 +70,13 @@ Rules:
 - Invalid report-layer numeric (`NaN`, negative, non-castable) => treat as `null` in report serialization.
 - These fields are informational only and MUST NOT alter ranking/selection/scoring.
 
+Markdown rendering contract for market activity:
+- Market activity MUST render as a dedicated block with three bullet lines under `**Market Activity:**`.
+- `global_volume_24h_usd` MUST be formatted as `X,Y M USD` where input is USD and output is `(value / 1_000_000)` with one decimal.
+- `turnover_24h` and `mexc_share_24h` MUST be formatted as `X,YZ %` where input is ratio `[0..1]` and output is `value * 100` with two decimals.
+- Decimal separator in Markdown MUST be comma (`,`) and formatting MUST be locale-independent.
+- If value is null, corresponding bullet MUST still be rendered as `n/a`.
+
 ### 1.3 Ordering and limits
 - Top-n inclusion: `SCORING/GLOBAL_RANKING_TOP20.md`
 - Final ordering: `LIQUIDITY/RE_RANK_RULE.md`

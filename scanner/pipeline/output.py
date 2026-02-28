@@ -246,12 +246,10 @@ class ReportGenerator:
         global_volume_24h_usd = self._sanitize_optional_metric(data.get('global_volume_24h_usd'))
         turnover_24h = self._sanitize_optional_metric(data.get('turnover_24h'))
         mexc_share_24h = self._sanitize_optional_metric(data.get('mexc_share_24h'))
-        lines.append(
-            "**Market Activity:** "
-            f"global_volume_24h_usd={global_volume_24h_usd}, "
-            f"turnover_24h={turnover_24h}, "
-            f"mexc_share_24h={mexc_share_24h}"
-        )
+        lines.append("**Market Activity:**")
+        lines.append(f"- global_volume_24h_usd: {self._format_m_usd(global_volume_24h_usd)}")
+        lines.append(f"- turnover_24h: {self._format_pct(turnover_24h)}")
+        lines.append(f"- mexc_share_24h: {self._format_pct(mexc_share_24h)}")
         lines.append("")
         
         # Components
@@ -301,6 +299,18 @@ class ReportGenerator:
             ranked.append(ranked_entry)
         return ranked
 
+
+    @staticmethod
+    def _format_m_usd(value: Any) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value / 1_000_000:.1f}".replace('.', ',') + " M USD"
+
+    @staticmethod
+    def _format_pct(value: Any) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value * 100:.2f}".replace('.', ',') + " %"
 
     @staticmethod
     def _sanitize_optional_metric(value: Any) -> Any:
