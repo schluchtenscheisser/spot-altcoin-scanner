@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -43,17 +43,23 @@ def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> 
     return ranked[: max(0, top_k)]
 
 
-def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fetch Top-K orderbooks and keep only validated payloads in mapping symbol->orderbook."""
+def fetch_orderbooks_for_top_k(
+    mexc_client: Any,
+    candidates: List[Dict[str, Any]],
+    config: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Set[str]]:
+    """Fetch Top-K orderbooks and return (validated_payloads, selected_symbols)."""
     top_k = get_orderbook_top_k(config)
     selected = select_top_k_for_orderbook(candidates, top_k)
 
     payload: Dict[str, Any] = {}
+    selected_symbols: Set[str] = set()
 
     for row in selected:
         symbol = row.get("symbol")
         if not symbol:
             continue
+        selected_symbols.add(symbol)
         try:
             fetched = mexc_client.get_orderbook(symbol)
             if not isinstance(fetched, dict):
@@ -67,7 +73,7 @@ def fetch_orderbooks_for_top_k(mexc_client: Any, candidates: List[Dict[str, Any]
             payload[symbol] = fetched
         except Exception as exc:
             logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
-    return payload
+    return payload, selected_symbols
 
 
 def _to_levels(levels: Any) -> List[Tuple[float, float]]:
@@ -164,8 +170,13 @@ def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt
     }
 
 
-def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderbooks: Dict[str, Any], config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Attach liquidity fields to shortlist rows when orderbook data is available."""
+def apply_liquidity_metrics_to_shortlist(
+    shortlist: List[Dict[str, Any]],
+    orderbooks: Dict[str, Any],
+    config: Dict[str, Any],
+    selected_symbols: Set[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """Attach liquidity fields for fetched symbols and leave non-fetched symbols untouched."""
     notional = get_slippage_notional_usdt(config)
     thresholds = get_grade_thresholds_bps(config)
 
@@ -177,13 +188,22 @@ def apply_liquidity_metrics_to_shortlist(shortlist: List[Dict[str, Any]], orderb
         if isinstance(orderbook, dict):
             metrics = compute_orderbook_liquidity_metrics(orderbook, notional, thresholds)
             r.update(metrics)
-        else:
+        elif selected_symbols is not None and symbol in selected_symbols:
             r.update(
                 {
                     "spread_bps": None,
                     "slippage_bps": None,
                     "liquidity_grade": "D",
                     "liquidity_insufficient": True,
+                }
+            )
+        else:
+            r.update(
+                {
+                    "spread_bps": None,
+                    "slippage_bps": None,
+                    "liquidity_grade": None,
+                    "liquidity_insufficient": None,
                 }
             )
         out.append(r)

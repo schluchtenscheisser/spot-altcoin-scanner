@@ -24,12 +24,12 @@ def test_orderbook_exception_isolated_per_symbol():
     cfg = {"liquidity": {"orderbook_top_k": 2}}
     client = _DummyMexcWithOneFailure(failing_symbol="D")
 
-    payload = fetch_orderbooks_for_top_k(client, rows, cfg)
+    payload, selected_symbols = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
     assert set(payload.keys()) == {"C"}
 
-    out = apply_liquidity_metrics_to_shortlist(shortlist, payload, cfg)
+    out = apply_liquidity_metrics_to_shortlist(shortlist, payload, cfg, selected_symbols=selected_symbols)
     by_symbol = {r["symbol"]: r for r in out}
 
     assert by_symbol["C"]["liquidity_grade"] in {"A", "B", "C", "D"}
@@ -65,12 +65,12 @@ def test_malformed_payloads_are_ignored_and_only_valid_payloads_are_kept():
     cfg = {"liquidity": {"orderbook_top_k": 4}}
     client = _DummyMexcWithMalformedPayloads()
 
-    payload = fetch_orderbooks_for_top_k(client, rows, cfg)
+    payload, selected_symbols = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 4
     assert set(payload.keys()) == {"D"}
 
-    out = apply_liquidity_metrics_to_shortlist(shortlist, payload, cfg)
+    out = apply_liquidity_metrics_to_shortlist(shortlist, payload, cfg, selected_symbols=selected_symbols)
     by_symbol = {r["symbol"]: r for r in out}
     for symbol in ["A", "B", "C"]:
         assert by_symbol[symbol]["spread_bps"] is None

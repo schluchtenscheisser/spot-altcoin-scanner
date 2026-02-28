@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Liquidity: Nicht gefetchte Symbole dürfen nicht automatisch `liquidity_grade="D"` bekommen (Top-K darf Universe nicht hart beschneiden)
 

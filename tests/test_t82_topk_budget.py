@@ -42,9 +42,10 @@ def test_fetch_orderbooks_for_top_k_respects_budget_and_returns_only_selected_sy
     cfg = {"liquidity": {"orderbook_top_k": 2}}
     client = _DummyMexc()
 
-    payload = fetch_orderbooks_for_top_k(client, rows, cfg)
+    payload, selected_symbols = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
+    assert selected_symbols == {"C", "D"}
     assert set(payload.keys()) == {"C", "D"}
     assert payload["D"] is not None
     assert payload["C"] is not None
@@ -60,9 +61,10 @@ def test_fetch_orderbooks_for_top_k_soft_fails_per_symbol_and_keeps_budget():
     cfg = {"liquidity": {"orderbook_top_k": 2}}
     client = _DummyMexcWithOneFailure(failing_symbol="D")
 
-    payload = fetch_orderbooks_for_top_k(client, rows, cfg)
+    payload, selected_symbols = fetch_orderbooks_for_top_k(client, rows, cfg)
 
     assert len(client.calls) == 2
+    assert selected_symbols == {"C", "D"}
     assert set(payload.keys()) == {"C"}
     assert "D" not in payload
     assert payload["C"] is not None

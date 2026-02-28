@@ -32,6 +32,7 @@ def test_apply_liquidity_metrics_to_shortlist_enriches_topk_payload():
     by_symbol = {r["symbol"]: r for r in out}
     assert by_symbol["A"]["liquidity_grade"] in {"A", "B", "C", "D"}
     assert by_symbol["B"]["slippage_bps"] is None
+    assert by_symbol["B"]["liquidity_grade"] is None
 
 
 def test_global_ranking_uses_slippage_then_proxy_tiebreak():

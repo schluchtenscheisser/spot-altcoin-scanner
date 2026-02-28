@@ -135,9 +135,9 @@ def run_pipeline(config: ScannerConfig) -> None:
     
     # Step 6: Liquidity Stage (Top-K orderbook budget)
     logger.info("\n[6/12] Liquidity stage: fetching orderbook for Top-K only...")
-    orderbooks = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
+    orderbooks, selected_symbols = fetch_orderbooks_for_top_k(mexc, shortlist, config.raw)
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
-    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw)
+    shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw, selected_symbols=selected_symbols)
 
     # Hard Exclude: liquidity grade D must not enter downstream scoring universe
     before_liquidity_gate = len(shortlist)
