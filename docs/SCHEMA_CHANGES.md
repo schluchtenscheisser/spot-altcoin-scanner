@@ -54,6 +54,37 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-02-28 — schema_version v1.9 → v1.9 — Canonical Contract: Global Volume/Turnover/Share Docs präzisiert
+**PR:** (branch-local, ticket/docs_update_for_global_volume_turnover_gates_outputs)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Canonical Config-Vertrag präzisiert für Universe-Volume-Gates:
+  - `min_turnover_24h` default `0.03`
+  - `min_mexc_quote_volume_24h_usdt` default `5_000_000`
+  - `min_mexc_share_24h` default `0.01`
+  - Missing Key => Default, invalid value => fail-fast Validation-Error.
+  - Legacy-Alias dokumentiert: `min_quote_volume_24h` ⇒ `min_mexc_quote_volume_24h_usdt` (neuer Key hat Vorrang).
+- Data-Sources-Vertrag ergänzt:
+  - `global_volume_24h_usd` aus CMC `quote.USD.volume_24h`.
+  - Ableitungen/Nullability explizit: `turnover_24h`, `mexc_share_24h`.
+- Pipeline-Vertrag präzisiert:
+  - Fallback bei nicht berechenbarem Turnover: nur MEXC-Min-Volume Gate.
+  - `mexc_share_24h` wird im Fallback nicht geprüft.
+- Output-Contract explizit bestätigt (JSON/Markdown/Excel + runtime meta):
+  - additive nullable Felder `global_volume_24h_usd`, `turnover_24h`, `mexc_share_24h`.
+
+#### Warum?
+- Canonical Truth wird auf implementiertes Verhalten nachgezogen und Missing-vs-Invalid/Fallback deterministisch festgehalten.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Kein Breaking-Change; Version bleibt `v1.9`.
+
+#### Migration / Vorgehen
+- Consumer behandeln neue/ergänzte Felder weiterhin nullable.
+- Config-Reader müssen Missing-vs-Invalid Semantik respektieren.
+
 ### 2026-02-28 — dataset_schema_version 1.1 → 1.2 — Evaluation Export run_id millisecond uniqueness
 **PR:** (branch-local, ticket/exporter_run_id_uniqueness_nanosecond_or_suffix)  
 **Typ:** semantisch

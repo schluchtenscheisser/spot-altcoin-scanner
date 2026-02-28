@@ -53,3 +53,16 @@ If `asof_ts_ms` is None:
 
 ## Notes
 - `quote_volume_24h_usd` treats USDT as USD for proxy/liquidity.
+
+## Canonical 24h volume derivatives (nullable)
+For each mapped symbol, CoinMarketCap `quote.USD.volume_24h` is the canonical source for:
+- `global_volume_24h_usd` (number|null)
+
+Derived fields (informational, deterministic):
+- `turnover_24h = global_volume_24h_usd / market_cap_usd`
+- `mexc_share_24h = mexc_quote_volume_24h_usdt / global_volume_24h_usd`
+
+Nullability rules:
+- If `global_volume_24h_usd` is missing/non-castable/`<= 0`, both `turnover_24h` and `mexc_share_24h` MUST be `null`.
+- If `market_cap_usd` is missing/non-castable/`<= 0`, `turnover_24h` MUST be `null`.
+- These values are report/runtime-meta fields and MUST NOT introduce implicit boolean coercion.
