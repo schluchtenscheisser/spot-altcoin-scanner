@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-02-28 16:57 UTC  
+**Last Updated:** 2026-02-28 17:51 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 42
 - **Total Classes:** 19
-- **Total Functions:** 283
+- **Total Functions:** 287
 
 ---
 
@@ -96,9 +96,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `cmc_api_key, config_version, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_quote_volume_24h, run_mode, shortlist_size, spec_version, timezone, validate_config`
+**Functions:** `cmc_api_key, config_version, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, run_mode, shortlist_size, spec_version, timezone, validate_config`
 
-**Module Variables:** `CONFIG_PATH, cfg_path, env_var, errors, raw, valid_modes`
+**Module Variables:** `CONFIG_PATH, cfg_path, env_var, errors, raw, valid_modes, volume_cfg`
 
 **Imports:** `dataclasses, os, pathlib, typing, yaml`
 
@@ -182,9 +182,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `UniverseFilters`
 
-**Functions:** `__init__, _apply_risk_flags, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, _load_denylist, _load_unlock_overrides, _parse_days_to_unlock, _safe_load_yaml, apply_all, get_filter_stats`
+**Functions:** `__init__, _apply_risk_flags, _build_exclusion_patterns_from_new_config, _extract_quote_asset, _filter_exclusions, _filter_liquidity, _filter_mcap, _filter_quote_assets, _is_valid_non_negative_number, _load_denylist, _load_unlock_overrides, _parse_days_to_unlock, _safe_load_yaml, apply_all, get_filter_stats`
 
-**Module Variables:** `base, bases, data, days_to_unlock, default_patterns, default_quote_allowlist, entries, exclusion_pass, exclusions_cfg, filtered` _(+28 more)_
+**Module Variables:** `base, bases, data, days_to_unlock, default_patterns, default_quote_allowlist, entries, exclusion_pass, exclusions_cfg, filtered` _(+34 more)_
 
 **Imports:** `logging, pathlib, typing, yaml`
 
@@ -536,7 +536,9 @@ _This section shows which functions call which other functions, helping identify
 | `market_cap_min` | — | `get` |
 | `mexc_enabled` | — | `get` |
 | `min_history_days_1d` | — | `get` |
-| `min_quote_volume_24h` | — | `get` |
+| `min_mexc_quote_volume_24h_usdt` | — | `get` |
+| `min_mexc_share_24h` | — | `get` |
+| `min_turnover_24h` | — | `get` |
 | `run_mode` | — | `get` |
 | `shortlist_size` | — | `get` |
 | `spec_version` | — | `get` |
@@ -634,7 +636,7 @@ _This section shows which functions call which other functions, helping identify
 | `_build_exclusion_patterns_from_new_config` | — | `extend`, `get`, `upper` |
 | `_extract_quote_asset` | — | `endswith`, `get`, `upper` |
 | `_filter_exclusions` | — | `append`, `get`, `upper` |
-| `_filter_liquidity` | — | `append`, `get` |
+| `_filter_liquidity` | `_is_valid_non_negative_number` | `append`, `get` |
 | `_filter_mcap` | — | `append`, `get` |
 | `_filter_quote_assets` | `_extract_quote_asset` | `append` |
 | `_load_denylist` | `_safe_load_yaml` | `get`, `update`, `upper` |
@@ -917,7 +919,7 @@ _Modules with high external call counts may benefit from refactoring._
 |--------|----------------|----------------|-------|----------|
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 47 | 76 | 🔴 High |
-| `scanner/pipeline/filters.py` | 17 | 33 | 50 | 🔴 High |
+| `scanner/pipeline/filters.py` | 18 | 33 | 51 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 5 | 43 | 48 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 10 | 31 | 41 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
@@ -930,9 +932,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 13 | 18 | 31 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 9 | 21 | 30 | 🔴 High |
+| `scanner/config.py` | 0 | 28 | 28 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 7 | 20 | 27 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 7 | 20 | 27 | 🔴 High |
-| `scanner/config.py` | 0 | 26 | 26 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
 | `scanner/backtest/e2_model.py` | 10 | 13 | 23 | ⚠️ Medium |
@@ -969,4 +971,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-02-28 16:57 UTC_
+_Generated by GitHub Actions • 2026-02-28 17:51 UTC_
