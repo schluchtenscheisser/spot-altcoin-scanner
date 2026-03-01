@@ -1,0 +1,1697 @@
+{
+  "meta": {
+    "run_id": "1772342511055",
+    "asof_utc": "2026-03-01T05:21:51Z",
+    "generated_at_utc": "2026-03-01T05:22:05Z",
+    "mexc": {
+      "api_base": "https://api.mexc.com",
+      "exchange_info_ts_utc": "2026-03-01T05:21:51Z",
+      "tickers_24h_ts_utc": "2026-03-01T05:21:51Z"
+    },
+    "cmc": {
+      "listings_ts_utc": "2026-03-01T05:21:52Z",
+      "source": "CoinMarketCap"
+    },
+    "config": {
+      "mcap_min_usd": 100000000,
+      "mcap_max_usd": 10000000000,
+      "min_quote_volume_24h_usdt": 5000000.0
+    }
+  },
+  "universe": {
+    "count": 20,
+    "symbols": [
+      "AAVEUSDT",
+      "APTUSDT",
+      "ARBUSDT",
+      "AVAXUSDT",
+      "BCHUSDT",
+      "CHZUSDT",
+      "DOTUSDT",
+      "FILUSDT",
+      "HBARUSDT",
+      "HYPEUSDT",
+      "ICPUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "NEARUSDT",
+      "PEPEUSDT",
+      "SUIUSDT",
+      "TAOUSDT",
+      "UNIUSDT",
+      "XLMUSDT",
+      "ZECUSDT"
+    ]
+  },
+  "coins": {
+    "AAVEUSDT": {
+      "identity": {
+        "cmc_id": 7278,
+        "name": "Aave",
+        "symbol": "AAVE",
+        "slug": "aave",
+        "category": null,
+        "tags": [
+          "defi",
+          "dao",
+          "ethereum-ecosystem",
+          "yield-farming",
+          "three-arrows-capital-portfolio",
+          "governance",
+          "heco-ecosystem",
+          "avalanche-ecosystem",
+          "solana-ecosystem",
+          "lending-borowing",
+          "blockchain-capital-portfolio",
+          "defiance-capital-portfolio",
+          "framework-ventures-portfolio",
+          "alameda-research-portfolio",
+          "pantera-capital-portfolio",
+          "parafi-capital",
+          "polygon-ecosystem",
+          "fantom-ecosystem",
+          "near-protocol-ecosystem",
+          "arbitrum-ecosystem",
+          "optimism-ecosystem",
+          "standard-crypto-portfolio",
+          "gnosis-chain-ecosystem",
+          "sora-ecosystem",
+          "made-in-america",
+          "world-liberty-financial-portfolio",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "token_address": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+        },
+        "is_token": true,
+        "market_cap_usd": 1774353120.979924,
+        "circulating_supply": 15330306.91162106,
+        "total_supply": 16000000.0,
+        "max_supply": null,
+        "fdv_usd": 1851864421.2,
+        "fdv_to_mcap": 1.0436842583945571,
+        "rank": 39
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "AAVEUSDT",
+          "base_asset": "AAVE",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 2,
+          "quantity_precision": 3,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 116.05,
+          "high_24h": 118.71,
+          "low_24h": 104.8,
+          "quote_volume_24h": 9635120.58,
+          "global_volume_24h_usd": 335115516.7942978,
+          "turnover_24h": 0.1888663044756408,
+          "mexc_share_24h": 0.02875163965002037,
+          "price_change_pct_24h": 0.0399,
+          "bid_price": 116.11,
+          "ask_price": 116.12,
+          "spread_pct": 0.008612151746118171,
+          "mid_price": 116.11500000000001,
+          "trades_24h": null,
+          "base_volume_24h": 87232.576
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "APTUSDT": {
+      "identity": {
+        "cmc_id": 21794,
+        "name": "Aptos",
+        "symbol": "APT",
+        "slug": "aptos",
+        "category": null,
+        "tags": [
+          "binance-labs-portfolio",
+          "circle-ventures-portfolio",
+          "layer-1",
+          "ftx-bankruptcy-estate",
+          "move-vm",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 750017990.1097224,
+        "circulating_supply": 780253539.1405821,
+        "total_supply": 1197862219.024838,
+        "max_supply": null,
+        "fdv_usd": 1151443945.94,
+        "fdv_to_mcap": 1.5352217695092245,
+        "rank": 65
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "APTUSDT",
+          "base_asset": "APT",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 4,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.964,
+          "high_24h": 0.9797,
+          "low_24h": 0.8651,
+          "quote_volume_24h": 6735792.1628,
+          "global_volume_24h_usd": 116756453.83763249,
+          "turnover_24h": 0.15567153771945103,
+          "mexc_share_24h": 0.05769096218156075,
+          "price_change_pct_24h": 0.0479,
+          "bid_price": 0.964,
+          "ask_price": 0.9646,
+          "spread_pct": 0.06222130042518355,
+          "mid_price": 0.9642999999999999,
+          "trades_24h": null,
+          "base_volume_24h": 7355743.35
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "ARBUSDT": {
+      "identity": {
+        "cmc_id": 11841,
+        "name": "Arbitrum",
+        "symbol": "ARB",
+        "slug": "arbitrum",
+        "category": null,
+        "tags": [
+          "scaling",
+          "dao",
+          "dapp",
+          "ethereum-ecosystem",
+          "polychain-capital-portfolio",
+          "layer-2",
+          "rollups",
+          "pantera-capital-portfolio",
+          "arbitrum-ecosystem",
+          "osmosis-ecosystem",
+          "modular-blockchain",
+          "egirl-capital-portfolio",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": {
+          "name": "Arbitrum",
+          "symbol": "ARB",
+          "token_address": "0x912CE59144191C1204E64559FE8253a0e49E6548"
+        },
+        "is_token": true,
+        "market_cap_usd": 606227512.2292324,
+        "circulating_supply": 5939074958.0,
+        "total_supply": 10000000000.0,
+        "max_supply": null,
+        "fdv_usd": 1020743998.88,
+        "fdv_to_mcap": 1.6837638976932916,
+        "rank": 72
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "ARBUSDT",
+          "base_asset": "ARB",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 5,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.10261,
+          "high_24h": 0.10522,
+          "low_24h": 0.09102,
+          "quote_volume_24h": 5159191.14033,
+          "global_volume_24h_usd": 152772165.16684872,
+          "turnover_24h": 0.2520046716538346,
+          "mexc_share_24h": 0.0337704917299263,
+          "price_change_pct_24h": 0.0322,
+          "bid_price": 0.10258,
+          "ask_price": 0.10268,
+          "spread_pct": 0.09743739647275551,
+          "mid_price": 0.10263,
+          "trades_24h": null,
+          "base_volume_24h": 53527336.72
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "AVAXUSDT": {
+      "identity": {
+        "cmc_id": 5805,
+        "name": "Avalanche",
+        "symbol": "AVAX",
+        "slug": "avalanche",
+        "category": null,
+        "tags": [
+          "smart-contracts",
+          "three-arrows-capital-portfolio",
+          "polychain-capital-portfolio",
+          "avalanche-ecosystem",
+          "cms-holdings-portfolio",
+          "dragonfly-capital-portfolio",
+          "real-world-assets-protocols",
+          "layer-1",
+          "made-in-america",
+          "world-liberty-financial-portfolio",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 4002481592.8677883,
+        "circulating_supply": 431771961.1772119,
+        "total_supply": 463441061.1772119,
+        "max_supply": 715748719.0,
+        "fdv_usd": 6634916878.59,
+        "fdv_to_mcap": 1.6577007850362317,
+        "rank": 24
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "AVAXUSDT",
+          "base_asset": "AVAX",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 3,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 9.29,
+          "high_24h": 9.424,
+          "low_24h": 8.433,
+          "quote_volume_24h": 23279087.015,
+          "global_volume_24h_usd": 508149910.4648789,
+          "turnover_24h": 0.12695871265726127,
+          "mexc_share_24h": 0.045811455508677,
+          "price_change_pct_24h": 0.0447,
+          "bid_price": 9.289,
+          "ask_price": 9.29,
+          "spread_pct": 0.010764842025937303,
+          "mid_price": 9.2895,
+          "trades_24h": null,
+          "base_volume_24h": 2620716.82
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "BCHUSDT": {
+      "identity": {
+        "cmc_id": 1831,
+        "name": "Bitcoin Cash",
+        "symbol": "BCH",
+        "slug": "bitcoin-cash",
+        "category": null,
+        "tags": [
+          "mineable",
+          "pow",
+          "sha-256",
+          "marketplace",
+          "medium-of-exchange",
+          "store-of-value",
+          "enterprise-solutions",
+          "payments",
+          "layer-1",
+          "2017-2018-alt-season",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 9175884926.697762,
+        "circulating_supply": 20001268.75,
+        "total_supply": 20001268.75,
+        "max_supply": 21000000.0,
+        "fdv_usd": 9634068011.84,
+        "fdv_to_mcap": 1.049933394849921,
+        "rank": 11
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "BCHUSDT",
+          "base_asset": "BCH",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 1,
+          "quantity_precision": 5,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 459.7,
+          "high_24h": 468.2,
+          "low_24h": 439.8,
+          "quote_volume_24h": 10700556.1,
+          "global_volume_24h_usd": 427653985.86550725,
+          "turnover_24h": 0.0466062934836098,
+          "mexc_share_24h": 0.02502152780908539,
+          "price_change_pct_24h": 0.0034,
+          "bid_price": 459.9,
+          "ask_price": 460.0,
+          "spread_pct": 0.021741493640618056,
+          "mid_price": 459.95,
+          "trades_24h": null,
+          "base_volume_24h": 23734.13976
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "CHZUSDT": {
+      "identity": {
+        "cmc_id": 4066,
+        "name": "Chiliz",
+        "symbol": "CHZ",
+        "slug": "chiliz",
+        "category": null,
+        "tags": [
+          "sports",
+          "communications-social-media",
+          "collectibles-nfts",
+          "content-creation",
+          "payments",
+          "chiliz-chain-ecosystem",
+          "layer-1",
+          "alleged-sec-securities",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "token_address": "0x3506424f91fd33084466f402d5d97f05f8e3b4af"
+        },
+        "is_token": true,
+        "market_cap_usd": 354947249.68771094,
+        "circulating_supply": 10303356119.0,
+        "total_supply": 10303356119.0,
+        "max_supply": null,
+        "fdv_usd": 354947249.69,
+        "fdv_to_mcap": 1.000000000006449,
+        "rank": 96
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "CHZUSDT",
+          "base_asset": "CHZ",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 5,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.03442,
+          "high_24h": 0.03506,
+          "low_24h": 0.03115,
+          "quote_volume_24h": 5805484.01032,
+          "global_volume_24h_usd": 75129364.89026533,
+          "turnover_24h": 0.21166346536384073,
+          "mexc_share_24h": 0.07727316767284731,
+          "price_change_pct_24h": 0.0026,
+          "bid_price": 0.03443,
+          "ask_price": 0.03444,
+          "spread_pct": 0.029040220705666104,
+          "mid_price": 0.034435,
+          "trades_24h": null,
+          "base_volume_24h": 175114018.95
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "DOTUSDT": {
+      "identity": {
+        "cmc_id": 6636,
+        "name": "Polkadot",
+        "symbol": "DOT",
+        "slug": "polkadot-new",
+        "category": null,
+        "tags": [
+          "defi",
+          "ethereum-ecosystem",
+          "substrate",
+          "polkadot",
+          "polkadot-ecosystem",
+          "three-arrows-capital-portfolio",
+          "polychain-capital-portfolio",
+          "heco-ecosystem",
+          "arrington-xrp-capital-portfolio",
+          "blockchain-capital-portfolio",
+          "boostvc-portfolio",
+          "cms-holdings-portfolio",
+          "coinfund-portfolio",
+          "fabric-ventures-portfolio",
+          "fenbushi-capital-portfolio",
+          "hashkey-capital-portfolio",
+          "kenetic-capital-portfolio",
+          "1confirmation-portfolio",
+          "placeholder-ventures-portfolio",
+          "pantera-capital-portfolio",
+          "exnetwork-capital-portfolio",
+          "web3",
+          "arbitrum-ecosystem",
+          "spartan-group",
+          "optimism-ecosystem",
+          "osmosis-ecosystem",
+          "base-ecosystem",
+          "gnosis-chain-ecosystem",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 2664232452.59072,
+        "circulating_supply": 1670153724.8658857,
+        "total_supply": 1670153724.8658857,
+        "max_supply": 2100000000.0,
+        "fdv_usd": 3349924062.16,
+        "fdv_to_mcap": 1.2573692880673786,
+        "rank": 32
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "DOTUSDT",
+          "base_asset": "DOT",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 3,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 1.599,
+          "high_24h": 1.681,
+          "low_24h": 1.459,
+          "quote_volume_24h": 15971523.705,
+          "global_volume_24h_usd": 365992769.2321088,
+          "turnover_24h": 0.13737268640963163,
+          "mexc_share_24h": 0.043638905048615936,
+          "price_change_pct_24h": 0.0243,
+          "bid_price": 1.599,
+          "ask_price": 1.6,
+          "spread_pct": 0.06251953735543057,
+          "mid_price": 1.5995,
+          "trades_24h": null,
+          "base_volume_24h": 10205371.35
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "FILUSDT": {
+      "identity": {
+        "cmc_id": 2280,
+        "name": "Filecoin",
+        "symbol": "FIL",
+        "slug": "filecoin",
+        "category": null,
+        "tags": [
+          "mineable",
+          "ai-big-data",
+          "distributed-computing",
+          "filesharing",
+          "storage",
+          "polychain-capital-portfolio",
+          "blockchain-capital-portfolio",
+          "boostvc-portfolio",
+          "dcg-portfolio",
+          "hashkey-capital-portfolio",
+          "a16z-portfolio",
+          "winklevoss-capital-portfolio",
+          "pantera-capital-portfolio",
+          "web3",
+          "filecoin-ecosystem",
+          "layer-1",
+          "alleged-sec-securities",
+          "depin",
+          "2017-2018-alt-season",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 752048641.9817352,
+        "circulating_supply": 755637557.0,
+        "total_supply": 1958221952.0,
+        "max_supply": null,
+        "fdv_usd": 1948921339.41,
+        "fdv_to_mcap": 2.59148309113938,
+        "rank": 64
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "FILUSDT",
+          "base_asset": "FIL",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 4,
+          "quantity_precision": 3,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.9969,
+          "high_24h": 1.0328,
+          "low_24h": 0.9222,
+          "quote_volume_24h": 6569954.5778,
+          "global_volume_24h_usd": 134457161.82107845,
+          "turnover_24h": 0.17878785269363465,
+          "mexc_share_24h": 0.04886280871035051,
+          "price_change_pct_24h": 0.0152,
+          "bid_price": 0.9964,
+          "ask_price": 0.9969,
+          "spread_pct": 0.05016806301109275,
+          "mid_price": 0.99665,
+          "trades_24h": null,
+          "base_volume_24h": 6806829.029
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "HBARUSDT": {
+      "identity": {
+        "cmc_id": 4642,
+        "name": "Hedera",
+        "symbol": "HBAR",
+        "slug": "hedera",
+        "category": null,
+        "tags": [
+          "dag",
+          "marketplace",
+          "enterprise-solutions",
+          "payments",
+          "dcg-portfolio",
+          "hedera-hashgraph-ecosystem",
+          "real-world-assets-protocols",
+          "layer-1",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing",
+          "iso-20022"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 4366201870.422832,
+        "circulating_supply": 43003421564.42386,
+        "total_supply": 50000000000.0,
+        "max_supply": 50000000000.0,
+        "fdv_usd": 5076574969.6,
+        "fdv_to_mcap": 1.1626981803084553,
+        "rank": 21
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "HBARUSDT",
+          "base_asset": "HBAR",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 5,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.10177,
+          "high_24h": 0.10353,
+          "low_24h": 0.09435,
+          "quote_volume_24h": 7292571.09319,
+          "global_volume_24h_usd": 166063438.72464338,
+          "turnover_24h": 0.038033843521889536,
+          "mexc_share_24h": 0.04391436880505716,
+          "price_change_pct_24h": 0.0211,
+          "bid_price": 0.10178,
+          "ask_price": 0.10179,
+          "spread_pct": 0.009824630348292972,
+          "mid_price": 0.101785,
+          "trades_24h": null,
+          "base_volume_24h": 74102549.94
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "HYPEUSDT": {
+      "identity": {
+        "cmc_id": 32196,
+        "name": "Hyperliquid",
+        "symbol": "HYPE",
+        "slug": "hyperliquid",
+        "category": null,
+        "tags": [
+          "decentralized-exchange-dex-token",
+          "defi",
+          "derivatives",
+          "layer-1",
+          "hyperliquid-ecosystem",
+          "binance-ecosystem",
+          "binance-listing",
+          "perp-dex-coins"
+        ],
+        "platform": {
+          "name": "Hyperliquid",
+          "symbol": "HYPE",
+          "token_address": "0x0d01dc56dcaaca66ad901c959b4011ec"
+        },
+        "is_token": true,
+        "market_cap_usd": 7997163487.307884,
+        "circulating_supply": 258210404.5537811,
+        "total_supply": 957770573.0838557,
+        "max_supply": 961671487.86,
+        "fdv_usd": 29784408272.74,
+        "fdv_to_mcap": 3.724371562493396,
+        "rank": 13
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "HYPEUSDT",
+          "base_asset": "HYPE",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 2,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 31.03,
+          "high_24h": 31.38,
+          "low_24h": 26.14,
+          "quote_volume_24h": 15970374.04,
+          "global_volume_24h_usd": 396600110.0535091,
+          "turnover_24h": 0.04959259751072291,
+          "mexc_share_24h": 0.040268203752755596,
+          "price_change_pct_24h": 0.1484,
+          "bid_price": 31.07,
+          "ask_price": 31.09,
+          "spread_pct": 0.06435006435006298,
+          "mid_price": 31.08,
+          "trades_24h": null,
+          "base_volume_24h": 553056.78
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "ICPUSDT": {
+      "identity": {
+        "cmc_id": 8916,
+        "name": "Internet Computer",
+        "symbol": "ICP",
+        "slug": "internet-computer",
+        "category": null,
+        "tags": [
+          "platform",
+          "ai-big-data",
+          "smart-contracts",
+          "polychain-capital-portfolio",
+          "electric-capital-portfolio",
+          "fenbushi-capital-portfolio",
+          "hashkey-capital-portfolio",
+          "a16z-portfolio",
+          "multicoin-capital-portfolio",
+          "exnetwork-capital-portfolio",
+          "icp-ecosystem",
+          "internet-computer-ecosystem",
+          "layer-1",
+          "alleged-sec-securities",
+          "depin",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 1367009813.8593373,
+        "circulating_supply": 549324884.7560254,
+        "total_supply": 549324884.7560254,
+        "max_supply": null,
+        "fdv_usd": 1367009813.86,
+        "fdv_to_mcap": 1.0000000000004847,
+        "rank": 48
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "ICPUSDT",
+          "base_asset": "ICP",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 3,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 2.493,
+          "high_24h": 2.547,
+          "low_24h": 2.275,
+          "quote_volume_24h": 5319804.798,
+          "global_volume_24h_usd": 98122939.63638099,
+          "turnover_24h": 0.07177925033278337,
+          "mexc_share_24h": 0.05421570957529262,
+          "price_change_pct_24h": 0.025,
+          "bid_price": 2.492,
+          "ask_price": 2.493,
+          "spread_pct": 0.040120361083245334,
+          "mid_price": 2.4924999999999997,
+          "trades_24h": null,
+          "base_volume_24h": 2229532.47
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "LINKUSDT": {
+      "identity": {
+        "cmc_id": 1975,
+        "name": "Chainlink",
+        "symbol": "LINK",
+        "slug": "chainlink",
+        "category": null,
+        "tags": [
+          "platform",
+          "cosmos-ecosystem",
+          "defi",
+          "privacy",
+          "interoperability",
+          "iot",
+          "oracles",
+          "smart-contracts",
+          "ethereum-ecosystem",
+          "tron-ecosystem",
+          "polkadot",
+          "tokenized-stock",
+          "polkadot-ecosystem",
+          "heco-ecosystem",
+          "avalanche-ecosystem",
+          "solana-ecosystem",
+          "framework-ventures-portfolio",
+          "hedera-hashgraph-ecosystem",
+          "polygon-ecosystem",
+          "fantom-ecosystem",
+          "cardano-ecosystem",
+          "terra-ecosystem",
+          "web3",
+          "near-protocol-ecosystem",
+          "arbitrum-ecosystem",
+          "celo-ecosystem",
+          "defi-2",
+          "cross-chain",
+          "cronos-ecosystem",
+          "cardano",
+          "injective-ecosystem",
+          "bnb-chain-ecosystem",
+          "oasis-ecosystem",
+          "moonbeam-ecosystem",
+          "xdc-ecosystem",
+          "metisdao-ecosystem",
+          "velas-ecosystem",
+          "doge-chain-ecosystem",
+          "aptos-ecosystem",
+          "sui-ecosystem",
+          "optimism-ecosystem",
+          "bitcoin-ecosystem",
+          "real-world-assets-protocols",
+          "zksync-era-ecosystem",
+          "kadena-ecosystem",
+          "base-ecosystem",
+          "linea-ecosystem",
+          "sei-ecosystem",
+          "toncoin-ecosystem",
+          "paal-ecosystem",
+          "blast-ecosystem",
+          "atomicals-ecosystem",
+          "move-vm",
+          "eigenlayer-ecosystem",
+          "hyperliquid-ecosystem",
+          "gnosis-chain-ecosystem",
+          "ronin-ecosystem",
+          "astar-ecosystem",
+          "core-ecosystem",
+          "starknet-ecosystem",
+          "mantle-ecosystem",
+          "opbnb-ecosystem",
+          "scroll-ecosystem",
+          "merlin-ecosystem",
+          "b²-network-ecosystem",
+          "mode-ecosystem",
+          "world-chain-mainnet-ecosystem",
+          "made-in-america",
+          "btcfi",
+          "world-liberty-financial-portfolio",
+          "corn-ecosystem",
+          "bonk-fun-ecosystem",
+          "sonic-ecosystem",
+          "binance-ecosystem",
+          "binance-listing",
+          "bittensor-ecosystem",
+          "tokenized-assets",
+          "xstocks-ecosystem",
+          "hyperevm-ecosystem",
+          "etherlink-ecosystem",
+          "bera-chain-ecosystem",
+          "abstract-chain-ecosystem",
+          "unichain-ecosystem",
+          "soneium-ecosystem",
+          "fraxtal-ecosystem",
+          "monad-ecosystem",
+          "hashkey-chain-ecosystem",
+          "wlfi-ecosystem",
+          "plasma-ecosystem",
+          "x402-ecosystem",
+          "iso-20022"
+        ],
+        "platform": {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "token_address": "0x514910771af9ca656af840dff83e8264ecf986ca"
+        },
+        "is_token": true,
+        "market_cap_usd": 6414611701.046856,
+        "circulating_supply": 708099970.4525867,
+        "total_supply": 1000000000.0,
+        "max_supply": 1000000000.0,
+        "fdv_usd": 9058906889.87,
+        "fdv_to_mcap": 1.412229969959304,
+        "rank": 15
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "LINKUSDT",
+          "base_asset": "LINK",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 3,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 9.082,
+          "high_24h": 9.206,
+          "low_24h": 8.211,
+          "quote_volume_24h": 29420999.304,
+          "global_volume_24h_usd": 648486091.9805481,
+          "turnover_24h": 0.10109514374419828,
+          "mexc_share_24h": 0.04536874370604468,
+          "price_change_pct_24h": 0.0473,
+          "bid_price": 9.082,
+          "ask_price": 9.084,
+          "spread_pct": 0.022019156666287478,
+          "mid_price": 9.083,
+          "trades_24h": null,
+          "base_volume_24h": 3422534.25
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "LTCUSDT": {
+      "identity": {
+        "cmc_id": 2,
+        "name": "Litecoin",
+        "symbol": "LTC",
+        "slug": "litecoin",
+        "category": null,
+        "tags": [
+          "mineable",
+          "pow",
+          "scrypt",
+          "medium-of-exchange",
+          "privacy",
+          "layer-1",
+          "2017-2018-alt-season",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 4215603944.9749355,
+        "circulating_supply": 76901483.23347135,
+        "total_supply": 84000000.0,
+        "max_supply": 84000000.0,
+        "fdv_usd": 4604732138.95,
+        "fdv_to_mcap": 1.0923066300948197,
+        "rank": 22
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "LTCUSDT",
+          "base_asset": "LTC",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 2,
+          "quantity_precision": 4,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 54.94,
+          "high_24h": 55.54,
+          "low_24h": 51.5,
+          "quote_volume_24h": 11448046.94,
+          "global_volume_24h_usd": 381509273.7715637,
+          "turnover_24h": 0.09049931605323802,
+          "mexc_share_24h": 0.030007257298952962,
+          "price_change_pct_24h": 0.0043,
+          "bid_price": 54.94,
+          "ask_price": 54.95,
+          "spread_pct": 0.01820001820002751,
+          "mid_price": 54.945,
+          "trades_24h": null,
+          "base_volume_24h": 215053.6306
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "NEARUSDT": {
+      "identity": {
+        "cmc_id": 6535,
+        "name": "NEAR Protocol",
+        "symbol": "NEAR",
+        "slug": "near-protocol",
+        "category": null,
+        "tags": [
+          "platform",
+          "ai-big-data",
+          "staking",
+          "coinbase-ventures-portfolio",
+          "three-arrows-capital-portfolio",
+          "arrington-xrp-capital-portfolio",
+          "coinfund-portfolio",
+          "electric-capital-portfolio",
+          "fabric-ventures-portfolio",
+          "kenetic-capital-portfolio",
+          "near-protocol-ecosystem",
+          "cross-chain",
+          "circle-ventures-portfolio",
+          "layer-1",
+          "alleged-sec-securities",
+          "modular-blockchain",
+          "account-abstraction",
+          "data-availability",
+          "cmc-crypto-yearbook-2024-2025",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 1488740623.330552,
+        "circulating_supply": 1289017082.0,
+        "total_supply": 1289017082.0,
+        "max_supply": null,
+        "fdv_usd": 1488740623.33,
+        "fdv_to_mcap": 0.9999999999996291,
+        "rank": 47
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "NEARUSDT",
+          "base_asset": "NEAR",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 4,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 1.1584,
+          "high_24h": 1.1955,
+          "low_24h": 1.0274,
+          "quote_volume_24h": 12390567.1263,
+          "global_volume_24h_usd": 324792756.2199339,
+          "turnover_24h": 0.21816611378100256,
+          "mexc_share_24h": 0.03814914861558583,
+          "price_change_pct_24h": 0.0758,
+          "bid_price": 1.1579,
+          "ask_price": 1.1585,
+          "spread_pct": 0.051804524261799004,
+          "mid_price": 1.1582,
+          "trades_24h": null,
+          "base_volume_24h": 11082011.93
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "PEPEUSDT": {
+      "identity": {
+        "cmc_id": 24478,
+        "name": "Pepe",
+        "symbol": "PEPE",
+        "slug": "pepe",
+        "category": null,
+        "tags": [
+          "memes",
+          "ethereum-ecosystem",
+          "binance-ecosystem",
+          "binance-listing",
+          "etherlink-ecosystem"
+        ],
+        "platform": {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "token_address": "0x6982508145454ce325ddbe47a25d4ec3d2311933"
+        },
+        "is_token": true,
+        "market_cap_usd": 1514163617.2967613,
+        "circulating_supply": 413772501517365.75,
+        "total_supply": 413772501517365.75,
+        "max_supply": 413772501517365.75,
+        "fdv_usd": 1514163617.3,
+        "fdv_to_mcap": 1.000000000002139,
+        "rank": 44
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "PEPEUSDT",
+          "base_asset": "PEPE",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 9,
+          "quantity_precision": null,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 3.665e-06,
+          "high_24h": 3.79e-06,
+          "low_24h": 3.42e-06,
+          "quote_volume_24h": 15970177.726649655,
+          "global_volume_24h_usd": 450258695.9512212,
+          "turnover_24h": 0.2973646248052564,
+          "mexc_share_24h": 0.03546889348335825,
+          "price_change_pct_24h": 0.0057,
+          "bid_price": 3.664e-06,
+          "ask_price": 3.667e-06,
+          "spread_pct": 0.08184422316190976,
+          "mid_price": 3.6655e-06,
+          "trades_24h": null,
+          "base_volume_24h": 4468378443997.0
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "SUIUSDT": {
+      "identity": {
+        "cmc_id": 20947,
+        "name": "Sui",
+        "symbol": "SUI",
+        "slug": "sui",
+        "category": null,
+        "tags": [
+          "binance-launchpool",
+          "coinbase-ventures-portfolio",
+          "binance-labs-portfolio",
+          "electric-capital-portfolio",
+          "a16z-portfolio",
+          "sui-ecosystem",
+          "layer-1",
+          "move-vm",
+          "cmc-crypto-yearbook-2024-2025",
+          "made-in-america",
+          "world-liberty-financial-portfolio",
+          "binance-ecosystem",
+          "binance-listing"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 3578497909.184417,
+        "circulating_supply": 3846172527.4296656,
+        "total_supply": 10000000000.0,
+        "max_supply": 10000000000.0,
+        "fdv_usd": 9304049372.89,
+        "fdv_to_mcap": 2.599987371519942,
+        "rank": 26
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "SUIUSDT",
+          "base_asset": "SUI",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 4,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.9333,
+          "high_24h": 0.9543,
+          "low_24h": 0.8264,
+          "quote_volume_24h": 44291954.2643,
+          "global_volume_24h_usd": 1164368690.3335493,
+          "turnover_24h": 0.3253791730170168,
+          "mexc_share_24h": 0.0380394583193507,
+          "price_change_pct_24h": 0.0466,
+          "bid_price": 0.9336,
+          "ask_price": 0.9337,
+          "spread_pct": 0.010710651743157391,
+          "mid_price": 0.93365,
+          "trades_24h": null,
+          "base_volume_24h": 50825569.52
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "TAOUSDT": {
+      "identity": {
+        "cmc_id": 22974,
+        "name": "Bittensor",
+        "symbol": "TAO",
+        "slug": "bittensor",
+        "category": null,
+        "tags": [
+          "ai-big-data",
+          "distributed-computing",
+          "oracles",
+          "dao",
+          "polychain-capital-portfolio",
+          "dcg-portfolio",
+          "open-source",
+          "generative-ai",
+          "layer-1",
+          "depin",
+          "cmc-crypto-yearbook-2024-2025",
+          "binance-ecosystem",
+          "binance-listing",
+          "bittensor-ecosystem",
+          "robotics"
+        ],
+        "platform": {
+          "name": "Bittensor",
+          "symbol": "TAO",
+          "token_address": "0"
+        },
+        "is_token": true,
+        "market_cap_usd": 1970625396.60607,
+        "circulating_supply": 10717848.30881914,
+        "total_supply": 21000000.0,
+        "max_supply": 21000000.0,
+        "fdv_usd": 3861141913.59,
+        "fdv_to_mcap": 1.9593484993342174,
+        "rank": 36
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "TAOUSDT",
+          "base_asset": "TAO",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 2,
+          "quantity_precision": 3,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 184.7,
+          "high_24h": 188.18,
+          "low_24h": 165.59,
+          "quote_volume_24h": 6379677.66,
+          "global_volume_24h_usd": 146242531.74256033,
+          "turnover_24h": 0.0742112285746586,
+          "mexc_share_24h": 0.043623955247373156,
+          "price_change_pct_24h": 0.0331,
+          "bid_price": 184.7,
+          "ask_price": 184.75,
+          "spread_pct": 0.027067262146440042,
+          "mid_price": 184.725,
+          "trades_24h": null,
+          "base_volume_24h": 36376.319
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "UNIUSDT": {
+      "identity": {
+        "cmc_id": 7083,
+        "name": "Uniswap",
+        "symbol": "UNI",
+        "slug": "uniswap",
+        "category": null,
+        "tags": [
+          "decentralized-exchange-dex-token",
+          "defi",
+          "dao",
+          "ethereum-ecosystem",
+          "yield-farming",
+          "amm",
+          "coinbase-ventures-portfolio",
+          "three-arrows-capital-portfolio",
+          "governance",
+          "heco-ecosystem",
+          "avalanche-ecosystem",
+          "solana-ecosystem",
+          "blockchain-capital-portfolio",
+          "defiance-capital-portfolio",
+          "alameda-research-portfolio",
+          "a16z-portfolio",
+          "pantera-capital-portfolio",
+          "parafi-capital",
+          "paradigm-portfolio",
+          "polygon-ecosystem",
+          "terra-ecosystem",
+          "near-protocol-ecosystem",
+          "arbitrum-ecosystem",
+          "cmc-crypto-awards-2024",
+          "gnosis-chain-ecosystem",
+          "sora-ecosystem",
+          "hoo-smart-chain-ecosystem",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing",
+          "etherlink-ecosystem",
+          "unichain-ecosystem"
+        ],
+        "platform": {
+          "name": "Ethereum",
+          "symbol": "ETH",
+          "token_address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984"
+        },
+        "is_token": true,
+        "market_cap_usd": 2426344273.9534583,
+        "circulating_supply": 633883562.7465303,
+        "total_supply": 898518420.0366303,
+        "max_supply": null,
+        "fdv_usd": 3439298873.84,
+        "fdv_to_mcap": 1.4174818102939881,
+        "rank": 34
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "UNIUSDT",
+          "base_asset": "UNI",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 3,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 3.839,
+          "high_24h": 3.971,
+          "low_24h": 3.54,
+          "quote_volume_24h": 10176868.65,
+          "global_volume_24h_usd": 256463552.70723706,
+          "turnover_24h": 0.10569957258759417,
+          "mexc_share_24h": 0.03968153970641312,
+          "price_change_pct_24h": 0.0342,
+          "bid_price": 3.837,
+          "ask_price": 3.839,
+          "spread_pct": 0.05211047420530953,
+          "mid_price": 3.838,
+          "trades_24h": null,
+          "base_volume_24h": 2742729.76
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "XLMUSDT": {
+      "identity": {
+        "cmc_id": 512,
+        "name": "Stellar",
+        "symbol": "XLM",
+        "slug": "stellar",
+        "category": null,
+        "tags": [
+          "medium-of-exchange",
+          "enterprise-solutions",
+          "decentralized-exchange-dex-token",
+          "defi",
+          "smart-contracts",
+          "hashkey-capital-portfolio",
+          "real-world-assets-protocols",
+          "2017-2018-alt-season",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing",
+          "iso-20022"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 5335258378.0255,
+        "circulating_supply": 32955621191.88852,
+        "total_supply": 50001786883.65895,
+        "max_supply": 50001806812.0,
+        "fdv_usd": 8094903056.35,
+        "fdv_to_mcap": 1.5172466791281818,
+        "rank": 19
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "XLMUSDT",
+          "base_asset": "XLM",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 4,
+          "quantity_precision": 2,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 0.1622,
+          "high_24h": 0.1647,
+          "low_24h": 0.1479,
+          "quote_volume_24h": 7406886.1497,
+          "global_volume_24h_usd": 183795894.80938402,
+          "turnover_24h": 0.03444929594532667,
+          "mexc_share_24h": 0.040299518971202986,
+          "price_change_pct_24h": 0.0265,
+          "bid_price": 0.1621,
+          "ask_price": 0.1622,
+          "spread_pct": 0.061671292013578,
+          "mid_price": 0.16215000000000002,
+          "trades_24h": null,
+          "base_volume_24h": 47747581.77
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    },
+    "ZECUSDT": {
+      "identity": {
+        "cmc_id": 1437,
+        "name": "Zcash",
+        "symbol": "ZEC",
+        "slug": "zcash",
+        "category": null,
+        "tags": [
+          "mineable",
+          "pow",
+          "equihash",
+          "medium-of-exchange",
+          "privacy",
+          "zero-knowledge-proofs",
+          "quantum-resistant",
+          "binance-chain",
+          "boostvc-portfolio",
+          "dcg-portfolio",
+          "electric-capital-portfolio",
+          "fenbushi-capital-portfolio",
+          "hashkey-capital-portfolio",
+          "winklevoss-capital-portfolio",
+          "placeholder-ventures-portfolio",
+          "pantera-capital-portfolio",
+          "layer-1",
+          "standard-crypto-portfolio",
+          "2017-2018-alt-season",
+          "made-in-america",
+          "binance-ecosystem",
+          "binance-listing",
+          "privacy-coins"
+        ],
+        "platform": null,
+        "is_token": false,
+        "market_cap_usd": 3808174912.737851,
+        "circulating_supply": 16557809.2905448,
+        "total_supply": 16557809.2905448,
+        "max_supply": 21000000.0,
+        "fdv_usd": 4829846253.46,
+        "fdv_to_mcap": 1.2682837222903787,
+        "rank": 25
+      },
+      "mexc": {
+        "symbol_info": {
+          "mexc_symbol": "ZECUSDT",
+          "base_asset": "ZEC",
+          "quote_asset": "USDT",
+          "status": "1",
+          "price_precision": 2,
+          "quantity_precision": 6,
+          "tick_size": null,
+          "step_size": null,
+          "min_qty": null,
+          "max_qty": null,
+          "min_notional": null,
+          "max_notional": null
+        },
+        "ticker_24h": {
+          "last_price": 230.46,
+          "high_24h": 234.0,
+          "low_24h": 200.0,
+          "quote_volume_24h": 10903706.34,
+          "global_volume_24h_usd": 353340046.85182005,
+          "turnover_24h": 0.09278461597705069,
+          "mexc_share_24h": 0.030858959908874068,
+          "price_change_pct_24h": 0.0498,
+          "bid_price": 230.52,
+          "ask_price": 230.53,
+          "spread_pct": 0.004337924303216963,
+          "mid_price": 230.525,
+          "trades_24h": null,
+          "base_volume_24h": 50460.257097
+        }
+      },
+      "quality": {
+        "has_scanner_features": true,
+        "has_ohlcv": true,
+        "missing_fields": [
+          "tick_size",
+          "min_notional"
+        ],
+        "notes": null
+      }
+    }
+  }
+}
