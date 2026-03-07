@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-03-07 15:39 UTC  
+**Last Updated:** 2026-03-07 17:40 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 42
 - **Total Classes:** 19
-- **Total Functions:** 294
+- **Total Functions:** 322
 
 ---
 
@@ -96,9 +96,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `cmc_api_key, config_version, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, run_mode, scoring_volume_source, shortlist_size, spec_version, timezone, validate_config`
+**Functions:** `_expect_number, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, cfg_path, env_var, errors, raw, valid_modes, valid_volume_sources, volume_cfg`
+**Module Variables:** `CONFIG_PATH, btc_cfg, budget_cfg, cfg_path, class_thresholds, d, decision_cfg, env_var, errors, m` _(+15 more)_
 
 **Imports:** `dataclasses, os, pathlib, typing, yaml`
 
@@ -521,8 +521,19 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_expect_number` | — | `append` |
+| `btc_regime_enabled` | — | `get` |
+| `btc_regime_mode` | — | `get` |
+| `btc_regime_risk_off_enter_boost` | — | `get` |
+| `budget_orderbook_top_k` | — | `get` |
+| `budget_shortlist_size` | — | `get` |
 | `cmc_api_key` | — | `get`, `getenv` |
 | `config_version` | — | `get` |
+| `decision_enabled` | — | `get` |
+| `decision_min_score_for_enter` | — | `get` |
+| `decision_min_score_for_wait` | — | `get` |
+| `decision_require_risk_acceptable_for_enter` | — | `get` |
+| `decision_require_tradeability_for_enter` | — | `get` |
 | `exclude_leveraged` | — | `get` |
 | `exclude_stablecoins` | — | `get` |
 | `exclude_wrapped` | — | `get` |
@@ -539,12 +550,29 @@ _This section shows which functions call which other functions, helping identify
 | `min_mexc_quote_volume_24h_usdt` | — | `get` |
 | `min_mexc_share_24h` | — | `get` |
 | `min_turnover_24h` | — | `get` |
+| `pre_shortlist_market_cap_floor_usd` | — | `get` |
+| `risk_atr_multiple` | — | `get` |
+| `risk_atr_period` | — | `get` |
+| `risk_atr_timeframe` | — | `get` |
+| `risk_enabled` | — | `get` |
+| `risk_max_stop_distance_pct` | — | `get` |
+| `risk_min_rr_to_tp10` | — | `get` |
+| `risk_min_stop_distance_pct` | — | `get` |
+| `risk_stop_method` | — | `get` |
 | `run_mode` | — | `get` |
 | `scoring_volume_source` | — | `get` |
 | `shortlist_size` | — | `get` |
 | `spec_version` | — | `get` |
 | `timezone` | — | `get` |
-| `validate_config` | — | `append` |
+| `tradeability_band_pct` | — | `get` |
+| `tradeability_class_thresholds` | — | `get` |
+| `tradeability_enabled` | — | `get` |
+| `tradeability_max_spread_pct` | — | `get` |
+| `tradeability_max_tranches` | — | `get` |
+| `tradeability_min_depth_1pct_usd` | — | `get` |
+| `tradeability_notional_chunk_usdt` | — | `get` |
+| `tradeability_notional_total_usdt` | — | `get` |
+| `validate_config` | `_expect_number` | `append`, `get` |
 
 ### 📄 scanner/main.py
 
@@ -924,6 +952,7 @@ _Modules with high external call counts may benefit from refactoring._
 |--------|----------------|----------------|-------|----------|
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 47 | 76 | 🔴 High |
+| `scanner/config.py` | 1 | 58 | 59 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 8 | 45 | 53 | 🔴 High |
 | `scanner/pipeline/filters.py` | 18 | 33 | 51 | 🔴 High |
 | `scanner/pipeline/output.py` | 8 | 34 | 42 | 🔴 High |
@@ -937,7 +966,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 13 | 18 | 31 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 9 | 21 | 30 | 🔴 High |
-| `scanner/config.py` | 0 | 29 | 29 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 7 | 20 | 27 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 7 | 20 | 27 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
@@ -976,4 +1004,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-03-07 15:39 UTC_
+_Generated by GitHub Actions • 2026-03-07 17:40 UTC_
