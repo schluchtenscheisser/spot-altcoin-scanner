@@ -81,3 +81,70 @@ def test_v421_enabled_flags_can_be_false() -> None:
 
     errors = validate_config(ScannerConfig(raw=raw))
     assert errors == []
+
+
+def test_v421_budget_block_must_be_mapping_when_present() -> None:
+    for invalid_budget in ["bad", [], True]:
+        raw = _offline_base()
+        raw["budget"] = invalid_budget
+
+        errors = validate_config(ScannerConfig(raw=raw))
+        assert "budget must be an object" in errors
+
+
+def test_v421_budget_null_uses_defaults() -> None:
+    raw = _offline_base()
+    raw["budget"] = None
+
+    cfg = ScannerConfig(raw=raw)
+    errors = validate_config(cfg)
+
+    assert errors == []
+    assert cfg.budget_shortlist_size == 200
+    assert cfg.budget_orderbook_top_k == 200
+    assert cfg.pre_shortlist_market_cap_floor_usd == 25_000_000
+
+
+def test_v421_budget_accessors_accept_scientific_notation_strings() -> None:
+    raw = _offline_base()
+    raw["budget"] = {
+        "shortlist_size": "2e2",
+        "orderbook_top_k": "2e2",
+        "pre_shortlist_market_cap_floor_usd": "2.5e7",
+    }
+
+    cfg = ScannerConfig(raw=raw)
+    errors = validate_config(cfg)
+
+    assert errors == []
+    assert cfg.budget_shortlist_size == 200
+    assert cfg.budget_orderbook_top_k == 200
+    assert cfg.pre_shortlist_market_cap_floor_usd == 25_000_000
+
+
+def test_v421_budget_integer_fields_reject_fractional_values() -> None:
+    raw = _offline_base()
+    raw["budget"] = {
+        "shortlist_size": "2.5",
+        "orderbook_top_k": 2.5,
+    }
+
+    errors = validate_config(ScannerConfig(raw=raw))
+
+    assert "budget.shortlist_size must be an integer" in errors
+    assert "budget.orderbook_top_k must be an integer" in errors
+
+
+def test_v421_budget_values_reject_bool_and_negative() -> None:
+    raw = _offline_base()
+    raw["budget"] = {
+        "shortlist_size": False,
+        "orderbook_top_k": True,
+        "pre_shortlist_market_cap_floor_usd": -1,
+    }
+
+    errors = validate_config(ScannerConfig(raw=raw))
+
+    assert "budget.shortlist_size must be numeric" in errors
+    assert "budget.orderbook_top_k must be numeric" in errors
+    assert any("budget.pre_shortlist_market_cap_floor_usd" in e and "must be >= 0" in e for e in errors)

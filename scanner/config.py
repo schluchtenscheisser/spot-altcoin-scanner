@@ -12,6 +12,12 @@ import yaml
 
 CONFIG_PATH = os.getenv("SCANNER_CONFIG_PATH", "config/config.yml")
 
+_BUDGET_DEFAULTS = {
+    "shortlist_size": 200,
+    "orderbook_top_k": 200,
+    "pre_shortlist_market_cap_floor_usd": 25_000_000,
+}
+
 
 @dataclass
 class ScannerConfig:
@@ -69,17 +75,35 @@ class ScannerConfig:
         return os.getenv(env_var, "")
 
     # Budget
+    def _budget_mapping(self) -> Dict[str, Any]:
+        budget_cfg = self.raw.get("budget")
+        if isinstance(budget_cfg, dict):
+            return budget_cfg
+        return {}
+
     @property
     def budget_shortlist_size(self) -> int:
-        return int(self.raw.get("budget", {}).get("shortlist_size", 200))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get("shortlist_size", _BUDGET_DEFAULTS["shortlist_size"]),
+            "budget.shortlist_size",
+        )
 
     @property
     def budget_orderbook_top_k(self) -> int:
-        return int(self.raw.get("budget", {}).get("orderbook_top_k", 200))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get("orderbook_top_k", _BUDGET_DEFAULTS["orderbook_top_k"]),
+            "budget.orderbook_top_k",
+        )
 
     @property
     def pre_shortlist_market_cap_floor_usd(self) -> int:
-        return int(self.raw.get("budget", {}).get("pre_shortlist_market_cap_floor_usd", 25_000_000))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get(
+                "pre_shortlist_market_cap_floor_usd",
+                _BUDGET_DEFAULTS["pre_shortlist_market_cap_floor_usd"],
+            ),
+            "budget.pre_shortlist_market_cap_floor_usd",
+        )
 
     # Universe Filters (legacy soft priors)
     @property
@@ -294,6 +318,38 @@ def _expect_number(errors: List[str], value: Any, field_name: str, *, minimum: f
     return number
 
 
+def _expect_integer_number(
+    errors: List[str],
+    value: Any,
+    field_name: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> int | None:
+    number = _expect_number(errors, value, field_name, minimum=minimum, maximum=maximum)
+    if number is None:
+        return None
+    if not number.is_integer():
+        errors.append(f"{field_name} must be an integer")
+        return None
+    return int(number)
+
+
+def _parse_integer_budget_value(value: Any, field_name: str) -> int:
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"{field_name} must be numeric")
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric") from exc
+
+    if not number.is_integer():
+        raise ValueError(f"{field_name} must be an integer")
+
+    return int(number)
+
+
 def validate_config(config: ScannerConfig) -> List[str]:
     """
     Validate configuration.
@@ -335,11 +391,28 @@ def validate_config(config: ScannerConfig) -> List[str]:
         )
 
     # Budget defaults / limits
-    _expect_number(errors, config.raw.get("budget", {}).get("shortlist_size", 200), "budget.shortlist_size", minimum=1)
-    _expect_number(errors, config.raw.get("budget", {}).get("orderbook_top_k", 200), "budget.orderbook_top_k", minimum=1)
-    _expect_number(
+    budget_cfg = config.raw.get("budget")
+    if budget_cfg is None:
+        budget_cfg = {}
+    elif not isinstance(budget_cfg, dict):
+        errors.append("budget must be an object")
+        budget_cfg = {}
+
+    _expect_integer_number(
         errors,
-        config.raw.get("budget", {}).get("pre_shortlist_market_cap_floor_usd", 25_000_000),
+        budget_cfg.get("shortlist_size", _BUDGET_DEFAULTS["shortlist_size"]),
+        "budget.shortlist_size",
+        minimum=1,
+    )
+    _expect_integer_number(
+        errors,
+        budget_cfg.get("orderbook_top_k", _BUDGET_DEFAULTS["orderbook_top_k"]),
+        "budget.orderbook_top_k",
+        minimum=1,
+    )
+    _expect_integer_number(
+        errors,
+        budget_cfg.get("pre_shortlist_market_cap_floor_usd", _BUDGET_DEFAULTS["pre_shortlist_market_cap_floor_usd"]),
         "budget.pre_shortlist_market_cap_floor_usd",
         minimum=0,
     )
