@@ -1,88 +1,67 @@
-# Output Schema — JSON / Markdown / Excel (Canonical)
+# Output Schema — Trade Candidates Source of Truth (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
 schema_version: v1.9
-meta_version: 1.9
+canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
   - markdown
   - excel
-limits:
-  global_top_n_default: 20
-manifest:
-  config_hash_required: true
-  config_version_optional: true
-  asof_ts_ms_required: true
-  asof_iso_utc_optional: true
-trade_levels:
-  status: canonical_output_only
-  levels_timeframe_default_by_setup_id:
-    breakout_immediate_1_5d: 4h
-    breakout_retest_1_5d: 4h
-  levels_timeframe_default_fallback: 4h
-  atr_timeframe_rule: "atr_pct uses the same timeframe as levels_timeframe"
-  rounding:
-    mode: none
-discovery:
-  discovery_source_values:
-    cmc_date_added: string
-    first_seen_ts: string
-    none: null
+source_of_truth_entity: trade_candidates
 ```
 
-## 1) JSON output
+## Core contract
+- `trade_candidates` is the canonical output Source of Truth (SoT) for candidate-level decision data.
+- Markdown and Excel are renderings of the same truth; they must not redefine semantics.
+- Run manifest metadata is separate from candidate rows.
 
-### 1.1 Schema contract version (required)
-- `schema_version` MUST be `v1.9`.
-- `meta.version` MUST be `1.9`.
-
-### 1.1 Run manifest (required)
-Required:
+## Run manifest (required)
+Required fields:
 - `commit_hash`
 - `schema_version`
 - `providers_used`
 - `config_hash`
-- `asof_ts_ms` (int, epoch ms UTC)
+- `asof_ts_ms`
 
 Optional:
 - `config_version`
-- `asof_iso_utc` (string, RFC3339 UTC)
+- `asof_iso_utc`
 
-### 1.2 Candidate row (required, minimal set)
-- `symbol`, `setup_id`
-- `base_score`, `final_score`, `global_score`
-- Liquidity: `proxy_liquidity_score`, `quote_volume_24h_usd`, `spread_bps`, `slippage_bps`, `liquidity_grade`, `volume_source_used` (`mexc` | `global`)
-- Execution gate (breakout trend rows): `execution_gate_pass`, `execution_gate_fail_reasons`, `spread_pct`, `depth_bid_0_5pct_usd`, `depth_ask_0_5pct_usd`, `depth_bid_1pct_usd`, `depth_ask_1pct_usd`, `orderbook_ok`
-- `proxy_liquidity_score` is a percent-rank on scale `[0.0, 100.0]` (not rank01).
-- Optional discovery: `discovery`, `age_days`, `discovery_source` ("cmc_date_added" | "first_seen_ts" | null)
+## trade_candidates row contract
+Minimum required fields:
+- `symbol`
+- `setup_id`
+- `setup_score`
+- `global_score`
+- `decision`
+- `decision_reasons`
+- `tradeability_class`
+- `risk_acceptable`
 
-### 1.2.1 Report-layer market activity fields (additive, nullable)
-For JSON/Markdown/Excel reports, candidate rows MAY include the following additive fields:
-- `global_volume_24h_usd` (number | null)
-- `turnover_24h` (number | null)
-- `mexc_share_24h` (number | null)
+## Nullable rules (authoritative)
+Whenever a field is semantically not evaluable, value MUST remain `null`.
 
-Rules:
-- Missing value => MUST remain `null` in JSON and empty cell in Excel.
-- Invalid report-layer numeric (`NaN`, negative, non-castable) => treat as `null` in report serialization.
-- These fields are informational only and MUST NOT alter ranking/selection/scoring.
+Typical nullable fields include (non-exhaustive):
+- `stop_price_initial`
+- `risk_pct_to_stop`
+- `rr_to_tp10`
+- `rr_to_tp20`
+- `spread_bps`
+- `slippage_bps`
+- `global_volume_24h_usd`
+- `turnover_24h`
+- `mexc_share_24h`
 
-Markdown rendering contract for market activity:
-- Market activity MUST render as a dedicated block with three bullet lines under `**Market Activity:**`.
-- `global_volume_24h_usd` MUST be formatted as `X,Y M USD` where input is USD and output is `(value / 1_000_000)` with one decimal.
-- `turnover_24h` and `mexc_share_24h` MUST be formatted as `X,YZ %` where input is ratio `[0..1]` and output is `value * 100` with two decimals.
-- Decimal separator in Markdown MUST be comma (`,`) and formatting MUST be locale-independent.
-- If value is null, corresponding bullet MUST still be rendered as `n/a`.
+No implicit bool/number coercion is allowed for nullable fields.
 
-### 1.3 Ordering and limits
-- Top-n inclusion: `SCORING/GLOBAL_RANKING_TOP20.md`
-- Final ordering: `LIQUIDITY/RE_RANK_RULE.md`
+## decision_reasons contract
+- `decision_reasons` must preserve deterministic reason identity and ordering.
+- UNKNOWN-path reasons (e.g. `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`) MUST remain distinct.
 
-## 2) Trade levels (informational output, deterministic)
-If present:
-- `levels_timeframe` default: per setup_id map; fallback `levels_timeframe_default_fallback`
-- ATR% uses the same timeframe as levels_timeframe.
-- No rounding (raw floats).
+## Trade-candidates vs run-manifest separation
+- Candidate-truth lives in `trade_candidates`.
+- Operational metadata (runtime, versions, provider set) lives in manifest.
+- No format-specific output may contradict the JSON `trade_candidates` truth.
