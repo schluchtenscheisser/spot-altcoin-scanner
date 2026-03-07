@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## Title
 [P0] PR-05 Tests für Pool/Budget-Verhalten V4.2.1
 
