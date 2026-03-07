@@ -50,7 +50,9 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 
 ### 5) OHLCV fetch (closed candles only)
 - Fetch required timeframes (Phase 1: 1D and 4H).
-- Use only bars with `close_time <= asof_ts_ms`.
+- Provider raw field is `closeTime`.
+- Canonical normalized field for comparisons is `closeTime_ms`.
+- Use only bars with `closeTime_ms <= asof_ts_ms`.
 
 ### 6) Feature engine
 - Compute canonical features (EMA, ATR Wilder, ranks, etc.) per feature docs.
