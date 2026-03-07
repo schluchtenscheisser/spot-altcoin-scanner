@@ -11,7 +11,7 @@ def _base_row(symbol: str, volume: float):
 
 
 def test_proxy_liquidity_score_is_input_order_independent():
-    selector = ShortlistSelector({"general": {"shortlist_size": 100}})
+    selector = ShortlistSelector({"budget": {"shortlist_size": 100}})
 
     ordered = [
         _base_row("AAA", 100.0),

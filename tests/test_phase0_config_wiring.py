@@ -39,10 +39,10 @@ def test_universe_filters_reads_universe_filters_and_exclusions():
 
 
 def test_shortlist_selector_prefers_general_shortlist_size():
-    selector = ShortlistSelector({"general": {"shortlist_size": 1}, "shortlist": {"max_size": 2}})
+    selector = ShortlistSelector({"budget": {"shortlist_size": 1, "pre_shortlist_market_cap_floor_usd": 0}})
     out = selector.select([
-        {"symbol": "A", "quote_volume_24h": 10},
-        {"symbol": "B", "quote_volume_24h": 20},
+        {"symbol": "A", "quote_volume_24h": 10, "market_cap": 30_000_000},
+        {"symbol": "B", "quote_volume_24h": 20, "market_cap": 30_000_000},
     ])
     assert len(out) == 1
     assert out[0]["symbol"] == "B"
@@ -186,11 +186,11 @@ def test_include_only_usdt_pairs_false_keeps_only_stablecoin_quotes() -> None:
 
 
 def test_shortlist_selector_adds_proxy_liquidity_score_percent_rank():
-    selector = ShortlistSelector({"general": {"shortlist_size": 3}})
+    selector = ShortlistSelector({"budget": {"shortlist_size": 3, "pre_shortlist_market_cap_floor_usd": 0}})
     out = selector.select([
-        {"symbol": "A", "quote_volume_24h": 100},
-        {"symbol": "B", "quote_volume_24h": 10_000},
-        {"symbol": "C", "quote_volume_24h": 1_000_000},
+        {"symbol": "A", "quote_volume_24h": 100, "market_cap": 30_000_000},
+        {"symbol": "B", "quote_volume_24h": 10_000, "market_cap": 30_000_000},
+        {"symbol": "C", "quote_volume_24h": 1_000_000, "market_cap": 30_000_000},
     ])
 
     assert [x["symbol"] for x in out] == ["C", "B", "A"]
@@ -199,11 +199,11 @@ def test_shortlist_selector_adds_proxy_liquidity_score_percent_rank():
 
 
 def test_shortlist_selector_proxy_liquidity_score_handles_ties_with_average_rank():
-    selector = ShortlistSelector({"general": {"shortlist_size": 3}})
+    selector = ShortlistSelector({"budget": {"shortlist_size": 3, "pre_shortlist_market_cap_floor_usd": 0}})
     out = selector.select([
-        {"symbol": "A", "quote_volume_24h": 100},
-        {"symbol": "B", "quote_volume_24h": 100},
-        {"symbol": "C", "quote_volume_24h": 10_000},
+        {"symbol": "A", "quote_volume_24h": 100, "market_cap": 30_000_000},
+        {"symbol": "B", "quote_volume_24h": 100, "market_cap": 30_000_000},
+        {"symbol": "C", "quote_volume_24h": 10_000, "market_cap": 30_000_000},
     ])
 
     by_symbol = {x["symbol"]: x["proxy_liquidity_score"] for x in out}
@@ -213,11 +213,11 @@ def test_shortlist_selector_proxy_liquidity_score_handles_ties_with_average_rank
 
 
 def test_proxy_liquidity_population_uses_full_filtered_universe_not_shortlist():
-    selector = ShortlistSelector({"general": {"shortlist_size": 1}})
+    selector = ShortlistSelector({"budget": {"shortlist_size": 1, "pre_shortlist_market_cap_floor_usd": 0}})
     out = selector.select([
-        {"symbol": "A", "quote_volume_24h": 100},
-        {"symbol": "B", "quote_volume_24h": 10_000},
-        {"symbol": "C", "quote_volume_24h": 1_000_000},
+        {"symbol": "A", "quote_volume_24h": 100, "market_cap": 30_000_000},
+        {"symbol": "B", "quote_volume_24h": 10_000, "market_cap": 30_000_000},
+        {"symbol": "C", "quote_volume_24h": 1_000_000, "market_cap": 30_000_000},
     ])
 
     assert len(out) == 1

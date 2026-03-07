@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`
+
 ## Title
 [P0] PR-04 Budget-Shortlist und Cheap-Pass V4.2.1 anpassen
 

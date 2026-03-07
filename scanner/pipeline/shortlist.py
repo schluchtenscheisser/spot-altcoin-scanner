@@ -10,31 +10,35 @@ import logging
 import math
 from typing import List, Dict, Any
 
+from scanner.config import ScannerConfig
+
 from .cross_section import percent_rank_average_ties
 
 logger = logging.getLogger(__name__)
 
 
 class ShortlistSelector:
-    """Selects top candidates based on volume for OHLCV processing."""
+    """Select top candidates based on cheap-pass proxy liquidity."""
 
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize shortlist selector.
+        """Initialize shortlist selector from central config defaults."""
+        cfg = ScannerConfig(raw=config)
+        self.max_size = int(cfg.budget_shortlist_size)
+        self.pre_shortlist_market_cap_floor_usd = float(cfg.pre_shortlist_market_cap_floor_usd)
 
-        Args:
-            config: Config dict with 'shortlist' section
-        """
-        self.config = config.get('shortlist', {})
-        general_cfg = config.get('general', {})
+        if self.max_size < 1:
+            raise ValueError(f"budget.shortlist_size ({self.max_size}) must be >= 1")
+        if self.pre_shortlist_market_cap_floor_usd < 0:
+            raise ValueError(
+                "budget.pre_shortlist_market_cap_floor_usd "
+                f"({self.pre_shortlist_market_cap_floor_usd}) must be >= 0"
+            )
 
-        # Default: Top 100 by volume
-        self.max_size = int(general_cfg.get('shortlist_size', self.config.get('max_size', 100)))
-
-        # Minimum size (even if fewer pass filters)
-        self.min_size = self.config.get('min_size', 10)
-
-        logger.info(f"Shortlist initialized: max_size={self.max_size}, min_size={self.min_size}")
+        logger.info(
+            "Shortlist initialized: max_size=%s, pre_shortlist_market_cap_floor_usd=%.2f",
+            self.max_size,
+            self.pre_shortlist_market_cap_floor_usd,
+        )
 
     def _attach_proxy_liquidity_score(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Attach proxy_liquidity_score based on quote_volume_24h percent-rank (log-scaled input)."""
@@ -58,43 +62,41 @@ class ShortlistSelector:
         return enriched
 
     def select(self, filtered_symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Select top N symbols by 24h volume.
-
-        Args:
-            filtered_symbols: List of symbols that passed filters
-                Each dict must have:
-                - symbol: str
-                - base: str
-                - quote_volume_24h: float
-                - market_cap: float
-
-        Returns:
-            Shortlist (top N by volume)
-        """
+        """Select top-N symbols via cheap-pass ranking under budget + floor constraints."""
         if not filtered_symbols:
             logger.warning("No symbols to shortlist (empty input)")
             return []
 
-        with_proxy_score = self._attach_proxy_liquidity_score(filtered_symbols)
+        eligible_symbols = [
+            row for row in filtered_symbols
+            if float(row.get('market_cap', 0) or 0) >= self.pre_shortlist_market_cap_floor_usd
+        ]
 
-        # Sort by proxy liquidity score (descending), then raw volume for deterministic tie-break.
+        with_proxy_score = self._attach_proxy_liquidity_score(eligible_symbols)
+
+        # Deterministic ordering: score desc, volume desc, symbol asc.
         sorted_symbols = sorted(
             with_proxy_score,
-            key=lambda x: (x.get('proxy_liquidity_score', 0), x.get('quote_volume_24h', 0)),
-            reverse=True
+            key=lambda x: (
+                -float(x.get('proxy_liquidity_score', 0) or 0),
+                -float(x.get('quote_volume_24h', 0) or 0),
+                str(x.get('symbol', '')),
+            ),
         )
 
-        # Take top N
         shortlist = sorted_symbols[:self.max_size]
 
-        logger.info(f"Shortlist selected: {len(shortlist)} symbols from {len(filtered_symbols)} "
-                    f"(top {len(shortlist)/len(filtered_symbols)*100:.1f}% by volume)")
+        logger.info(
+            "Shortlist selected: %s symbols from %s eligible (%s input before floor; top %.1f%% of eligible by volume)",
+            len(shortlist),
+            len(eligible_symbols),
+            len(filtered_symbols),
+            (len(shortlist) / len(eligible_symbols) * 100.0) if eligible_symbols else 0.0,
+        )
 
-        # Log volume range
         if shortlist:
-            max_vol = shortlist[0].get('quote_volume_24h', 0)
-            min_vol = shortlist[-1].get('quote_volume_24h', 0)
+            max_vol = float(shortlist[0].get('quote_volume_24h', 0) or 0)
+            min_vol = float(shortlist[-1].get('quote_volume_24h', 0) or 0)
             logger.info(f"Volume range: ${max_vol/1e6:.2f}M - ${min_vol/1e6:.2f}M")
 
         return shortlist
@@ -104,16 +106,7 @@ class ShortlistSelector:
         filtered_symbols: List[Dict[str, Any]],
         shortlist: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """
-        Get statistics about shortlist selection.
-
-        Args:
-            filtered_symbols: Input (post-filter)
-            shortlist: Output (post-shortlist)
-
-        Returns:
-            Stats dict
-        """
+        """Get statistics about shortlist selection."""
         if not filtered_symbols:
             return {
                 'input_count': 0,
@@ -122,9 +115,8 @@ class ShortlistSelector:
                 'volume_coverage': '0%'
             }
 
-        # Volume stats
-        total_volume = sum(s.get('quote_volume_24h', 0) for s in filtered_symbols)
-        shortlist_volume = sum(s.get('quote_volume_24h', 0) for s in shortlist)
+        total_volume = sum(float(s.get('quote_volume_24h', 0) or 0) for s in filtered_symbols)
+        shortlist_volume = sum(float(s.get('quote_volume_24h', 0) or 0) for s in shortlist)
 
         coverage = (shortlist_volume / total_volume * 100) if total_volume > 0 else 0
 
