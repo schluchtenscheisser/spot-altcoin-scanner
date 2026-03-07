@@ -48,9 +48,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `mexc_share_24h` is `null` when `global_volume_24h_usd` is missing or zero.
 
 
-## Universe volume-gate verification boundaries
-- Config defaults when keys are missing: `min_turnover_24h=0.03`, `min_mexc_quote_volume_24h_usdt=5_000_000`, `min_mexc_share_24h=0.01`.
-- Legacy alias behavior: `universe_filters.volume.min_quote_volume_24h` aliases to `min_mexc_quote_volume_24h_usdt` only when the new key is absent; if both exist, new key wins.
-- Primary path (turnover available): all three gates are required (turnover + mexc min volume + mexc share).
-- Fallback path (turnover unavailable): require only mexc min volume; `mexc_share_24h` is not evaluated.
-- Invalid per-symbol values (`NaN`, negative, non-castable) are rejected deterministically at liquidity gate stage.
+## Universe filter / soft-prior verification boundaries
+- Hard pre-shortlist guardrail: `budget.pre_shortlist_market_cap_floor_usd` excludes symbols with `market_cap < floor`; default floor is `25_000_000` when key is missing.
+- `budget.pre_shortlist_market_cap_floor_usd` invalid values (e.g. negative) must raise a clear validation error; no silent coercion.
+- Safety/risk hard excludes remain deterministic and hard (`stable/wrapped/leveraged`, denylist, major unlock blockers).
+- Legacy config defaults are still loaded for context fields: `min_turnover_24h=0.03`, `min_mexc_quote_volume_24h_usdt=5_000_000`, `min_mexc_share_24h=0.01`.
+- Legacy alias behavior remains: `universe_filters.volume.min_quote_volume_24h` aliases to `min_mexc_quote_volume_24h_usdt` only when the new key is absent; if both exist, new key wins.
+- Above the pre-shortlist floor, legacy market-cap/turnover/mexc-volume/mexc-share thresholds are soft-prior context only and do not hard-exclude symbols.

@@ -21,8 +21,8 @@ def test_denylist_symbol_is_hard_excluded(tmp_path):
 
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "BADUSDT", "base": "BAD", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "GOODUSDT", "base": "GOOD", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "BADUSDT", "base": "BAD", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "GOODUSDT", "base": "GOOD", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
     ])
     assert [x["symbol"] for x in out] == ["GOODUSDT"]
 
@@ -58,8 +58,8 @@ overrides:
 
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "MAJORUSDT", "base": "MAJOR", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "MINORUSDT", "base": "MINOR", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "MAJORUSDT", "base": "MAJOR", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "MINORUSDT", "base": "MINOR", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
     ])
 
     assert [x["symbol"] for x in out] == ["MINORUSDT"]

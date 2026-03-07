@@ -58,117 +58,83 @@ def test_config_volume_gate_new_key_wins_over_legacy_alias() -> None:
     assert cfg.min_mexc_quote_volume_24h_usdt == 84
 
 
-def test_filter_primary_path_requires_turnover_volume_and_share() -> None:
+def test_filter_below_pre_shortlist_floor_is_excluded() -> None:
     filters = UniverseFilters(
-        _base_filter_config(
-            {
-                "min_turnover_24h": 0.03,
-                "min_mexc_quote_volume_24h_usdt": 5_000_000,
-                "min_mexc_share_24h": 0.01,
-            }
-        )
+        {
+            "budget": {"pre_shortlist_market_cap_floor_usd": 25_000_000},
+            **_base_filter_config({}),
+        }
     )
     out = filters.apply_all(
         [
-            {
-                "symbol": "PASSUSDT",
-                "base": "PASS",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": 6_000_000,
-                "turnover_24h": 0.04,
-                "mexc_share_24h": 0.02,
-            },
+            {"symbol": "LOWUSDT", "base": "LOW", "market_cap": 20_000_000, "quote_volume_24h": 1},
+            {"symbol": "HIGHUSDT", "base": "HIGH", "market_cap": 30_000_000, "quote_volume_24h": 1},
+        ]
+    )
+    assert [row["symbol"] for row in out] == ["HIGHUSDT"]
+
+
+def test_filter_above_floor_is_not_excluded_by_legacy_liquidity_thresholds() -> None:
+    filters = UniverseFilters(
+        {
+            "budget": {"pre_shortlist_market_cap_floor_usd": 25_000_000},
+            **_base_filter_config(
+                {
+                    "min_turnover_24h": 0.03,
+                    "min_mexc_quote_volume_24h_usdt": 5_000_000,
+                    "min_mexc_share_24h": 0.01,
+                }
+            ),
+        }
+    )
+    out = filters.apply_all(
+        [
             {
                 "symbol": "LOWTURNUSDT",
                 "base": "LOWTURN",
                 "market_cap": 100_000_000,
-                "quote_volume_24h": 6_000_000,
-                "turnover_24h": 0.02,
-                "mexc_share_24h": 0.02,
-            },
-            {
-                "symbol": "LOWSHAREUSDT",
-                "base": "LOWSHARE",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": 6_000_000,
-                "turnover_24h": 0.04,
-                "mexc_share_24h": 0.005,
-            },
-        ]
-    )
-    assert [row["symbol"] for row in out] == ["PASSUSDT"]
-
-
-def test_filter_fallback_path_uses_only_mexc_min_volume() -> None:
-    filters = UniverseFilters(_base_filter_config({"min_mexc_quote_volume_24h_usdt": 5_000_000}))
-    out = filters.apply_all(
-        [
-            {
-                "symbol": "FALLBACKPASSUSDT",
-                "base": "FALLBACKPASS",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": 6_000_000,
-                "turnover_24h": None,
-                "mexc_share_24h": None,
-            },
-            {
-                "symbol": "FALLBACKFAILUSDT",
-                "base": "FALLBACKFAIL",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": 4_000_000,
-                "turnover_24h": None,
-                "mexc_share_24h": 0.0,
-            },
-        ]
-    )
-    assert [row["symbol"] for row in out] == ["FALLBACKPASSUSDT"]
-
-
-def test_filter_turnover_available_but_missing_share_fails() -> None:
-    filters = UniverseFilters(_base_filter_config({}))
-    out = filters.apply_all(
-        [
-            {
-                "symbol": "NOSHAREUSDT",
-                "base": "NOSHARE",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": 10_000_000,
-                "turnover_24h": 0.5,
-                "mexc_share_24h": None,
+                "quote_volume_24h": 100_000,
+                "turnover_24h": 0.001,
+                "mexc_share_24h": 0.0001,
             }
         ]
     )
-    assert out == []
+    assert [row["symbol"] for row in out] == ["LOWTURNUSDT"]
 
 
-def test_filter_invalid_per_symbol_values_are_dropped() -> None:
-    filters = UniverseFilters(_base_filter_config({"min_mexc_quote_volume_24h_usdt": 0}))
+def test_filter_above_floor_is_not_excluded_by_legacy_market_cap_max() -> None:
+    filters = UniverseFilters(
+        {
+            "budget": {"pre_shortlist_market_cap_floor_usd": 25_000_000},
+            **_base_filter_config({}),
+        }
+    )
     out = filters.apply_all(
         [
-            {
-                "symbol": "NEGUSDT",
-                "base": "NEG",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": -1,
-                "turnover_24h": None,
-                "mexc_share_24h": None,
-            },
-            {
-                "symbol": "NANUSDT",
-                "base": "NAN",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": float("nan"),
-                "turnover_24h": None,
-                "mexc_share_24h": None,
-            },
-            {
-                "symbol": "STRUSDT",
-                "base": "STR",
-                "market_cap": 100_000_000,
-                "quote_volume_24h": "bad",
-                "turnover_24h": None,
-                "mexc_share_24h": None,
-            },
+            {"symbol": "BIGUSDT", "base": "BIG", "market_cap": 20_000_000_000, "quote_volume_24h": 1},
         ]
     )
-    assert out == []
+    assert [row["symbol"] for row in out] == ["BIGUSDT"]
+
+
+def test_filter_missing_budget_floor_uses_default() -> None:
+    filters = UniverseFilters(_base_filter_config({}))
+    out = filters.apply_all(
+        [
+            {"symbol": "LOWUSDT", "base": "LOW", "market_cap": 24_000_000, "quote_volume_24h": 1},
+            {"symbol": "HIGHUSDT", "base": "HIGH", "market_cap": 26_000_000, "quote_volume_24h": 1},
+        ]
+    )
+    assert [row["symbol"] for row in out] == ["HIGHUSDT"]
+
+
+def test_config_invalid_pre_shortlist_market_cap_floor_errors() -> None:
+    cfg = ScannerConfig(
+        raw={
+            "general": {"run_mode": "offline"},
+            "universe_filters": {"market_cap": {"min_usd": 1, "max_usd": 2}},
+            "budget": {"pre_shortlist_market_cap_floor_usd": -1},
+        }
+    )
+    errors = validate_config(cfg)
+    assert any("budget.pre_shortlist_market_cap_floor_usd" in e for e in errors)
