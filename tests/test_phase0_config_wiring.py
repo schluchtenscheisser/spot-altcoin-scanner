@@ -48,6 +48,24 @@ def test_shortlist_selector_prefers_general_shortlist_size():
     assert out[0]["symbol"] == "B"
 
 
+def test_shortlist_selector_accepts_scientific_budget_notation() -> None:
+    selector = ShortlistSelector(
+        {
+            "budget": {
+                "shortlist_size": "2e0",
+                "pre_shortlist_market_cap_floor_usd": "2.5e7",
+            }
+        }
+    )
+    out = selector.select([
+        {"symbol": "A", "quote_volume_24h": 10, "market_cap": 30_000_000},
+        {"symbol": "B", "quote_volume_24h": 20, "market_cap": 26_000_000},
+        {"symbol": "C", "quote_volume_24h": 30, "market_cap": 24_000_000},
+    ])
+
+    assert [x["symbol"] for x in out] == ["B", "A"]
+
+
 def test_ohlcv_fetcher_uses_general_lookback_and_history_filter():
     klines_1d = [[0, 1, 1, 1, 1, 1, 0, 0]] * 60
     klines_4h = [[0, 1, 1, 1, 1, 1, 0, 0]] * 59

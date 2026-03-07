@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## Title
 [P1] Config parsing robust gegen nicht-mapping Budget-Blöcke und numerische YAML-Notation machen
 
