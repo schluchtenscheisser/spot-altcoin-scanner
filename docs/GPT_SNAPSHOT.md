@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-07 21:27 UTC  
-**Commit:** `d176c2f` (d176c2fd847688178e0874ecdee7463dec64f1b3)  
+**Generated:** 2026-03-07 21:36 UTC  
+**Commit:** `2e2fa33` (2e2fa33b4a286963b98c9c35ccc1c67e82fe0c02)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -36,7 +36,7 @@
 | `scanner/clients/mapping.py` | `MappingResult`, `SymbolMapper` | - |
 | `scanner/clients/marketcap_client.py` | `MarketCapClient` | - |
 | `scanner/clients/mexc_client.py` | `MEXCClient` | - |
-| `scanner/config.py` | `ScannerConfig` | `load_config`, `_expect_number`, `validate_config` |
+| `scanner/config.py` | `ScannerConfig` | `load_config`, `_expect_number`, `_expect_integer_number`, `_parse_integer_budget_value`, `validate_config` |
 | `scanner/main.py` | - | `parse_args`, `main` |
 | `scanner/pipeline/__init__.py` | - | `_to_optional_float`, `_extract_cmc_global_volume_24h`, `_compute_turnover_24h`, `_compute_mexc_share_24h`, `_build_scoring_volume_maps` ... (+2 more) |
 | `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+4 more) |
@@ -75,7 +75,7 @@
 **Statistics:**
 - Total Modules: 42
 - Total Classes: 19
-- Total Functions: 120
+- Total Functions: 122
 
 ---
 
@@ -984,7 +984,7 @@ See /docs/spec.md for the full technical specification.
 
 ### `scanner/config.py`
 
-**SHA256:** `71d1f40c8ada68720c141d2a9131997ccb6ef92f8b1b2c6490e039534f2c5f95`
+**SHA256:** `77a3a95e27819505cc8ae43d62872f3e18e13828348dff863d0e4f0007fab530`
 
 ```python
 """
@@ -1000,6 +1000,12 @@ import yaml
 
 
 CONFIG_PATH = os.getenv("SCANNER_CONFIG_PATH", "config/config.yml")
+
+_BUDGET_DEFAULTS = {
+    "shortlist_size": 200,
+    "orderbook_top_k": 200,
+    "pre_shortlist_market_cap_floor_usd": 25_000_000,
+}
 
 
 @dataclass
@@ -1058,17 +1064,35 @@ class ScannerConfig:
         return os.getenv(env_var, "")
 
     # Budget
+    def _budget_mapping(self) -> Dict[str, Any]:
+        budget_cfg = self.raw.get("budget")
+        if isinstance(budget_cfg, dict):
+            return budget_cfg
+        return {}
+
     @property
     def budget_shortlist_size(self) -> int:
-        return int(self.raw.get("budget", {}).get("shortlist_size", 200))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get("shortlist_size", _BUDGET_DEFAULTS["shortlist_size"]),
+            "budget.shortlist_size",
+        )
 
     @property
     def budget_orderbook_top_k(self) -> int:
-        return int(self.raw.get("budget", {}).get("orderbook_top_k", 200))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get("orderbook_top_k", _BUDGET_DEFAULTS["orderbook_top_k"]),
+            "budget.orderbook_top_k",
+        )
 
     @property
     def pre_shortlist_market_cap_floor_usd(self) -> int:
-        return int(self.raw.get("budget", {}).get("pre_shortlist_market_cap_floor_usd", 25_000_000))
+        return _parse_integer_budget_value(
+            self._budget_mapping().get(
+                "pre_shortlist_market_cap_floor_usd",
+                _BUDGET_DEFAULTS["pre_shortlist_market_cap_floor_usd"],
+            ),
+            "budget.pre_shortlist_market_cap_floor_usd",
+        )
 
     # Universe Filters (legacy soft priors)
     @property
@@ -1283,6 +1307,38 @@ def _expect_number(errors: List[str], value: Any, field_name: str, *, minimum: f
     return number
 
 
+def _expect_integer_number(
+    errors: List[str],
+    value: Any,
+    field_name: str,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> int | None:
+    number = _expect_number(errors, value, field_name, minimum=minimum, maximum=maximum)
+    if number is None:
+        return None
+    if not number.is_integer():
+        errors.append(f"{field_name} must be an integer")
+        return None
+    return int(number)
+
+
+def _parse_integer_budget_value(value: Any, field_name: str) -> int:
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"{field_name} must be numeric")
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric") from exc
+
+    if not number.is_integer():
+        raise ValueError(f"{field_name} must be an integer")
+
+    return int(number)
+
+
 def validate_config(config: ScannerConfig) -> List[str]:
     """
     Validate configuration.
@@ -1324,11 +1380,28 @@ def validate_config(config: ScannerConfig) -> List[str]:
         )
 
     # Budget defaults / limits
-    _expect_number(errors, config.raw.get("budget", {}).get("shortlist_size", 200), "budget.shortlist_size", minimum=1)
-    _expect_number(errors, config.raw.get("budget", {}).get("orderbook_top_k", 200), "budget.orderbook_top_k", minimum=1)
-    _expect_number(
+    budget_cfg = config.raw.get("budget")
+    if budget_cfg is None:
+        budget_cfg = {}
+    elif not isinstance(budget_cfg, dict):
+        errors.append("budget must be an object")
+        budget_cfg = {}
+
+    _expect_integer_number(
         errors,
-        config.raw.get("budget", {}).get("pre_shortlist_market_cap_floor_usd", 25_000_000),
+        budget_cfg.get("shortlist_size", _BUDGET_DEFAULTS["shortlist_size"]),
+        "budget.shortlist_size",
+        minimum=1,
+    )
+    _expect_integer_number(
+        errors,
+        budget_cfg.get("orderbook_top_k", _BUDGET_DEFAULTS["orderbook_top_k"]),
+        "budget.orderbook_top_k",
+        minimum=1,
+    )
+    _expect_integer_number(
+        errors,
+        budget_cfg.get("pre_shortlist_market_cap_floor_usd", _BUDGET_DEFAULTS["pre_shortlist_market_cap_floor_usd"]),
         "budget.pre_shortlist_market_cap_floor_usd",
         minimum=0,
     )
@@ -10712,4 +10785,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-07 21:27 UTC_
+_Generated by GitHub Actions • 2026-03-07 21:36 UTC_
