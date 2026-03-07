@@ -1,11 +1,12 @@
-"""
-Universe Filtering
-==================
+"""Universe filtering for pre-shortlist pool construction.
 
-Filters the MEXC universe to create a tradable shortlist:
-1. Market Cap Filter (100M - 3B USD)
-2. Liquidity Filter (minimum volume)
-3. Exclusions (stablecoins, wrapped tokens, leveraged tokens)
+Hard excludes in this stage are intentionally limited to:
+- pre-shortlist market-cap floor guardrail
+- quote asset allowlist
+- safety exclusions (stable/wrapped/leveraged/etc.)
+- hard risk blockers (denylist + major unlock)
+
+Legacy market-cap/volume/share limits are loaded as soft-prior context only.
 """
 
 import logging
@@ -36,11 +37,16 @@ class UniverseFilters:
         volume_cfg = universe_cfg.get('volume', {})
         history_cfg = universe_cfg.get('history', {})
 
-        # Market Cap bounds (in USD)
+        budget_cfg = config.get('budget', {})
+
+        # Market Cap context bounds (in USD, no hard exclude semantics).
         self.mcap_min = mcap_cfg.get('min_usd', legacy_filters.get('mcap_min', 100_000_000))  # 100M
         self.mcap_max = mcap_cfg.get('max_usd', legacy_filters.get('mcap_max', 3_000_000_000))  # 3B
 
-        # Liquidity gates (global turnover + MEXC volume/share with fallback)
+        # Hard pre-shortlist floor guardrail.
+        self.pre_shortlist_market_cap_floor_usd = float(budget_cfg.get('pre_shortlist_market_cap_floor_usd', 25_000_000))
+
+        # Liquidity context (legacy hard gates are now soft priors only)
         self.min_turnover_24h = float(volume_cfg.get('min_turnover_24h', 0.03))
         if 'min_mexc_quote_volume_24h_usdt' in volume_cfg:
             self.min_mexc_quote_volume_24h_usdt = float(volume_cfg.get('min_mexc_quote_volume_24h_usdt', 5_000_000))
@@ -104,10 +110,11 @@ class UniverseFilters:
         ) = self._load_unlock_overrides(self.unlock_overrides_path)
         
         logger.info(
-            f"Filters initialized: MCAP {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
-            f"Turnover>={self.min_turnover_24h:.4f}, "
-            f"MEXC Vol>={self.min_mexc_quote_volume_24h_usdt/1e6:.1f}M, "
-            f"MEXC Share>={self.min_mexc_share_24h:.4f}"
+            f"Filters initialized: pre-shortlist MCAP floor>={self.pre_shortlist_market_cap_floor_usd/1e6:.1f}M, "
+            f"legacy MCAP context {self.mcap_min/1e6:.0f}M-{self.mcap_max/1e9:.1f}B, "
+            f"legacy liquidity priors turnover>={self.min_turnover_24h:.4f}, "
+            f"mexc_volume>={self.min_mexc_quote_volume_24h_usdt/1e6:.1f}M, "
+            f"mexc_share>={self.min_mexc_share_24h:.4f}"
         )
 
     @staticmethod
@@ -219,9 +226,9 @@ class UniverseFilters:
         original_count = len(symbols_with_data)
         logger.info(f"Starting filters with {original_count} symbols")
         
-        # Step 1: Market Cap filter
-        filtered = self._filter_mcap(symbols_with_data)
-        logger.info(f"After MCAP filter: {len(filtered)} symbols "
+        # Step 1: Hard pre-shortlist market-cap floor
+        filtered = self._filter_pre_shortlist_market_cap_floor(symbols_with_data)
+        logger.info(f"After pre-shortlist MCAP floor: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
 
         # Step 2: Quote asset filter (USDT-only or stablecoin allowlist)
@@ -229,9 +236,9 @@ class UniverseFilters:
         logger.info(f"After Quote filter: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
 
-        # Step 3: Liquidity filter
-        filtered = self._filter_liquidity(filtered)
-        logger.info(f"After Liquidity filter: {len(filtered)} symbols "
+        # Step 3: Liquidity stage is soft-prior only; no hard excludes.
+        filtered = self._apply_soft_liquidity_priors(filtered)
+        logger.info(f"After soft liquidity priors: {len(filtered)} symbols "
                    f"({len(filtered)/original_count*100:.1f}%)")
 
         # Step 4: Exclusions
@@ -249,8 +256,8 @@ class UniverseFilters:
         
         return filtered
     
-    def _filter_mcap(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Filter by market cap range."""
+    def _filter_pre_shortlist_market_cap_floor(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Apply hard pre-shortlist market-cap floor guardrail."""
         filtered = []
         
         for sym_data in symbols:
@@ -260,8 +267,8 @@ class UniverseFilters:
             if mcap is None:
                 continue
             
-            # Check bounds
-            if self.mcap_min <= mcap <= self.mcap_max:
+            # Hard guardrail: below floor is excluded before shortlist.
+            if mcap >= self.pre_shortlist_market_cap_floor_usd:
                 filtered.append(sym_data)
         
         return filtered
@@ -294,51 +301,9 @@ class UniverseFilters:
 
         return filtered
 
-    @staticmethod
-    def _is_valid_non_negative_number(value: Any) -> bool:
-        try:
-            num = float(value)
-        except (TypeError, ValueError):
-            return False
-        return num == num and num >= 0  # NaN check: NaN != NaN
-
-    def _filter_liquidity(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Apply turnover + MEXC volume/share gates with explicit turnover-missing fallback."""
-        filtered: List[Dict[str, Any]] = []
-
-        for sym_data in symbols:
-            mexc_volume = sym_data.get('quote_volume_24h')
-            if not self._is_valid_non_negative_number(mexc_volume):
-                continue
-            mexc_volume_f = float(mexc_volume)
-
-            turnover = sym_data.get('turnover_24h')
-            turnover_available = self._is_valid_non_negative_number(turnover)
-
-            # Fallback path: turnover unavailable -> require only MEXC minimum volume.
-            if not turnover_available:
-                if mexc_volume_f >= self.min_mexc_quote_volume_24h_usdt:
-                    filtered.append(sym_data)
-                continue
-
-            # Primary path: turnover available -> require turnover + MEXC volume + MEXC share.
-            turnover_f = float(turnover)
-            if turnover_f < self.min_turnover_24h:
-                continue
-
-            if mexc_volume_f < self.min_mexc_quote_volume_24h_usdt:
-                continue
-
-            mexc_share = sym_data.get('mexc_share_24h')
-            if not self._is_valid_non_negative_number(mexc_share):
-                continue
-
-            if float(mexc_share) < self.min_mexc_share_24h:
-                continue
-
-            filtered.append(sym_data)
-
-        return filtered
+    def _apply_soft_liquidity_priors(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Keep rows unchanged; liquidity metrics remain context/prior fields only."""
+        return symbols
     
     def _filter_exclusions(self, symbols: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Exclude stablecoins, wrapped tokens, leveraged tokens."""
@@ -399,9 +364,9 @@ class UniverseFilters:
         total = len(symbols)
         
         # Count what passes each filter
-        mcap_pass = len(self._filter_mcap(symbols))
+        mcap_pass = len(self._filter_pre_shortlist_market_cap_floor(symbols))
         quote_pass = len(self._filter_quote_assets(symbols))
-        liquidity_pass = len(self._filter_liquidity(symbols))
+        liquidity_pass = len(self._apply_soft_liquidity_priors(symbols))
         exclusion_pass = len(self._filter_exclusions(symbols))
         
         # Full pipeline

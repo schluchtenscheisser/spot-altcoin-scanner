@@ -32,8 +32,8 @@ def test_universe_filters_reads_universe_filters_and_exclusions():
     }
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 100, "market_cap": 300},
-        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 100, "market_cap": 300},
+        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 100, "market_cap": 30_000_000},
+        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 100, "market_cap": 30_000_000},
     ])
     assert [x["symbol"] for x in out] == ["AAAUSDT"]
 
@@ -86,8 +86,8 @@ def test_legacy_exclusion_patterns_empty_list_disables_exclusions() -> None:
     }
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
-        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "AAAUSDT", "base": "AAA", "quote_volume_24h": 2_000_000, "market_cap": 30_000_000},
+        {"symbol": "BBBUSDT", "base": "BBBUSD", "quote_volume_24h": 2_000_000, "market_cap": 30_000_000},
     ])
     assert [x["symbol"] for x in out] == ["AAAUSDT", "BBBUSDT"]
 
@@ -106,8 +106,8 @@ def test_legacy_exclusion_patterns_override_new_exclusions_when_present() -> Non
     }
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "AAAUSDT", "base": "AAAUSD", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
-        {"symbol": "WRAPUSDT", "base": "WRAPCOIN", "quote_volume_24h": 2_000_000, "market_cap": 300_000_000},
+        {"symbol": "AAAUSDT", "base": "AAAUSD", "quote_volume_24h": 2_000_000, "market_cap": 30_000_000},
+        {"symbol": "WRAPUSDT", "base": "WRAPCOIN", "quote_volume_24h": 2_000_000, "market_cap": 30_000_000},
     ])
     # Only legacy pattern applies; stablecoin exclusion from new config is ignored.
     assert [x["symbol"] for x in out] == ["AAAUSDT"]
@@ -160,9 +160,9 @@ def test_include_only_usdt_pairs_true_excludes_non_usdt_pairs() -> None:
     }
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 30_000_000},
     ])
     assert [x["symbol"] for x in out] == ["AAAUSDT"]
 
@@ -178,9 +178,9 @@ def test_include_only_usdt_pairs_false_keeps_only_stablecoin_quotes() -> None:
     }
     f = UniverseFilters(cfg)
     out = f.apply_all([
-        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 100},
-        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 100},
+        {"symbol": "AAAUSDT", "base": "AAA", "quote": "USDT", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "AAAUSDC", "base": "AAA", "quote": "USDC", "quote_volume_24h": 1, "market_cap": 30_000_000},
+        {"symbol": "AAABTC", "base": "AAA", "quote": "BTC", "quote_volume_24h": 1, "market_cap": 30_000_000},
     ])
     assert [x["symbol"] for x in out] == ["AAAUSDT", "AAAUSDC"]
 
