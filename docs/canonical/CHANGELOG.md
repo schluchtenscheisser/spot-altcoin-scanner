@@ -4,15 +4,29 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
+canonical_schema_version: 4.2.1
+canonical_schema_versioning: semver
+canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
 
-## Policy
-- Canonical docs under `docs/canonical/` define the current truth.
-- This changelog records *documentation-level* breaking changes and major logic shifts.
+## canonical_schema_version policy (SemVer)
+`canonical_schema_version` is manually maintained and follows `MAJOR.MINOR.PATCH`.
 
-## Unreleased
-- Initial canonical documentation split from legacy v2.
-- PR15 execution gate: added deterministic orderbook execution metrics (spread/depth), config defaults, breakout output fields, and verification boundaries.
+- **MAJOR**: breaking canonical contract changes (field removals/renames, decision-domain changes, incompatible semantics).
+- **MINOR**: backward-compatible canonical additions (new optional fields, new non-breaking reason codes, clarifications that add capability).
+- **PATCH**: non-semantic fixes/wording corrections with no contract behavior change.
+
+Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
+
+## 4.2.1 — Canonical contracts tightened
+- Added canonical contract docs for:
+  - `PIPELINE.md`
+  - `DECISION_LAYER.md`
+  - `RISK_MODEL.md`
+  - `LIQUIDITY/TRADEABILITY_GATE.md`
+  - `BUDGET_AND_POOL_MODEL.md`
+- Updated `OUTPUT_SCHEMA.md` to declare `trade_candidates` as Source of Truth and explicit nullable/decision reason rules.
+- Formalized UNKNOWN/MARGINAL semantics and pre-decision UNKNOWN stop-path.
 
 ## 2026-02-23
-- Established `docs/canonical/` as the canonical documentation root (rename from temporary v2).
+- Established `docs/canonical/` as the canonical documentation root.

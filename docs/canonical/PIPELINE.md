@@ -4,123 +4,90 @@
 ```yaml
 id: CANON_PIPELINE
 status: canonical
+phase: 1
 stages:
   - universe_fetch
   - mapping
   - hard_gates
-  - cheap_pass_shortlist
+  - budgeted_pool_open
   - ohlcv_fetch
   - feature_engine
-  - setup_validity
-  - setup_scoring
-  - liquidity_rerank
+  - setup_validity_and_setup_score
+  - tradeability_gate
+  - risk_model
+  - decision_layer
+  - global_prioritization_and_rerank
   - output_render
+stops_before_decision:
+  - tradeability_class: UNKNOWN
+  - setup_not_evaluable: true
 determinism:
   closed_candle_only: true
+  no_lookahead: true
   stable_sorting: true
 ```
 
-## 1) Stage: Universe fetch (MEXC)
-Goal: Obtain candidate trading symbols (spot pairs).
-- Canonical intent: focus on spot pairs quoted in USDT.
+## Purpose
+Define the Phase-1 execution order and stop rules so downstream PRs implement one consistent pipeline contract.
 
-Outputs:
-- `symbols_universe` (deterministically ordered or explicitly sorted)
+## Stage contracts
 
-## 2) Stage: Mapping (Exchange symbol -> Market-cap asset)
-Goal: link exchange symbols to market-cap universe assets.
-- Mapping must be deterministic.
-- Collisions must be detected and surfaced (not silently resolved).
-- Overrides are allowed and version-controlled.
+### 1) Universe fetch
+- Build deterministic spot-universe candidate list.
+- Sort order MUST be explicit and stable (`symbol ASC` unless another canonical sort is documented).
 
-Outputs:
-- `mapped_assets` (with confidence/metadata)
-- `mapping_collisions_report` (if any)
+### 2) Mapping
+- Map exchange symbols to market-cap assets.
+- Mapping collisions MUST be surfaced; no silent merge.
 
-## 3) Stage: Hard gates
-Applied before expensive computations and before `percent_rank` populations are formed.
-Canonical hard gates include:
-- Market cap range (default: 100M..10B USD; per-setup may override)
-- Liquidity gates (Universe hard gate):
-  - Primary path (turnover available): require all of
-    - `turnover_24h >= min_turnover_24h`
-    - `mexc_quote_volume_24h_usdt >= min_mexc_quote_volume_24h_usdt`
-    - `mexc_share_24h >= min_mexc_share_24h`
-  - Fallback path (turnover unavailable): require only
-    - `mexc_quote_volume_24h_usdt >= min_mexc_quote_volume_24h_usdt`
-    - `mexc_share_24h` gate is NOT evaluated in fallback (not computable without global volume)
-  - Per-symbol invalid values (negative / NaN / non-castable) fail deterministically (drop symbol, no silent correction).
-- Risk flags (denylist, deposit/withdraw suspended, delisting risk, major unlock within 14d, liquidity grade D, etc.)
-- Minimum history requirements per setup/timeframe
-  - Closed-candle counts are derived from `meta.last_closed_idx` as `count = idx + 1`.
-  - If `last_closed_idx` for a required timeframe is missing/invalid (`None`), history is insufficient and the symbol is rejected for that setup.
-  - Boundary rule: `count == min_history` is sufficient (reject only when `count < min_history`).
+### 3) Hard gates (pre-shortlist guardrails)
+- Apply hard constraints before expensive fetches and before ranking populations are finalized.
+- Includes hard market-cap floor guardrail (`pre_shortlist_market_cap_floor_usd`) as defined in `BUDGET_AND_POOL_MODEL.md`.
 
-Output:
-- `eligible_universe` (this is the canonical `percent_rank` population baseline)
+### 4) Budgeted pool open
+- Open a broader candidate pool early, then constrain expensive orderbook evaluation via budget controls.
+- `shortlist_size` and `orderbook_top_k` are authoritative in `BUDGET_AND_POOL_MODEL.md`.
 
-## 4) Stage: Cheap pass shortlist (optional)
-Purpose: reduce expensive OHLCV/orderbook calls while remaining deterministic.
-Canonical rule:
-- Cheap pass must not redefine `percent_rank` population; it only reduces fetch workload.
+### 5) OHLCV fetch (closed candles only)
+- Fetch required timeframes (Phase 1: 1D and 4H).
+- Use only bars with `close_time <= asof_ts_ms`.
 
-Output:
-- `shortlist_symbols`
+### 6) Feature engine
+- Compute canonical features (EMA, ATR Wilder, ranks, etc.) per feature docs.
+- Preserve nullable semantics where metrics are not evaluable.
 
-## 5) Stage: OHLCV fetch (1D + 4H)
-- Fetch OHLCV for required timeframes (canonical: 1D, 4H).
-- Apply closed-candle-only policy:
-  - only candles with `closeTime <= asof_ts_ms` are used
+### 7) Setup validity + setup score
+- Determine setup validity and compute `setup_score`.
+- `setup_score` is the decision-threshold score (not global prioritization).
 
-Output:
-- `ohlcv_1d`, `ohlcv_4h`
+### 8) Tradeability gate
+- Compute `tradeability_class ∈ {DIRECT_OK, TRANCHE_OK, MARGINAL, FAIL, UNKNOWN}`.
+- `UNKNOWN` represents not-evaluable/not-evaluated tradeability.
+- `UNKNOWN` MUST stop here and MUST NOT reach Decision Layer.
 
-## 6) Stage: Feature engine
-Compute canonical features:
-- EMA standard
-- ATR Wilder + ATR%
-- Volume SMA and spikes (exclude current candle for SMA)
-- BB width% and rolling rank
-- ATR% rolling rank (1D)
-- percent_rank (cross-section; population = eligible universe after hard gates)
+### 9) Risk model
+- Compute ATR-default stop and risk metrics (`stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable`).
+- Risk blockers from repo authority are applied (see `RISK_MODEL.md`).
 
-Output:
-- per-symbol feature set (with NaN rules)
+### 10) Decision layer
+- Decision domain is exactly `{ENTER, WAIT, NO_TRADE}`.
+- Only fully evaluated candidates can become `WAIT`.
+- `MARGINAL` is never ENTER-eligible.
 
-## 7) Stage: Setup validity
-Compute per-setup validity:
-- `is_valid_setup` plus explicit reason for invalidity.
+### 11) Global prioritization and rerank
+- `global_score` is used for prioritization among decision-eligible candidates.
+- `global_score` MUST NOT override decision hard blockers.
 
-Canonical:
-- invalid setups never appear in Top lists.
-- optional: invalid setups may appear in watchlist with reason.
+### 12) Output rendering
+- `trade_candidates` is source of truth for machine-readable decision outputs.
+- Manifest metadata is produced separately; formats must not redefine business truth.
 
-## 8) Stage: Setup scoring
-Compute per-setup component scores, multipliers, final score (0..100).
-Canonical setup scorer:
-- Breakout Trend 1–5d (Immediate + Retest)
+## Deterministic stop-path requirements
+- `UNKNOWN` is neither `FAIL` nor `WAIT`; it is a pre-decision stop-path.
+- No implicit coercion from nullability to booleans.
+- No stage may silently reclassify `UNKNOWN` to `FAIL` or `WAIT`.
 
-Output:
-- `setup_score_rows`
-
-## 9) Stage: Liquidity & re-rank
-- Proxy pre-rank by quote volume
-- Fetch orderbook for top candidates (Top-K levels)
-- Compute spread/slippage
-- Re-rank deterministically (score desc, slippage asc, proxy desc, symbol asc)
-
-Output:
-- `reranked_rows`
-
-## 10) Stage: Output rendering
-Produce outputs:
-- JSON (machine)
-- Markdown (human-readable summary, consistent with JSON)
-- Excel (tabular export)
-
-Also include a run manifest:
-- commit hash
-- config hash/version
-- schema version
-- as-of
-- providers used
+## Non-goals in Phase 1
+- No portfolio manager.
+- No mandatory exit automation.
+- `TP10` / `TP20` are orientation targets only.
