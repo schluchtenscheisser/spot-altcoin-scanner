@@ -12,7 +12,7 @@ determinism:
   stable_symbol_order: true
   tie_breaker_for_fetch: "symbol_asc"
 symbol_definition: "full exchange trading pair string (e.g., ETHUSDT)"
-missing_orderbook: "only_fetched_missing_or_invalid_is_worst_for_rerank"
+missing_orderbook: "outside_topk_budget_is_unknown_stop_path"
 ```
 
 ## 1) Ziel
@@ -41,10 +41,11 @@ Orderbook-Fetch ist teuer. Canonical Policy:
 - Non-`dict` payloads or dict payloads with missing/empty `bids`/`asks` MUST be ignored at fetch stage and logged as malformed payload.
 - Downstream semantics are split deterministically:
   - Fetched + validated payload: liquidity metrics and `liquidity_grade` are computed.
-  - Fetched but missing/invalid payload (or fetch exception): `spread_bps=null`, `slippage_bps=null`, `liquidity_grade="D"`, `liquidity_insufficient=true`.
-  - Not fetched (outside Top-K budget): `spread_bps=null`, `slippage_bps=null`, `liquidity_grade=null`, `liquidity_insufficient=null`.
+  - Fetched but invalid/malformed payload, stale snapshot, or fetch exception: evaluated failure-path with explicit UNKNOWN reasons from `TRADEABILITY_GATE.md` (`orderbook_data_missing` / `orderbook_data_stale` as applicable).
+  - Not fetched (outside Top-K budget): explicit not-evaluated path with reason `orderbook_not_in_budget`; class remains `UNKNOWN` and candidate stops before Decision Layer.
 - Only fetched symbols may receive a liquidity grade.
-- For re-rank, missing `slippage_bps` remains worst-case handling per `RE_RANK_RULE.md`.
+- `orderbook_not_in_budget` is not a rerank shortcut and not a FAIL-class mapping.
+- Re-rank semantics in `RE_RANK_RULE.md` apply only to symbols that were fetched/evaluated for execution quality; budget-skipped symbols stay on the UNKNOWN stop-path.
 
 
 ## 6) Execution metrics from orderbook snapshot

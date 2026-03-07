@@ -17,6 +17,7 @@ source_of_truth_entity: trade_candidates
 - `trade_candidates` is the canonical output Source of Truth (SoT) for candidate-level decision data.
 - Markdown and Excel are renderings of the same truth; they must not redefine semantics.
 - Run manifest metadata is separate from candidate rows.
+- Setup-specific scoring documents may define additional per-row fields, but they MUST NOT redefine this global minimum contract.
 
 ## Run manifest (required)
 Required fields:

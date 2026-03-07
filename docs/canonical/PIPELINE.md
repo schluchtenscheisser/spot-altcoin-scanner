@@ -66,6 +66,7 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 - Compute `tradeability_class ∈ {DIRECT_OK, TRANCHE_OK, MARGINAL, FAIL, UNKNOWN}`.
 - `UNKNOWN` represents not-evaluable/not-evaluated tradeability.
 - `UNKNOWN` MUST stop here and MUST NOT reach Decision Layer.
+- `orderbook_not_in_budget` is an explicit UNKNOWN/not-evaluated reason (outside orderbook budget), not a FAIL mapping.
 
 ### 9) Risk model
 - Compute ATR-default stop and risk metrics (`stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable`).

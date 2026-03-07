@@ -306,9 +306,8 @@ Wenn `btc_risk_on == false` (Risk-Off):
 - `breakout_immediate_1_5d`
 - `breakout_retest_1_5d`
 
-### 11.2 Pflichtfelder pro Row (JSON/MD/Excel)
-Mindestens:
-- `setup_id`
+### 11.2 Setup-spezifische Zusatzfelder (nicht globales Row-Minimum)
+Für dieses Setup werden typischerweise zusätzliche Diagnose-/Scoring-Felder pro Candidate-Row geführt, z. B.:
 - `base_score`, `final_score`
 - Level & Distanz: `high_20d_1d`, `dist_pct`
 - Volume: `volume_quote_spike_1d`, `volume_quote_spike_4h`, `spike_combined`
@@ -317,6 +316,10 @@ Mindestens:
 - Multipliers: `anti_chase_multiplier`, `overextension_multiplier`, `btc_multiplier`
 - BTC Regime Flags: `btc_state`, `btc_rs_override`, `btc_liq_ok_risk_off`
 - Gates/Flags: `triggered`, `retest_valid`, `retest_invalidated` (wo relevant)
+
+Wichtig:
+- Das globale Pflichtfeld-Minimum für `trade_candidates` wird ausschließlich in `docs/canonical/OUTPUT_SCHEMA.md` definiert.
+- Dieses Setup-Dokument erweitert die globale Row-Semantik nur um setup-spezifische Felder; es überschreibt das globale Minimum nicht.
 
 ### 11.3 Dedup (global)
 Wenn ein Symbol beide Setups erfüllt:

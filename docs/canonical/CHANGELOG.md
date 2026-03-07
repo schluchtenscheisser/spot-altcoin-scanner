@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 4.2.1
+canonical_schema_version: 5.0.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -17,6 +17,11 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 - **PATCH**: non-semantic fixes/wording corrections with no contract behavior change.
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
+
+## 5.0.0 — Phase-1 contract realignment (breaking)
+- Breaking canonical contract change: the Phase-1 architecture introduced in PR-01/PR-01.1 is now versioned as MAJOR because semantics changed incompatibly.
+- `trade_candidates` row-minimum contract is explicitly anchored to `OUTPUT_SCHEMA.md`; setup-scoring docs may define additional setup fields but must not redefine global row minimums.
+- `orderbook_not_in_budget` is fixed as `UNKNOWN` / not-evaluated stop-path (outside `orderbook_top_k` budget), distinct from fetched-but-invalid/malformed/stale payload outcomes.
 
 ## 4.2.1 — Canonical contracts tightened
 - Added canonical contract docs for:
