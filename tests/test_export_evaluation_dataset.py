@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 from scanner.tools import export_evaluation_dataset as exporter
@@ -192,3 +195,106 @@ def test_golden_jsonl_output(tmp_path: Path, monkeypatch):
     ])
 
     assert content == expected
+
+
+def test_label_window_5d_exact_threshold_counts_as_hit_and_exports_all_hit_fields() -> None:
+    labels = exporter._evaluate_label_window_5d(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series={
+            "2026-02-01": {"close": 100.0, "high": 100.0, "low": 100.0},
+            "2026-02-02": {"high": 105.0, "low": 99.0},
+            "2026-02-03": {"high": 104.0, "low": 98.0},
+            "2026-02-04": {"high": 103.0, "low": 97.0},
+            "2026-02-05": {"high": 102.0, "low": 96.0},
+            "2026-02-06": {"high": 101.0, "low": 95.0},
+        },
+        t_trigger_max=5,
+    )
+
+    assert labels["reason"] == "ok"
+    assert labels["hits"]["5"] is True
+    assert labels["hits"]["10"] is False
+    assert labels["hits"]["20"] is False
+    assert labels["mfe_pct"] == pytest.approx(5.0)
+    assert labels["mae_pct"] == pytest.approx(-5.0)
+
+
+def test_label_window_5d_computes_mfe_and_mae_deterministically() -> None:
+    series = {
+        "2026-02-01": {"close": 100.0},
+        "2026-02-02": {"high": 104.0, "low": 97.0},
+        "2026-02-03": {"high": 118.0, "low": 96.0},
+        "2026-02-04": {"high": 123.0, "low": 92.0},
+        "2026-02-05": {"high": 115.0, "low": 95.0},
+        "2026-02-06": {"high": 111.0, "low": 94.0},
+    }
+
+    first = exporter._evaluate_label_window_5d(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series=series,
+        t_trigger_max=5,
+    )
+    second = exporter._evaluate_label_window_5d(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series=series,
+        t_trigger_max=5,
+    )
+
+    assert first == second
+    assert first["hits"]["5"] is True
+    assert first["hits"]["10"] is True
+    assert first["hits"]["20"] is True
+    assert first["mfe_pct"] == pytest.approx(23.0)
+    assert first["mae_pct"] == pytest.approx(-8.0)
+
+
+def test_label_window_5d_insufficient_forward_data_preserves_null_labels() -> None:
+    labels = exporter._evaluate_label_window_5d(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series={
+            "2026-02-01": {"close": 100.0},
+            "2026-02-02": {"high": 103.0, "low": 99.0},
+            "2026-02-03": {"high": 104.0, "low": 98.0},
+            "2026-02-04": {"high": 102.0, "low": 97.0},
+            "2026-02-05": {"high": 101.0, "low": 96.0},
+            # missing day 5 forward candle
+        },
+        t_trigger_max=5,
+    )
+
+    assert labels["reason"] == "insufficient_forward_history"
+    assert labels["hits"]["5"] is None
+    assert labels["hits"]["10"] is None
+    assert labels["hits"]["20"] is None
+    assert labels["mfe_pct"] is None
+    assert labels["mae_pct"] is None
+
+
+def test_label_window_5d_non_finite_values_do_not_become_false_labels() -> None:
+    labels = exporter._evaluate_label_window_5d(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series={
+            "2026-02-01": {"close": math.inf},
+            "2026-02-02": {"close": math.nan},
+            "2026-02-03": {"close": -math.inf},
+        },
+        t_trigger_max=5,
+    )
+
+    assert labels["reason"] == "missing_price_series"
+    assert labels["entry_price"] is None
+    assert labels["hits"]["5"] is None
+    assert labels["hits"]["10"] is None
+    assert labels["hits"]["20"] is None
+    assert labels["mfe_pct"] is None
+    assert labels["mae_pct"] is None
