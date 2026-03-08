@@ -41,6 +41,9 @@ Minimum required fields:
 - `decision_reasons`
 - `tradeability_class`
 - `risk_acceptable`
+- `entry_ready`
+- `entry_readiness_reason`
+- `setup_subtype`
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
@@ -69,3 +72,13 @@ No implicit bool/number coercion is allowed for nullable fields.
 - Candidate-truth lives in `trade_candidates`.
 - Operational metadata (runtime, versions, provider set) lives in manifest.
 - No format-specific output may contradict the JSON `trade_candidates` truth.
+
+
+## Setup scorer V2 structured fields
+Scorer rows may include setup-specific confirmation flags as additive machine-readable fields.
+Allowed examples:
+- breakout: `breakout_confirmed`
+- pullback: `rebound_confirmed`, `retest_reclaimed`
+- reversal: `reclaim_confirmed`, `retest_reclaimed`
+
+When a confirmation is semantically not evaluable due to missing/invalid/non-finite inputs, the confirmation field MUST remain `null`.

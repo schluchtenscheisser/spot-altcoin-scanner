@@ -90,6 +90,7 @@ class PullbackScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(trend_score, pullback_score, rebound_score, volume_score, f1d, f4h, flags, volume_source_used)
+        pullback_v2 = self._resolve_pullback_v2_fields(f1d, f4h)
 
         return {
             "score": round(final_score, 2),
@@ -106,7 +107,50 @@ class PullbackScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **pullback_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_pullback_v2_fields(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
+        r3_1d = f1d.get("r_3")
+        r3_4h = f4h.get("r_3")
+
+        numeric_values = []
+        for value in (r3_1d, r3_4h):
+            if value is None:
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(numeric):
+                return {
+                    "rebound_confirmed": None,
+                    "retest_reclaimed": None,
+                    "entry_ready": False,
+                    "entry_readiness_reason": "rebound_not_evaluable",
+                    "setup_subtype": "pullback_to_ema",
+                }
+            numeric_values.append(numeric)
+
+        if not numeric_values:
+            return {
+                "rebound_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "rebound_not_evaluable",
+                "setup_subtype": "pullback_to_ema",
+            }
+
+        rebound_confirmed = max(numeric_values) >= self.min_rebound
+        retest_reclaimed = rebound_confirmed
+        return {
+            "rebound_confirmed": rebound_confirmed,
+            "retest_reclaimed": retest_reclaimed,
+            "entry_ready": rebound_confirmed,
+            "entry_readiness_reason": None if rebound_confirmed else "rebound_not_confirmed",
+            "setup_subtype": "pullback_to_ema",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
@@ -309,6 +353,11 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "rebound_confirmed": score_result["rebound_confirmed"],
+                    "retest_reclaimed": score_result["retest_reclaimed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],

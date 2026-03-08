@@ -39,3 +39,19 @@ Use `NO_TRADE` for hard blockers/non-eligibility (e.g., `FAIL`, denied risk, inv
 ## Explicit exclusions
 - Reversal without reclaim is not entry-ready.
 - Phase 1 does not define hold/rotate/portfolio orchestration decisions.
+
+
+## Scorer V2 readiness inputs
+For setup scorers, decision-relevant readiness MUST be emitted as structured fields (no free-text inference):
+- `entry_ready: bool`
+- `entry_readiness_reason: str | null`
+- `setup_subtype: str` (deterministic, from a stable setup-specific value set)
+
+Setup-specific confirmations (when applicable):
+- Breakout: `breakout_confirmed: bool | null`
+- Pullback: `rebound_confirmed: bool | null`, `retest_reclaimed: bool | null`
+- Reversal: `reclaim_confirmed: bool | null`, `retest_reclaimed: bool | null`
+
+Hard rule: reversal without confirmed reclaim MUST be `entry_ready=false` with readiness reason `retest_not_reclaimed`.
+
+Missing/invalid/non-finite inputs are a non-evaluable path and must not be silently coerced to a valid confirmation signal.
