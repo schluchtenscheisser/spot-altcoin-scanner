@@ -54,6 +54,39 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-03-08 — schema_version v1.9 → v1.10 — Setup-Invalidation-Anchor Kontexfelder (additiv)
+**PR:** (branch-local, ticket/2026-03-07_P0_PR-10_setup-invalidation-anchors-v4.2.1)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Setup-Scorer-Outputs (`breakout`, `pullback`, `reversal`) enthalten jetzt additive Kontexfelder:
+  - `invalidation_anchor_price` (nullable)
+  - `invalidation_anchor_type` (nullable)
+  - `invalidation_derivable` (bool)
+- Anchor-Ableitung ist setup-spezifisch und deterministisch; nicht-ableitbar bleibt explizit `null`/`false`.
+- Phase-1-Risk-Stop-Berechnung bleibt unverändert ATR-basiert.
+
+#### Warum?
+- Maschinenlesbare Invalidation-Kontextdaten verbessern Transparenz und bereiten spätere Erweiterungen vor, ohne die operative Stop-Logik zu ändern.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Änderung ist additiv; unbekannte Felder können ignoriert werden.
+
+#### Migration / Vorgehen
+- Consumer sollten die neuen Felder optional einlesen und nullable/bool-Semantik beibehalten.
+- Stop-/Decision-Interpretation darf weiterhin ausschließlich über bestehende Risk-Felder erfolgen.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.10",
+  "invalidation_anchor_price": 100.0,
+  "invalidation_anchor_type": "breakout_level",
+  "invalidation_derivable": true
+}
+```
+
 ### 2026-02-28 — schema_version v1.9 → v1.9 — Canonical Contract: Global Volume/Turnover/Share Docs präzisiert
 **PR:** (branch-local, ticket/docs_update_for_global_volume_turnover_gates_outputs)  
 **Typ:** additiv

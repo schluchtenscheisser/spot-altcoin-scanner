@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.9
+schema_version: v1.10
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -46,6 +46,9 @@ Minimum required fields:
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
 Typical nullable fields include (non-exhaustive):
+- `invalidation_anchor_price`
+- `invalidation_anchor_type`
+- `invalidation_derivable`
 - `stop_price_initial`
 - `risk_pct_to_stop`
 - `rr_to_tp10`

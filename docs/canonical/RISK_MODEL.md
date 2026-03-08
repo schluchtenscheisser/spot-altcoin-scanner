@@ -23,6 +23,7 @@ Defines Phase-1 risk semantics for entry decisions. This is not a portfolio-mana
 
 ## Phase-1 default stop model
 - Default initial stop is ATR-based.
+- Setup scorers MAY emit optional context anchors (`invalidation_anchor_price`, `invalidation_anchor_type`, `invalidation_derivable`) for transparency/future extensions; these anchors do **not** replace ATR stop computation in Phase 1.
 - `stop_price_initial` MUST be present when risk is evaluable.
 - Setup-specific stop variants may be added later, but do not replace the Phase-1 default contract here.
 

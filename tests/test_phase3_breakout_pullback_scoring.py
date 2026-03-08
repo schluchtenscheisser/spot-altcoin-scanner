@@ -122,5 +122,72 @@ def test_setup_payload_propagates_raw_score_and_penalty_multiplier() -> None:
 
     assert "raw_score" in breakout_results[0]
     assert "penalty_multiplier" in breakout_results[0]
+    assert "invalidation_anchor_price" in breakout_results[0]
+    assert "invalidation_anchor_type" in breakout_results[0]
+    assert "invalidation_derivable" in breakout_results[0]
     assert "raw_score" in pullback_results[0]
     assert "penalty_multiplier" in pullback_results[0]
+    assert "invalidation_anchor_price" in pullback_results[0]
+    assert "invalidation_anchor_type" in pullback_results[0]
+    assert "invalidation_derivable" in pullback_results[0]
+
+
+def test_breakout_invalidation_anchor_fields_derivable_and_invalid() -> None:
+    scorer = BreakoutScorer({})
+
+    derivable = scorer.score(
+        "X",
+        {"1d": {"close": 105.0, "breakout_dist_20": 5.0, "volume_spike": 1.6, "dist_ema20_pct": 1.0, "dist_ema50_pct": 1.0, "r_7": 1.0}, "4h": {"volume_spike": 1.0}},
+        quote_volume_24h=1_000_000,
+    )
+    assert derivable["invalidation_derivable"] is True
+    assert derivable["invalidation_anchor_type"] == "breakout_level"
+    assert derivable["invalidation_anchor_price"] == pytest.approx(100.0)
+
+    invalid = scorer.score(
+        "X",
+        {"1d": {"close": 100.0, "breakout_dist_20": -100.0, "volume_spike": 1.6, "dist_ema20_pct": 1.0, "dist_ema50_pct": 1.0, "r_7": 1.0}, "4h": {"volume_spike": 1.0}},
+        quote_volume_24h=1_000_000,
+    )
+    assert invalid["invalidation_derivable"] is False
+    assert invalid["invalidation_anchor_type"] is None
+    assert invalid["invalidation_anchor_price"] is None
+
+
+def test_pullback_invalidation_anchor_prefers_support_level() -> None:
+    scorer = PullbackScorer({})
+
+    support = scorer.score(
+        "X",
+        {
+            "1d": {"dist_ema50_pct": 1.0, "dist_ema20_pct": -1.0, "r_3": 0.0, "r_7": 0.0, "hh_20": True, "volume_spike": 1.4},
+            "4h": {"ema_50": 95.0, "ema_20": 100.0, "r_3": 0.0, "volume_spike": 1.4},
+        },
+        quote_volume_24h=1_000_000,
+    )
+    assert support["invalidation_derivable"] is True
+    assert support["invalidation_anchor_type"] == "support_level"
+    assert support["invalidation_anchor_price"] == pytest.approx(95.0)
+
+    ema_only = scorer.score(
+        "X",
+        {
+            "1d": {"dist_ema50_pct": 1.0, "dist_ema20_pct": -1.0, "r_3": 0.0, "r_7": 0.0, "hh_20": True, "volume_spike": 1.4},
+            "4h": {"ema_20": 100.0, "r_3": 0.0, "volume_spike": 1.4},
+        },
+        quote_volume_24h=1_000_000,
+    )
+    assert ema_only["invalidation_derivable"] is True
+    assert ema_only["invalidation_anchor_type"] == "ema_reclaim"
+
+    invalid = scorer.score(
+        "X",
+        {
+            "1d": {"dist_ema50_pct": 1.0, "dist_ema20_pct": -1.0, "r_3": 0.0, "r_7": 0.0, "hh_20": True, "volume_spike": 1.4},
+            "4h": {"ema_50": 0.0, "r_3": 0.0, "volume_spike": 1.4},
+        },
+        quote_volume_24h=1_000_000,
+    )
+    assert invalid["invalidation_derivable"] is False
+    assert invalid["invalidation_anchor_type"] is None
+    assert invalid["invalidation_anchor_price"] is None

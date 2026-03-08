@@ -61,6 +61,7 @@ class ReversalScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d)
 
         drawdown_score = self._score_drawdown(f1d)
         base_score = self._score_base(f1d)
@@ -117,6 +118,36 @@ class ReversalScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        base_low = f1d.get("base_low")
+        anchor_type = "base_low"
+        if base_low is None:
+            base_low = f1d.get("ema_20")
+            anchor_type = "ema_reclaim"
+
+        try:
+            numeric_anchor = float(base_low)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": numeric_anchor,
+            "invalidation_anchor_type": anchor_type,
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_drawdown(self, f1d: Dict[str, Any]) -> float:
@@ -283,6 +314,9 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
                     **risk_fields,
                     "discovery": features.get("discovery", False),

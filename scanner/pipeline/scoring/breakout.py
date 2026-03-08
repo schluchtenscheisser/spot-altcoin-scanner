@@ -1,6 +1,7 @@
 """Breakout scoring."""
 
 import logging
+import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
@@ -59,6 +60,7 @@ class BreakoutScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d)
 
         breakout_score = self._score_breakout(f1d)
         volume_score = self._score_volume(f1d, f4h)
@@ -118,6 +120,43 @@ class BreakoutScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        close_1d = f1d.get("close")
+        breakout_dist = f1d.get("breakout_dist_20")
+        try:
+            close_numeric = float(close_1d)
+            breakout_dist_numeric = float(breakout_dist)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric):
+            return self._not_derivable_anchor()
+        if close_numeric <= 0:
+            return self._not_derivable_anchor()
+
+        denominator = 1.0 + breakout_dist_numeric / 100.0
+        if denominator <= 0:
+            return self._not_derivable_anchor()
+
+        anchor = close_numeric / denominator
+        if not math.isfinite(anchor) or anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": anchor,
+            "invalidation_anchor_type": "breakout_level",
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
@@ -263,6 +302,9 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
                     **risk_fields,
                     "discovery": features.get("discovery", False),

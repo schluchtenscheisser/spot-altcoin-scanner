@@ -68,6 +68,7 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 ### 8) Setup validity + setup score
 - Determine setup validity and compute `setup_score`.
 - `setup_score` is the decision-threshold score (not global prioritization).
+- Setup scorers may add optional context fields `invalidation_anchor_price`, `invalidation_anchor_type`, `invalidation_derivable`; these are additive and must not alter risk/decision semantics in Phase 1.
 
 ### 9) Risk model
 - Compute ATR-default stop and risk metrics (`stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable`).

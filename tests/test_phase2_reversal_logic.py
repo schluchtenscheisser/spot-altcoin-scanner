@@ -116,3 +116,73 @@ def test_reversal_setup_payload_propagates_raw_score_and_penalty_multiplier() ->
 
     assert "raw_score" in results[0]
     assert "penalty_multiplier" in results[0]
+    assert "invalidation_anchor_price" in results[0]
+    assert "invalidation_anchor_type" in results[0]
+    assert "invalidation_derivable" in results[0]
+
+
+def test_reversal_invalidation_anchor_fields() -> None:
+    scorer = ReversalScorer({})
+
+    base = scorer.score(
+        "X",
+        {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "base_low": 75.0,
+                "ema_20": 90.0,
+                "dist_ema20_pct": 1.0,
+                "dist_ema50_pct": 1.0,
+                "hh_20": True,
+                "r_7": 1.0,
+                "volume_spike": 1.7,
+            },
+            "4h": {"volume_spike": 1.6},
+        },
+        quote_volume_24h=2_000_000,
+    )
+    assert base["invalidation_derivable"] is True
+    assert base["invalidation_anchor_type"] == "base_low"
+    assert base["invalidation_anchor_price"] == pytest.approx(75.0)
+
+    reclaim = scorer.score(
+        "X",
+        {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "ema_20": 90.0,
+                "dist_ema20_pct": 1.0,
+                "dist_ema50_pct": 1.0,
+                "hh_20": True,
+                "r_7": 1.0,
+                "volume_spike": 1.7,
+            },
+            "4h": {"volume_spike": 1.6},
+        },
+        quote_volume_24h=2_000_000,
+    )
+    assert reclaim["invalidation_derivable"] is True
+    assert reclaim["invalidation_anchor_type"] == "ema_reclaim"
+
+    invalid = scorer.score(
+        "X",
+        {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "base_low": -1.0,
+                "dist_ema20_pct": 1.0,
+                "dist_ema50_pct": 1.0,
+                "hh_20": True,
+                "r_7": 1.0,
+                "volume_spike": 1.7,
+            },
+            "4h": {"volume_spike": 1.6},
+        },
+        quote_volume_24h=2_000_000,
+    )
+    assert invalid["invalidation_derivable"] is False
+    assert invalid["invalidation_anchor_type"] is None
+    assert invalid["invalidation_anchor_price"] is None

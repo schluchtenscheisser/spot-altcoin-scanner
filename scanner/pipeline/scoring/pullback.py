@@ -1,6 +1,7 @@
 """Pullback scoring."""
 
 import logging
+import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
@@ -49,6 +50,7 @@ class PullbackScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d, f4h)
 
         trend_score = self._score_trend(f1d)
         pullback_score = self._score_pullback(f1d)
@@ -104,6 +106,42 @@ class PullbackScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
+        ema50_4h = f4h.get("ema_50")
+        ema20_4h = f4h.get("ema_20")
+
+        anchor_type = None
+        anchor_price = None
+        if ema50_4h is not None:
+            anchor_type = "support_level"
+            anchor_price = ema50_4h
+        elif ema20_4h is not None:
+            anchor_type = "ema_reclaim"
+            anchor_price = ema20_4h
+
+        try:
+            numeric_anchor = float(anchor_price)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if anchor_type is None or not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": numeric_anchor,
+            "invalidation_anchor_type": anchor_type,
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
@@ -271,6 +309,9 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
                     **risk_fields,
                     "discovery": features.get("discovery", False),
