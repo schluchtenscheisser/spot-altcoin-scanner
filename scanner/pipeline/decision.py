@@ -96,7 +96,8 @@ def apply_decision_layer(
         can_wait = (
             tradeability_class in ALLOWED_TRADEABILITY
             and (setup_score is not None and setup_score >= cfg["min_score_for_wait"])
-            and risk_acceptable is not False
+            and risk_acceptable is True
+            and entry_ready is not None
             and not hard_risk_flags
         )
 
