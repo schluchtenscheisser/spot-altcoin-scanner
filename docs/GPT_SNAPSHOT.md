@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 15:33 UTC  
-**Commit:** `947fa1f` (947fa1fb544770e506fc70a6653913fc7f38d80f)  
+**Generated:** 2026-03-08 16:06 UTC  
+**Commit:** `71cbe9e` (71cbe9e8f87e0eb4c4d3fc1e816b20c420601172)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -48,6 +48,7 @@
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
 | `scanner/pipeline/global_ranking.py` | - | `_config_get`, `compute_global_top20` |
 | `scanner/pipeline/liquidity.py` | - | `_root_config`, `get_orderbook_top_k`, `get_slippage_notional_usdt`, `get_grade_thresholds_bps`, `_read_tradeability_thresholds` ... (+14 more) |
+| `scanner/pipeline/manifest.py` | - | `_nested_mapping_value`, `_nested_bool`, `derive_feature_flags`, `build_config_hash`, `read_canonical_schema_version` ... (+1 more) |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
 | `scanner/pipeline/regime.py` | - | `compute_btc_regime_from_1d_features`, `compute_btc_regime`, `_to_float` |
@@ -75,9 +76,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 44
+- Total Modules: 45
 - Total Classes: 19
-- Total Functions: 145
+- Total Functions: 151
 
 ---
 
@@ -958,12 +959,12 @@ if __name__ == "__main__":
 
 ### `scanner/schema.py`
 
-**SHA256:** `c530f7701086c420d2e800bc15d144999c413ddf76975ed070eb9f6d5f5b66a6`
+**SHA256:** `5a76b97a0232d42afa7c5c14f36b9653dee562b9d1c2fb166a2a4d9dedce43e9`
 
 ```python
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.11"
+REPORT_SCHEMA_VERSION = "v1.12"
 REPORT_META_VERSION = "1.9"
 
 ```
@@ -4246,427 +4247,254 @@ def apply_liquidity_metrics_to_shortlist(
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `8507d316c6e225b11922e3c9fa0ed4321a3cda25f77d4d2e0ddbf0d8bd64b701`
+**SHA256:** `846e3eb752351b98beca26144324dbe4590a6f30aa262461350107eae9669118`
 
 ```python
 """
 Excel Output Generation
 =======================
 
-Generates Excel workbooks with multiple sheets for daily scanner results.
+Generates Excel workbooks from canonical trade_candidates SoT.
 """
 
 import logging
-from typing import Dict, List, Any
+import math
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
 
 class ExcelReportGenerator:
-    """Generates Excel reports with multiple sheets."""
-    
+    """Generates Excel reports as pure SoT views."""
+
+    REQUIRED_FIELDS = {"rank", "symbol", "decision", "decision_reasons"}
+    ALLOWED_DECISIONS = {"ENTER", "WAIT", "NO_TRADE"}
+    CANDIDATE_COLUMNS = [
+        ("rank", "Rank"),
+        ("symbol", "Symbol"),
+        ("coin_name", "Name"),
+        ("decision", "Decision"),
+        ("decision_reasons", "Decision Reasons"),
+        ("best_setup_type", "Best Setup"),
+        ("setup_subtype", "Setup Subtype"),
+        ("global_score", "Global Score"),
+        ("setup_score", "Setup Score"),
+        ("entry_ready", "Entry Ready"),
+        ("entry_readiness_reasons", "Entry Readiness Reasons"),
+        ("execution_mode", "Execution Mode"),
+        ("tradeability_class", "Tradeability Class"),
+        ("risk_acceptable", "Risk Acceptable"),
+        ("entry_price_usdt", "Entry Price (USDT)"),
+        ("stop_price_initial", "Stop Price Initial"),
+        ("risk_pct_to_stop", "Risk % to Stop"),
+        ("tp10_price", "TP10 Price"),
+        ("tp20_price", "TP20 Price"),
+        ("rr_to_tp10", "RR to TP10"),
+        ("rr_to_tp20", "RR to TP20"),
+        ("spread_pct", "Spread %"),
+        ("depth_bid_1pct_usd", "Depth Bid 1.0% USD"),
+        ("depth_ask_1pct_usd", "Depth Ask 1.0% USD"),
+        ("slippage_bps_5k", "Slippage BPS 5k"),
+        ("slippage_bps_20k", "Slippage BPS 20k"),
+        ("market_cap_usd", "Market Cap USD"),
+        ("btc_regime", "BTC Regime"),
+        ("flags", "Flags"),
+    ]
+
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize Excel report generator.
-        
-        Args:
-            config: Config dict with 'output' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            output_config = config.raw.get('output', {})
+        if hasattr(config, "raw"):
+            output_config = config.raw.get("output", {})
         else:
-            output_config = config.get('output', {})
-        
-        self.reports_dir = Path(output_config.get('reports_dir', 'reports'))
-        self.top_n = output_config.get('top_n_per_setup', 10)
-        
-        # Ensure directories exist
+            output_config = config.get("output", {})
+
+        self.reports_dir = Path(output_config.get("reports_dir", "reports"))
         self.reports_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Excel Report Generator initialized: reports_dir={self.reports_dir}")
-    
+
+        logger.info("Excel Report Generator initialized: reports_dir=%s", self.reports_dir)
+
     def generate_excel_report(
         self,
-        reversal_results: List[Dict[str, Any]],
-        breakout_results: List[Dict[str, Any]],
-        pullback_results: List[Dict[str, Any]],
-        global_top20: List[Dict[str, Any]],
+        trade_candidates: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None,
-        btc_regime: Dict[str, Any] = None,
+        run_manifest: Dict[str, Any] | None = None,
+        metadata: Dict[str, Any] | None = None,
+        btc_regime: Dict[str, Any] | None = None,
     ) -> Path:
-        """
-        Generate Excel workbook with 4 sheets.
-        
-        Args:
-            reversal_results: Scored reversal setups
-            breakout_results: Scored breakout setups
-            pullback_results: Scored pullback setups
-            run_date: Date string (YYYY-MM-DD)
-            metadata: Optional metadata (universe size, etc.)
-        
-        Returns:
-            Path to saved Excel file
-        """
-        logger.info(f"Generating Excel report for {run_date}")
+        """Generate workbook from canonical trade_candidates SoT."""
+        logger.info("Generating Excel report for %s", run_date)
 
-        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
-        breakout_immediate = [
-            row for row in breakout_results if not str(row.get("setup_id", "")).endswith("retest_1_5d")
-        ]
-        
-        # Create workbook
+        validated = self._validate_trade_candidates(trade_candidates)
+        enter_candidates = [row for row in validated if row.get("decision") == "ENTER"]
+        wait_candidates = [row for row in validated if row.get("decision") == "WAIT"]
+
         wb = Workbook()
-        wb.remove(wb.active)  # Remove default sheet
-        
-        # Sheet 1: Summary
+        wb.remove(wb.active)
+
         self._create_summary_sheet(
-            wb, run_date, 
-            len(reversal_results), 
-            len(breakout_results), 
-            len(pullback_results),
-            metadata,
-            btc_regime,
+            wb,
+            run_date=run_date,
+            trade_candidates=validated,
+            run_manifest=run_manifest or {},
+            metadata=metadata,
+            btc_regime=btc_regime,
         )
-        
-        # Sheet 2: Global Top 20
-        self._create_global_sheet(wb, global_top20[:20])
+        self._create_trade_candidates_sheet(wb, "Trade Candidates", validated)
+        self._create_trade_candidates_sheet(wb, "Enter Candidates", enter_candidates)
+        self._create_trade_candidates_sheet(wb, "Wait Candidates", wait_candidates)
 
-        # Sheet 3: Reversal Setups
-        self._create_setup_sheet(
-            wb, "Reversal Setups", 
-            reversal_results[:self.top_n],
-            ['Drawdown', 'Base', 'Reclaim', 'Volume']
-        )
-        
-        # Sheet 4: Breakout Setups (legacy compatibility)
-        self._create_setup_sheet(
-            wb, "Breakout Setups",
-            breakout_results[:self.top_n],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 5: Breakout Immediate 1-5D
-        self._create_setup_sheet(
-            wb, "Breakout Immediate 1-5D",
-            breakout_immediate[:20],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 6: Breakout Retest 1-5D
-        self._create_setup_sheet(
-            wb, "Breakout Retest 1-5D",
-            breakout_retest[:20],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 7: Pullback Setups
-        self._create_setup_sheet(
-            wb, "Pullback Setups",
-            pullback_results[:self.top_n],
-            ['Trend', 'Pullback', 'Rebound', 'Volume']
-        )
-        
-        # Save
         excel_path = self.reports_dir / f"{run_date}.xlsx"
         wb.save(excel_path)
-        logger.info(f"Excel report saved: {excel_path}")
-        
+        logger.info("Excel report saved: %s", excel_path)
         return excel_path
-    
+
+    def _validate_trade_candidates(self, trade_candidates: Any) -> List[Dict[str, Any]]:
+        if not isinstance(trade_candidates, list):
+            raise ValueError("trade_candidates must be a list")
+
+        validated: List[Dict[str, Any]] = []
+        for idx, row in enumerate(trade_candidates):
+            if not isinstance(row, dict):
+                raise ValueError(f"trade_candidates[{idx}] must be an object")
+
+            missing = [field for field in self.REQUIRED_FIELDS if field not in row]
+            if missing:
+                raise ValueError(f"trade_candidates[{idx}] missing required fields: {', '.join(missing)}")
+
+            decision = row.get("decision")
+            if decision not in self.ALLOWED_DECISIONS:
+                raise ValueError(f"trade_candidates[{idx}].decision invalid: {decision}")
+
+            reasons = row.get("decision_reasons")
+            if reasons is not None and not isinstance(reasons, list):
+                raise ValueError(f"trade_candidates[{idx}].decision_reasons must be list or null")
+
+            validated.append(row)
+        return validated
+
     def _create_summary_sheet(
         self,
         wb: Workbook,
         run_date: str,
-        reversal_count: int,
-        breakout_count: int,
-        pullback_count: int,
-        metadata: Dict[str, Any] = None,
-        btc_regime: Dict[str, Any] = None,
-    ):
-        """Create Summary sheet with run statistics."""
+        trade_candidates: List[Dict[str, Any]],
+        run_manifest: Dict[str, Any],
+        metadata: Dict[str, Any] | None,
+        btc_regime: Dict[str, Any] | None,
+    ) -> None:
         ws = wb.create_sheet("Summary", 0)
 
         btc_regime = btc_regime or {}
-        btc_checks = btc_regime.get("checks") or {}
+        checks = btc_regime.get("checks") or {}
+        counts = {"ENTER": 0, "WAIT": 0, "NO_TRADE": 0}
+        for row in trade_candidates:
+            decision = row.get("decision")
+            if decision in counts:
+                counts[decision] += 1
 
         ws["A1"] = "BTC Regime"
         ws["A2"] = "State"
         ws["B2"] = btc_regime.get("state", "RISK_OFF")
         ws["A3"] = "Multiplier (Risk-On)"
-        ws["B3"] = float(btc_regime.get("multiplier_risk_on", 1.0))
+        ws["B3"] = self._sanitize_float_or_none(btc_regime.get("multiplier_risk_on"), default=1.0)
         ws["A4"] = "Multiplier (Risk-Off)"
-        ws["B4"] = float(btc_regime.get("multiplier_risk_off", 0.85))
+        ws["B4"] = self._sanitize_float_or_none(btc_regime.get("multiplier_risk_off"), default=0.85)
         ws["A5"] = "close>ema50"
-        ws["B5"] = bool(btc_checks.get("close_gt_ema50", False))
+        ws["B5"] = checks.get("close_gt_ema50")
         ws["A6"] = "ema20>ema50"
-        ws["B6"] = bool(btc_checks.get("ema20_gt_ema50", False))
-        
-        # Header
-        ws['A8'] = 'Metric'
-        ws['B8'] = 'Value'
-        
-        # Style header
-        for cell in ['A8', 'B8']:
-            ws[cell].font = Font(bold=True, size=12)
+        ws["B6"] = checks.get("ema20_gt_ema50")
+
+        ws["A8"] = "Metric"
+        ws["B8"] = "Value"
+        for cell in ["A8", "B8"]:
             ws[cell].fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             ws[cell].font = Font(bold=True, size=12, color="FFFFFF")
-            ws[cell].alignment = Alignment(horizontal='center')
-        
-        # Data rows
-        row = 9
-        ws[f'A{row}'] = 'Run Date'
-        ws[f'B{row}'] = run_date
-        row += 1
-        
-        ws[f'A{row}'] = 'Generated At'
-        ws[f'B{row}'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
-        row += 1
-        
-        # Add metadata if available
-        if metadata:
-            ws[f'A{row}'] = 'Total Symbols Scanned'
-            ws[f'B{row}'] = metadata.get('universe_size', 'N/A')
-            row += 1
-            
-            ws[f'A{row}'] = 'Symbols Filtered (MidCaps)'
-            ws[f'B{row}'] = metadata.get('filtered_size', 'N/A')
-            row += 1
-            
-            ws[f'A{row}'] = 'Symbols in Shortlist'
-            ws[f'B{row}'] = metadata.get('shortlist_size', 'N/A')
-            row += 1
-        
-        ws[f'A{row}'] = 'Reversal Setups Found'
-        ws[f'B{row}'] = reversal_count
-        row += 1
-        
-        ws[f'A{row}'] = 'Breakout Setups Found'
-        ws[f'B{row}'] = breakout_count
-        row += 1
-        
-        ws[f'A{row}'] = 'Pullback Setups Found'
-        ws[f'B{row}'] = pullback_count
-        row += 1
-        
-        # Column widths
-        ws.column_dimensions['A'].width = 30
-        ws.column_dimensions['B'].width = 20
-    
+            ws[cell].alignment = Alignment(horizontal="center")
 
-    def _create_global_sheet(self, wb: Workbook, results: List[Dict[str, Any]]):
-        """Create Global Top 20 sheet."""
-        ws = wb.create_sheet("Global Top 20", 1)
-        headers = [
-            'Rank', 'Symbol', 'Name', 'Best Setup', 'Global Score', 'Setup Score', 'Confluence',
-            'Price (USDT)', 'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Flags'
+        row_idx = 9
+        summary_rows = [
+            ("Run Date", run_date),
+            ("Generated At", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
+            ("Trade Candidates", len(trade_candidates)),
+            ("ENTER Candidates", counts["ENTER"]),
+            ("WAIT Candidates", counts["WAIT"]),
+            ("NO_TRADE Candidates", counts["NO_TRADE"]),
+            ("run_id", run_manifest.get("run_id")),
+            ("canonical_schema_version", run_manifest.get("canonical_schema_version")),
         ]
-        for col_idx, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_idx, value=header)
-            cell.font = Font(bold=True, size=11, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-            cell.alignment = Alignment(horizontal='center')
 
-        for rank, result in enumerate(results, 1):
-            row = rank + 1
-            ws.cell(row=row, column=1, value=rank)
-            ws.cell(row=row, column=2, value=result.get('symbol', 'N/A'))
-            ws.cell(row=row, column=3, value=result.get('coin_name', 'Unknown'))
-            ws.cell(row=row, column=4, value=result.get('best_setup_type', 'N/A'))
-            ws.cell(row=row, column=5, value=float(result.get('global_score', 0.0)))
-            ws.cell(row=row, column=6, value=float(result.get('setup_score', result.get('score', 0.0))))
-            ws.cell(row=row, column=7, value=int(result.get('confluence', 1)))
-            price = result.get('price_usdt')
-            ws.cell(row=row, column=8, value=f"${price:.2f}" if price is not None else 'N/A')
-            market_cap = result.get('market_cap')
-            ws.cell(row=row, column=9, value=self._format_large_number(market_cap) if market_cap else 'N/A')
-            volume = result.get('quote_volume_24h')
-            ws.cell(row=row, column=10, value=self._format_large_number(volume) if volume else 'N/A')
-            ws.cell(row=row, column=11, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
-            ws.cell(row=row, column=12, value=self._sanitize_optional_metric(result.get('turnover_24h')))
-            ws.cell(row=row, column=13, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
-            flags = result.get('flags', [])
-            flag_str = ', '.join(flags) if isinstance(flags, list) else ''
-            ws.cell(row=row, column=14, value=flag_str)
+        if metadata:
+            summary_rows.extend(
+                [
+                    ("Total Symbols Scanned", metadata.get("universe_size")),
+                    ("Symbols Filtered (MidCaps)", metadata.get("filtered_size")),
+                    ("Symbols in Shortlist", metadata.get("shortlist_size")),
+                ]
+            )
 
-        ws.freeze_panes = 'A2'
-        ws.auto_filter.ref = ws.dimensions
+        for key, value in summary_rows:
+            ws.cell(row=row_idx, column=1, value=key)
+            ws.cell(row=row_idx, column=2, value=value)
+            row_idx += 1
 
-    def _create_setup_sheet(
-        self,
-        wb: Workbook,
-        sheet_name: str,
-        results: List[Dict[str, Any]],
-        component_names: List[str]
-    ):
-        """
-        Create a setup sheet (Reversal/Breakout/Pullback).
-        
-        Args:
-            wb: Workbook object
-            sheet_name: Name of the sheet
-            results: List of scored setups
-            component_names: List of component score names
-        """
+        ws.column_dimensions["A"].width = 32
+        ws.column_dimensions["B"].width = 28
+
+    def _create_trade_candidates_sheet(self, wb: Workbook, sheet_name: str, rows: List[Dict[str, Any]]) -> None:
         ws = wb.create_sheet(sheet_name)
-        
-        # Headers
-        headers = [
-            'Rank', 'Symbol', 'Name', 'Price (USDT)',
-            'Execution Gate Pass', 'Spread %',
-            'Depth Bid 0.5% USD', 'Depth Ask 0.5% USD',
-            'Depth Bid 1.0% USD', 'Depth Ask 1.0% USD',
-            'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Score'
-        ] + component_names + ['Flags']
-        
-        # Write headers
-        for col_idx, header in enumerate(headers, 1):
+
+        for col_idx, (_, header) in enumerate(self.CANDIDATE_COLUMNS, start=1):
             cell = ws.cell(row=1, column=col_idx, value=header)
-            cell.font = Font(bold=True, size=11)
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.font = Font(bold=True, size=11, color="FFFFFF")
-            cell.alignment = Alignment(horizontal='center')
-        
-        # Data rows
-        for rank, result in enumerate(results, 1):
-            row_idx = rank + 1
-            
-            # Basic info
-            ws.cell(row=row_idx, column=1, value=rank)
-            ws.cell(row=row_idx, column=2, value=result.get('symbol', 'N/A'))
-            ws.cell(row=row_idx, column=3, value=result.get('coin_name', 'Unknown'))
-            
-            # Price
-            price = result.get('price_usdt')
-            if price is not None:
-                ws.cell(row=row_idx, column=4, value=f"${price:.2f}")
-            else:
-                ws.cell(row=row_idx, column=4, value='N/A')
-            
-            ws.cell(row=row_idx, column=5, value=bool(result.get('execution_gate_pass', False)))
-            ws.cell(row=row_idx, column=6, value=result.get('spread_pct'))
-            ws.cell(row=row_idx, column=7, value=result.get('depth_bid_0_5pct_usd'))
-            ws.cell(row=row_idx, column=8, value=result.get('depth_ask_0_5pct_usd'))
-            ws.cell(row=row_idx, column=9, value=result.get('depth_bid_1pct_usd'))
-            ws.cell(row=row_idx, column=10, value=result.get('depth_ask_1pct_usd'))
+            cell.alignment = Alignment(horizontal="center")
 
-            # Market Cap (abbreviated)
-            market_cap = result.get('market_cap')
-            if market_cap:
-                ws.cell(row=row_idx, column=11, value=self._format_large_number(market_cap))
-            else:
-                ws.cell(row=row_idx, column=11, value='N/A')
+        for row_idx, row in enumerate(rows, start=2):
+            for col_idx, (key, _) in enumerate(self.CANDIDATE_COLUMNS, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=self._to_excel_cell_value(row.get(key)))
 
-            # 24h Volume (abbreviated)
-            volume = result.get('quote_volume_24h')
-            if volume:
-                ws.cell(row=row_idx, column=12, value=self._format_large_number(volume))
-            else:
-                ws.cell(row=row_idx, column=12, value='N/A')
-
-            ws.cell(row=row_idx, column=13, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
-            ws.cell(row=row_idx, column=14, value=self._sanitize_optional_metric(result.get('turnover_24h')))
-            ws.cell(row=row_idx, column=15, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
-
-            # Score
-            ws.cell(row=row_idx, column=16, value=result.get('score', 0))
-
-            # Component scores
-            components = result.get('components', {})
-            for col_offset, comp_name in enumerate(component_names):
-                comp_key = comp_name.lower()
-                comp_value = components.get(comp_key, 0)
-                ws.cell(row=row_idx, column=17 + col_offset, value=comp_value)
-
-            # Flags
-            flags = result.get('flags', [])
-            if isinstance(flags, list):
-                flag_str = ', '.join(flags) if flags else ''
-            elif isinstance(flags, dict):
-                flag_str = ', '.join([k for k, v in flags.items() if v])
-            else:
-                flag_str = ''
-            ws.cell(row=row_idx, column=17 + len(component_names), value=flag_str)
-        
-        # Freeze top row
-        ws.freeze_panes = 'A2'
-        
-        # Autofilter
+        ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
-        
-        # Column widths
-        ws.column_dimensions['A'].width = 6
-        ws.column_dimensions['B'].width = 14
-        ws.column_dimensions['C'].width = 20
-        ws.column_dimensions['D'].width = 13
-        ws.column_dimensions['E'].width = 18
-        ws.column_dimensions['F'].width = 10
-        ws.column_dimensions['G'].width = 18
-        ws.column_dimensions['H'].width = 18
-        ws.column_dimensions['I'].width = 18
-        ws.column_dimensions['J'].width = 18
-        ws.column_dimensions['K'].width = 13
-        ws.column_dimensions['L'].width = 13
-        ws.column_dimensions['M'].width = 18
-        ws.column_dimensions['N'].width = 14
-        ws.column_dimensions['O'].width = 14
-        ws.column_dimensions['P'].width = 8
 
-        # Component columns
-        for i in range(len(component_names)):
-            col_letter = get_column_letter(17 + i)
-            ws.column_dimensions[col_letter].width = 12
+        for col_idx, (_, header) in enumerate(self.CANDIDATE_COLUMNS, start=1):
+            col = get_column_letter(col_idx)
+            ws.column_dimensions[col].width = max(12, min(len(header) + 4, 36))
 
-        # Flags column
-        flags_col = get_column_letter(17 + len(component_names))
-        ws.column_dimensions[flags_col].width = 25
-    
+    @classmethod
+    def _to_excel_cell_value(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return " | ".join(str(item) for item in value)
+        if isinstance(value, dict):
+            return str(value)
+        return cls._sanitize_float_if_needed(value)
 
     @staticmethod
-    def _sanitize_optional_metric(value: Any) -> Any:
-        """Return nullable numeric metric; invalid values become None."""
-        if value is None:
+    def _sanitize_float_if_needed(value: Any) -> Any:
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
             return None
+        return value
+
+    @staticmethod
+    def _sanitize_float_or_none(value: Any, default: float | None = None) -> float | None:
+        if value is None:
+            return default
         try:
             numeric = float(value)
         except (TypeError, ValueError):
-            return None
-        if numeric < 0:
-            return None
-        if numeric != numeric:  # NaN
-            return None
+            return default
+        if math.isnan(numeric) or math.isinf(numeric):
+            return default
         return numeric
-
-    def _format_large_number(self, num: float) -> str:
-        """
-        Format large numbers with M/B suffix.
-        
-        Args:
-            num: Number to format
-        
-        Returns:
-            Formatted string (e.g., "$1.23M", "$4.56B")
-        """
-        if num >= 1_000_000_000:
-            return f"${num / 1_000_000_000:.2f}B"
-        elif num >= 1_000_000:
-            return f"${num / 1_000_000:.2f}M"
-        elif num >= 1_000:
-            return f"${num / 1_000:.2f}K"
-        else:
-            return f"${num:.2f}"
 
 ```
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `e05353623a864b0481184f2d069349dcc9087ce2f008ba98cf2349fe1938700b`
+**SHA256:** `dfa7c54697d78eb1ec0a16bc1a56f777ebf0044215ed7dd6d55f9bea6a2ad28f`
 
 ```python
 """
@@ -4678,6 +4506,7 @@ Orchestrates the full daily scanning pipeline.
 
 from __future__ import annotations
 import logging
+import time
 from ..utils.time_utils import utc_now, timestamp_to_ms
 
 from ..config import ScannerConfig
@@ -4830,6 +4659,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     12. Write snapshot for backtests
     """
     run_mode = config.run_mode
+    pipeline_start_time = time.perf_counter()
 
     # As-Of Timestamp (einmal pro Run)
     asof_dt = utc_now()
@@ -5088,6 +4918,27 @@ def run_pipeline(config: ScannerConfig) -> None:
     # Step 11: Write reports (Markdown + JSON + Excel)
     logger.info("\n[11/12] Generating reports...")
     report_gen = ReportGenerator(config.raw)
+    stage_counts = {
+        'universe': len(universe),
+        'filtered': len(filtered),
+        'shortlist': len(shortlist),
+        'orderbook_requested': len(selected_symbols),
+        'orderbook_selected': len(selected_symbols),
+        'tradeability_passed': len(shortlist),
+        'tradeability_stopped': len(tradeability_stopped),
+        'ohlcv_symbols': len(ohlcv_data),
+        'features': len(features),
+        'reversal_scored': len(reversal_results),
+        'breakout_scored': len(breakout_results),
+        'pullback_scored': len(pullback_results),
+        'global_top20': len(global_top20),
+    }
+    warnings = []
+    if tradeability_stopped:
+        warnings.append('tradeability_gate_stopped_symbols')
+    if len(orderbooks) < len(selected_symbols):
+        warnings.append('orderbook_partial_fetch')
+
     report_paths = report_gen.save_reports(
         reversal_results,
         breakout_results,
@@ -5096,8 +4947,22 @@ def run_pipeline(config: ScannerConfig) -> None:
         run_date,
         metadata={
             'mode': run_mode,
+            'run_id': f"{run_date}_{asof_ts_ms}",
+            'timestamp_utc': asof_iso,
             'asof_ts_ms': asof_ts_ms,
             'asof_iso': asof_iso,
+            'stage_counts': stage_counts,
+            'warnings': warnings,
+            'duration_seconds': time.perf_counter() - pipeline_start_time,
+            'shortlist_size_used': config.budget_shortlist_size,
+            'orderbook_top_k_used': config.budget_orderbook_top_k,
+            'data_freshness': {
+                'exchange_info_ts_utc': exchange_info_ts_utc,
+                'tickers_24h_ts_utc': tickers_24h_ts_utc,
+                'market_cap_listings_ts_utc': cmc_listings_ts_utc,
+                'asof_iso_utc': asof_iso,
+                'asof_ts_ms': asof_ts_ms,
+            },
         },
         btc_regime=btc_regime,
     )
@@ -6055,6 +5920,75 @@ def compute_discovery_fields(
 
 ```
 
+### `scanner/pipeline/manifest.py`
+
+**SHA256:** `2f448573be5f56692958f7a742c04256787c47ccb8a8ad8dcbd3af89e5be09d0`
+
+```python
+"""Run manifest generation and persistence helpers."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Dict, List
+
+
+def _nested_mapping_value(config: Dict[str, Any], path: List[str], default: Any) -> Any:
+    cursor: Any = config
+    for key in path:
+        if not isinstance(cursor, dict) or key not in cursor:
+            return default
+        cursor = cursor[key]
+    return cursor
+
+
+def _nested_bool(config: Dict[str, Any], path: List[str], default: bool) -> bool:
+    return bool(_nested_mapping_value(config, path, default))
+
+
+def derive_feature_flags(config: Dict[str, Any]) -> Dict[str, bool]:
+    """Return a deterministic map of relevant feature flags and their states."""
+    return {
+        "decision_enabled": _nested_bool(config, ["decision", "enabled"], True),
+        "risk_enabled": _nested_bool(config, ["risk", "enabled"], True),
+        "tradeability_enabled": _nested_bool(config, ["tradeability", "enabled"], True),
+        "btc_regime_enabled": _nested_bool(config, ["btc_regime", "enabled"], False),
+        "breakout_scoring_enabled": _nested_bool(config, ["scoring", "breakout", "enabled"], True),
+        "pullback_scoring_enabled": _nested_bool(config, ["scoring", "pullback", "enabled"], True),
+        "reversal_scoring_enabled": _nested_bool(config, ["scoring", "reversal", "enabled"], True),
+        "mexc_enabled": _nested_bool(config, ["data_sources", "mexc", "enabled"], True),
+    }
+
+
+def build_config_hash(config: Dict[str, Any]) -> str:
+    """Build a stable SHA-256 hash from the raw runtime config."""
+    canonical_json = json.dumps(config, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def read_canonical_schema_version(changelog_path: Path) -> str:
+    """Read canonical_schema_version from docs/canonical/CHANGELOG.md."""
+    for line in changelog_path.read_text(encoding="utf-8").splitlines():
+        if line.strip().startswith("canonical_schema_version:"):
+            _, value = line.split(":", 1)
+            version = value.strip()
+            if version:
+                return version
+            raise ValueError("canonical_schema_version is empty")
+    raise ValueError("canonical_schema_version not found in canonical changelog")
+
+
+def write_manifest_atomic(path: Path, payload: Dict[str, Any]) -> None:
+    """Atomically write manifest JSON to avoid partial writes."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(path)
+
+```
+
 ### `scanner/pipeline/decision.py`
 
 **SHA256:** `279c451d27aadbb8a5a48b1ed3cb1e199609633d5489098967d2d9638daf9bbb`
@@ -6315,7 +6249,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `8dc7436612548f6c9b1762fb756249a96a2d9b7476de46620daf1c04020f4f29`
+**SHA256:** `99e09fb69ed49843b4870b8fa27a8429d7ec3cc0e573c928729c586bb6bf7e98`
 
 ```python
 """
@@ -6327,12 +6261,18 @@ from scored results.
 """
 
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import json
 
 from scanner.schema import REPORT_META_VERSION, REPORT_SCHEMA_VERSION
+from .manifest import (
+    build_config_hash,
+    derive_feature_flags,
+    read_canonical_schema_version,
+    write_manifest_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -6351,8 +6291,10 @@ class ReportGenerator:
         """
         # Handle both dict and ScannerConfig object
         if hasattr(config, 'raw'):
+            self.root_config = config.raw
             output_config = config.raw.get('output', {})
         else:
+            self.root_config = config
             output_config = config.get('output', {})
         
         self.reports_dir = Path(output_config.get('reports_dir', 'reports'))
@@ -6362,6 +6304,55 @@ class ReportGenerator:
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         
         logger.info(f"Report Generator initialized: reports_dir={self.reports_dir}")
+
+    def _build_run_manifest(
+        self,
+        run_date: str,
+        metadata: Optional[Dict[str, Any]],
+        trade_candidates: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        metadata = metadata or {}
+        asof_ts_ms = metadata.get("asof_ts_ms")
+        asof_iso = metadata.get("asof_iso")
+        run_id = str(metadata.get("run_id") or asof_ts_ms or run_date)
+
+        default_stage_counts = {
+            "trade_candidates": len(trade_candidates),
+        }
+        stage_counts = metadata.get("stage_counts")
+        if not isinstance(stage_counts, dict):
+            stage_counts = default_stage_counts
+        else:
+            stage_counts = {**stage_counts}
+            stage_counts.setdefault("trade_candidates", len(trade_candidates))
+
+        warnings_list = metadata.get("warnings", [])
+        if isinstance(warnings_list, list):
+            warnings_payload = [str(item) for item in warnings_list]
+        else:
+            warnings_payload = [str(warnings_list)]
+
+        data_freshness = metadata.get("data_freshness")
+        if not isinstance(data_freshness, dict):
+            data_freshness = {
+                "asof_iso_utc": asof_iso,
+                "asof_ts_ms": asof_ts_ms,
+            }
+
+        manifest = {
+            "run_id": run_id,
+            "timestamp_utc": metadata.get("timestamp_utc") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "config_hash": build_config_hash(self.root_config),
+            "canonical_schema_version": read_canonical_schema_version(Path("docs/canonical/CHANGELOG.md")),
+            "feature_flags": derive_feature_flags(self.root_config),
+            "counts_per_stage": stage_counts,
+            "shortlist_size_used": metadata.get("shortlist_size_used", self.root_config.get("budget", {}).get("shortlist_size", 200)),
+            "orderbook_top_k_used": metadata.get("orderbook_top_k_used", self.root_config.get("budget", {}).get("orderbook_top_k", 200)),
+            "data_freshness": data_freshness,
+            "warnings": warnings_payload,
+            "duration_seconds": float(metadata.get("duration_seconds", 0.0)),
+        }
+        return manifest
     
     def generate_markdown_report(
         self,
@@ -6371,6 +6362,7 @@ class ReportGenerator:
         global_top20: List[Dict[str, Any]],
         run_date: str,
         btc_regime: Dict[str, Any] = None,
+        metadata: Dict[str, Any] = None,
     ) -> str:
         """
         Generate Markdown report.
@@ -6384,140 +6376,141 @@ class ReportGenerator:
         Returns:
             Markdown content as string
         """
-        lines = []
-        
-        # Header
-        lines.append(f"# Spot Altcoin Scanner Report")
-        lines.append(f"**Date:** {run_date}")
-        lines.append(f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
+        report = self.generate_json_report(
+            reversal_results=reversal_results,
+            breakout_results=breakout_results,
+            pullback_results=pullback_results,
+            global_top20=global_top20,
+            run_date=run_date,
+            metadata=metadata,
+            btc_regime=btc_regime,
+        )
+        trade_candidates = report.get("trade_candidates", [])
+        run_manifest = report.get("run_manifest", {})
+        resolved_regime = report.get("btc_regime", {})
 
-        btc_regime = btc_regime or {}
-        btc_checks = btc_regime.get("checks") or {}
-        lines.append("## BTC Regime")
-        lines.append("")
-        lines.append(f"- **State:** {btc_regime.get('state', 'RISK_OFF')}")
-        lines.append(f"- **Multiplier (Risk-On):** {float(btc_regime.get('multiplier_risk_on', 1.0)):.2f}")
-        lines.append(f"- **Multiplier (Risk-Off):** {float(btc_regime.get('multiplier_risk_off', 0.85)):.2f}")
-        lines.append(f"- **Checks:** close>ema50={bool(btc_checks.get('close_gt_ema50', False))}, ema20>ema50={bool(btc_checks.get('ema20_gt_ema50', False))}")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
-        
-        # Summary
-        lines.append("## Summary")
-        lines.append("")
-        lines.append(f"- **Reversal Setups:** {len(reversal_results)} scored")
-        lines.append(f"- **Breakout Setups:** {len(breakout_results)} scored")
-        lines.append(f"- **Pullback Setups:** {len(pullback_results)} scored")
-        lines.append(f"- **Global Top 20:** {len(global_top20)} ranked")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
+        self._validate_trade_candidates_for_markdown(trade_candidates)
 
-        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
-        breakout_immediate = [
-            row
-            for row in breakout_results
-            if not str(row.get("setup_id", "")).endswith("retest_1_5d")
+        enter_candidates = [row for row in trade_candidates if row.get("decision") == "ENTER"]
+        wait_candidates = [row for row in trade_candidates if row.get("decision") == "WAIT"]
+
+        lines = [
+            "# Spot Altcoin Scanner Report",
+            f"**Date:** {run_date}",
+            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            "",
+            "## ENTER Candidates",
+            "",
         ]
 
-        # Global Top 20
-        lines.append("## 🌐 Global Top 20")
-        lines.append("")
-        if global_top20:
-            for i, entry in enumerate(global_top20[:20], 1):
-                lines.extend(self._format_setup_entry(i, entry))
-                lines.append(f"**Best Setup:** {entry.get('best_setup_type', 'n/a')} | **Global Score:** {float(entry.get('global_score', 0.0)):.2f} | **Confluence:** {int(entry.get('confluence', 1))}")
-                lines.append("")
+        if enter_candidates:
+            for row in enter_candidates:
+                lines.extend(self._format_trade_candidate_markdown(row, include_reasons=False))
         else:
-            lines.append("*No global setups found.*")
+            lines.append("*No ENTER candidates.*")
             lines.append("")
 
-        lines.append("---")
-        lines.append("")
-        
-        # Reversal Setups (Priority)
-        lines.append("## 🔄 Top Reversal Setups")
-        lines.append("")
-        lines.append("*Downtrend → Base → Reclaim*")
-        lines.append("")
-        
-        if reversal_results:
-            top_reversals = reversal_results[:self.top_n]
-            for i, entry in enumerate(top_reversals, 1):
-                lines.extend(self._format_setup_entry(i, entry))
+        lines.extend(["## WAIT Candidates", ""])
+        if wait_candidates:
+            for row in wait_candidates:
+                lines.extend(self._format_trade_candidate_markdown(row, include_reasons=True))
         else:
-            lines.append("*No reversal setups found.*")
-            lines.append("")
-        
-        lines.append("---")
-        lines.append("")
-        
-        # Breakout Immediate Setups (1-5D)
-        lines.append("## 📈 Top 20 Immediate (1–5D)")
-        lines.append("")
-        lines.append("*Range break + momentum confirmation*")
-        lines.append("")
-
-        if breakout_immediate:
-            top_breakouts = breakout_immediate[:self.top_n]
-            for i, entry in enumerate(top_breakouts, 1):
-                lines.extend(self._format_setup_entry(i, entry))
-        else:
-            lines.append("*No immediate breakout setups found.*")
+            lines.append("*No WAIT candidates.*")
             lines.append("")
 
-        lines.append("---")
-        lines.append("")
-
-        # Breakout Retest Setups (1-5D)
-        lines.append("## 📈 Top 20 Retest (1–5D)")
-        lines.append("")
-        lines.append("*Break-and-retest within validation window*")
-        lines.append("")
-
-        if breakout_retest:
-            top_breakouts = breakout_retest[:self.top_n]
-            for i, entry in enumerate(top_breakouts, 1):
-                lines.extend(self._format_setup_entry(i, entry))
-        else:
-            lines.append("*No retest breakout setups found.*")
-            lines.append("")
-
-        lines.append("---")
-        lines.append("")
-        
-        # Pullback Setups
-        lines.append("## 📽 Top Pullback Setups")
-        lines.append("")
-        lines.append("*Trend continuation after retracement*")
-        lines.append("")
-        
-        if pullback_results:
-            top_pullbacks = pullback_results[:self.top_n]
-            for i, entry in enumerate(top_pullbacks, 1):
-                lines.extend(self._format_setup_entry(i, entry))
-        else:
-            lines.append("*No pullback setups found.*")
-            lines.append("")
-        
-        lines.append("---")
-        lines.append("")
-        
-        # Footer
-        lines.append("## Notes")
-        lines.append("")
-        lines.append("- Scores range from 0-100")
-        lines.append("- Higher scores indicate stronger setups")
-        lines.append("- ⚠️ flags indicate warnings (overextension, low liquidity, etc.)")
-        lines.append("- This is a research tool, not financial advice")
-        lines.append("")
-        
+        lines.extend(self._format_markdown_summary(trade_candidates, run_manifest, resolved_regime))
         return "\n".join(lines)
     
+
+    @staticmethod
+    def _format_nullable_bool(value: Any) -> str:
+        if value is None:
+            return "n/a"
+        return "true" if value is True else "false"
+
+    @staticmethod
+    def _format_nullable_float(value: Any, digits: int = 4) -> str:
+        numeric = ReportGenerator._sanitize_float_or_none(value)
+        if numeric is None:
+            return "n/a"
+        return f"{numeric:.{digits}f}"
+
+    @staticmethod
+    def _format_reason_list(value: Any) -> str:
+        if value is None:
+            return "n/a"
+        if isinstance(value, list):
+            normalized = [item for item in value if isinstance(item, str)]
+            if not normalized:
+                return "[]"
+            return ", ".join(normalized)
+        raise ValueError("trade_candidates.decision_reasons must be a list or null")
+
+    def _validate_trade_candidates_for_markdown(self, trade_candidates: Any) -> None:
+        if not isinstance(trade_candidates, list):
+            raise ValueError("trade_candidates must be a list")
+        required_fields = {"rank", "symbol", "decision", "decision_reasons"}
+        for idx, row in enumerate(trade_candidates):
+            if not isinstance(row, dict):
+                raise ValueError(f"trade_candidates[{idx}] must be an object")
+            missing = [field for field in required_fields if field not in row]
+            if missing:
+                raise ValueError(f"trade_candidates[{idx}] missing required fields: {', '.join(missing)}")
+            decision = row.get("decision")
+            if decision not in {"ENTER", "WAIT", "NO_TRADE"}:
+                raise ValueError(f"trade_candidates[{idx}].decision invalid: {decision}")
+            reasons = row.get("decision_reasons")
+            if reasons is not None and not isinstance(reasons, list):
+                raise ValueError(f"trade_candidates[{idx}].decision_reasons must be list or null")
+
+    def _format_trade_candidate_markdown(self, row: Dict[str, Any], include_reasons: bool) -> List[str]:
+        rank = row.get("rank", "?")
+        symbol = row.get("symbol") or "UNKNOWN"
+        coin_name = row.get("coin_name") or "Unknown"
+        lines = [f"### {rank}. {symbol} ({coin_name})", ""]
+        lines.append(f"- decision: {row.get('decision')}")
+        if include_reasons:
+            lines.append(f"- decision_reasons: {self._format_reason_list(row.get('decision_reasons'))}")
+        lines.append(f"- risk_acceptable: {self._format_nullable_bool(row.get('risk_acceptable'))}")
+        lines.append(f"- rr_to_tp10: {self._format_nullable_float(row.get('rr_to_tp10'))}")
+        lines.append(f"- slippage_bps_20k: {self._format_nullable_float(row.get('slippage_bps_20k'))}")
+        lines.append(f"- spread_pct: {self._format_nullable_float(row.get('spread_pct'), digits=6)}")
+        lines.append(f"- depth_bid_1pct_usd: {self._format_nullable_float(row.get('depth_bid_1pct_usd'), digits=2)}")
+        lines.append(f"- depth_ask_1pct_usd: {self._format_nullable_float(row.get('depth_ask_1pct_usd'), digits=2)}")
+        lines.append("")
+        return lines
+
+    def _format_markdown_summary(
+        self,
+        trade_candidates: List[Dict[str, Any]],
+        run_manifest: Dict[str, Any],
+        btc_regime: Dict[str, Any],
+    ) -> List[str]:
+        counts = {"ENTER": 0, "WAIT": 0, "NO_TRADE": 0}
+        for row in trade_candidates:
+            decision = row.get("decision")
+            if decision in counts:
+                counts[decision] += 1
+
+        lines = ["## Summary", ""]
+        lines.append(f"- ENTER: {counts['ENTER']}")
+        lines.append(f"- WAIT: {counts['WAIT']}")
+        lines.append(f"- NO_TRADE: {counts['NO_TRADE']}")
+
+        regime_state = (btc_regime or {}).get("state")
+        if regime_state is not None:
+            lines.append(f"- BTC Regime: {regime_state}")
+
+        run_id = (run_manifest or {}).get("run_id")
+        if run_id is not None:
+            lines.append(f"- run_id: {run_id}")
+        canonical_schema_version = (run_manifest or {}).get("canonical_schema_version")
+        if canonical_schema_version is not None:
+            lines.append(f"- canonical_schema_version: {canonical_schema_version}")
+
+        lines.append("")
+        return lines
+
     def _format_setup_entry(self, rank: int, data: dict) -> List[str]:
         """
         Format a single setup entry for markdown output.
@@ -6758,6 +6751,9 @@ class ReportGenerator:
         Returns:
             Report dict (JSON-serializable)
         """
+        trade_candidates = self._build_trade_candidates(global_top20[:20], btc_regime=btc_regime)
+        run_manifest = self._build_run_manifest(run_date=run_date, metadata=metadata, trade_candidates=trade_candidates)
+
         report = {
             'schema_version': REPORT_SCHEMA_VERSION,
             'meta': {
@@ -6784,7 +6780,8 @@ class ReportGenerator:
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
             },
-            'trade_candidates': self._build_trade_candidates(global_top20[:20], btc_regime=btc_regime),
+            'trade_candidates': trade_candidates,
+            'run_manifest': run_manifest,
             'btc_regime': btc_regime or {
                 'state': 'RISK_OFF',
                 'multiplier_risk_on': 1.0,
@@ -6828,7 +6825,7 @@ class ReportGenerator:
         
         # Generate Markdown
         md_content = self.generate_markdown_report(
-            reversal_results, breakout_results, pullback_results, global_top20, run_date, btc_regime=btc_regime
+            reversal_results, breakout_results, pullback_results, global_top20, run_date, btc_regime=btc_regime, metadata=metadata
         )
         
         # Generate JSON
@@ -6847,6 +6844,12 @@ class ReportGenerator:
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(json_content, f, indent=2, ensure_ascii=False)
         logger.info(f"JSON report saved: {json_path}")
+
+        manifest = json_content.get("run_manifest", {})
+        run_id = manifest.get("run_id", run_date)
+        manifest_path = self.reports_dir / f"{run_date}_{run_id}.manifest.json"
+        write_manifest_atomic(manifest_path, manifest)
+        logger.info(f"Run manifest saved: {manifest_path}")
         
         # Generate Excel
         try:
@@ -6860,7 +6863,11 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
+                trade_candidates=json_content.get('trade_candidates', []),
+                run_date=run_date,
+                run_manifest=json_content.get('run_manifest', {}),
+                metadata=metadata,
+                btc_regime=btc_regime,
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:
@@ -6872,7 +6879,8 @@ class ReportGenerator:
         
         result = {
             'markdown': md_path,
-            'json': json_path
+            'json': json_path,
+            'manifest': manifest_path,
         }
         
         if excel_path:
@@ -11096,7 +11104,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `421cb803d2bdd3ebf4212922f6ca850b9c767d9e15a11fb4b200cb5832205ae9`
+**SHA256:** `863b3b078e9587e1e0616db33790cb2ac5d519e7845d8f540ff05dd616d2e97a`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11105,7 +11113,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.11
+schema_version: v1.12
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11122,15 +11130,22 @@ source_of_truth_entity: trade_candidates
 
 ## Run manifest (required)
 Required fields:
-- `commit_hash`
-- `schema_version`
-- `providers_used`
+- `run_id`
+- `timestamp_utc`
 - `config_hash`
-- `asof_ts_ms`
+- `canonical_schema_version`
+- `feature_flags`
+- `counts_per_stage`
+- `shortlist_size_used`
+- `orderbook_top_k_used`
+- `data_freshness`
+- `warnings`
+- `duration_seconds`
 
-Optional:
-- `config_version`
-- `asof_iso_utc`
+Notes:
+- `warnings` MUST be a machine-readable list and MAY be empty (`[]`), but MUST NOT be `null`.
+- `canonical_schema_version` MUST be sourced from `docs/canonical/CHANGELOG.md`.
+- Manifest metadata is operational and remains separated from `trade_candidates`.
 
 ## trade_candidates row contract
 Minimum required fields:
@@ -11202,6 +11217,21 @@ No implicit bool/number coercion is allowed for nullable fields.
 - Operational metadata (runtime, versions, provider set) lives in manifest.
 - No format-specific output may contradict the JSON `trade_candidates` truth.
 
+## Markdown rendering minimum contract
+- Markdown MUST render candidate rows from `trade_candidates` only.
+- Markdown MUST include sections `ENTER Candidates`, `WAIT Candidates`, and `Summary`.
+- `WAIT Candidates` MUST include full `decision_reasons` from SoT (no renaming, shortening, or heuristic replacement).
+- Missing optional fields in `trade_candidates` MUST be rendered as not-available values rather than causing render crashes.
+- Invalid `trade_candidates` schema (e.g. wrong type for required fields) MUST fail clearly instead of silent correction.
+
+## Excel rendering minimum contract
+- Excel MUST render candidate rows from `trade_candidates` only.
+- Excel MUST contain sheets `Trade Candidates`, `Enter Candidates`, and `Wait Candidates`.
+- `Trade Candidates` MUST contain all rows from SoT in deterministic order.
+- `Enter Candidates` and `Wait Candidates` MUST be pure filters on `decision` (`ENTER` / `WAIT`) over the same SoT rows.
+- `decision` and `decision_reasons` MUST be preserved from SoT without heuristic shortening or semantic remapping.
+- Missing optional fields in `trade_candidates` MUST render as empty/not-available cells, not as coerced `0`/`false`.
+- Invalid `trade_candidates` schema (e.g. wrong type for required fields) MUST fail clearly instead of silent correction.
 
 ## Setup scorer V2 structured fields
 Scorer rows may include setup-specific confirmation flags as additive machine-readable fields.
@@ -11850,4 +11880,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 15:33 UTC_
+_Generated by GitHub Actions • 2026-03-08 16:06 UTC_
