@@ -55,6 +55,49 @@ Dieses Dokument protokolliert alle Änderungen an:
 *(Neue Einträge kommen hier darunter)*
 
 
+### 2026-03-08 — schema_version v1.14 → v1.15 — Optional `directional_volume_preparation` Namespace in `trade_candidates` (additiv)
+**PR:** (branch-local, ticket/2026-03-08_p1_followup_directional-volume-architecture-prep)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `trade_candidates` unterstützt optional das Feld `directional_volume_preparation`.
+- Das preparatory-Objekt ist nullable und nutzt feste, zukunftssichere Unterfelder:
+  - `buy_volume_share` (number|null)
+  - `sell_volume_share` (number|null)
+  - `imbalance_ratio` (number|null)
+  - `lookback_bars` (integer|null)
+- Fehlend (`missing`) bleibt in Phase 1 gültig; `null` bleibt semantisch „nicht erhoben / nicht verwendet“.
+- Formal ungültige Werte im preparatory-Objekt werden klar als invalid behandelt (nicht als „fehlend“).
+
+#### Warum?
+- Architekturvorbereitung für spätere Einführung von Directional Volume ohne rückwirkenden Feld-/Contract-Bruch.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Feld ist optional/additiv; bestehende Artefakte ohne dieses Feld bleiben gültig.
+
+#### Migration / Vorgehen
+- Consumer können das Feld optional lesen; wenn nicht vorhanden oder `null`, keine Directional-Volume-Interpretation durchführen.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.15",
+  "trade_candidates": [
+    {
+      "symbol": "AAAUSDT",
+      "directional_volume_preparation": {
+        "buy_volume_share": 0.58,
+        "sell_volume_share": 0.42,
+        "imbalance_ratio": 1.38,
+        "lookback_bars": 48
+      }
+    }
+  ]
+}
+```
+
+
 ### 2026-03-08 — schema_version v1.13 → v1.14 — Run-Manifest `pipeline_paths.primary_path` & Umschalttransparenz (additiv)
 **PR:** (branch-local, ticket/2026-03-08_P0_PR-24_umschaltlogik)  
 **Typ:** additiv

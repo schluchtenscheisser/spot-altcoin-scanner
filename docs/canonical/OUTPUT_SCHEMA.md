@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.14
+schema_version: v1.15
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -143,3 +143,16 @@ Allowed examples:
 - reversal: `reclaim_confirmed`, `retest_reclaimed`
 
 When a confirmation is semantically not evaluable due to missing/invalid/non-finite inputs, the confirmation field MUST remain `null`.
+
+Directional Volume preparation namespace (Phase-1 inactive, optional):
+- Optional field: `directional_volume_preparation: object|null`
+- Allowed nested keys (all optional, nullable):
+  - `buy_volume_share: number|null`
+  - `sell_volume_share: number|null`
+  - `imbalance_ratio: number|null`
+  - `lookback_bars: integer|null`
+- Missing `directional_volume_preparation` is valid and means “not provided”.
+- `null` means “not evaluated / not used” and MUST NOT be coerced to negative/false signals.
+- Invalid nested values are invalid-contract input and must fail clearly, distinct from missing/null.
+- This namespace is preparatory only and MUST NOT change Phase-1 decision/scoring behavior by itself.
+

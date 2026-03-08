@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 5.5.0
+canonical_schema_version: 5.6.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -21,6 +21,12 @@ Rule: Every canonical contract change PR must evaluate version impact and update
 
 
 
+
+
+## 5.6.0 — Directional-volume preparation namespace (non-active)
+- Added optional `trade_candidates.directional_volume_preparation` namespace for forward-compatible Directional Volume integration.
+- Canonicalized explicit missing/null/invalid handling for preparatory directional-volume fields (missing valid, null valid, invalid values fail clearly).
+- Clarified that preparatory directional-volume fields are Phase-1 inactive and must not alter decision/scoring behavior.
 
 ## 5.5.0 — Shadow-mode primary-path contract hardened
 - Added canonical `shadow.primary_path` semantics with deterministic behavior across `legacy_only`, `new_only`, and `parallel`.

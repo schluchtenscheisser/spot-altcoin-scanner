@@ -68,3 +68,4 @@ Setup-specific confirmations (when applicable):
 Hard rule: reversal without confirmed reclaim MUST be `entry_ready=false` with readiness reason `retest_not_reclaimed`.
 
 Missing/invalid/non-finite inputs are a non-evaluable path and must not be silently coerced to a valid confirmation signal.
+- Optional preparatory fields (e.g. `directional_volume_preparation`) may be carried for forward-compatibility but MUST NOT influence Phase-1 ENTER/WAIT/NO_TRADE decisions until explicitly canonicalized.

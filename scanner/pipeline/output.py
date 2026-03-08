@@ -469,12 +469,64 @@ class ReportGenerator:
                 "btc_regime": row.get("btc_regime", row.get("btc_regime_state", regime_state)),
                 "flags": row.get("flags", []),
             }
+            if "directional_volume_preparation" in row:
+                candidate["directional_volume_preparation"] = self._sanitize_directional_volume_preparation(
+                    row.get("directional_volume_preparation")
+                )
             candidates.append(candidate)
 
         candidates.sort(key=self._decision_sort_key)
         for idx, row in enumerate(candidates, start=1):
             row["rank"] = idx
         return candidates
+
+    @staticmethod
+    def _sanitize_directional_volume_preparation(value: Any) -> Any:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("directional_volume_preparation must be object or null when present")
+
+        allowed_keys = {
+            "buy_volume_share",
+            "sell_volume_share",
+            "imbalance_ratio",
+            "lookback_bars",
+        }
+        unknown_keys = sorted(set(value.keys()) - allowed_keys)
+        if unknown_keys:
+            joined = ", ".join(unknown_keys)
+            raise ValueError(f"directional_volume_preparation has unknown keys: {joined}")
+
+        def _finite_number_or_none(raw: Any, field: str) -> float | None:
+            if raw is None:
+                return None
+            try:
+                numeric = float(raw)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"directional_volume_preparation.{field} must be finite number or null") from exc
+            if numeric != numeric or numeric in (float("inf"), float("-inf")):
+                raise ValueError(f"directional_volume_preparation.{field} must be finite number or null")
+            return numeric
+
+        lookback_raw = value.get("lookback_bars")
+        lookback_bars = None
+        if lookback_raw is not None:
+            if isinstance(lookback_raw, bool):
+                raise ValueError("directional_volume_preparation.lookback_bars must be positive integer or null")
+            try:
+                lookback_bars = int(lookback_raw)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("directional_volume_preparation.lookback_bars must be positive integer or null") from exc
+            if lookback_bars <= 0:
+                raise ValueError("directional_volume_preparation.lookback_bars must be positive integer or null")
+
+        return {
+            "buy_volume_share": _finite_number_or_none(value.get("buy_volume_share"), "buy_volume_share"),
+            "sell_volume_share": _finite_number_or_none(value.get("sell_volume_share"), "sell_volume_share"),
+            "imbalance_ratio": _finite_number_or_none(value.get("imbalance_ratio"), "imbalance_ratio"),
+            "lookback_bars": lookback_bars,
+        }
 
     def generate_json_report(
         self,
