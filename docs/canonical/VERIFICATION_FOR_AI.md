@@ -108,3 +108,12 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Without sufficient sample basis, `shadow_recommendation.recommended_thresholds.*` and `shadow_recommendation.shadow_probabilities.overall.*` remain `null` (no coercion to live defaults).
 - Non-finite calibration inputs (`NaN`, `+inf`, `-inf`) are reported as invalid and must not propagate into recommendation outputs.
 - Recommendation outputs are analysis-only and MUST NOT change productive decision thresholds.
+
+
+## Directional Volume preparation verification boundaries
+- `trade_candidates.directional_volume_preparation` is optional; missing namespace is valid in Phase 1.
+- `directional_volume_preparation=null` is valid and means not evaluated/not used (must not be coerced).
+- If present as object, allowed keys are exactly `{buy_volume_share, sell_volume_share, imbalance_ratio, lookback_bars}`.
+- `buy_volume_share`, `sell_volume_share`, and `imbalance_ratio` accept finite numbers or `null`; non-finite/invalid types are invalid input.
+- `lookback_bars` accepts positive integer or `null`; zero/negative/non-integer/bool values are invalid input.
+- Presence/absence of preparatory Directional Volume fields must not change Phase-1 score/decision outputs for identical otherwise-valid inputs.

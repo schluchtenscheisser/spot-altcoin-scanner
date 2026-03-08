@@ -297,3 +297,87 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
     assert row["entry_ready"] is None
     assert row["entry_readiness_reasons"] == []
     assert row["risk_acceptable"] is None
+
+
+def test_trade_candidates_directional_volume_preparation_is_optional_and_nullable() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "OPTUSDT",
+            "coin_name": "Optional",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 1.0,
+            "global_score": 50.0,
+            "best_setup_type": "breakout",
+            "setup_subtype": "confirmed_breakout",
+            "directional_volume_preparation": None,
+        },
+        {
+            "symbol": "MISSUSDT",
+            "coin_name": "Missing",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 1.1,
+            "global_score": 49.0,
+            "best_setup_type": "breakout",
+            "setup_subtype": "confirmed_breakout",
+        },
+    ]
+
+    report = generator.generate_json_report([], [], [], global_top20, "2026-03-08")
+    by_symbol = {row["symbol"]: row for row in report["trade_candidates"]}
+
+    assert "directional_volume_preparation" in by_symbol["OPTUSDT"]
+    assert by_symbol["OPTUSDT"]["directional_volume_preparation"] is None
+    assert "directional_volume_preparation" not in by_symbol["MISSUSDT"]
+
+
+def test_trade_candidates_directional_volume_preparation_invalid_is_rejected() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [{
+        "symbol": "BADUSDT",
+        "coin_name": "Bad",
+        "decision": "WAIT",
+        "decision_reasons": ["entry_not_confirmed"],
+        "price_usdt": 1.0,
+        "global_score": 50.0,
+        "best_setup_type": "breakout",
+        "setup_subtype": "confirmed_breakout",
+        "directional_volume_preparation": {"lookback_bars": 0},
+    }]
+
+    import pytest
+    with pytest.raises(ValueError, match="lookback_bars"):
+        generator.generate_json_report([], [], [], global_top20, "2026-03-08")
+
+
+def test_trade_candidates_directional_volume_preparation_sanitizes_finite_fields() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [{
+        "symbol": "GOODUSDT",
+        "coin_name": "Good",
+        "decision": "WAIT",
+        "decision_reasons": ["entry_not_confirmed"],
+        "price_usdt": 1.0,
+        "global_score": 50.0,
+        "best_setup_type": "breakout",
+        "setup_subtype": "confirmed_breakout",
+        "directional_volume_preparation": {
+            "buy_volume_share": "0.6",
+            "sell_volume_share": 0.4,
+            "imbalance_ratio": 1.5,
+            "lookback_bars": 48,
+        },
+    }]
+
+    row = generator.generate_json_report([], [], [], global_top20, "2026-03-08")["trade_candidates"][0]
+    assert row["directional_volume_preparation"] == {
+        "buy_volume_share": 0.6,
+        "sell_volume_share": 0.4,
+        "imbalance_ratio": 1.5,
+        "lookback_bars": 48,
+    }
