@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 
@@ -9,7 +10,10 @@ def _to_float(value: Any) -> Optional[float]:
     try:
         if value is None:
             return None
-        return float(value)
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            return None
+        return parsed
     except (TypeError, ValueError):
         return None
 
@@ -133,9 +137,13 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
     targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
     tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
     tp20 = _to_float(targets[1]) if len(targets) >= 2 else None
+    if tp10 is None or tp20 is None:
+        return result
+    if tp10 <= entry_price or tp20 <= entry_price:
+        return result
 
-    rr_to_tp10 = ((tp10 - entry_price) / risk_abs) if tp10 is not None and tp10 > entry_price else None
-    rr_to_tp20 = ((tp20 - entry_price) / risk_abs) if tp20 is not None and tp20 > entry_price else None
+    rr_to_tp10 = (tp10 - entry_price) / risk_abs
+    rr_to_tp20 = (tp20 - entry_price) / risk_abs
 
     risk_acceptable = (
         cfg["min_stop_distance_pct"] <= risk_pct_to_stop <= cfg["max_stop_distance_pct"]

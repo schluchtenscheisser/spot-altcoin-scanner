@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## Title
 [P0] PR-11 Risk-Tests V4.2.1 (geschärfte Fassung nach Master-Checkliste)
 
