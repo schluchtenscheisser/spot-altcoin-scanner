@@ -209,3 +209,42 @@ def test_e2_conflicting_aliases_raise_value_error():
             price_series=_base_series(),
             params={"T_hold": 2, "t_hold": 3},
         )
+
+
+def test_e2_exact_threshold_reached_counts_as_hit():
+    series = {
+        "2026-02-01": {"close": 100.0, "high": 101.0, "low": 99.0},
+        "2026-02-02": {"close": 101.0, "high": 110.0, "low": 103.0},
+    }
+
+    result = evaluate_e2_candidate(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 100.0},
+        price_series=series,
+        params={"T_trigger_max": 1, "T_hold": 1, "thresholds_pct": [10]},
+    )
+
+    assert result["reason"] == "ok"
+    assert result["hit_10"] is True
+
+
+def test_e2_inf_input_is_treated_as_not_evaluable():
+    series = {
+        "2026-02-01": {"close": 100.0, "high": 101.0, "low": 99.0},
+        "2026-02-02": {"close": 105.0, "high": float("inf"), "low": 103.0},
+    }
+
+    result = evaluate_e2_candidate(
+        t0_date="2026-02-01",
+        setup_type="breakout",
+        trade_levels={"entry_trigger": 105.0},
+        price_series=series,
+        params={"T_trigger_max": 1, "T_hold": 1, "thresholds_pct": [10, 20]},
+    )
+
+    assert result["reason"] == "insufficient_forward_history"
+    assert result["hit_10"] is None
+    assert result["hit_20"] is None
+    assert result["mfe_pct"] is None
+    assert result["mae_pct"] is None

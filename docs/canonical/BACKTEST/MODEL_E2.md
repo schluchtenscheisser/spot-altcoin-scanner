@@ -114,8 +114,9 @@ Canonical notes:
 - No lookahead is respected because the evaluation uses only days after the trigger.
 
 Forward history completeness rule (strict):
-- For all days in `hold_window = [t_trigger+1 .. t_trigger+T_hold_days]`, both `high[t]` and `low[t]` must exist and be valid numerics.
-- If any day in the hold window is missing, or `high[t]`/`low[t]` is missing for any day, mark as `insufficient_forward_history`.
+- For all days in `hold_window = [t_trigger+1 .. t_trigger+T_hold_days]`, both `high[t]` and `low[t]` must exist and be valid finite numerics.
+- `NaN`, `+inf`, `-inf` are invalid and treated as missing/not-evaluable.
+- If any day in the hold window is missing, or `high[t]`/`low[t]` is missing/invalid for any day, mark as `insufficient_forward_history`.
 
 ---
 

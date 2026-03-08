@@ -26,6 +26,9 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `thresholds_pct` parsing:
   - `null` or missing uses defaults `[10,20]`.
   - scalar input (e.g. `10` or `"10"`) raises `ValueError("thresholds_pct must be list-like or null")`.
+- Exact threshold touch is inclusive for E2 hits (`max_high >= target` => hit=true).
+- Non-finite OHLC values (`NaN`, `+inf`, `-inf`) are treated as non-evaluable inputs.
+- Evaluation dataset Label-Export V2 fields (`hit5_5d`, `hit10_5d`, `hit20_5d`, `mfe_5d_pct`, `mae_5d_pct`) are recomputed with fixed `T_hold=5` and preserve nullability on non-`ok` reasons.
 
 
 ## Breakout Trend 1-5D verification boundaries
