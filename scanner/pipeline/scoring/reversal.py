@@ -10,7 +10,7 @@ import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
-from scanner.pipeline.scoring.trade_levels import reversal_trade_levels
+from scanner.pipeline.scoring.trade_levels import reversal_trade_levels, compute_phase1_risk_fields
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +261,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
             volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
             score_result = scorer.score(symbol, features, volume, volume_source_used=volume_source_used)
             trade_levels = reversal_trade_levels(features, target_multipliers)
+            risk_fields = compute_phase1_risk_fields("reversal", trade_levels, root)
             results.append(
                 {
                     "symbol": symbol,
@@ -283,6 +284,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "analysis": {"trade_levels": trade_levels},
+                    **risk_fields,
                     "discovery": features.get("discovery", False),
                     "discovery_age_days": features.get("discovery_age_days"),
                     "discovery_source": features.get("discovery_source"),

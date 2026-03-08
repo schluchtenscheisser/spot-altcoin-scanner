@@ -64,3 +64,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `MARGINAL` is fully evaluated, never UNKNOWN, and always uses `execution_mode=none`.
 - `UNKNOWN` must remain distinct from `FAIL`; required reason identities include `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`.
 - Missing tradeability config keys use canonical defaults; invalid threshold ordering raises a clear validation error (no silent coercion).
+
+
+## Phase-1 risk computation verification boundaries
+- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
+- Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
+- Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
+- `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_tp10` are evaluable.

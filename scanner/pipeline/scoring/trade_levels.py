@@ -84,3 +84,72 @@ def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) ->
         "atr_value": atr_1d,
     }
 
+
+def _risk_cfg(root_config: Dict[str, Any]) -> Dict[str, float]:
+    risk_cfg = root_config.get("risk", {}) if isinstance(root_config, dict) else {}
+    return {
+        "atr_multiple": float(risk_cfg.get("atr_multiple", 2.0)),
+        "min_stop_distance_pct": float(risk_cfg.get("min_stop_distance_pct", 4.0)),
+        "max_stop_distance_pct": float(risk_cfg.get("max_stop_distance_pct", 12.0)),
+        "min_rr_to_tp10": float(risk_cfg.get("min_rr_to_tp10", 1.3)),
+    }
+
+
+def _planned_entry_price(setup_type: str, trade_levels: Dict[str, Any]) -> Optional[float]:
+    if setup_type == "pullback":
+        zone = trade_levels.get("entry_zone") if isinstance(trade_levels.get("entry_zone"), dict) else {}
+        return _to_float(zone.get("center"))
+    return _to_float(trade_levels.get("entry_trigger"))
+
+
+def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], root_config: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = _risk_cfg(root_config)
+    entry_price = _planned_entry_price(setup_type, trade_levels)
+    atr_value = _to_float(trade_levels.get("atr_value"))
+
+    result: Dict[str, Any] = {
+        "stop_price_initial": None,
+        "risk_pct_to_stop": None,
+        "rr_to_tp10": None,
+        "rr_to_tp20": None,
+        "risk_acceptable": None,
+    }
+
+    if entry_price is None or atr_value is None:
+        return result
+    if entry_price <= 0 or atr_value <= 0:
+        return result
+
+    stop_price_initial = entry_price - (cfg["atr_multiple"] * atr_value)
+    if stop_price_initial >= entry_price:
+        return result
+
+    risk_abs = entry_price - stop_price_initial
+    if risk_abs <= 0:
+        return result
+
+    risk_pct_to_stop = (risk_abs / entry_price) * 100.0
+
+    targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
+    tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
+    tp20 = _to_float(targets[1]) if len(targets) >= 2 else None
+
+    rr_to_tp10 = ((tp10 - entry_price) / risk_abs) if tp10 is not None and tp10 > entry_price else None
+    rr_to_tp20 = ((tp20 - entry_price) / risk_abs) if tp20 is not None and tp20 > entry_price else None
+
+    risk_acceptable = (
+        cfg["min_stop_distance_pct"] <= risk_pct_to_stop <= cfg["max_stop_distance_pct"]
+        and rr_to_tp10 is not None
+        and rr_to_tp10 >= cfg["min_rr_to_tp10"]
+    )
+
+    result.update(
+        {
+            "stop_price_initial": stop_price_initial,
+            "risk_pct_to_stop": risk_pct_to_stop,
+            "rr_to_tp10": rr_to_tp10,
+            "rr_to_tp20": rr_to_tp20,
+            "risk_acceptable": risk_acceptable,
+        }
+    )
+    return result
