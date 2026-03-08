@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness
 
 
 class BreakoutTrend1to5DScorer:
@@ -224,10 +225,12 @@ class BreakoutTrend1to5DScorer:
         final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
 
         base = {
-            "entry_ready": True,
-            "entry_readiness_reason": None,
+            **standardize_entry_readiness(
+                entry_ready=True,
+                reason_keys=["breakout_not_confirmed"],
+                setup_subtype="confirmed_breakout",
+            ),
             "breakout_confirmed": True,
-            "setup_subtype": "confirmed_breakout",
             "symbol": symbol,
             "score": round(final_score, 6),
             "base_score": round(base_score, 6),

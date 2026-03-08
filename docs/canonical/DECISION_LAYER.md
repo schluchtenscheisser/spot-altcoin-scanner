@@ -44,8 +44,12 @@ Use `NO_TRADE` for hard blockers/non-eligibility (e.g., `FAIL`, denied risk, inv
 ## Scorer V2 readiness inputs
 For setup scorers, decision-relevant readiness MUST be emitted as structured fields (no free-text inference):
 - `entry_ready: bool`
-- `entry_readiness_reason: str | null`
+- `entry_readiness_reasons: list[str]`
 - `setup_subtype: str` (deterministic, from a stable setup-specific value set)
+
+Readiness contract:
+- `entry_ready=false` requires a non-empty `entry_readiness_reasons` list.
+- `entry_ready=true` requires `entry_readiness_reasons=[]` (no negative readiness reasons).
 
 Setup-specific confirmations (when applicable):
 - Breakout: `breakout_confirmed: bool | null`

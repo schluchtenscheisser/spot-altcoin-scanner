@@ -324,6 +324,6 @@ def test_breakout_trend_v2_fields_present() -> None:
     assert rows
     for row in rows:
         assert row["entry_ready"] is True
-        assert row["entry_readiness_reason"] is None
+        assert row["entry_readiness_reasons"] == []
         assert row["breakout_confirmed"] is True
         assert row["setup_subtype"] in {"fresh_breakout", "confirmed_breakout"}

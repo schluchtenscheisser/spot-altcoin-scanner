@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import reversal_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -132,9 +133,11 @@ class ReversalScorer:
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         try:
@@ -144,27 +147,33 @@ class ReversalScorer:
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         if not math.isfinite(ema20) or not math.isfinite(ema50):
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         reclaim_confirmed = ema20 > 0 and ema50 > 0
         return {
             "reclaim_confirmed": reclaim_confirmed,
             "retest_reclaimed": reclaim_confirmed,
-            "entry_ready": reclaim_confirmed,
-            "entry_readiness_reason": None if reclaim_confirmed else "retest_not_reclaimed",
-            "setup_subtype": "reversal_base_reclaim",
+            **standardize_entry_readiness(
+                entry_ready=reclaim_confirmed,
+                reason_keys=["retest_not_reclaimed"],
+                setup_subtype="reversal_base_reclaim",
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -174,27 +183,7 @@ class ReversalScorer:
             base_low = f1d.get("ema_20")
             anchor_type = "ema_reclaim"
 
-        try:
-            numeric_anchor = float(base_low)
-        except (TypeError, ValueError):
-            return self._not_derivable_anchor()
-
-        if not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": numeric_anchor,
-            "invalidation_anchor_type": anchor_type,
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        return standardize_invalidation_anchor(anchor_price=base_low, anchor_type=anchor_type, derivable=base_low is not None)
 
     def _score_drawdown(self, f1d: Dict[str, Any]) -> float:
         dd = f1d.get("drawdown_from_ath")
@@ -361,7 +350,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "reclaim_confirmed": score_result["reclaim_confirmed"],
                     "retest_reclaimed": score_result["retest_reclaimed"],

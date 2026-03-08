@@ -42,7 +42,7 @@ Minimum required fields:
 - `tradeability_class`
 - `risk_acceptable`
 - `entry_ready`
-- `entry_readiness_reason`
+- `entry_readiness_reasons`
 - `setup_subtype`
 
 ## Nullable rules (authoritative)
@@ -67,6 +67,11 @@ No implicit bool/number coercion is allowed for nullable fields.
 ## decision_reasons contract
 - `decision_reasons` must preserve deterministic reason identity and ordering.
 - UNKNOWN-path reasons (e.g. `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`) MUST remain distinct.
+
+## entry_readiness_reasons contract
+- `entry_readiness_reasons` must be a deterministic list of standardized reason keys (no free text).
+- If `entry_ready=false`, the list must be non-empty.
+- If `entry_ready=true`, the list must be empty.
 
 ## Trade-candidates vs run-manifest separation
 - Candidate-truth lives in `trade_candidates`.

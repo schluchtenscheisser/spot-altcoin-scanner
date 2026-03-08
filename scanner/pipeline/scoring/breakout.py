@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -133,25 +134,32 @@ class BreakoutScorer:
         except (TypeError, ValueError):
             return {
                 "breakout_confirmed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "breakout_not_evaluable",
-                "setup_subtype": "fresh_breakout",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["breakout_not_evaluable"],
+                    setup_subtype="fresh_breakout",
+                ),
             }
 
         if not math.isfinite(numeric_dist):
             return {
                 "breakout_confirmed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "breakout_not_evaluable",
-                "setup_subtype": "fresh_breakout",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["breakout_not_evaluable"],
+                    setup_subtype="fresh_breakout",
+                ),
             }
 
         breakout_confirmed = numeric_dist >= 0
+        setup_subtype = "confirmed_breakout" if breakout_confirmed else "fresh_breakout"
         return {
             "breakout_confirmed": breakout_confirmed,
-            "entry_ready": breakout_confirmed,
-            "entry_readiness_reason": None if breakout_confirmed else "breakout_not_confirmed",
-            "setup_subtype": "confirmed_breakout" if breakout_confirmed else "fresh_breakout",
+            **standardize_entry_readiness(
+                entry_ready=breakout_confirmed,
+                reason_keys=["breakout_not_confirmed"],
+                setup_subtype=setup_subtype,
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -161,34 +169,17 @@ class BreakoutScorer:
             close_numeric = float(close_1d)
             breakout_dist_numeric = float(breakout_dist)
         except (TypeError, ValueError):
-            return self._not_derivable_anchor()
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
-        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric):
-            return self._not_derivable_anchor()
-        if close_numeric <= 0:
-            return self._not_derivable_anchor()
+        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric) or close_numeric <= 0:
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
         denominator = 1.0 + breakout_dist_numeric / 100.0
         if denominator <= 0:
-            return self._not_derivable_anchor()
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
         anchor = close_numeric / denominator
-        if not math.isfinite(anchor) or anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": anchor,
-            "invalidation_anchor_type": "breakout_level",
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        return standardize_invalidation_anchor(anchor_price=anchor, anchor_type="breakout_level", derivable=True)
 
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
         dist = f1d.get("breakout_dist_20")
@@ -334,7 +325,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "breakout_confirmed": score_result["breakout_confirmed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],

@@ -204,7 +204,7 @@ def test_breakout_v2_fields_confirmed_and_nonfinite() -> None:
     )
     assert confirmed["breakout_confirmed"] is True
     assert confirmed["entry_ready"] is True
-    assert confirmed["entry_readiness_reason"] is None
+    assert confirmed["entry_readiness_reasons"] == []
     assert confirmed["setup_subtype"] == "confirmed_breakout"
 
     nonfinite = scorer.score(
@@ -214,7 +214,7 @@ def test_breakout_v2_fields_confirmed_and_nonfinite() -> None:
     )
     assert nonfinite["breakout_confirmed"] is None
     assert nonfinite["entry_ready"] is False
-    assert nonfinite["entry_readiness_reason"] == "breakout_not_evaluable"
+    assert nonfinite["entry_readiness_reasons"] == ["breakout_not_evaluable"]
 
 
 def test_pullback_v2_fields_confirmed_and_nonfinite() -> None:
@@ -231,7 +231,7 @@ def test_pullback_v2_fields_confirmed_and_nonfinite() -> None:
     assert confirmed["rebound_confirmed"] is True
     assert confirmed["retest_reclaimed"] is True
     assert confirmed["entry_ready"] is True
-    assert confirmed["entry_readiness_reason"] is None
+    assert confirmed["entry_readiness_reasons"] == []
     assert confirmed["setup_subtype"] == "pullback_to_ema"
 
     nonfinite = scorer.score(
@@ -245,4 +245,4 @@ def test_pullback_v2_fields_confirmed_and_nonfinite() -> None:
     assert nonfinite["rebound_confirmed"] is None
     assert nonfinite["retest_reclaimed"] is None
     assert nonfinite["entry_ready"] is False
-    assert nonfinite["entry_readiness_reason"] == "rebound_not_evaluable"
+    assert nonfinite["entry_readiness_reasons"] == ["rebound_not_evaluable"]

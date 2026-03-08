@@ -74,7 +74,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 
 
 ## Scorer V2 readiness verification boundaries
-- All affected setup scorers emit `entry_ready`, `entry_readiness_reason`, and deterministic `setup_subtype`.
+- All affected setup scorers emit `entry_ready`, `entry_readiness_reasons`, and deterministic `setup_subtype`.
 - Breakout emits `breakout_confirmed`; pullback emits `rebound_confirmed` and `retest_reclaimed`; reversal emits `reclaim_confirmed` and `retest_reclaimed`.
-- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reason=retest_not_reclaimed`.
+- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reasons=[retest_not_reclaimed]`.
+- `entry_ready=false` requires at least one standardized readiness reason key.
+- `entry_ready=true` requires `entry_readiness_reasons=[]`.
 - Missing/invalid/non-finite scorer inputs must not produce a false-valid confirmation; confirmation fields stay `null` for non-evaluable paths.
+- Invalidation anchor consistency: `invalidation_derivable=false => invalidation_anchor_price=null`; `invalidation_derivable=true` requires finite positive `invalidation_anchor_price`.

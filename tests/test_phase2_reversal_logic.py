@@ -210,7 +210,7 @@ def test_reversal_v2_entry_ready_requires_confirmed_reclaim() -> None:
 
     assert without_reclaim["reclaim_confirmed"] is False
     assert without_reclaim["entry_ready"] is False
-    assert without_reclaim["entry_readiness_reason"] == "retest_not_reclaimed"
+    assert without_reclaim["entry_readiness_reasons"] == ["retest_not_reclaimed"]
     assert without_reclaim["setup_subtype"] == "reversal_base_reclaim"
 
 
@@ -236,4 +236,4 @@ def test_reversal_v2_nonfinite_reclaim_inputs_are_not_marked_confirmed() -> None
 
     assert result["reclaim_confirmed"] is None
     assert result["entry_ready"] is False
-    assert result["entry_readiness_reason"] == "reclaim_not_evaluable"
+    assert result["entry_readiness_reasons"] == ["reclaim_not_evaluable"]

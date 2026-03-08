@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import pullback_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +129,11 @@ class PullbackScorer:
                 return {
                     "rebound_confirmed": None,
                     "retest_reclaimed": None,
-                    "entry_ready": False,
-                    "entry_readiness_reason": "rebound_not_evaluable",
-                    "setup_subtype": "pullback_to_ema",
+                    **standardize_entry_readiness(
+                        entry_ready=False,
+                        reason_keys=["rebound_not_evaluable"],
+                        setup_subtype="pullback_to_ema",
+                    ),
                 }
             numeric_values.append(numeric)
 
@@ -138,9 +141,11 @@ class PullbackScorer:
             return {
                 "rebound_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "rebound_not_evaluable",
-                "setup_subtype": "pullback_to_ema",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["rebound_not_evaluable"],
+                    setup_subtype="pullback_to_ema",
+                ),
             }
 
         rebound_confirmed = max(numeric_values) >= self.min_rebound
@@ -148,9 +153,11 @@ class PullbackScorer:
         return {
             "rebound_confirmed": rebound_confirmed,
             "retest_reclaimed": retest_reclaimed,
-            "entry_ready": rebound_confirmed,
-            "entry_readiness_reason": None if rebound_confirmed else "rebound_not_confirmed",
-            "setup_subtype": "pullback_to_ema",
+            **standardize_entry_readiness(
+                entry_ready=rebound_confirmed,
+                reason_keys=["rebound_not_confirmed"],
+                setup_subtype="pullback_to_ema",
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
@@ -166,27 +173,9 @@ class PullbackScorer:
             anchor_type = "ema_reclaim"
             anchor_price = ema20_4h
 
-        try:
-            numeric_anchor = float(anchor_price)
-        except (TypeError, ValueError):
-            return self._not_derivable_anchor()
-
-        if anchor_type is None or not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": numeric_anchor,
-            "invalidation_anchor_type": anchor_type,
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        if anchor_type is None:
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
+        return standardize_invalidation_anchor(anchor_price=anchor_price, anchor_type=anchor_type, derivable=True)
 
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
@@ -354,7 +343,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "rebound_confirmed": score_result["rebound_confirmed"],
                     "retest_reclaimed": score_result["retest_reclaimed"],
