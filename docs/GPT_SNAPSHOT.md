@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 11:28 UTC  
-**Commit:** `0de8c7f` (0de8c7fd1355720e6d8fb7e35483b79cd3dfeed3)  
+**Generated:** 2026-03-08 11:50 UTC  
+**Commit:** `1526c8a` (1526c8a891fd1bca89e2e300116aa7a545869952)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -41,6 +41,7 @@
 | `scanner/pipeline/__init__.py` | - | `_to_optional_float`, `_extract_cmc_global_volume_24h`, `_compute_turnover_24h`, `_compute_mexc_share_24h`, `_build_scoring_volume_maps` ... (+3 more) |
 | `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+4 more) |
 | `scanner/pipeline/cross_section.py` | - | `percent_rank_average_ties` |
+| `scanner/pipeline/decision.py` | - | `apply_decision_layer`, `_load_decision_config`, `_expect_number`, `_expect_bool`, `_to_optional_float` ... (+5 more) |
 | `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
@@ -54,6 +55,7 @@
 | `scanner/pipeline/scoring/__init__.py` | - | - |
 | `scanner/pipeline/scoring/breakout.py` | `BreakoutScorer` | `score_breakouts` |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | `BreakoutTrend1to5DScorer` | `score_breakout_trend_1_5d` |
+| `scanner/pipeline/scoring/decision_inputs.py` | - | `standardize_entry_readiness`, `standardize_invalidation_anchor` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
 | `scanner/pipeline/scoring/trade_levels.py` | - | `_to_float`, `_atr_absolute`, `_targets`, `breakout_trade_levels`, `pullback_trade_levels` ... (+4 more) |
@@ -73,9 +75,9 @@
 | `scanner/utils/time_utils.py` | - | `utc_now`, `utc_timestamp`, `utc_date`, `parse_timestamp`, `timestamp_to_ms` ... (+1 more) |
 
 **Statistics:**
-- Total Modules: 42
+- Total Modules: 44
 - Total Classes: 19
-- Total Functions: 132
+- Total Functions: 144
 
 ---
 
@@ -6023,6 +6025,239 @@ def compute_discovery_fields(
 
 ```
 
+### `scanner/pipeline/decision.py`
+
+**SHA256:** `06c57b8a1e83cac403586bfeba21f5665307a12f65d458fd614b559271a985df`
+
+```python
+"""Decision layer for canonical Phase-1 outcomes."""
+
+from __future__ import annotations
+
+import math
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
+
+ALLOWED_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK", "MARGINAL"}
+ENTER_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK"}
+REASON_ORDER = [
+    "tradeability_fail",
+    "tradeability_marginal",
+    "risk_flag_blocked",
+    "stop_distance_too_wide",
+    "risk_reward_unattractive",
+    "risk_data_insufficient",
+    "insufficient_edge",
+    "btc_regime_caution",
+    "entry_not_confirmed",
+    "breakout_not_confirmed",
+    "retest_not_reclaimed",
+    "rebound_not_confirmed",
+]
+
+
+def apply_decision_layer(
+    candidates: Sequence[Mapping[str, Any]],
+    config: Mapping[str, Any],
+    btc_regime: Optional[Mapping[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Attach deterministic decision state and reasons to fully evaluated candidates."""
+
+    cfg = _load_decision_config(config)
+    is_risk_off = str((btc_regime or {}).get("state", "")).upper() == "RISK_OFF"
+    enter_threshold = cfg["min_score_for_enter"] + (cfg["risk_off_enter_boost"] if is_risk_off else 0)
+
+    out: List[Dict[str, Any]] = []
+    for row in candidates:
+        entry = dict(row)
+
+        tradeability_class = _to_optional_str(entry.get("tradeability_class"))
+        setup_score = _to_optional_float(entry.get("setup_score"))
+        entry_ready = _to_optional_bool(entry.get("entry_ready"))
+        risk_acceptable = _to_optional_bool(entry.get("risk_acceptable"))
+        hard_risk_flags = _normalize_reason_list(entry.get("risk_flags"))
+        readiness_reasons = _normalize_reason_list(entry.get("entry_readiness_reasons"))
+
+        reasons: List[str] = []
+
+        if tradeability_class not in ALLOWED_TRADEABILITY:
+            reasons.extend(_normalize_tradeability_reasons(entry, tradeability_class))
+            entry["decision"] = "NO_TRADE"
+            entry["decision_reasons"] = _stable_reason_order(reasons)
+            out.append(entry)
+            continue
+
+        if tradeability_class == "MARGINAL":
+            reasons.append("tradeability_marginal")
+
+        if hard_risk_flags:
+            reasons.extend(hard_risk_flags)
+            reasons.append("risk_flag_blocked")
+
+        if setup_score is None:
+            reasons.append("risk_data_insufficient")
+
+        if risk_acceptable is False:
+            reasons.append("risk_reward_unattractive")
+        elif risk_acceptable is None:
+            reasons.append("risk_data_insufficient")
+
+        if entry_ready is False:
+            reasons.append("entry_not_confirmed")
+            reasons.extend(readiness_reasons)
+        elif entry_ready is None:
+            reasons.append("risk_data_insufficient")
+
+        can_enter = (
+            tradeability_class in ENTER_TRADEABILITY
+            and entry_ready is True
+            and (risk_acceptable is True or not cfg["require_risk_acceptable_for_enter"])
+            and setup_score is not None
+            and setup_score >= enter_threshold
+            and not hard_risk_flags
+        )
+
+        if can_enter:
+            entry["decision"] = "ENTER"
+            entry["decision_reasons"] = []
+            out.append(entry)
+            continue
+
+        if is_risk_off and setup_score is not None and setup_score < enter_threshold and setup_score >= cfg["min_score_for_enter"]:
+            reasons.append("btc_regime_caution")
+
+        can_wait = (
+            tradeability_class in ALLOWED_TRADEABILITY
+            and (setup_score is not None and setup_score >= cfg["min_score_for_wait"])
+            and risk_acceptable is not False
+            and not hard_risk_flags
+        )
+
+        if can_wait:
+            entry["decision"] = "WAIT"
+            entry["decision_reasons"] = _stable_reason_order(reasons)
+        else:
+            if setup_score is None or setup_score < cfg["min_score_for_wait"]:
+                reasons.append("insufficient_edge")
+            entry["decision"] = "NO_TRADE"
+            entry["decision_reasons"] = _stable_reason_order(reasons)
+
+        out.append(entry)
+
+    return out
+
+
+def _load_decision_config(config: Mapping[str, Any]) -> Dict[str, Any]:
+    decision_cfg = config.get("decision", {}) if isinstance(config, Mapping) else {}
+    btc_cfg = config.get("btc_regime", {}) if isinstance(config, Mapping) else {}
+
+    min_score_for_enter = _expect_number(decision_cfg.get("min_score_for_enter", 65), "decision.min_score_for_enter")
+    min_score_for_wait = _expect_number(decision_cfg.get("min_score_for_wait", 40), "decision.min_score_for_wait")
+    if min_score_for_wait > min_score_for_enter:
+        raise ValueError("decision.min_score_for_wait must be <= decision.min_score_for_enter")
+
+    require_risk_acceptable_for_enter = _expect_bool(
+        decision_cfg.get("require_risk_acceptable_for_enter", True),
+        "decision.require_risk_acceptable_for_enter",
+    )
+
+    risk_off_enter_boost = _expect_number(btc_cfg.get("risk_off_enter_boost", 15), "btc_regime.risk_off_enter_boost")
+
+    return {
+        "min_score_for_enter": min_score_for_enter,
+        "min_score_for_wait": min_score_for_wait,
+        "require_risk_acceptable_for_enter": require_risk_acceptable_for_enter,
+        "risk_off_enter_boost": risk_off_enter_boost,
+    }
+
+
+def _expect_number(value: Any, field_name: str) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric") from exc
+    if not math.isfinite(numeric):
+        raise ValueError(f"{field_name} must be finite")
+    return numeric
+
+
+def _expect_bool(value: Any, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field_name} must be boolean")
+    return value
+
+
+def _to_optional_float(value: Any) -> Optional[float]:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(numeric):
+        return None
+    return numeric
+
+
+def _to_optional_bool(value: Any) -> Optional[bool]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _to_optional_str(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalize_reason_list(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    out: List[str] = []
+    seen = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        reason = item.strip()
+        if not reason or reason in seen:
+            continue
+        seen.add(reason)
+        out.append(reason)
+    return out
+
+
+def _normalize_tradeability_reasons(entry: MutableMapping[str, Any], tradeability_class: Optional[str]) -> List[str]:
+    provided = _normalize_reason_list(entry.get("tradeability_reason_keys"))
+    if provided:
+        return provided
+    if tradeability_class == "MARGINAL":
+        return ["tradeability_marginal"]
+    return ["tradeability_fail"]
+
+
+def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
+    provided: List[str] = []
+    seen = set()
+    for reason in reasons:
+        if reason in seen:
+            continue
+        seen.add(reason)
+        provided.append(reason)
+
+    ordered: List[str] = []
+    for reason in REASON_ORDER:
+        if reason in seen:
+            ordered.append(reason)
+
+    for reason in provided:
+        if reason not in ordered:
+            ordered.append(reason)
+
+    return ordered
+
+```
+
 ### `scanner/pipeline/output.py`
 
 **SHA256:** `a7cf6fe2885eac7b9131f0426f98a4a90e2cfd05f373bd7284f862bc0ecf1ddc`
@@ -8545,7 +8780,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `725c030b20ca1ceffee28f815d3a9f60e03cbde0ec917681020684b2daedba4f`
+**SHA256:** `d89089e19f3ecd4368bf93e58d51f15ba41a67f5344269515c3726b93feeb007`
 
 ```python
 """Breakout scoring."""
@@ -8556,6 +8791,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -8683,25 +8919,32 @@ class BreakoutScorer:
         except (TypeError, ValueError):
             return {
                 "breakout_confirmed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "breakout_not_evaluable",
-                "setup_subtype": "fresh_breakout",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["breakout_not_evaluable"],
+                    setup_subtype="fresh_breakout",
+                ),
             }
 
         if not math.isfinite(numeric_dist):
             return {
                 "breakout_confirmed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "breakout_not_evaluable",
-                "setup_subtype": "fresh_breakout",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["breakout_not_evaluable"],
+                    setup_subtype="fresh_breakout",
+                ),
             }
 
         breakout_confirmed = numeric_dist >= 0
+        setup_subtype = "confirmed_breakout" if breakout_confirmed else "fresh_breakout"
         return {
             "breakout_confirmed": breakout_confirmed,
-            "entry_ready": breakout_confirmed,
-            "entry_readiness_reason": None if breakout_confirmed else "breakout_not_confirmed",
-            "setup_subtype": "confirmed_breakout" if breakout_confirmed else "fresh_breakout",
+            **standardize_entry_readiness(
+                entry_ready=breakout_confirmed,
+                reason_keys=["breakout_not_confirmed"],
+                setup_subtype=setup_subtype,
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -8711,34 +8954,17 @@ class BreakoutScorer:
             close_numeric = float(close_1d)
             breakout_dist_numeric = float(breakout_dist)
         except (TypeError, ValueError):
-            return self._not_derivable_anchor()
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
-        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric):
-            return self._not_derivable_anchor()
-        if close_numeric <= 0:
-            return self._not_derivable_anchor()
+        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric) or close_numeric <= 0:
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
         denominator = 1.0 + breakout_dist_numeric / 100.0
         if denominator <= 0:
-            return self._not_derivable_anchor()
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
 
         anchor = close_numeric / denominator
-        if not math.isfinite(anchor) or anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": anchor,
-            "invalidation_anchor_type": "breakout_level",
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        return standardize_invalidation_anchor(anchor_price=anchor, anchor_type="breakout_level", derivable=True)
 
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
         dist = f1d.get("breakout_dist_20")
@@ -8884,7 +9110,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "breakout_confirmed": score_result["breakout_confirmed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
@@ -9195,7 +9421,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `f8ee255856199743857c69fddec4358f165270e54ca3563509d6b3a74848ab82`
+**SHA256:** `794a4b1e81b85ead5f20bab7c353380aa32b9c5aab6d7162c4dff27b02377a05`
 
 ```python
 """Pullback scoring."""
@@ -9206,6 +9432,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import pullback_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -9328,9 +9555,11 @@ class PullbackScorer:
                 return {
                     "rebound_confirmed": None,
                     "retest_reclaimed": None,
-                    "entry_ready": False,
-                    "entry_readiness_reason": "rebound_not_evaluable",
-                    "setup_subtype": "pullback_to_ema",
+                    **standardize_entry_readiness(
+                        entry_ready=False,
+                        reason_keys=["rebound_not_evaluable"],
+                        setup_subtype="pullback_to_ema",
+                    ),
                 }
             numeric_values.append(numeric)
 
@@ -9338,9 +9567,11 @@ class PullbackScorer:
             return {
                 "rebound_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "rebound_not_evaluable",
-                "setup_subtype": "pullback_to_ema",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["rebound_not_evaluable"],
+                    setup_subtype="pullback_to_ema",
+                ),
             }
 
         rebound_confirmed = max(numeric_values) >= self.min_rebound
@@ -9348,9 +9579,11 @@ class PullbackScorer:
         return {
             "rebound_confirmed": rebound_confirmed,
             "retest_reclaimed": retest_reclaimed,
-            "entry_ready": rebound_confirmed,
-            "entry_readiness_reason": None if rebound_confirmed else "rebound_not_confirmed",
-            "setup_subtype": "pullback_to_ema",
+            **standardize_entry_readiness(
+                entry_ready=rebound_confirmed,
+                reason_keys=["rebound_not_confirmed"],
+                setup_subtype="pullback_to_ema",
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
@@ -9366,27 +9599,9 @@ class PullbackScorer:
             anchor_type = "ema_reclaim"
             anchor_price = ema20_4h
 
-        try:
-            numeric_anchor = float(anchor_price)
-        except (TypeError, ValueError):
-            return self._not_derivable_anchor()
-
-        if anchor_type is None or not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": numeric_anchor,
-            "invalidation_anchor_type": anchor_type,
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        if anchor_type is None:
+            return standardize_invalidation_anchor(anchor_price=None, anchor_type=None, derivable=False)
+        return standardize_invalidation_anchor(anchor_price=anchor_price, anchor_type=anchor_type, derivable=True)
 
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
         score = 0.0
@@ -9554,7 +9769,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "rebound_confirmed": score_result["rebound_confirmed"],
                     "retest_reclaimed": score_result["retest_reclaimed"],
@@ -9579,7 +9794,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `adf757f9b972416b3ae5722051e33b7b1f8f4908e3c66b7c3aab30eab36791a4`
+**SHA256:** `11e5e735879e1f0a6e5e2659f7497c60370e1416b7d11487289e9bc23eb7ebdb`
 
 ```python
 """
@@ -9595,6 +9810,7 @@ from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
 from scanner.pipeline.scoring.trade_levels import reversal_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness, standardize_invalidation_anchor
 
 logger = logging.getLogger(__name__)
 
@@ -9716,9 +9932,11 @@ class ReversalScorer:
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         try:
@@ -9728,27 +9946,33 @@ class ReversalScorer:
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         if not math.isfinite(ema20) or not math.isfinite(ema50):
             return {
                 "reclaim_confirmed": None,
                 "retest_reclaimed": None,
-                "entry_ready": False,
-                "entry_readiness_reason": "reclaim_not_evaluable",
-                "setup_subtype": "reversal_base_reclaim",
+                **standardize_entry_readiness(
+                    entry_ready=False,
+                    reason_keys=["reclaim_not_evaluable"],
+                    setup_subtype="reversal_base_reclaim",
+                ),
             }
 
         reclaim_confirmed = ema20 > 0 and ema50 > 0
         return {
             "reclaim_confirmed": reclaim_confirmed,
             "retest_reclaimed": reclaim_confirmed,
-            "entry_ready": reclaim_confirmed,
-            "entry_readiness_reason": None if reclaim_confirmed else "retest_not_reclaimed",
-            "setup_subtype": "reversal_base_reclaim",
+            **standardize_entry_readiness(
+                entry_ready=reclaim_confirmed,
+                reason_keys=["retest_not_reclaimed"],
+                setup_subtype="reversal_base_reclaim",
+            ),
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -9758,27 +9982,7 @@ class ReversalScorer:
             base_low = f1d.get("ema_20")
             anchor_type = "ema_reclaim"
 
-        try:
-            numeric_anchor = float(base_low)
-        except (TypeError, ValueError):
-            return self._not_derivable_anchor()
-
-        if not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
-            return self._not_derivable_anchor()
-
-        return {
-            "invalidation_anchor_price": numeric_anchor,
-            "invalidation_anchor_type": anchor_type,
-            "invalidation_derivable": True,
-        }
-
-    @staticmethod
-    def _not_derivable_anchor() -> Dict[str, Any]:
-        return {
-            "invalidation_anchor_price": None,
-            "invalidation_anchor_type": None,
-            "invalidation_derivable": False,
-        }
+        return standardize_invalidation_anchor(anchor_price=base_low, anchor_type=anchor_type, derivable=base_low is not None)
 
     def _score_drawdown(self, f1d: Dict[str, Any]) -> float:
         dd = f1d.get("drawdown_from_ath")
@@ -9945,7 +10149,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
                     "entry_ready": score_result["entry_ready"],
-                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "entry_readiness_reasons": score_result["entry_readiness_reasons"],
                     "setup_subtype": score_result["setup_subtype"],
                     "reclaim_confirmed": score_result["reclaim_confirmed"],
                     "retest_reclaimed": score_result["retest_reclaimed"],
@@ -9970,7 +10174,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
 
-**SHA256:** `e07e17bbeb7db0f95db2f7074fc66b821d3615072452f08114a827516a382d01`
+**SHA256:** `f36dbd8720aca4a7243b0e4f32d38c96126837fc030af0d1d4999332c21ec94a`
 
 ```python
 """Breakout Trend 1-5D scoring (immediate + retest)."""
@@ -9980,6 +10184,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
+from scanner.pipeline.scoring.decision_inputs import standardize_entry_readiness
 
 
 class BreakoutTrend1to5DScorer:
@@ -10199,10 +10404,12 @@ class BreakoutTrend1to5DScorer:
         final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
 
         base = {
-            "entry_ready": True,
-            "entry_readiness_reason": None,
+            **standardize_entry_readiness(
+                entry_ready=True,
+                reason_keys=["breakout_not_confirmed"],
+                setup_subtype="confirmed_breakout",
+            ),
             "breakout_confirmed": True,
-            "setup_subtype": "confirmed_breakout",
             "symbol": symbol,
             "score": round(final_score, 6),
             "base_score": round(base_score, 6),
@@ -10306,6 +10513,88 @@ def score_breakout_trend_1_5d(
 
     results.sort(key=lambda x: (float(x.get("final_score", 0.0)), x.get("setup_id") == "breakout_retest_1_5d"), reverse=True)
     return results
+
+```
+
+### `scanner/pipeline/scoring/decision_inputs.py`
+
+**SHA256:** `bfe4020decddcf205e4dc9dd30c3b5392f84a9ef6f14fe556eb6bb641a9cc98f`
+
+```python
+"""Helpers for standardized setup-scorer decision inputs."""
+
+from __future__ import annotations
+
+import math
+from typing import Any, Dict, Iterable, List
+
+
+def standardize_entry_readiness(entry_ready: bool, reason_keys: Iterable[str], setup_subtype: str) -> Dict[str, Any]:
+    """Build standardized readiness fields for setup scorers.
+
+    Contract:
+    - non-entry-ready rows must include at least one standardized reason key
+    - entry-ready rows must not include negative readiness reasons
+    """
+
+    reasons: List[str] = []
+    seen = set()
+    for reason in reason_keys:
+        if not isinstance(reason, str) or not reason.strip():
+            continue
+        if reason in seen:
+            continue
+        seen.add(reason)
+        reasons.append(reason)
+
+    is_ready = bool(entry_ready)
+    if is_ready:
+        reasons = []
+    elif not reasons:
+        raise ValueError("entry_ready=false requires at least one entry_readiness_reasons key")
+
+    return {
+        "entry_ready": is_ready,
+        "entry_readiness_reasons": reasons,
+        "setup_subtype": setup_subtype,
+    }
+
+
+def standardize_invalidation_anchor(anchor_price: Any, anchor_type: Any, derivable: bool) -> Dict[str, Any]:
+    """Build normalized invalidation anchor fields.
+
+    Non-finite or semantically missing anchors are always returned as not-derivable.
+    """
+
+    if not derivable:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
+        }
+
+    try:
+        numeric_anchor = float(anchor_price)
+    except (TypeError, ValueError):
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
+        }
+
+    if not math.isfinite(numeric_anchor) or numeric_anchor <= 0 or not isinstance(anchor_type, str) or not anchor_type:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
+        }
+
+    return {
+        "invalidation_anchor_price": numeric_anchor,
+        "invalidation_anchor_type": anchor_type,
+        "invalidation_derivable": True,
+    }
+
 
 ```
 
@@ -10663,7 +10952,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `ddf7058436ede6e47f4d11cd0f7f37e63e6e42292c3fd949160d56b96dae047f`
+**SHA256:** `56ca4791edf280ff8b84801cbe052d262f56d24dcbfddd329342fba90742287c`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -10710,7 +10999,7 @@ Minimum required fields:
 - `tradeability_class`
 - `risk_acceptable`
 - `entry_ready`
-- `entry_readiness_reason`
+- `entry_readiness_reasons`
 - `setup_subtype`
 
 ## Nullable rules (authoritative)
@@ -10736,6 +11025,11 @@ No implicit bool/number coercion is allowed for nullable fields.
 - `decision_reasons` must preserve deterministic reason identity and ordering.
 - UNKNOWN-path reasons (e.g. `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`) MUST remain distinct.
 
+## entry_readiness_reasons contract
+- `entry_readiness_reasons` must be a deterministic list of standardized reason keys (no free text).
+- If `entry_ready=false`, the list must be non-empty.
+- If `entry_ready=true`, the list must be empty.
+
 ## Trade-candidates vs run-manifest separation
 - Candidate-truth lives in `trade_candidates`.
 - Operational metadata (runtime, versions, provider set) lives in manifest.
@@ -10755,7 +11049,7 @@ When a confirmation is semantically not evaluable due to missing/invalid/non-fin
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `361ac981fe212352b9ccc92dcd96be683058981fcbf8a2d3d2b7ee86c495abef`
+**SHA256:** `61abf08e12a9b812ad1395d5154d90a4148cddaf26b4c2955a6c46140908a532`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -10834,10 +11128,13 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 
 
 ## Scorer V2 readiness verification boundaries
-- All affected setup scorers emit `entry_ready`, `entry_readiness_reason`, and deterministic `setup_subtype`.
+- All affected setup scorers emit `entry_ready`, `entry_readiness_reasons`, and deterministic `setup_subtype`.
 - Breakout emits `breakout_confirmed`; pullback emits `rebound_confirmed` and `retest_reclaimed`; reversal emits `reclaim_confirmed` and `retest_reclaimed`.
-- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reason=retest_not_reclaimed`.
+- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reasons=[retest_not_reclaimed]`.
+- `entry_ready=false` requires at least one standardized readiness reason key.
+- `entry_ready=true` requires `entry_readiness_reasons=[]`.
 - Missing/invalid/non-finite scorer inputs must not produce a false-valid confirmation; confirmation fields stay `null` for non-evaluable paths.
+- Invalidation anchor consistency: `invalidation_derivable=false => invalidation_anchor_price=null`; `invalidation_derivable=true` requires finite positive `invalidation_anchor_price`.
 
 ```
 
@@ -11378,4 +11675,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 11:28 UTC_
+_Generated by GitHub Actions • 2026-03-08 11:50 UTC_
