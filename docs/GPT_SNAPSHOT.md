@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 06:50 UTC  
-**Commit:** `8110232` (81102322553d9291c741d1937c6c4e130d26d71a)  
+**Generated:** 2026-03-08 07:29 UTC  
+**Commit:** `b6888ba` (b6888ba693124d79a9150ebf78c6e621680d2cca)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -56,7 +56,7 @@
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | `BreakoutTrend1to5DScorer` | `score_breakout_trend_1_5d` |
 | `scanner/pipeline/scoring/pullback.py` | `PullbackScorer` | `score_pullbacks` |
 | `scanner/pipeline/scoring/reversal.py` | `ReversalScorer` | `score_reversals` |
-| `scanner/pipeline/scoring/trade_levels.py` | - | `_to_float`, `_atr_absolute`, `_targets`, `breakout_trade_levels`, `pullback_trade_levels` ... (+1 more) |
+| `scanner/pipeline/scoring/trade_levels.py` | - | `_to_float`, `_atr_absolute`, `_targets`, `breakout_trade_levels`, `pullback_trade_levels` ... (+4 more) |
 | `scanner/pipeline/scoring/weights.py` | - | `load_component_weights` |
 | `scanner/pipeline/shortlist.py` | `ShortlistSelector` | - |
 | `scanner/pipeline/snapshot.py` | `SnapshotManager` | - |
@@ -75,7 +75,7 @@
 **Statistics:**
 - Total Modules: 42
 - Total Classes: 19
-- Total Functions: 129
+- Total Functions: 132
 
 ---
 
@@ -956,12 +956,12 @@ if __name__ == "__main__":
 
 ### `scanner/schema.py`
 
-**SHA256:** `781032a4f61673134110ec58b7667dc60f2dae1a63f30a78ebf5f77a3e7f3103`
+**SHA256:** `f2742e78dd9f22d9eca0a1ab90bfd3557d88c60d20ce6f28b6ac5229b6c84405`
 
 ```python
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.9"
+REPORT_SCHEMA_VERSION = "v1.10"
 REPORT_META_VERSION = "1.9"
 
 ```
@@ -8545,16 +8545,17 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `4ae5f7361ad335fbf538fc4bf31dd5d6bf5838445887d6b4717927003ebcefec`
+**SHA256:** `895bea2334236a7c45a4648a470ec2d78649151463324a20cf4c8a4dd82d9d82`
 
 ```python
 """Breakout scoring."""
 
 import logging
+import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
-from scanner.pipeline.scoring.trade_levels import breakout_trade_levels
+from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
 
 logger = logging.getLogger(__name__)
 
@@ -8609,6 +8610,7 @@ class BreakoutScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d)
 
         breakout_score = self._score_breakout(f1d)
         volume_score = self._score_volume(f1d, f4h)
@@ -8668,6 +8670,43 @@ class BreakoutScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        close_1d = f1d.get("close")
+        breakout_dist = f1d.get("breakout_dist_20")
+        try:
+            close_numeric = float(close_1d)
+            breakout_dist_numeric = float(breakout_dist)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if not math.isfinite(close_numeric) or not math.isfinite(breakout_dist_numeric):
+            return self._not_derivable_anchor()
+        if close_numeric <= 0:
+            return self._not_derivable_anchor()
+
+        denominator = 1.0 + breakout_dist_numeric / 100.0
+        if denominator <= 0:
+            return self._not_derivable_anchor()
+
+        anchor = close_numeric / denominator
+        if not math.isfinite(anchor) or anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": anchor,
+            "invalidation_anchor_type": "breakout_level",
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_breakout(self, f1d: Dict[str, Any]) -> float:
@@ -8791,6 +8830,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
             volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
             score_result = scorer.score(symbol, features, volume, volume_source_used=volume_source_used)
             trade_levels = breakout_trade_levels(features, target_multipliers)
+            risk_fields = compute_phase1_risk_fields("breakout", trade_levels, root)
             results.append(
                 {
                     "symbol": symbol,
@@ -8812,7 +8852,11 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
+                    **risk_fields,
                     "discovery": features.get("discovery", False),
                     "discovery_age_days": features.get("discovery_age_days"),
                     "discovery_source": features.get("discovery_source"),
@@ -8829,7 +8873,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/trade_levels.py`
 
-**SHA256:** `a6fe26680178f5202c3f4d2900f48f08d5824de83fda748af26ad455039d7cee`
+**SHA256:** `612fc26ae3c0c4bdb594b111ce0704a0d19779f74ccafb39db64aeaf9736f8fd`
 
 ```python
 """Deterministic trade-level helpers (output-only, no scoring impact)."""
@@ -8918,6 +8962,75 @@ def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) ->
         "atr_value": atr_1d,
     }
 
+
+def _risk_cfg(root_config: Dict[str, Any]) -> Dict[str, float]:
+    risk_cfg = root_config.get("risk", {}) if isinstance(root_config, dict) else {}
+    return {
+        "atr_multiple": float(risk_cfg.get("atr_multiple", 2.0)),
+        "min_stop_distance_pct": float(risk_cfg.get("min_stop_distance_pct", 4.0)),
+        "max_stop_distance_pct": float(risk_cfg.get("max_stop_distance_pct", 12.0)),
+        "min_rr_to_tp10": float(risk_cfg.get("min_rr_to_tp10", 1.3)),
+    }
+
+
+def _planned_entry_price(setup_type: str, trade_levels: Dict[str, Any]) -> Optional[float]:
+    if setup_type == "pullback":
+        zone = trade_levels.get("entry_zone") if isinstance(trade_levels.get("entry_zone"), dict) else {}
+        return _to_float(zone.get("center"))
+    return _to_float(trade_levels.get("entry_trigger"))
+
+
+def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], root_config: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = _risk_cfg(root_config)
+    entry_price = _planned_entry_price(setup_type, trade_levels)
+    atr_value = _to_float(trade_levels.get("atr_value"))
+
+    result: Dict[str, Any] = {
+        "stop_price_initial": None,
+        "risk_pct_to_stop": None,
+        "rr_to_tp10": None,
+        "rr_to_tp20": None,
+        "risk_acceptable": None,
+    }
+
+    if entry_price is None or atr_value is None:
+        return result
+    if entry_price <= 0 or atr_value <= 0:
+        return result
+
+    stop_price_initial = entry_price - (cfg["atr_multiple"] * atr_value)
+    if stop_price_initial >= entry_price:
+        return result
+
+    risk_abs = entry_price - stop_price_initial
+    if risk_abs <= 0:
+        return result
+
+    risk_pct_to_stop = (risk_abs / entry_price) * 100.0
+
+    targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
+    tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
+    tp20 = _to_float(targets[1]) if len(targets) >= 2 else None
+
+    rr_to_tp10 = ((tp10 - entry_price) / risk_abs) if tp10 is not None and tp10 > entry_price else None
+    rr_to_tp20 = ((tp20 - entry_price) / risk_abs) if tp20 is not None and tp20 > entry_price else None
+
+    risk_acceptable = (
+        cfg["min_stop_distance_pct"] <= risk_pct_to_stop <= cfg["max_stop_distance_pct"]
+        and rr_to_tp10 is not None
+        and rr_to_tp10 >= cfg["min_rr_to_tp10"]
+    )
+
+    result.update(
+        {
+            "stop_price_initial": stop_price_initial,
+            "risk_pct_to_stop": risk_pct_to_stop,
+            "rr_to_tp10": rr_to_tp10,
+            "rr_to_tp20": rr_to_tp20,
+            "risk_acceptable": risk_acceptable,
+        }
+    )
+    return result
 
 ```
 
@@ -9039,16 +9152,17 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `d8dc800d12ebb789dc2da6220ef693916c00a733d475245d5762ce468e4f7d9b`
+**SHA256:** `33e18acce59c1bb0284cde9aa087b04ce37848e411ecb1f8df330ee55a6a2b17`
 
 ```python
 """Pullback scoring."""
 
 import logging
+import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
-from scanner.pipeline.scoring.trade_levels import pullback_trade_levels
+from scanner.pipeline.scoring.trade_levels import pullback_trade_levels, compute_phase1_risk_fields
 
 logger = logging.getLogger(__name__)
 
@@ -9093,6 +9207,7 @@ class PullbackScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d, f4h)
 
         trend_score = self._score_trend(f1d)
         pullback_score = self._score_pullback(f1d)
@@ -9148,6 +9263,42 @@ class PullbackScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
+        ema50_4h = f4h.get("ema_50")
+        ema20_4h = f4h.get("ema_20")
+
+        anchor_type = None
+        anchor_price = None
+        if ema50_4h is not None:
+            anchor_type = "support_level"
+            anchor_price = ema50_4h
+        elif ema20_4h is not None:
+            anchor_type = "ema_reclaim"
+            anchor_price = ema20_4h
+
+        try:
+            numeric_anchor = float(anchor_price)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if anchor_type is None or not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": numeric_anchor,
+            "invalidation_anchor_type": anchor_type,
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_trend(self, f1d: Dict[str, Any]) -> float:
@@ -9293,6 +9444,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
             volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
             score_result = scorer.score(symbol, features, volume, volume_source_used=volume_source_used)
             trade_levels = pullback_trade_levels(features, target_multipliers, pb_tol_pct=pb_tol_pct)
+            risk_fields = compute_phase1_risk_fields("pullback", trade_levels, root)
             results.append(
                 {
                     "symbol": symbol,
@@ -9314,7 +9466,11 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
+                    **risk_fields,
                     "discovery": features.get("discovery", False),
                     "discovery_age_days": features.get("discovery_age_days"),
                     "discovery_source": features.get("discovery_source"),
@@ -9331,7 +9487,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `da7195b9835ab5c01eb7c061801192c2c7c9ebe978cd11324ab16ae32da65bb1`
+**SHA256:** `f78f47497550b9d6f3463a35cae446259a5e0079bf75cd151d261b357001a855`
 
 ```python
 """
@@ -9346,7 +9502,7 @@ import math
 from typing import Dict, Any, List, Optional
 
 from scanner.pipeline.scoring.weights import load_component_weights
-from scanner.pipeline.scoring.trade_levels import reversal_trade_levels
+from scanner.pipeline.scoring.trade_levels import reversal_trade_levels, compute_phase1_risk_fields
 
 logger = logging.getLogger(__name__)
 
@@ -9397,6 +9553,7 @@ class ReversalScorer:
     def score(self, symbol: str, features: Dict[str, Any], quote_volume_24h: float, volume_source_used: str = "mexc") -> Dict[str, Any]:
         f1d = features.get("1d", {})
         f4h = features.get("4h", {})
+        invalidation_anchor = self._resolve_invalidation_anchor(f1d)
 
         drawdown_score = self._score_drawdown(f1d)
         base_score = self._score_base(f1d)
@@ -9453,6 +9610,36 @@ class ReversalScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **invalidation_anchor,
+        }
+
+    def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        base_low = f1d.get("base_low")
+        anchor_type = "base_low"
+        if base_low is None:
+            base_low = f1d.get("ema_20")
+            anchor_type = "ema_reclaim"
+
+        try:
+            numeric_anchor = float(base_low)
+        except (TypeError, ValueError):
+            return self._not_derivable_anchor()
+
+        if not math.isfinite(numeric_anchor) or numeric_anchor <= 0:
+            return self._not_derivable_anchor()
+
+        return {
+            "invalidation_anchor_price": numeric_anchor,
+            "invalidation_anchor_type": anchor_type,
+            "invalidation_derivable": True,
+        }
+
+    @staticmethod
+    def _not_derivable_anchor() -> Dict[str, Any]:
+        return {
+            "invalidation_anchor_price": None,
+            "invalidation_anchor_type": None,
+            "invalidation_derivable": False,
         }
 
     def _score_drawdown(self, f1d: Dict[str, Any]) -> float:
@@ -9597,6 +9784,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
             volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
             score_result = scorer.score(symbol, features, volume, volume_source_used=volume_source_used)
             trade_levels = reversal_trade_levels(features, target_multipliers)
+            risk_fields = compute_phase1_risk_fields("reversal", trade_levels, root)
             results.append(
                 {
                     "symbol": symbol,
@@ -9618,7 +9806,11 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "invalidation_anchor_price": score_result["invalidation_anchor_price"],
+                    "invalidation_anchor_type": score_result["invalidation_anchor_type"],
+                    "invalidation_derivable": score_result["invalidation_derivable"],
                     "analysis": {"trade_levels": trade_levels},
+                    **risk_fields,
                     "discovery": features.get("discovery", False),
                     "discovery_age_days": features.get("discovery_age_days"),
                     "discovery_source": features.get("discovery_source"),
@@ -9635,7 +9827,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
 
-**SHA256:** `8fcb001bd14e58815aae8af06e925f301d940857727263a18ebf0308b9aa1dbd`
+**SHA256:** `63d526e63ecc9b1e5bf4a21e9cac7b0f7f692b3cbc18dd5a697bc50fea1d1b0a`
 
 ```python
 """Breakout Trend 1-5D scoring (immediate + retest)."""
@@ -9643,6 +9835,8 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+
+from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
 
 
 class BreakoutTrend1to5DScorer:
@@ -9944,6 +10138,8 @@ def score_breakout_trend_1_5d(
     root = config.raw if hasattr(config, "raw") else config
     min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
     min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
 
     results: List[Dict[str, Any]] = []
     for symbol, feature_row in features_data.items():
@@ -9956,6 +10152,9 @@ def score_breakout_trend_1_5d(
         volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
         for row in rows:
             row["volume_source_used"] = volume_source_used
+            trade_levels = breakout_trade_levels(feature_row, target_multipliers)
+            row["analysis"] = {"trade_levels": trade_levels}
+            row.update(compute_phase1_risk_fields("breakout", trade_levels, root))
         results.extend(rows)
 
     results.sort(key=lambda x: (float(x.get("final_score", 0.0)), x.get("setup_id") == "breakout_retest_1_5d"), reverse=True)
@@ -10317,7 +10516,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `4fa634b659890c77c7bce10aeefeeccf29edacdeb23ad16659962ce761bff364`
+**SHA256:** `f8be237ee4dace27054fb3cace1fd4932e4c108a678b6350a20f51a800842bca`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -10326,7 +10525,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.9
+schema_version: v1.10
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -10368,6 +10567,9 @@ Minimum required fields:
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
 Typical nullable fields include (non-exhaustive):
+- `invalidation_anchor_price`
+- `invalidation_anchor_type`
+- `invalidation_derivable`
 - `stop_price_initial`
 - `risk_pct_to_stop`
 - `rr_to_tp10`
@@ -10393,7 +10595,7 @@ No implicit bool/number coercion is allowed for nullable fields.
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `a15d929970f324701fd237e035ccb7b06f00de56e2ec768369112f0b5d9ac2b1`
+**SHA256:** `afb8668ed52dbe25715093868cb1983ef086bb7a3879069c038ab6853ee978de`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -10462,6 +10664,13 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `MARGINAL` is fully evaluated, never UNKNOWN, and always uses `execution_mode=none`.
 - `UNKNOWN` must remain distinct from `FAIL`; required reason identities include `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`.
 - Missing tradeability config keys use canonical defaults; invalid threshold ordering raises a clear validation error (no silent coercion).
+
+
+## Phase-1 risk computation verification boundaries
+- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
+- Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
+- Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
+- `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_tp10` are evaluable.
 
 ```
 
@@ -11002,4 +11211,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 06:50 UTC_
+_Generated by GitHub Actions • 2026-03-08 07:29 UTC_
