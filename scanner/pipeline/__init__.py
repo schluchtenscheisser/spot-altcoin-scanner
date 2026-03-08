@@ -97,6 +97,36 @@ def _enrich_scored_entries_with_market_activity(entries, features):
         entry['mexc_share_24h'] = feature_row.get('mexc_share_24h')
     return entries
 
+
+def _apply_tradeability_gate(shortlist):
+    allowed_classes = {"DIRECT_OK", "TRANCHE_OK", "MARGINAL"}
+    allowed = []
+    stopped = []
+
+    for row in shortlist:
+        entry = dict(row)
+        tradeability_class = entry.get("tradeability_class")
+        if tradeability_class in allowed_classes:
+            allowed.append(entry)
+            continue
+
+        reason_keys = entry.get("tradeability_reason_keys")
+        if isinstance(reason_keys, list) and reason_keys:
+            normalized_reasons = [str(reason) for reason in reason_keys]
+        elif tradeability_class == "UNKNOWN":
+            normalized_reasons = ["tradeability_unknown"]
+        elif tradeability_class == "FAIL":
+            normalized_reasons = ["tradeability_failed"]
+        else:
+            normalized_reasons = ["tradeability_unknown"]
+
+        entry["tradeability_reason_keys"] = normalized_reasons
+        entry["tradeability_gate_stop"] = True
+        entry["tradeability_gate_stop_reason_keys"] = normalized_reasons
+        stopped.append(entry)
+
+    return allowed, stopped
+
 def run_pipeline(config: ScannerConfig) -> None:
     """
     Orchestrates the full daily pipeline:
@@ -211,14 +241,19 @@ def run_pipeline(config: ScannerConfig) -> None:
     logger.info(f"✓ Orderbooks fetched: {len(orderbooks)} (Top-K budget)")
     shortlist = apply_liquidity_metrics_to_shortlist(shortlist, orderbooks, config.raw, selected_symbols=selected_symbols)
 
-    # Hard Exclude: liquidity grade D must not enter downstream scoring universe
-    before_liquidity_gate = len(shortlist)
-    shortlist = [s for s in shortlist if str(s.get('liquidity_grade') or '').upper() != 'D']
-    if len(shortlist) != before_liquidity_gate:
-        logger.info(
-            "  Liquidity hard gate removed %s symbols with liquidity_grade=D",
-            before_liquidity_gate - len(shortlist),
-        )
+    logger.info("  Applying tradeability gate before OHLCV...")
+    shortlist, tradeability_stopped = _apply_tradeability_gate(shortlist)
+    logger.info(
+        "  ✓ Tradeability gate passed=%s stopped=%s",
+        len(shortlist),
+        len(tradeability_stopped),
+    )
+    if tradeability_stopped:
+        stop_reasons = {}
+        for stopped_entry in tradeability_stopped:
+            for reason in stopped_entry.get("tradeability_gate_stop_reason_keys", []):
+                stop_reasons[reason] = stop_reasons.get(reason, 0) + 1
+        logger.info("  Tradeability stop reasons: %s", stop_reasons)
 
     # Step 7: Fetch OHLCV for shortlist
     logger.info("\n[7/12] Fetching OHLCV data...")
