@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 16:38 UTC  
-**Commit:** `24983c4` (24983c423310ec7bf687ae01c0fff502a00ad0b8)  
+**Generated:** 2026-03-08 16:58 UTC  
+**Commit:** `ebcf357` (ebcf357cecb02a0f616d7a5a2ef85478dc7c2d90)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -48,7 +48,7 @@
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
 | `scanner/pipeline/global_ranking.py` | - | `_config_get`, `compute_global_top20` |
 | `scanner/pipeline/liquidity.py` | - | `_root_config`, `get_orderbook_top_k`, `get_slippage_notional_usdt`, `get_grade_thresholds_bps`, `_read_tradeability_thresholds` ... (+14 more) |
-| `scanner/pipeline/manifest.py` | - | `_nested_mapping_value`, `_nested_bool`, `resolve_shadow_mode`, `derive_pipeline_paths`, `derive_feature_flags` ... (+3 more) |
+| `scanner/pipeline/manifest.py` | - | `_nested_mapping_value`, `_nested_bool`, `resolve_shadow_mode`, `resolve_pipeline_paths`, `derive_pipeline_paths` ... (+4 more) |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
 | `scanner/pipeline/regime.py` | - | `compute_btc_regime_from_1d_features`, `compute_btc_regime`, `_to_float` |
@@ -66,7 +66,7 @@
 | `scanner/schema.py` | - | - |
 | `scanner/tools/backfill_btc_regime.py` | `BackfillStats` | `_parse_date`, `_daterange`, `_load_snapshot`, `_ensure_minimum_version`, `_extract_btc_features_1d` ... (+6 more) |
 | `scanner/tools/backfill_snapshots.py` | `BackfillStats` | `_parse_date`, `_daterange`, `_snapshot_base`, `_extract_ohlcv_row`, `_build_minimal_features` ... (+10 more) |
-| `scanner/tools/export_evaluation_dataset.py` | - | `_parse_date`, `_daterange`, `_run_id_from_export_start`, `_utc_now`, `_utc_iso` ... (+6 more) |
+| `scanner/tools/export_evaluation_dataset.py` | - | `_parse_date`, `_daterange`, `_run_id_from_export_start`, `_utc_now`, `_utc_iso` ... (+7 more) |
 | `scanner/tools/validate_features.py` | - | `_is_number`, `_error`, `_emit`, `validate_features` |
 | `scanner/utils/__init__.py` | - | - |
 | `scanner/utils/io_utils.py` | - | `load_json`, `save_json`, `get_cache_path`, `cache_exists`, `load_cache` ... (+1 more) |
@@ -78,7 +78,7 @@
 **Statistics:**
 - Total Modules: 45
 - Total Classes: 19
-- Total Functions: 153
+- Total Functions: 155
 
 ---
 
@@ -990,7 +990,7 @@ See /docs/spec.md for the full technical specification.
 
 ### `scanner/config.py`
 
-**SHA256:** `5d67cfb53eb46c395784b3ef5eca3109498e5ff4698b2f4ea9c0a262a08ce123`
+**SHA256:** `73c0a3614e8f8a8f8c696cd168b56b6a1d79375b33c76f3fb79581083659eb1f`
 
 ```python
 """
@@ -1505,6 +1505,14 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
     shadow_mode = str(shadow_cfg.get("mode", "parallel"))
     allowed_shadow_modes = ["legacy_only", "new_only", "parallel"]
+    configured_primary = None
+    has_configured_primary = "primary_path" in shadow_cfg
+
+    if has_configured_primary:
+        configured_primary = str(shadow_cfg.get("primary_path"))
+        if configured_primary not in ["legacy", "new"]:
+            errors.append("shadow.primary_path must be one of ['legacy', 'new']")
+
     if shadow_mode not in allowed_shadow_modes:
         errors.append(f"shadow.mode ({shadow_mode}) must be one of {allowed_shadow_modes}")
     else:
@@ -1515,6 +1523,12 @@ def validate_config(config: ScannerConfig) -> List[str]:
                 errors.append(f"shadow.mode={shadow_mode} requires risk.enabled=true")
             if not config.decision_enabled:
                 errors.append(f"shadow.mode={shadow_mode} requires decision.enabled=true")
+
+        if configured_primary in {"legacy", "new"}:
+            if shadow_mode == "legacy_only" and configured_primary != "legacy":
+                errors.append("shadow.mode=legacy_only requires shadow.primary_path=legacy")
+            if shadow_mode == "new_only" and configured_primary != "new":
+                errors.append("shadow.mode=new_only requires shadow.primary_path=new")
 
     return errors
 
@@ -2853,13 +2867,14 @@ def collect_raw_features(df: pd.DataFrame, stage_name: str = "features"):
 
 ### `scanner/backtest/e2_model.py`
 
-**SHA256:** `26770eb0054087e9a7598e43a8b3bb8d5122164df49ed9b4f0219b24091347fa`
+**SHA256:** `7a813fd271b58d653972daa0068df4e238208553d5bd6d8cfccde20348baf8c5`
 
 ```python
 from __future__ import annotations
 
 from datetime import date, timedelta
 from collections.abc import Iterable
+import math
 from typing import Any, Dict, Mapping, Optional
 
 
@@ -2873,7 +2888,7 @@ def _to_float(value: Any) -> Optional[float]:
         numeric = float(value)
     except (TypeError, ValueError):
         return None
-    if numeric != numeric:
+    if not math.isfinite(numeric):
         return None
     return numeric
 
@@ -3081,7 +3096,7 @@ def evaluate_e2_candidate(
             min_low = min(lows)
             for threshold in thresholds:
                 target = entry_price * (1 + threshold / 100.0)
-                hits[_threshold_key(threshold)] = max_high >= target
+                hits[_threshold_key(threshold)] = max_high >= target or math.isclose(max_high, target, rel_tol=0.0, abs_tol=1e-12)
 
     if missing_price_series:
         reason = "missing_price_series"
@@ -4526,7 +4541,7 @@ class ExcelReportGenerator:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `e56a1cad0843dca8a4078b1bac747301e1e2f7134503c3a16b76572e9b0ed7d5`
+**SHA256:** `8fe8f366b5833c6c56aac4c36c09a1fa5d0b25e49ba4a574eac82d279ee26fa2`
 
 ```python
 """
@@ -4560,6 +4575,7 @@ from .runtime_market_meta import RuntimeMarketMetaExporter
 from .discovery import compute_discovery_fields
 from .regime import compute_btc_regime
 from .decision import apply_decision_layer
+from .manifest import derive_pipeline_paths
 
 logger = logging.getLogger(__name__)
 
@@ -4691,9 +4707,10 @@ def run_pipeline(config: ScannerConfig) -> None:
     12. Write snapshot for backtests
     """
     run_mode = config.run_mode
-    shadow_mode = config.shadow_mode
-    legacy_path_enabled = shadow_mode in {"legacy_only", "parallel"}
-    new_path_enabled = shadow_mode in {"new_only", "parallel"}
+    pipeline_paths = derive_pipeline_paths(config.raw)
+    shadow_mode = pipeline_paths['shadow_mode']
+    legacy_path_enabled = pipeline_paths['legacy_path_enabled']
+    new_path_enabled = pipeline_paths['new_path_enabled']
     pipeline_start_time = time.perf_counter()
 
     # As-Of Timestamp (einmal pro Run)
@@ -5001,11 +5018,7 @@ def run_pipeline(config: ScannerConfig) -> None:
             'duration_seconds': time.perf_counter() - pipeline_start_time,
             'shortlist_size_used': config.budget_shortlist_size,
             'orderbook_top_k_used': config.budget_orderbook_top_k,
-            'pipeline_paths': {
-                'shadow_mode': shadow_mode,
-                'legacy_path_enabled': legacy_path_enabled,
-                'new_path_enabled': new_path_enabled,
-            },
+            'pipeline_paths': pipeline_paths,
             'data_freshness': {
                 'exchange_info_ts_utc': exchange_info_ts_utc,
                 'tickers_24h_ts_utc': tickers_24h_ts_utc,
@@ -5972,7 +5985,7 @@ def compute_discovery_fields(
 
 ### `scanner/pipeline/manifest.py`
 
-**SHA256:** `fd5ca8a5ff3b0ea68a382b05c76fdc15739ecb7c5da27b71f19f0fb67ba28839`
+**SHA256:** `a64f85d2c11b6b5b42a1c0a33f10836d0ee070b37d06e526e9da50fb0d0c0277`
 
 ```python
 """Run manifest generation and persistence helpers."""
@@ -5985,6 +5998,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 _ALLOWED_SHADOW_MODES = {"legacy_only", "new_only", "parallel"}
+_ALLOWED_PRIMARY_PATHS = {"legacy", "new"}
 
 
 def _nested_mapping_value(config: Dict[str, Any], path: List[str], default: Any) -> Any:
@@ -6009,13 +6023,45 @@ def resolve_shadow_mode(config: Dict[str, Any]) -> str:
     return mode
 
 
-def derive_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+def resolve_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
     mode = resolve_shadow_mode(config)
+    shadow_cfg = config.get("shadow", {}) if isinstance(config, dict) else {}
+
+    has_config_primary = isinstance(shadow_cfg, dict) and "primary_path" in shadow_cfg
+    raw_primary = shadow_cfg.get("primary_path") if isinstance(shadow_cfg, dict) else None
+
+    if has_config_primary:
+        primary_path = str(raw_primary)
+        if primary_path not in _ALLOWED_PRIMARY_PATHS:
+            raise ValueError(f"shadow.primary_path must be one of {sorted(_ALLOWED_PRIMARY_PATHS)}")
+    else:
+        primary_path = None
+
+    if mode == "legacy_only":
+        if has_config_primary and primary_path != "legacy":
+            raise ValueError("shadow.mode=legacy_only requires shadow.primary_path=legacy when configured")
+        resolved_primary = "legacy"
+        source = "config" if has_config_primary else "derived"
+    elif mode == "new_only":
+        if has_config_primary and primary_path != "new":
+            raise ValueError("shadow.mode=new_only requires shadow.primary_path=new when configured")
+        resolved_primary = "new"
+        source = "config" if has_config_primary else "derived"
+    else:
+        resolved_primary = primary_path if has_config_primary else "legacy"
+        source = "config" if has_config_primary else "default"
+
     return {
         "shadow_mode": mode,
         "legacy_path_enabled": mode in {"legacy_only", "parallel"},
         "new_path_enabled": mode in {"new_only", "parallel"},
+        "primary_path": resolved_primary,
+        "primary_path_source": source,
     }
+
+
+def derive_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+    return resolve_pipeline_paths(config)
 
 
 def derive_feature_flags(config: Dict[str, Any]) -> Dict[str, bool]:
@@ -7956,7 +8002,7 @@ class RuntimeMarketMetaExporter:
 
 ### `scanner/tools/export_evaluation_dataset.py`
 
-**SHA256:** `bb4f0d7788d5d2b0e5e73b51aab9038604b9528b9e0c338a4c6e2c87c2f92b4c`
+**SHA256:** `938f1d694ea1dbae71439d42f1b3a2bdaba1ea37b26d685b51e44f8bade1a8ec`
 
 ```python
 from __future__ import annotations
@@ -7977,7 +8023,7 @@ from scanner.backtest.e2_model import (
 from scanner.config import load_config
 from scanner.pipeline.global_ranking import compute_global_top20
 
-DATASET_SCHEMA_VERSION = "1.2"
+DATASET_SCHEMA_VERSION = "1.3"
 
 
 def _parse_date(value: str) -> date:
@@ -8039,6 +8085,21 @@ def _build_price_series_by_symbol(snapshots: list[dict[str, Any]]) -> dict[str, 
             result.setdefault(symbol, {})[t_date] = candle
     return result
 
+
+
+
+def _evaluate_label_window_5d(*, t0_date: str, setup_type: str, trade_levels: dict[str, Any], price_series: dict[str, dict[str, Any]], t_trigger_max: int) -> dict[str, Any]:
+    return evaluate_e2_candidate(
+        t0_date=t0_date,
+        setup_type=setup_type,
+        trade_levels=trade_levels,
+        price_series=price_series,
+        params={
+            "T_hold": 5,
+            "T_trigger_max": t_trigger_max,
+            "thresholds_pct": [5, 10, 20],
+        },
+    )
 
 def export_dataset(args: argparse.Namespace) -> Path:
     start = _parse_date(args.from_date)
@@ -8116,16 +8177,26 @@ def export_dataset(args: argparse.Namespace) -> Path:
                 setup_id = entry.get("setup_id") or setup_type
                 feat = features.get(symbol, {}) if isinstance(features, dict) else {}
 
+                trade_levels = entry.get("trade_levels", {}) if isinstance(entry, dict) else {}
+                price_series = price_series_by_symbol.get(symbol, {})
+
                 e2 = evaluate_e2_candidate(
                     t0_date=t0_date,
                     setup_type=setup_type,
-                    trade_levels=entry.get("trade_levels", {}) if isinstance(entry, dict) else {},
-                    price_series=price_series_by_symbol.get(symbol, {}),
+                    trade_levels=trade_levels,
+                    price_series=price_series,
                     params={
                         "T_hold": t_hold,
                         "T_trigger_max": t_trigger_max,
                         "thresholds_pct": thresholds_pct,
                     },
+                )
+                e2_labels_5d = _evaluate_label_window_5d(
+                    t0_date=t0_date,
+                    setup_type=setup_type,
+                    trade_levels=trade_levels,
+                    price_series=price_series,
+                    t_trigger_max=t_trigger_max,
                 )
 
                 row = {
@@ -8155,6 +8226,11 @@ def export_dataset(args: argparse.Namespace) -> Path:
                     "hits": e2.get("hits"),
                     "mfe_pct": e2.get("mfe_pct"),
                     "mae_pct": e2.get("mae_pct"),
+                    "hit5_5d": e2_labels_5d.get("hits", {}).get("5"),
+                    "hit10_5d": e2_labels_5d.get("hits", {}).get("10"),
+                    "hit20_5d": e2_labels_5d.get("hits", {}).get("20"),
+                    "mfe_5d_pct": e2_labels_5d.get("mfe_pct"),
+                    "mae_5d_pct": e2_labels_5d.get("mae_pct"),
                 }
 
                 required_non_nullable = [
@@ -10922,7 +10998,7 @@ last_updated_utc: "2026-02-25T14:41:04Z"
 
 ### `docs/canonical/CONFIGURATION.md`
 
-**SHA256:** `b2772ffcfaa5f0b6b63a4c413625e940cad8af12aed484e5162c51e6e9444abd`
+**SHA256:** `a51804ca018d2e2f445165517de486482cb810213e1285979c09b63a6a5b7e38`
 
 ```markdown
 # Configuration — Keys, Defaults, Limits (Canonical)
@@ -11065,6 +11141,8 @@ btc_regime:
 shadow:
   mode_default: parallel
   mode_values: [legacy_only, new_only, parallel]
+  primary_path_default_parallel: legacy
+  primary_path_values: [legacy, new]
 
 ```
 
@@ -11125,6 +11203,8 @@ Canonical rule:
 | tradeability.enabled_default | tradeability.enabled |
 | tradeability.notional_total_usdt_default | tradeability.notional_total_usdt |
 | tradeability.notional_chunk_usdt_default | tradeability.notional_chunk_usdt |
+| shadow.mode_default | shadow.mode |
+| shadow.primary_path_default_parallel | shadow.primary_path |
 | tradeability.max_tranches_default | tradeability.max_tranches |
 | tradeability.band_pct_default | tradeability.band_pct |
 | tradeability.max_spread_pct_default | tradeability.max_spread_pct |
@@ -11148,7 +11228,6 @@ Canonical rule:
 | btc_regime.enabled_default | btc_regime.enabled |
 | btc_regime.mode_default | btc_regime.mode |
 | btc_regime.risk_off_enter_boost_default | btc_regime.risk_off_enter_boost |
-| shadow.mode_default | shadow.mode |
 
 Notes:
 - `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
@@ -11183,7 +11262,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `2539294d07d2fe2c1d243e62f6e3cae2cda1e8cb16eabf2d9ed7004804a13b12`
+**SHA256:** `773141dd698f0c44ae1031b94e217a196b40056d3add1c0a47d4c7d3b97bce47`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11192,7 +11271,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.13
+schema_version: v1.14
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11231,7 +11310,10 @@ Notes:
   - `shadow_mode` (`legacy_only|new_only|parallel`)
   - `legacy_path_enabled` (bool)
   - `new_path_enabled` (bool)
+  - `primary_path` (`legacy|new`)
+  - `primary_path_source` (`config|default|derived`)
 - `pipeline_paths` values must be deterministic from config and valid mode semantics.
+- Contradictory mode/primary combinations MUST fail clearly and MUST NOT silently re-route truth sources.
 
 ## trade_candidates row contract
 Minimum required fields:
@@ -11332,7 +11414,7 @@ When a confirmation is semantically not evaluable due to missing/invalid/non-fin
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `eafe5280371c850d4c359ab82adeca25229442c91a7c81003c20cd47b9e1a29d`
+**SHA256:** `1bfabc22faeba6bd20388c7f5ee84445a2781f465694c7c5edc5a00d2bd57776`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -11363,6 +11445,9 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `thresholds_pct` parsing:
   - `null` or missing uses defaults `[10,20]`.
   - scalar input (e.g. `10` or `"10"`) raises `ValueError("thresholds_pct must be list-like or null")`.
+- Exact threshold touch is inclusive for E2 hits (`max_high >= target` => hit=true).
+- Non-finite OHLC values (`NaN`, `+inf`, `-inf`) are treated as non-evaluable inputs.
+- Evaluation dataset Label-Export V2 fields (`hit5_5d`, `hit10_5d`, `hit20_5d`, `mfe_5d_pct`, `mae_5d_pct`) are recomputed with fixed `T_hold=5` and preserve nullability on non-`ok` reasons.
 
 
 ## Breakout Trend 1-5D verification boundaries
@@ -11431,8 +11516,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `shadow.mode` allowed values are exactly `{legacy_only, new_only, parallel}`; missing key defaults to `parallel`.
 - Invalid `shadow.mode` values raise a clear config validation error (no silent fallback).
 - `new_only`/`parallel` require `{tradeability.enabled, risk.enabled, decision.enabled} = true`; invalid partial activation fails validation.
-- Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, and `pipeline_paths.new_path_enabled`.
-- `trade_candidates` remains canonical SoT regardless of shadow mode.
+- `shadow.primary_path` allowed values are exactly `{legacy, new}`; missing key follows deterministic semantics (`derived` for single-path modes, canonical default `legacy` for `parallel`).
+- `mode`/`primary_path` contradictions fail validation clearly (e.g. `legacy_only`+`new`, `new_only`+`legacy`).
+- Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, `pipeline_paths.new_path_enabled`, `pipeline_paths.primary_path`, and `pipeline_paths.primary_path_source`.
+- `trade_candidates` remains canonical SoT regardless of shadow mode and regardless of legacy artifacts produced in parallel.
 
 
 ```
@@ -11974,4 +12061,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 16:38 UTC_
+_Generated by GitHub Actions • 2026-03-08 16:58 UTC_
