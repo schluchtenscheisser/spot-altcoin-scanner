@@ -10,10 +10,10 @@ stages:
   - mapping
   - hard_gates
   - budgeted_pool_open
+  - tradeability_gate
   - ohlcv_fetch
   - feature_engine
   - setup_validity_and_setup_score
-  - tradeability_gate
   - risk_model
   - decision_layer
   - global_prioritization_and_rerank
@@ -48,25 +48,26 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 - Open a broader candidate pool early, then constrain expensive orderbook evaluation via budget controls.
 - `shortlist_size` and `orderbook_top_k` are authoritative in `BUDGET_AND_POOL_MODEL.md`.
 
-### 5) OHLCV fetch (closed candles only)
-- Fetch required timeframes (Phase 1: 1D and 4H).
+### 5) Tradeability gate
+- Compute `tradeability_class ∈ {DIRECT_OK, TRANCHE_OK, MARGINAL, FAIL, UNKNOWN}` after orderbook evidence is attached.
+- Only `DIRECT_OK`, `TRANCHE_OK`, and `MARGINAL` may continue to OHLCV/features/scoring.
+- `FAIL` and `UNKNOWN` MUST stop here and MUST NOT trigger OHLCV fetches.
+- `UNKNOWN` represents not-evaluable/not-evaluated tradeability.
+- `orderbook_not_in_budget` is an explicit UNKNOWN/not-evaluated reason (outside orderbook budget), not a FAIL mapping.
+
+### 6) OHLCV fetch (closed candles only)
+- Fetch required timeframes (Phase 1: 1D and 4H) only for symbols that passed the tradeability gate.
 - Provider raw field is `closeTime`.
 - Canonical normalized field for comparisons is `closeTime_ms`.
 - Use only bars with `closeTime_ms <= asof_ts_ms`.
 
-### 6) Feature engine
+### 7) Feature engine
 - Compute canonical features (EMA, ATR Wilder, ranks, etc.) per feature docs.
 - Preserve nullable semantics where metrics are not evaluable.
 
-### 7) Setup validity + setup score
+### 8) Setup validity + setup score
 - Determine setup validity and compute `setup_score`.
 - `setup_score` is the decision-threshold score (not global prioritization).
-
-### 8) Tradeability gate
-- Compute `tradeability_class ∈ {DIRECT_OK, TRANCHE_OK, MARGINAL, FAIL, UNKNOWN}`.
-- `UNKNOWN` represents not-evaluable/not-evaluated tradeability.
-- `UNKNOWN` MUST stop here and MUST NOT reach Decision Layer.
-- `orderbook_not_in_budget` is an explicit UNKNOWN/not-evaluated reason (outside orderbook budget), not a FAIL mapping.
 
 ### 9) Risk model
 - Compute ATR-default stop and risk metrics (`stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable`).
