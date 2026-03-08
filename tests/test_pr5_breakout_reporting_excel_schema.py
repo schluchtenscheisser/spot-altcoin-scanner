@@ -8,8 +8,29 @@ from scanner.pipeline.output import ReportGenerator
 
 def _breakout_rows():
     return [
-        {"symbol": "AAAUSDT", "setup_id": "breakout_immediate_1_5d", "score": 80.0, "final_score": 80.0, "execution_gate_pass": True, "spread_pct": 0.1, "depth_bid_0_5pct_usd": 1000, "depth_ask_0_5pct_usd": 1000, "depth_bid_1pct_usd": 2000, "depth_ask_1pct_usd": 2000},
-        {"symbol": "BBBUSDT", "setup_id": "breakout_retest_1_5d", "score": 82.0, "final_score": 82.0, "execution_gate_pass": False, "spread_pct": 0.2, "depth_bid_0_5pct_usd": 900, "depth_ask_0_5pct_usd": 900, "depth_bid_1pct_usd": 1800, "depth_ask_1pct_usd": 1800},
+        {"symbol": "AAAUSDT", "setup_id": "breakout_immediate_1_5d", "score": 80.0, "final_score": 80.0},
+        {"symbol": "BBBUSDT", "setup_id": "breakout_retest_1_5d", "score": 82.0, "final_score": 82.0},
+    ]
+
+
+def _trade_candidates():
+    return [
+        {
+            "rank": 1,
+            "symbol": "AAAUSDT",
+            "coin_name": "AAA",
+            "decision": "ENTER",
+            "decision_reasons": [],
+            "global_score": 80.0,
+        },
+        {
+            "rank": 2,
+            "symbol": "BBBUSDT",
+            "coin_name": "BBB",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed", "btc_regime_caution"],
+            "global_score": 70.0,
+        },
     ]
 
 
@@ -31,15 +52,15 @@ def test_pr5_json_contains_breakout_setup_lists() -> None:
     assert report["setups"]["breakout_retest_1_5d"][0]["setup_id"] == "breakout_retest_1_5d"
 
 
-def test_pr5_excel_has_legacy_and_new_breakout_sheets(tmp_path: Path) -> None:
+def test_excel_has_trade_candidate_sheets(tmp_path: Path) -> None:
     generator = ExcelReportGenerator({"output": {"reports_dir": str(tmp_path)}})
 
-    excel_path = generator.generate_excel_report([], _breakout_rows(), [], [], "2026-02-22")
+    excel_path = generator.generate_excel_report(trade_candidates=_trade_candidates(), run_date="2026-02-22")
     wb = load_workbook(excel_path)
 
-    assert "Breakout Setups" in wb.sheetnames
-    assert "Breakout Immediate 1-5D" in wb.sheetnames
-    assert "Breakout Retest 1-5D" in wb.sheetnames
+    assert "Trade Candidates" in wb.sheetnames
+    assert "Enter Candidates" in wb.sheetnames
+    assert "Wait Candidates" in wb.sheetnames
 
 
 def test_pr5_markdown_renders_wait_reasons_from_trade_candidates() -> None:
@@ -55,14 +76,12 @@ def test_pr5_markdown_renders_wait_reasons_from_trade_candidates() -> None:
     assert "decision_reasons: entry_not_confirmed, btc_regime_caution" in md
 
 
-def test_pr5_excel_setup_sheet_contains_execution_columns(tmp_path: Path) -> None:
+def test_excel_wait_sheet_contains_only_wait_rows(tmp_path: Path) -> None:
     generator = ExcelReportGenerator({"output": {"reports_dir": str(tmp_path)}})
 
-    excel_path = generator.generate_excel_report([], _breakout_rows(), [], [], "2026-02-22")
+    excel_path = generator.generate_excel_report(trade_candidates=_trade_candidates(), run_date="2026-02-22")
     wb = load_workbook(excel_path)
-    ws = wb["Breakout Immediate 1-5D"]
+    ws = wb["Wait Candidates"]
 
-    headers = [ws.cell(row=1, column=idx).value for idx in range(1, 12)]
-    assert headers[4] == "Execution Gate Pass"
-    assert headers[5] == "Spread %"
-    assert headers[8] == "Depth Bid 1.0% USD"
+    assert ws.cell(row=2, column=2).value == "BBBUSDT"
+    assert ws.max_row == 2

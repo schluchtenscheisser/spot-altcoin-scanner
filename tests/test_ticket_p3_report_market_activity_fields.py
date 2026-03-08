@@ -17,6 +17,22 @@ def _row(symbol: str, **kwargs):
     return row
 
 
+def _candidate(symbol: str, decision: str = "WAIT", **kwargs):
+    row = {
+        "rank": 1,
+        "symbol": symbol,
+        "coin_name": symbol.replace("USDT", ""),
+        "decision": decision,
+        "decision_reasons": ["entry_not_confirmed"] if decision == "WAIT" else [],
+        "global_score": 80.0,
+        "market_cap_usd": 1_000_000,
+        "entry_ready": None,
+        "risk_acceptable": None,
+    }
+    row.update(kwargs)
+    return row
+
+
 def test_json_report_contains_market_activity_fields_with_values_and_nulls() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
     rows = [
@@ -47,29 +63,22 @@ def test_markdown_formats_nullable_trade_candidate_fields() -> None:
     assert "slippage_bps_20k: 20.5000" in md
 
 
-def test_excel_report_contains_market_activity_columns_and_empty_cells_for_missing(tmp_path: Path) -> None:
+def test_excel_report_contains_trade_candidates_columns_and_null_semantics(tmp_path: Path) -> None:
     generator = ExcelReportGenerator({"output": {"reports_dir": str(tmp_path), "top_n_per_setup": 5}})
     rows = [
-        _row("AAAUSDT", global_volume_24h_usd=500_000_000, turnover_24h=0.2, mexc_share_24h=0.03),
-        _row("BBBUSDT", global_volume_24h_usd=-1, turnover_24h=float("nan"), mexc_share_24h="abc"),
+        _candidate("AAAUSDT", decision="ENTER", global_score=90.0, decision_reasons=[], market_cap_usd=500_000_000),
+        _candidate("BBBUSDT", decision="WAIT", rank=2, decision_reasons=["entry_not_confirmed", "btc_regime_caution"], market_cap_usd=None),
     ]
 
-    excel_path = generator.generate_excel_report(rows, [], [], rows, "2026-02-28")
+    excel_path = generator.generate_excel_report(trade_candidates=rows, run_date="2026-02-28")
     wb = load_workbook(excel_path)
 
-    ws_setup = wb["Reversal Setups"]
-    headers = [ws_setup.cell(row=1, column=i).value for i in range(1, 18)]
-    assert "Global Volume 24h (USD)" in headers
-    assert "Turnover 24h" in headers
-    assert "MEXC Share 24h" in headers
-    assert ws_setup.cell(row=2, column=13).value == 500_000_000
-    assert ws_setup.cell(row=3, column=13).value is None
-
-    ws_global = wb["Global Top 20"]
-    global_headers = [ws_global.cell(row=1, column=i).value for i in range(1, 15)]
-    assert global_headers[10] == "Global Volume 24h (USD)"
-    assert global_headers[11] == "Turnover 24h"
-    assert global_headers[12] == "MEXC Share 24h"
+    ws_trade = wb["Trade Candidates"]
+    headers = [ws_trade.cell(row=1, column=i).value for i in range(1, 8)]
+    assert headers[:5] == ["Rank", "Symbol", "Name", "Decision", "Decision Reasons"]
+    assert ws_trade.cell(row=2, column=2).value == "AAAUSDT"
+    assert ws_trade.cell(row=3, column=5).value == "entry_not_confirmed | btc_regime_caution"
+    assert ws_trade.cell(row=3, column=27).value is None
 
 
 def test_markdown_keeps_nullables_as_na() -> None:

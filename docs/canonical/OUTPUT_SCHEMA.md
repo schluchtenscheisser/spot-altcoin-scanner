@@ -115,6 +115,15 @@ No implicit bool/number coercion is allowed for nullable fields.
 - Missing optional fields in `trade_candidates` MUST be rendered as not-available values rather than causing render crashes.
 - Invalid `trade_candidates` schema (e.g. wrong type for required fields) MUST fail clearly instead of silent correction.
 
+## Excel rendering minimum contract
+- Excel MUST render candidate rows from `trade_candidates` only.
+- Excel MUST contain sheets `Trade Candidates`, `Enter Candidates`, and `Wait Candidates`.
+- `Trade Candidates` MUST contain all rows from SoT in deterministic order.
+- `Enter Candidates` and `Wait Candidates` MUST be pure filters on `decision` (`ENTER` / `WAIT`) over the same SoT rows.
+- `decision` and `decision_reasons` MUST be preserved from SoT without heuristic shortening or semantic remapping.
+- Missing optional fields in `trade_candidates` MUST render as empty/not-available cells, not as coerced `0`/`false`.
+- Invalid `trade_candidates` schema (e.g. wrong type for required fields) MUST fail clearly instead of silent correction.
+
 ## Setup scorer V2 structured fields
 Scorer rows may include setup-specific confirmation flags as additive machine-readable fields.
 Allowed examples:
