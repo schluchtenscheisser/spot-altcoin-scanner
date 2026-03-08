@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 11:01 UTC  
-**Commit:** `8c8ee64` (8c8ee64e6f58b11b5aa7de3a8f2d3c50f0cc0646)  
+**Generated:** 2026-03-08 11:28 UTC  
+**Commit:** `0de8c7f` (0de8c7fd1355720e6d8fb7e35483b79cd3dfeed3)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -8545,7 +8545,7 @@ if __name__ == "__main__":
 
 ### `scanner/pipeline/scoring/breakout.py`
 
-**SHA256:** `895bea2334236a7c45a4648a470ec2d78649151463324a20cf4c8a4dd82d9d82`
+**SHA256:** `725c030b20ca1ceffee28f815d3a9f60e03cbde0ec917681020684b2daedba4f`
 
 ```python
 """Breakout scoring."""
@@ -8654,6 +8654,7 @@ class BreakoutScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags, volume_source_used)
+        breakout_v2 = self._resolve_breakout_v2_fields(f1d)
 
         return {
             "score": round(final_score, 2),
@@ -8670,7 +8671,37 @@ class BreakoutScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **breakout_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_breakout_v2_fields(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        breakout_dist = f1d.get("breakout_dist_20")
+        try:
+            numeric_dist = float(breakout_dist)
+        except (TypeError, ValueError):
+            return {
+                "breakout_confirmed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "breakout_not_evaluable",
+                "setup_subtype": "fresh_breakout",
+            }
+
+        if not math.isfinite(numeric_dist):
+            return {
+                "breakout_confirmed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "breakout_not_evaluable",
+                "setup_subtype": "fresh_breakout",
+            }
+
+        breakout_confirmed = numeric_dist >= 0
+        return {
+            "breakout_confirmed": breakout_confirmed,
+            "entry_ready": breakout_confirmed,
+            "entry_readiness_reason": None if breakout_confirmed else "breakout_not_confirmed",
+            "setup_subtype": "confirmed_breakout" if breakout_confirmed else "fresh_breakout",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -8852,6 +8883,10 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "breakout_confirmed": score_result["breakout_confirmed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],
@@ -9160,7 +9195,7 @@ Each module:
 
 ### `scanner/pipeline/scoring/pullback.py`
 
-**SHA256:** `33e18acce59c1bb0284cde9aa087b04ce37848e411ecb1f8df330ee55a6a2b17`
+**SHA256:** `f8ee255856199743857c69fddec4358f165270e54ca3563509d6b3a74848ab82`
 
 ```python
 """Pullback scoring."""
@@ -9255,6 +9290,7 @@ class PullbackScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(trend_score, pullback_score, rebound_score, volume_score, f1d, f4h, flags, volume_source_used)
+        pullback_v2 = self._resolve_pullback_v2_fields(f1d, f4h)
 
         return {
             "score": round(final_score, 2),
@@ -9271,7 +9307,50 @@ class PullbackScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **pullback_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_pullback_v2_fields(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
+        r3_1d = f1d.get("r_3")
+        r3_4h = f4h.get("r_3")
+
+        numeric_values = []
+        for value in (r3_1d, r3_4h):
+            if value is None:
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(numeric):
+                return {
+                    "rebound_confirmed": None,
+                    "retest_reclaimed": None,
+                    "entry_ready": False,
+                    "entry_readiness_reason": "rebound_not_evaluable",
+                    "setup_subtype": "pullback_to_ema",
+                }
+            numeric_values.append(numeric)
+
+        if not numeric_values:
+            return {
+                "rebound_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "rebound_not_evaluable",
+                "setup_subtype": "pullback_to_ema",
+            }
+
+        rebound_confirmed = max(numeric_values) >= self.min_rebound
+        retest_reclaimed = rebound_confirmed
+        return {
+            "rebound_confirmed": rebound_confirmed,
+            "retest_reclaimed": retest_reclaimed,
+            "entry_ready": rebound_confirmed,
+            "entry_readiness_reason": None if rebound_confirmed else "rebound_not_confirmed",
+            "setup_subtype": "pullback_to_ema",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any], f4h: Dict[str, Any]) -> Dict[str, Any]:
@@ -9474,6 +9553,11 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "rebound_confirmed": score_result["rebound_confirmed"],
+                    "retest_reclaimed": score_result["retest_reclaimed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],
@@ -9495,7 +9579,7 @@ def score_pullbacks(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/reversal.py`
 
-**SHA256:** `f78f47497550b9d6f3463a35cae446259a5e0079bf75cd151d261b357001a855`
+**SHA256:** `adf757f9b972416b3ae5722051e33b7b1f8f4908e3c66b7c3aab30eab36791a4`
 
 ```python
 """
@@ -9602,6 +9686,7 @@ class ReversalScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(drawdown_score, base_score, reclaim_score, volume_score, f1d, f4h, flags, volume_source_used)
+        reversal_v2 = self._resolve_reversal_v2_fields(f1d)
 
         return {
             "score": round(final_score, 2),
@@ -9618,7 +9703,52 @@ class ReversalScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **reversal_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_reversal_v2_fields(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        dist_ema50 = f1d.get("dist_ema50_pct")
+
+        if dist_ema20 is None or dist_ema50 is None:
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        try:
+            ema20 = float(dist_ema20)
+            ema50 = float(dist_ema50)
+        except (TypeError, ValueError):
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        if not math.isfinite(ema20) or not math.isfinite(ema50):
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        reclaim_confirmed = ema20 > 0 and ema50 > 0
+        return {
+            "reclaim_confirmed": reclaim_confirmed,
+            "retest_reclaimed": reclaim_confirmed,
+            "entry_ready": reclaim_confirmed,
+            "entry_readiness_reason": None if reclaim_confirmed else "retest_not_reclaimed",
+            "setup_subtype": "reversal_base_reclaim",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -9814,6 +9944,11 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "reclaim_confirmed": score_result["reclaim_confirmed"],
+                    "retest_reclaimed": score_result["retest_reclaimed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],
@@ -9835,7 +9970,7 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/breakout_trend_1_5d.py`
 
-**SHA256:** `63d526e63ecc9b1e5bf4a21e9cac7b0f7f692b3cbc18dd5a697bc50fea1d1b0a`
+**SHA256:** `e07e17bbeb7db0f95db2f7074fc66b821d3615072452f08114a827516a382d01`
 
 ```python
 """Breakout Trend 1-5D scoring (immediate + retest)."""
@@ -10064,6 +10199,10 @@ class BreakoutTrend1to5DScorer:
         final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
 
         base = {
+            "entry_ready": True,
+            "entry_readiness_reason": None,
+            "breakout_confirmed": True,
+            "setup_subtype": "confirmed_breakout",
             "symbol": symbol,
             "score": round(final_score, 6),
             "base_score": round(base_score, 6),
@@ -10109,7 +10248,7 @@ class BreakoutTrend1to5DScorer:
         base["execution_gate_pass"] = execution_gate_pass
         base["execution_gate_fail_reasons"] = execution_gate_fail_reasons
 
-        results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False}]
+        results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False, "setup_subtype": "fresh_breakout"}]
 
         lows = f4h.get("low_series") or []
         zone_low = high_20 * 0.99
@@ -10130,7 +10269,7 @@ class BreakoutTrend1to5DScorer:
                 break
 
         if retest_valid and not retest_invalidated:
-            results.append({**base, "setup_id": "breakout_retest_1_5d", "retest_valid": True, "retest_invalidated": False})
+            results.append({**base, "setup_id": "breakout_retest_1_5d", "retest_valid": True, "retest_invalidated": False, "setup_subtype": "confirmed_breakout"})
 
         return results
 
@@ -10524,7 +10663,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `f8be237ee4dace27054fb3cace1fd4932e4c108a678b6350a20f51a800842bca`
+**SHA256:** `ddf7058436ede6e47f4d11cd0f7f37e63e6e42292c3fd949160d56b96dae047f`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -10570,6 +10709,9 @@ Minimum required fields:
 - `decision_reasons`
 - `tradeability_class`
 - `risk_acceptable`
+- `entry_ready`
+- `entry_readiness_reason`
+- `setup_subtype`
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
@@ -10599,11 +10741,21 @@ No implicit bool/number coercion is allowed for nullable fields.
 - Operational metadata (runtime, versions, provider set) lives in manifest.
 - No format-specific output may contradict the JSON `trade_candidates` truth.
 
+
+## Setup scorer V2 structured fields
+Scorer rows may include setup-specific confirmation flags as additive machine-readable fields.
+Allowed examples:
+- breakout: `breakout_confirmed`
+- pullback: `rebound_confirmed`, `retest_reclaimed`
+- reversal: `reclaim_confirmed`, `retest_reclaimed`
+
+When a confirmation is semantically not evaluable due to missing/invalid/non-finite inputs, the confirmation field MUST remain `null`.
+
 ```
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `afb8668ed52dbe25715093868cb1983ef086bb7a3879069c038ab6853ee978de`
+**SHA256:** `361ac981fe212352b9ccc92dcd96be683058981fcbf8a2d3d2b7ee86c495abef`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -10679,6 +10831,13 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
 - Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
 - `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_tp10` are evaluable.
+
+
+## Scorer V2 readiness verification boundaries
+- All affected setup scorers emit `entry_ready`, `entry_readiness_reason`, and deterministic `setup_subtype`.
+- Breakout emits `breakout_confirmed`; pullback emits `rebound_confirmed` and `retest_reclaimed`; reversal emits `reclaim_confirmed` and `retest_reclaimed`.
+- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reason=retest_not_reclaimed`.
+- Missing/invalid/non-finite scorer inputs must not produce a false-valid confirmation; confirmation fields stay `null` for non-evaluable paths.
 
 ```
 
@@ -11219,4 +11378,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 11:01 UTC_
+_Generated by GitHub Actions • 2026-03-08 11:28 UTC_
