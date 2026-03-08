@@ -117,8 +117,19 @@ Required outcome fields on each candidate record:
 - `hits` (object with string keys like `"5"`, `"10"`, `"20"` and nullable boolean values)
 - `mfe_pct`
 - `mae_pct`
+- `hit5_5d`
+- `hit10_5d`
+- `hit20_5d`
+- `mfe_5d_pct`
+- `mae_5d_pct`
 
 `reason` values and precedence follow `BACKTEST/MODEL_E2.md`.
+
+## 6.1 Label-Export V2 (5d canonical outcomes)
+- The following fields are mandatory for calibration-ready label export: `hit5_5d`, `hit10_5d`, `hit20_5d`, `mfe_5d_pct`, `mae_5d_pct`.
+- They are computed with the same E2 trigger semantics but a fixed hold window of 5 days (`T_hold=5`).
+- Threshold rule is inclusive (`>=` target): exact threshold touch counts as hit.
+- If trigger/entry/forward history is not evaluable, these fields stay `null` (never coerced to `false`/`0`).
 
 ## 7) JSONL schema by record type
 
@@ -165,7 +176,12 @@ Required outcome fields on each candidate record:
   "hit_20": false,
   "hits": {"10": true, "20": false},
   "mfe_pct": 13.7,
-  "mae_pct": -4.2
+  "mae_pct": -4.2,
+  "hit5_5d": true,
+  "hit10_5d": true,
+  "hit20_5d": false,
+  "mfe_5d_pct": 13.7,
+  "mae_5d_pct": -4.2
 }
 ```
 
@@ -198,6 +214,11 @@ Required outcome fields on each candidate record:
 | `hits` | Recomputed E2 threshold map (string threshold -> nullable boolean) | object | no |
 | `mfe_pct` | Recomputed E2 MFE in percent | number | yes |
 | `mae_pct` | Recomputed E2 MAE in percent | number | yes |
+| `hit5_5d` | Recomputed E2 with fixed `T_hold=5`, threshold `5%` (`hits["5"]`) | boolean | yes |
+| `hit10_5d` | Recomputed E2 with fixed `T_hold=5`, threshold `10%` (`hits["10"]`) | boolean | yes |
+| `hit20_5d` | Recomputed E2 with fixed `T_hold=5`, threshold `20%` (`hits["20"]`) | boolean | yes |
+| `mfe_5d_pct` | Recomputed E2 with fixed `T_hold=5` (`mfe_pct`) | number | yes |
+| `mae_5d_pct` | Recomputed E2 with fixed `T_hold=5` (`mae_pct`) | number | yes |
 
 Source alias:
 - `scoring_entry` means one object from exactly one of:

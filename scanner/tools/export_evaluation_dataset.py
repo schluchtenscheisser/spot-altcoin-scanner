@@ -16,7 +16,7 @@ from scanner.backtest.e2_model import (
 from scanner.config import load_config
 from scanner.pipeline.global_ranking import compute_global_top20
 
-DATASET_SCHEMA_VERSION = "1.2"
+DATASET_SCHEMA_VERSION = "1.3"
 
 
 def _parse_date(value: str) -> date:
@@ -78,6 +78,21 @@ def _build_price_series_by_symbol(snapshots: list[dict[str, Any]]) -> dict[str, 
             result.setdefault(symbol, {})[t_date] = candle
     return result
 
+
+
+
+def _evaluate_label_window_5d(*, t0_date: str, setup_type: str, trade_levels: dict[str, Any], price_series: dict[str, dict[str, Any]], t_trigger_max: int) -> dict[str, Any]:
+    return evaluate_e2_candidate(
+        t0_date=t0_date,
+        setup_type=setup_type,
+        trade_levels=trade_levels,
+        price_series=price_series,
+        params={
+            "T_hold": 5,
+            "T_trigger_max": t_trigger_max,
+            "thresholds_pct": [5, 10, 20],
+        },
+    )
 
 def export_dataset(args: argparse.Namespace) -> Path:
     start = _parse_date(args.from_date)
@@ -155,16 +170,26 @@ def export_dataset(args: argparse.Namespace) -> Path:
                 setup_id = entry.get("setup_id") or setup_type
                 feat = features.get(symbol, {}) if isinstance(features, dict) else {}
 
+                trade_levels = entry.get("trade_levels", {}) if isinstance(entry, dict) else {}
+                price_series = price_series_by_symbol.get(symbol, {})
+
                 e2 = evaluate_e2_candidate(
                     t0_date=t0_date,
                     setup_type=setup_type,
-                    trade_levels=entry.get("trade_levels", {}) if isinstance(entry, dict) else {},
-                    price_series=price_series_by_symbol.get(symbol, {}),
+                    trade_levels=trade_levels,
+                    price_series=price_series,
                     params={
                         "T_hold": t_hold,
                         "T_trigger_max": t_trigger_max,
                         "thresholds_pct": thresholds_pct,
                     },
+                )
+                e2_labels_5d = _evaluate_label_window_5d(
+                    t0_date=t0_date,
+                    setup_type=setup_type,
+                    trade_levels=trade_levels,
+                    price_series=price_series,
+                    t_trigger_max=t_trigger_max,
                 )
 
                 row = {
@@ -194,6 +219,11 @@ def export_dataset(args: argparse.Namespace) -> Path:
                     "hits": e2.get("hits"),
                     "mfe_pct": e2.get("mfe_pct"),
                     "mae_pct": e2.get("mae_pct"),
+                    "hit5_5d": e2_labels_5d.get("hits", {}).get("5"),
+                    "hit10_5d": e2_labels_5d.get("hits", {}).get("10"),
+                    "hit20_5d": e2_labels_5d.get("hits", {}).get("20"),
+                    "mfe_5d_pct": e2_labels_5d.get("mfe_pct"),
+                    "mae_5d_pct": e2_labels_5d.get("mae_pct"),
                 }
 
                 required_non_nullable = [

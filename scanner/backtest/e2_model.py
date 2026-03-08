@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from collections.abc import Iterable
+import math
 from typing import Any, Dict, Mapping, Optional
 
 
@@ -15,7 +16,7 @@ def _to_float(value: Any) -> Optional[float]:
         numeric = float(value)
     except (TypeError, ValueError):
         return None
-    if numeric != numeric:
+    if not math.isfinite(numeric):
         return None
     return numeric
 
@@ -223,7 +224,7 @@ def evaluate_e2_candidate(
             min_low = min(lows)
             for threshold in thresholds:
                 target = entry_price * (1 + threshold / 100.0)
-                hits[_threshold_key(threshold)] = max_high >= target
+                hits[_threshold_key(threshold)] = max_high >= target or math.isclose(max_high, target, rel_tol=0.0, abs_tol=1e-12)
 
     if missing_price_series:
         reason = "missing_price_series"
