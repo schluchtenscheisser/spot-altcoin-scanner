@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 5.0.0
+canonical_schema_version: 5.1.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -17,6 +17,12 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 - **PATCH**: non-semantic fixes/wording corrections with no contract behavior change.
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
+
+
+## 5.1.0 — BTC regime V2 threshold modifier clarity
+- Added explicit Phase-1 BTC regime state contract `{RISK_OFF, NEUTRAL, RISK_ON}` for decision integration.
+- Canonicalized `NEUTRAL` baseline behavior and explicit `RISK_OFF` ENTER-threshold boost semantics.
+- Added `btc_regime_state` as required candidate decision context field in output schema.
 
 ## 5.0.0 — Phase-1 contract realignment (breaking)
 - Breaking canonical contract change: the Phase-1 architecture introduced in PR-01/PR-01.1 is now versioned as MAJOR because semantics changed incompatibly.

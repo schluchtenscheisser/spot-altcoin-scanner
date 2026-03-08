@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.10
+schema_version: v1.11
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -44,6 +44,7 @@ Minimum required fields:
 - `entry_ready`
 - `entry_readiness_reasons`
 - `setup_subtype`
+- `btc_regime_state`
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.

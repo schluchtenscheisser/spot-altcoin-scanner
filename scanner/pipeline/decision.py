@@ -7,6 +7,8 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional,
 
 ALLOWED_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK", "MARGINAL"}
 ENTER_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK"}
+VALID_BTC_REGIME_STATES = {"RISK_OFF", "NEUTRAL", "RISK_ON"}
+
 REASON_ORDER = [
     "tradeability_fail",
     "tradeability_marginal",
@@ -31,12 +33,14 @@ def apply_decision_layer(
     """Attach deterministic decision state and reasons to fully evaluated candidates."""
 
     cfg = _load_decision_config(config)
-    is_risk_off = str((btc_regime or {}).get("state", "")).upper() == "RISK_OFF"
+    btc_regime_state = _resolve_btc_regime_state(btc_regime)
+    is_risk_off = btc_regime_state == "RISK_OFF"
     enter_threshold = cfg["min_score_for_enter"] + (cfg["risk_off_enter_boost"] if is_risk_off else 0)
 
     out: List[Dict[str, Any]] = []
     for row in candidates:
         entry = dict(row)
+        entry["btc_regime_state"] = btc_regime_state
 
         tradeability_class = _to_optional_str(entry.get("tradeability_class"))
         setup_score = _to_optional_float(entry.get("setup_score"))
@@ -113,6 +117,26 @@ def apply_decision_layer(
         out.append(entry)
 
     return out
+
+
+def _resolve_btc_regime_state(btc_regime: Optional[Mapping[str, Any]]) -> str:
+    if btc_regime is None:
+        return "NEUTRAL"
+
+    raw_state = btc_regime.get("state")
+    if raw_state is None:
+        return "NEUTRAL"
+
+    if not isinstance(raw_state, str):
+        raise ValueError("btc_regime.state must be string when provided")
+
+    state = raw_state.strip().upper()
+    if state not in VALID_BTC_REGIME_STATES:
+        raise ValueError(
+            "btc_regime.state must be one of {'RISK_OFF','NEUTRAL','RISK_ON'}"
+        )
+
+    return state
 
 
 def _load_decision_config(config: Mapping[str, Any]) -> Dict[str, Any]:

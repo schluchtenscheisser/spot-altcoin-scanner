@@ -15,17 +15,23 @@ def compute_btc_regime_from_1d_features(features_1d: Optional[Dict[str, Any]]) -
     ema20 = _to_float(features_1d.get("ema_20"))
     ema50 = _to_float(features_1d.get("ema_50"))
 
-    close_gt_ema50 = (close is not None and ema50 is not None and close > ema50)
-    ema20_gt_ema50 = (ema20 is not None and ema50 is not None and ema20 > ema50)
-    btc_risk_on = bool(close_gt_ema50 and ema20_gt_ema50)
+    close_gt_ema50 = (close > ema50) if close is not None and ema50 is not None else None
+    ema20_gt_ema50 = (ema20 > ema50) if ema20 is not None and ema50 is not None else None
+
+    if close_gt_ema50 is None or ema20_gt_ema50 is None:
+        state = "NEUTRAL"
+    elif close_gt_ema50 and ema20_gt_ema50:
+        state = "RISK_ON"
+    else:
+        state = "RISK_OFF"
 
     return {
-        "state": "RISK_ON" if btc_risk_on else "RISK_OFF",
+        "state": state,
         "multiplier_risk_on": 1.0,
         "multiplier_risk_off": 0.85,
         "checks": {
-            "close_gt_ema50": bool(close_gt_ema50),
-            "ema20_gt_ema50": bool(ema20_gt_ema50),
+            "close_gt_ema50": close_gt_ema50,
+            "ema20_gt_ema50": ema20_gt_ema50,
         },
     }
 
@@ -37,7 +43,7 @@ def compute_btc_regime(mexc_client: Any, feature_engine: Any, lookback_1d: int, 
         btc_features = feature_engine.compute_all({"BTCUSDT": {"1d": btc_klines_1d}}, asof_ts_ms=asof_ts_ms)
         return compute_btc_regime_from_1d_features(btc_features.get("BTCUSDT", {}).get("1d", {}))
     except Exception as exc:  # pragma: no cover - defensive runtime fallback
-        logger.warning("BTC regime fallback to RISK_OFF due to recoverable error: %s", exc)
+        logger.warning("BTC regime fallback to NEUTRAL due to recoverable error: %s", exc)
         return compute_btc_regime_from_1d_features({})
 
 

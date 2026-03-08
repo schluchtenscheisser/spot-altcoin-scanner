@@ -36,6 +36,15 @@ A candidate can be `ENTER` only if all are true:
 ## NO_TRADE semantics
 Use `NO_TRADE` for hard blockers/non-eligibility (e.g., `FAIL`, denied risk, invalid setup).
 
+
+## BTC regime decision modifier (Phase 1)
+- Allowed BTC regime states are exactly `{RISK_OFF, NEUTRAL, RISK_ON}`.
+- `NEUTRAL` is baseline behavior.
+- `RISK_ON` does not lower ENTER thresholds in Phase 1.
+- In `RISK_OFF`, Decision Layer increases ENTER threshold by configured `btc_regime.risk_off_enter_boost`.
+- If a candidate would be `ENTER` at baseline but fails only due to `RISK_OFF` threshold boost, decision becomes `WAIT` with reason `btc_regime_caution`.
+- Decision rows must expose `btc_regime_state` explicitly for transparent context.
+
 ## Explicit exclusions
 - Reversal without reclaim is not entry-ready.
 - Phase 1 does not define hold/rotate/portfolio orchestration decisions.

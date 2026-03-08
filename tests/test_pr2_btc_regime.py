@@ -19,8 +19,6 @@ def test_compute_btc_regime_risk_off_when_close_below_ema50() -> None:
     assert regime["state"] == "RISK_OFF"
     assert regime["checks"]["close_gt_ema50"] is False
     assert regime["checks"]["ema20_gt_ema50"] is False
-    assert regime["multiplier_risk_on"] == 1.0
-    assert regime["multiplier_risk_off"] == 0.85
 
 
 def test_compute_btc_regime_risk_on_when_close_and_ema20_above_ema50() -> None:
@@ -91,3 +89,11 @@ def test_json_report_exposes_top_level_btc_regime() -> None:
 
     assert report["btc_regime"]["state"] == "RISK_OFF"
     assert report["btc_regime"]["checks"]["ema20_gt_ema50"] is True
+
+
+def test_compute_btc_regime_neutral_when_inputs_missing() -> None:
+    regime = compute_btc_regime_from_1d_features({"close": 90.0, "ema_20": 95.0})
+
+    assert regime["state"] == "NEUTRAL"
+    assert regime["checks"]["close_gt_ema50"] is None
+    assert regime["checks"]["ema20_gt_ema50"] is None

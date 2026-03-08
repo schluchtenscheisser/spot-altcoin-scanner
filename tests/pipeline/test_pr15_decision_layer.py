@@ -68,6 +68,40 @@ def test_wait_when_btc_regime_boost_prevents_enter():
     assert out["decision_reasons"] == ["btc_regime_caution"]
 
 
+def test_risk_on_uses_baseline_enter_threshold():
+    out = _single(
+        {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": True, "risk_acceptable": True, "setup_score": 70},
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert out["decision"] == "ENTER"
+    assert out["decision_reasons"] == []
+
+
+def test_missing_btc_regime_state_uses_neutral_baseline_without_caution():
+    out = _single(
+        {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": True, "risk_acceptable": True, "setup_score": 70},
+        btc_regime={},
+    )
+    assert out["decision"] == "ENTER"
+    assert out["decision_reasons"] == []
+
+
+def test_invalid_btc_regime_state_is_rejected():
+    with pytest.raises(ValueError, match="btc_regime.state must be one of"):
+        _single(
+            {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": True, "risk_acceptable": True, "setup_score": 70},
+            btc_regime={"state": "bad_state"},
+        )
+
+
+def test_decision_output_contains_explicit_btc_regime_state_context():
+    out = _single(
+        {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": True, "risk_acceptable": True, "setup_score": 85},
+        btc_regime={"state": "RISK_OFF"},
+    )
+    assert out["btc_regime_state"] == "RISK_OFF"
+
+
 def test_no_trade_for_rejected_risk():
     out = _single({"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": True, "risk_acceptable": False, "setup_score": 90})
     assert out["decision"] == "NO_TRADE"

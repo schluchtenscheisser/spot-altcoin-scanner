@@ -31,7 +31,7 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 ## Breakout Trend 1-5D verification boundaries
 - Trigger lookup window uses `trigger_4h_lookback_bars` (default 30), not a fixed 6-bar window.
 - `_find_breakout_indices` returns `(first_breakout_idx, last_breakout_idx)` over the configured trigger window.
-- In `RISK_OFF`, BTC multiplier never excludes candidates: `0.85` when `rs_override AND liq_ok`, otherwise `0.75`.
+- BTC regime state domain is exactly `{RISK_OFF, NEUTRAL, RISK_ON}` with deterministic parsing (`missing => NEUTRAL`, invalid => validation error).
 - `bb_width_rank_120_4h` is interpreted on percent scale `[0..100]`; defensive rank01 input (`<=1.0`) is multiplied by 100 before scoring.
 
 
