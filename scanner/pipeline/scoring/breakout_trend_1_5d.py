@@ -224,6 +224,10 @@ class BreakoutTrend1to5DScorer:
         final_score = max(0.0, min(100.0, base_score * anti * over * btc_mult))
 
         base = {
+            "entry_ready": True,
+            "entry_readiness_reason": None,
+            "breakout_confirmed": True,
+            "setup_subtype": "confirmed_breakout",
             "symbol": symbol,
             "score": round(final_score, 6),
             "base_score": round(base_score, 6),
@@ -269,7 +273,7 @@ class BreakoutTrend1to5DScorer:
         base["execution_gate_pass"] = execution_gate_pass
         base["execution_gate_fail_reasons"] = execution_gate_fail_reasons
 
-        results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False}]
+        results: List[Dict[str, Any]] = [{**base, "setup_id": "breakout_immediate_1_5d", "retest_valid": False, "retest_invalidated": False, "setup_subtype": "fresh_breakout"}]
 
         lows = f4h.get("low_series") or []
         zone_low = high_20 * 0.99
@@ -290,7 +294,7 @@ class BreakoutTrend1to5DScorer:
                 break
 
         if retest_valid and not retest_invalidated:
-            results.append({**base, "setup_id": "breakout_retest_1_5d", "retest_valid": True, "retest_invalidated": False})
+            results.append({**base, "setup_id": "breakout_retest_1_5d", "retest_valid": True, "retest_invalidated": False, "setup_subtype": "confirmed_breakout"})
 
         return results
 

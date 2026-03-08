@@ -191,3 +191,58 @@ def test_pullback_invalidation_anchor_prefers_support_level() -> None:
     assert invalid["invalidation_derivable"] is False
     assert invalid["invalidation_anchor_type"] is None
     assert invalid["invalidation_anchor_price"] is None
+
+
+
+def test_breakout_v2_fields_confirmed_and_nonfinite() -> None:
+    scorer = BreakoutScorer({})
+
+    confirmed = scorer.score(
+        "X",
+        {"1d": {"breakout_dist_20": 0.1, "dist_ema20_pct": 1.0, "dist_ema50_pct": 1.0, "r_7": 1.0, "volume_spike": 1.8}, "4h": {"volume_spike": 1.0}},
+        quote_volume_24h=1_000_000,
+    )
+    assert confirmed["breakout_confirmed"] is True
+    assert confirmed["entry_ready"] is True
+    assert confirmed["entry_readiness_reason"] is None
+    assert confirmed["setup_subtype"] == "confirmed_breakout"
+
+    nonfinite = scorer.score(
+        "X",
+        {"1d": {"breakout_dist_20": float("nan"), "dist_ema20_pct": 1.0, "dist_ema50_pct": 1.0, "r_7": 1.0, "volume_spike": 1.8}, "4h": {"volume_spike": 1.0}},
+        quote_volume_24h=1_000_000,
+    )
+    assert nonfinite["breakout_confirmed"] is None
+    assert nonfinite["entry_ready"] is False
+    assert nonfinite["entry_readiness_reason"] == "breakout_not_evaluable"
+
+
+def test_pullback_v2_fields_confirmed_and_nonfinite() -> None:
+    scorer = PullbackScorer({})
+
+    confirmed = scorer.score(
+        "X",
+        {
+            "1d": {"dist_ema20_pct": -1.0, "dist_ema50_pct": 2.0, "r_3": 4.0, "r_7": 1.0, "hh_20": True, "volume_spike": 1.7},
+            "4h": {"r_3": 2.5, "volume_spike": 1.6},
+        },
+        quote_volume_24h=1_000_000,
+    )
+    assert confirmed["rebound_confirmed"] is True
+    assert confirmed["retest_reclaimed"] is True
+    assert confirmed["entry_ready"] is True
+    assert confirmed["entry_readiness_reason"] is None
+    assert confirmed["setup_subtype"] == "pullback_to_ema"
+
+    nonfinite = scorer.score(
+        "X",
+        {
+            "1d": {"dist_ema20_pct": -1.0, "dist_ema50_pct": 2.0, "r_3": float("inf"), "r_7": 1.0, "hh_20": True, "volume_spike": 1.7},
+            "4h": {"r_3": 2.5, "volume_spike": 1.6},
+        },
+        quote_volume_24h=1_000_000,
+    )
+    assert nonfinite["rebound_confirmed"] is None
+    assert nonfinite["retest_reclaimed"] is None
+    assert nonfinite["entry_ready"] is False
+    assert nonfinite["entry_readiness_reason"] == "rebound_not_evaluable"

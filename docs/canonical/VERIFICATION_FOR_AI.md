@@ -71,3 +71,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
 - Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
 - `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_tp10` are evaluable.
+
+
+## Scorer V2 readiness verification boundaries
+- All affected setup scorers emit `entry_ready`, `entry_readiness_reason`, and deterministic `setup_subtype`.
+- Breakout emits `breakout_confirmed`; pullback emits `rebound_confirmed` and `retest_reclaimed`; reversal emits `reclaim_confirmed` and `retest_reclaimed`.
+- Reversal without confirmed reclaim is a hard non-entry-ready path: `entry_ready=false` and `entry_readiness_reason=retest_not_reclaimed`.
+- Missing/invalid/non-finite scorer inputs must not produce a false-valid confirmation; confirmation fields stay `null` for non-evaluable paths.

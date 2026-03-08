@@ -186,3 +186,54 @@ def test_reversal_invalidation_anchor_fields() -> None:
     assert invalid["invalidation_derivable"] is False
     assert invalid["invalidation_anchor_type"] is None
     assert invalid["invalidation_anchor_price"] is None
+
+
+def test_reversal_v2_entry_ready_requires_confirmed_reclaim() -> None:
+    scorer = ReversalScorer({})
+
+    without_reclaim = scorer.score(
+        "X",
+        {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "dist_ema20_pct": -0.5,
+                "dist_ema50_pct": -0.1,
+                "hh_20": False,
+                "r_7": -0.5,
+                "volume_spike": 2.0,
+            },
+            "4h": {"volume_spike": 2.0},
+        },
+        quote_volume_24h=2_000_000,
+    )
+
+    assert without_reclaim["reclaim_confirmed"] is False
+    assert without_reclaim["entry_ready"] is False
+    assert without_reclaim["entry_readiness_reason"] == "retest_not_reclaimed"
+    assert without_reclaim["setup_subtype"] == "reversal_base_reclaim"
+
+
+def test_reversal_v2_nonfinite_reclaim_inputs_are_not_marked_confirmed() -> None:
+    scorer = ReversalScorer({})
+
+    result = scorer.score(
+        "X",
+        {
+            "1d": {
+                "drawdown_from_ath": -60.0,
+                "base_score": 80.0,
+                "dist_ema20_pct": float("nan"),
+                "dist_ema50_pct": float("inf"),
+                "hh_20": True,
+                "r_7": 2.0,
+                "volume_spike": 2.0,
+            },
+            "4h": {"volume_spike": 2.0},
+        },
+        quote_volume_24h=2_000_000,
+    )
+
+    assert result["reclaim_confirmed"] is None
+    assert result["entry_ready"] is False
+    assert result["entry_readiness_reason"] == "reclaim_not_evaluable"

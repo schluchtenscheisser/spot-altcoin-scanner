@@ -104,6 +104,7 @@ class BreakoutScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(breakout_score, volume_score, trend_score, momentum_score, f1d, f4h, flags, volume_source_used)
+        breakout_v2 = self._resolve_breakout_v2_fields(f1d)
 
         return {
             "score": round(final_score, 2),
@@ -120,7 +121,37 @@ class BreakoutScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **breakout_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_breakout_v2_fields(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        breakout_dist = f1d.get("breakout_dist_20")
+        try:
+            numeric_dist = float(breakout_dist)
+        except (TypeError, ValueError):
+            return {
+                "breakout_confirmed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "breakout_not_evaluable",
+                "setup_subtype": "fresh_breakout",
+            }
+
+        if not math.isfinite(numeric_dist):
+            return {
+                "breakout_confirmed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "breakout_not_evaluable",
+                "setup_subtype": "fresh_breakout",
+            }
+
+        breakout_confirmed = numeric_dist >= 0
+        return {
+            "breakout_confirmed": breakout_confirmed,
+            "entry_ready": breakout_confirmed,
+            "entry_readiness_reason": None if breakout_confirmed else "breakout_not_confirmed",
+            "setup_subtype": "confirmed_breakout" if breakout_confirmed else "fresh_breakout",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -302,6 +333,10 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "breakout_confirmed": score_result["breakout_confirmed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],

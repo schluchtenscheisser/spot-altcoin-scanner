@@ -310,3 +310,20 @@ def test_breakout_row_includes_execution_and_depth_fields():
         "depth_ask_1pct_usd",
     ]:
         assert key in row
+
+
+
+def test_breakout_trend_v2_fields_present() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    rows = score_breakout_trend_1_5d(
+        {"AAAUSDT": _feature_row()},
+        {"AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert rows
+    for row in rows:
+        assert row["entry_ready"] is True
+        assert row["entry_readiness_reason"] is None
+        assert row["breakout_confirmed"] is True
+        assert row["setup_subtype"] in {"fresh_breakout", "confirmed_breakout"}

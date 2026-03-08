@@ -102,6 +102,7 @@ class ReversalScorer:
         final_score = max(0.0, min(100.0, raw_score * penalty_multiplier))
 
         reasons = self._generate_reasons(drawdown_score, base_score, reclaim_score, volume_score, f1d, f4h, flags, volume_source_used)
+        reversal_v2 = self._resolve_reversal_v2_fields(f1d)
 
         return {
             "score": round(final_score, 2),
@@ -118,7 +119,52 @@ class ReversalScorer:
             "flags": flags,
             "reasons": reasons,
             "volume_source_used": volume_source_used,
+            **reversal_v2,
             **invalidation_anchor,
+        }
+
+
+    def _resolve_reversal_v2_fields(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
+        dist_ema20 = f1d.get("dist_ema20_pct")
+        dist_ema50 = f1d.get("dist_ema50_pct")
+
+        if dist_ema20 is None or dist_ema50 is None:
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        try:
+            ema20 = float(dist_ema20)
+            ema50 = float(dist_ema50)
+        except (TypeError, ValueError):
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        if not math.isfinite(ema20) or not math.isfinite(ema50):
+            return {
+                "reclaim_confirmed": None,
+                "retest_reclaimed": None,
+                "entry_ready": False,
+                "entry_readiness_reason": "reclaim_not_evaluable",
+                "setup_subtype": "reversal_base_reclaim",
+            }
+
+        reclaim_confirmed = ema20 > 0 and ema50 > 0
+        return {
+            "reclaim_confirmed": reclaim_confirmed,
+            "retest_reclaimed": reclaim_confirmed,
+            "entry_ready": reclaim_confirmed,
+            "entry_readiness_reason": None if reclaim_confirmed else "retest_not_reclaimed",
+            "setup_subtype": "reversal_base_reclaim",
         }
 
     def _resolve_invalidation_anchor(self, f1d: Dict[str, Any]) -> Dict[str, Any]:
@@ -314,6 +360,11 @@ def score_reversals(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
                     "risk_flags": features.get("risk_flags", []),
                     "reasons": score_result["reasons"],
                     "volume_source_used": score_result["volume_source_used"],
+                    "entry_ready": score_result["entry_ready"],
+                    "entry_readiness_reason": score_result["entry_readiness_reason"],
+                    "setup_subtype": score_result["setup_subtype"],
+                    "reclaim_confirmed": score_result["reclaim_confirmed"],
+                    "retest_reclaimed": score_result["retest_reclaimed"],
                     "invalidation_anchor_price": score_result["invalidation_anchor_price"],
                     "invalidation_anchor_type": score_result["invalidation_anchor_type"],
                     "invalidation_derivable": score_result["invalidation_derivable"],
