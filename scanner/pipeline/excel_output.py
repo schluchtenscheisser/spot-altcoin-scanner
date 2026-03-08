@@ -2,411 +2,238 @@
 Excel Output Generation
 =======================
 
-Generates Excel workbooks with multiple sheets for daily scanner results.
+Generates Excel workbooks from canonical trade_candidates SoT.
 """
 
 import logging
-from typing import Dict, List, Any
+import math
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
 
 class ExcelReportGenerator:
-    """Generates Excel reports with multiple sheets."""
-    
+    """Generates Excel reports as pure SoT views."""
+
+    REQUIRED_FIELDS = {"rank", "symbol", "decision", "decision_reasons"}
+    ALLOWED_DECISIONS = {"ENTER", "WAIT", "NO_TRADE"}
+    CANDIDATE_COLUMNS = [
+        ("rank", "Rank"),
+        ("symbol", "Symbol"),
+        ("coin_name", "Name"),
+        ("decision", "Decision"),
+        ("decision_reasons", "Decision Reasons"),
+        ("best_setup_type", "Best Setup"),
+        ("setup_subtype", "Setup Subtype"),
+        ("global_score", "Global Score"),
+        ("setup_score", "Setup Score"),
+        ("entry_ready", "Entry Ready"),
+        ("entry_readiness_reasons", "Entry Readiness Reasons"),
+        ("execution_mode", "Execution Mode"),
+        ("tradeability_class", "Tradeability Class"),
+        ("risk_acceptable", "Risk Acceptable"),
+        ("entry_price_usdt", "Entry Price (USDT)"),
+        ("stop_price_initial", "Stop Price Initial"),
+        ("risk_pct_to_stop", "Risk % to Stop"),
+        ("tp10_price", "TP10 Price"),
+        ("tp20_price", "TP20 Price"),
+        ("rr_to_tp10", "RR to TP10"),
+        ("rr_to_tp20", "RR to TP20"),
+        ("spread_pct", "Spread %"),
+        ("depth_bid_1pct_usd", "Depth Bid 1.0% USD"),
+        ("depth_ask_1pct_usd", "Depth Ask 1.0% USD"),
+        ("slippage_bps_5k", "Slippage BPS 5k"),
+        ("slippage_bps_20k", "Slippage BPS 20k"),
+        ("market_cap_usd", "Market Cap USD"),
+        ("btc_regime", "BTC Regime"),
+        ("flags", "Flags"),
+    ]
+
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize Excel report generator.
-        
-        Args:
-            config: Config dict with 'output' section
-        """
-        # Handle both dict and ScannerConfig object
-        if hasattr(config, 'raw'):
-            output_config = config.raw.get('output', {})
+        if hasattr(config, "raw"):
+            output_config = config.raw.get("output", {})
         else:
-            output_config = config.get('output', {})
-        
-        self.reports_dir = Path(output_config.get('reports_dir', 'reports'))
-        self.top_n = output_config.get('top_n_per_setup', 10)
-        
-        # Ensure directories exist
+            output_config = config.get("output", {})
+
+        self.reports_dir = Path(output_config.get("reports_dir", "reports"))
         self.reports_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Excel Report Generator initialized: reports_dir={self.reports_dir}")
-    
+
+        logger.info("Excel Report Generator initialized: reports_dir=%s", self.reports_dir)
+
     def generate_excel_report(
         self,
-        reversal_results: List[Dict[str, Any]],
-        breakout_results: List[Dict[str, Any]],
-        pullback_results: List[Dict[str, Any]],
-        global_top20: List[Dict[str, Any]],
+        trade_candidates: List[Dict[str, Any]],
         run_date: str,
-        metadata: Dict[str, Any] = None,
-        btc_regime: Dict[str, Any] = None,
+        run_manifest: Dict[str, Any] | None = None,
+        metadata: Dict[str, Any] | None = None,
+        btc_regime: Dict[str, Any] | None = None,
     ) -> Path:
-        """
-        Generate Excel workbook with 4 sheets.
-        
-        Args:
-            reversal_results: Scored reversal setups
-            breakout_results: Scored breakout setups
-            pullback_results: Scored pullback setups
-            run_date: Date string (YYYY-MM-DD)
-            metadata: Optional metadata (universe size, etc.)
-        
-        Returns:
-            Path to saved Excel file
-        """
-        logger.info(f"Generating Excel report for {run_date}")
+        """Generate workbook from canonical trade_candidates SoT."""
+        logger.info("Generating Excel report for %s", run_date)
 
-        breakout_retest = [row for row in breakout_results if str(row.get("setup_id", "")).endswith("retest_1_5d")]
-        breakout_immediate = [
-            row for row in breakout_results if not str(row.get("setup_id", "")).endswith("retest_1_5d")
-        ]
-        
-        # Create workbook
+        validated = self._validate_trade_candidates(trade_candidates)
+        enter_candidates = [row for row in validated if row.get("decision") == "ENTER"]
+        wait_candidates = [row for row in validated if row.get("decision") == "WAIT"]
+
         wb = Workbook()
-        wb.remove(wb.active)  # Remove default sheet
-        
-        # Sheet 1: Summary
+        wb.remove(wb.active)
+
         self._create_summary_sheet(
-            wb, run_date, 
-            len(reversal_results), 
-            len(breakout_results), 
-            len(pullback_results),
-            metadata,
-            btc_regime,
+            wb,
+            run_date=run_date,
+            trade_candidates=validated,
+            run_manifest=run_manifest or {},
+            metadata=metadata,
+            btc_regime=btc_regime,
         )
-        
-        # Sheet 2: Global Top 20
-        self._create_global_sheet(wb, global_top20[:20])
+        self._create_trade_candidates_sheet(wb, "Trade Candidates", validated)
+        self._create_trade_candidates_sheet(wb, "Enter Candidates", enter_candidates)
+        self._create_trade_candidates_sheet(wb, "Wait Candidates", wait_candidates)
 
-        # Sheet 3: Reversal Setups
-        self._create_setup_sheet(
-            wb, "Reversal Setups", 
-            reversal_results[:self.top_n],
-            ['Drawdown', 'Base', 'Reclaim', 'Volume']
-        )
-        
-        # Sheet 4: Breakout Setups (legacy compatibility)
-        self._create_setup_sheet(
-            wb, "Breakout Setups",
-            breakout_results[:self.top_n],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 5: Breakout Immediate 1-5D
-        self._create_setup_sheet(
-            wb, "Breakout Immediate 1-5D",
-            breakout_immediate[:20],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 6: Breakout Retest 1-5D
-        self._create_setup_sheet(
-            wb, "Breakout Retest 1-5D",
-            breakout_retest[:20],
-            ['Breakout', 'Volume', 'Trend', 'Momentum']
-        )
-
-        # Sheet 7: Pullback Setups
-        self._create_setup_sheet(
-            wb, "Pullback Setups",
-            pullback_results[:self.top_n],
-            ['Trend', 'Pullback', 'Rebound', 'Volume']
-        )
-        
-        # Save
         excel_path = self.reports_dir / f"{run_date}.xlsx"
         wb.save(excel_path)
-        logger.info(f"Excel report saved: {excel_path}")
-        
+        logger.info("Excel report saved: %s", excel_path)
         return excel_path
-    
+
+    def _validate_trade_candidates(self, trade_candidates: Any) -> List[Dict[str, Any]]:
+        if not isinstance(trade_candidates, list):
+            raise ValueError("trade_candidates must be a list")
+
+        validated: List[Dict[str, Any]] = []
+        for idx, row in enumerate(trade_candidates):
+            if not isinstance(row, dict):
+                raise ValueError(f"trade_candidates[{idx}] must be an object")
+
+            missing = [field for field in self.REQUIRED_FIELDS if field not in row]
+            if missing:
+                raise ValueError(f"trade_candidates[{idx}] missing required fields: {', '.join(missing)}")
+
+            decision = row.get("decision")
+            if decision not in self.ALLOWED_DECISIONS:
+                raise ValueError(f"trade_candidates[{idx}].decision invalid: {decision}")
+
+            reasons = row.get("decision_reasons")
+            if reasons is not None and not isinstance(reasons, list):
+                raise ValueError(f"trade_candidates[{idx}].decision_reasons must be list or null")
+
+            validated.append(row)
+        return validated
+
     def _create_summary_sheet(
         self,
         wb: Workbook,
         run_date: str,
-        reversal_count: int,
-        breakout_count: int,
-        pullback_count: int,
-        metadata: Dict[str, Any] = None,
-        btc_regime: Dict[str, Any] = None,
-    ):
-        """Create Summary sheet with run statistics."""
+        trade_candidates: List[Dict[str, Any]],
+        run_manifest: Dict[str, Any],
+        metadata: Dict[str, Any] | None,
+        btc_regime: Dict[str, Any] | None,
+    ) -> None:
         ws = wb.create_sheet("Summary", 0)
 
         btc_regime = btc_regime or {}
-        btc_checks = btc_regime.get("checks") or {}
+        checks = btc_regime.get("checks") or {}
+        counts = {"ENTER": 0, "WAIT": 0, "NO_TRADE": 0}
+        for row in trade_candidates:
+            decision = row.get("decision")
+            if decision in counts:
+                counts[decision] += 1
 
         ws["A1"] = "BTC Regime"
         ws["A2"] = "State"
         ws["B2"] = btc_regime.get("state", "RISK_OFF")
         ws["A3"] = "Multiplier (Risk-On)"
-        ws["B3"] = float(btc_regime.get("multiplier_risk_on", 1.0))
+        ws["B3"] = self._sanitize_float_or_none(btc_regime.get("multiplier_risk_on"), default=1.0)
         ws["A4"] = "Multiplier (Risk-Off)"
-        ws["B4"] = float(btc_regime.get("multiplier_risk_off", 0.85))
+        ws["B4"] = self._sanitize_float_or_none(btc_regime.get("multiplier_risk_off"), default=0.85)
         ws["A5"] = "close>ema50"
-        ws["B5"] = bool(btc_checks.get("close_gt_ema50", False))
+        ws["B5"] = checks.get("close_gt_ema50")
         ws["A6"] = "ema20>ema50"
-        ws["B6"] = bool(btc_checks.get("ema20_gt_ema50", False))
-        
-        # Header
-        ws['A8'] = 'Metric'
-        ws['B8'] = 'Value'
-        
-        # Style header
-        for cell in ['A8', 'B8']:
-            ws[cell].font = Font(bold=True, size=12)
+        ws["B6"] = checks.get("ema20_gt_ema50")
+
+        ws["A8"] = "Metric"
+        ws["B8"] = "Value"
+        for cell in ["A8", "B8"]:
             ws[cell].fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             ws[cell].font = Font(bold=True, size=12, color="FFFFFF")
-            ws[cell].alignment = Alignment(horizontal='center')
-        
-        # Data rows
-        row = 9
-        ws[f'A{row}'] = 'Run Date'
-        ws[f'B{row}'] = run_date
-        row += 1
-        
-        ws[f'A{row}'] = 'Generated At'
-        ws[f'B{row}'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
-        row += 1
-        
-        # Add metadata if available
-        if metadata:
-            ws[f'A{row}'] = 'Total Symbols Scanned'
-            ws[f'B{row}'] = metadata.get('universe_size', 'N/A')
-            row += 1
-            
-            ws[f'A{row}'] = 'Symbols Filtered (MidCaps)'
-            ws[f'B{row}'] = metadata.get('filtered_size', 'N/A')
-            row += 1
-            
-            ws[f'A{row}'] = 'Symbols in Shortlist'
-            ws[f'B{row}'] = metadata.get('shortlist_size', 'N/A')
-            row += 1
-        
-        ws[f'A{row}'] = 'Reversal Setups Found'
-        ws[f'B{row}'] = reversal_count
-        row += 1
-        
-        ws[f'A{row}'] = 'Breakout Setups Found'
-        ws[f'B{row}'] = breakout_count
-        row += 1
-        
-        ws[f'A{row}'] = 'Pullback Setups Found'
-        ws[f'B{row}'] = pullback_count
-        row += 1
-        
-        # Column widths
-        ws.column_dimensions['A'].width = 30
-        ws.column_dimensions['B'].width = 20
-    
+            ws[cell].alignment = Alignment(horizontal="center")
 
-    def _create_global_sheet(self, wb: Workbook, results: List[Dict[str, Any]]):
-        """Create Global Top 20 sheet."""
-        ws = wb.create_sheet("Global Top 20", 1)
-        headers = [
-            'Rank', 'Symbol', 'Name', 'Best Setup', 'Global Score', 'Setup Score', 'Confluence',
-            'Price (USDT)', 'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Flags'
+        row_idx = 9
+        summary_rows = [
+            ("Run Date", run_date),
+            ("Generated At", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
+            ("Trade Candidates", len(trade_candidates)),
+            ("ENTER Candidates", counts["ENTER"]),
+            ("WAIT Candidates", counts["WAIT"]),
+            ("NO_TRADE Candidates", counts["NO_TRADE"]),
+            ("run_id", run_manifest.get("run_id")),
+            ("canonical_schema_version", run_manifest.get("canonical_schema_version")),
         ]
-        for col_idx, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_idx, value=header)
-            cell.font = Font(bold=True, size=11, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-            cell.alignment = Alignment(horizontal='center')
 
-        for rank, result in enumerate(results, 1):
-            row = rank + 1
-            ws.cell(row=row, column=1, value=rank)
-            ws.cell(row=row, column=2, value=result.get('symbol', 'N/A'))
-            ws.cell(row=row, column=3, value=result.get('coin_name', 'Unknown'))
-            ws.cell(row=row, column=4, value=result.get('best_setup_type', 'N/A'))
-            ws.cell(row=row, column=5, value=float(result.get('global_score', 0.0)))
-            ws.cell(row=row, column=6, value=float(result.get('setup_score', result.get('score', 0.0))))
-            ws.cell(row=row, column=7, value=int(result.get('confluence', 1)))
-            price = result.get('price_usdt')
-            ws.cell(row=row, column=8, value=f"${price:.2f}" if price is not None else 'N/A')
-            market_cap = result.get('market_cap')
-            ws.cell(row=row, column=9, value=self._format_large_number(market_cap) if market_cap else 'N/A')
-            volume = result.get('quote_volume_24h')
-            ws.cell(row=row, column=10, value=self._format_large_number(volume) if volume else 'N/A')
-            ws.cell(row=row, column=11, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
-            ws.cell(row=row, column=12, value=self._sanitize_optional_metric(result.get('turnover_24h')))
-            ws.cell(row=row, column=13, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
-            flags = result.get('flags', [])
-            flag_str = ', '.join(flags) if isinstance(flags, list) else ''
-            ws.cell(row=row, column=14, value=flag_str)
+        if metadata:
+            summary_rows.extend(
+                [
+                    ("Total Symbols Scanned", metadata.get("universe_size")),
+                    ("Symbols Filtered (MidCaps)", metadata.get("filtered_size")),
+                    ("Symbols in Shortlist", metadata.get("shortlist_size")),
+                ]
+            )
 
-        ws.freeze_panes = 'A2'
-        ws.auto_filter.ref = ws.dimensions
+        for key, value in summary_rows:
+            ws.cell(row=row_idx, column=1, value=key)
+            ws.cell(row=row_idx, column=2, value=value)
+            row_idx += 1
 
-    def _create_setup_sheet(
-        self,
-        wb: Workbook,
-        sheet_name: str,
-        results: List[Dict[str, Any]],
-        component_names: List[str]
-    ):
-        """
-        Create a setup sheet (Reversal/Breakout/Pullback).
-        
-        Args:
-            wb: Workbook object
-            sheet_name: Name of the sheet
-            results: List of scored setups
-            component_names: List of component score names
-        """
+        ws.column_dimensions["A"].width = 32
+        ws.column_dimensions["B"].width = 28
+
+    def _create_trade_candidates_sheet(self, wb: Workbook, sheet_name: str, rows: List[Dict[str, Any]]) -> None:
         ws = wb.create_sheet(sheet_name)
-        
-        # Headers
-        headers = [
-            'Rank', 'Symbol', 'Name', 'Price (USDT)',
-            'Execution Gate Pass', 'Spread %',
-            'Depth Bid 0.5% USD', 'Depth Ask 0.5% USD',
-            'Depth Bid 1.0% USD', 'Depth Ask 1.0% USD',
-            'Market Cap', '24h Volume', 'Global Volume 24h (USD)', 'Turnover 24h', 'MEXC Share 24h', 'Score'
-        ] + component_names + ['Flags']
-        
-        # Write headers
-        for col_idx, header in enumerate(headers, 1):
+
+        for col_idx, (_, header) in enumerate(self.CANDIDATE_COLUMNS, start=1):
             cell = ws.cell(row=1, column=col_idx, value=header)
-            cell.font = Font(bold=True, size=11)
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.font = Font(bold=True, size=11, color="FFFFFF")
-            cell.alignment = Alignment(horizontal='center')
-        
-        # Data rows
-        for rank, result in enumerate(results, 1):
-            row_idx = rank + 1
-            
-            # Basic info
-            ws.cell(row=row_idx, column=1, value=rank)
-            ws.cell(row=row_idx, column=2, value=result.get('symbol', 'N/A'))
-            ws.cell(row=row_idx, column=3, value=result.get('coin_name', 'Unknown'))
-            
-            # Price
-            price = result.get('price_usdt')
-            if price is not None:
-                ws.cell(row=row_idx, column=4, value=f"${price:.2f}")
-            else:
-                ws.cell(row=row_idx, column=4, value='N/A')
-            
-            ws.cell(row=row_idx, column=5, value=bool(result.get('execution_gate_pass', False)))
-            ws.cell(row=row_idx, column=6, value=result.get('spread_pct'))
-            ws.cell(row=row_idx, column=7, value=result.get('depth_bid_0_5pct_usd'))
-            ws.cell(row=row_idx, column=8, value=result.get('depth_ask_0_5pct_usd'))
-            ws.cell(row=row_idx, column=9, value=result.get('depth_bid_1pct_usd'))
-            ws.cell(row=row_idx, column=10, value=result.get('depth_ask_1pct_usd'))
+            cell.alignment = Alignment(horizontal="center")
 
-            # Market Cap (abbreviated)
-            market_cap = result.get('market_cap')
-            if market_cap:
-                ws.cell(row=row_idx, column=11, value=self._format_large_number(market_cap))
-            else:
-                ws.cell(row=row_idx, column=11, value='N/A')
+        for row_idx, row in enumerate(rows, start=2):
+            for col_idx, (key, _) in enumerate(self.CANDIDATE_COLUMNS, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=self._to_excel_cell_value(row.get(key)))
 
-            # 24h Volume (abbreviated)
-            volume = result.get('quote_volume_24h')
-            if volume:
-                ws.cell(row=row_idx, column=12, value=self._format_large_number(volume))
-            else:
-                ws.cell(row=row_idx, column=12, value='N/A')
-
-            ws.cell(row=row_idx, column=13, value=self._sanitize_optional_metric(result.get('global_volume_24h_usd')))
-            ws.cell(row=row_idx, column=14, value=self._sanitize_optional_metric(result.get('turnover_24h')))
-            ws.cell(row=row_idx, column=15, value=self._sanitize_optional_metric(result.get('mexc_share_24h')))
-
-            # Score
-            ws.cell(row=row_idx, column=16, value=result.get('score', 0))
-
-            # Component scores
-            components = result.get('components', {})
-            for col_offset, comp_name in enumerate(component_names):
-                comp_key = comp_name.lower()
-                comp_value = components.get(comp_key, 0)
-                ws.cell(row=row_idx, column=17 + col_offset, value=comp_value)
-
-            # Flags
-            flags = result.get('flags', [])
-            if isinstance(flags, list):
-                flag_str = ', '.join(flags) if flags else ''
-            elif isinstance(flags, dict):
-                flag_str = ', '.join([k for k, v in flags.items() if v])
-            else:
-                flag_str = ''
-            ws.cell(row=row_idx, column=17 + len(component_names), value=flag_str)
-        
-        # Freeze top row
-        ws.freeze_panes = 'A2'
-        
-        # Autofilter
+        ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
-        
-        # Column widths
-        ws.column_dimensions['A'].width = 6
-        ws.column_dimensions['B'].width = 14
-        ws.column_dimensions['C'].width = 20
-        ws.column_dimensions['D'].width = 13
-        ws.column_dimensions['E'].width = 18
-        ws.column_dimensions['F'].width = 10
-        ws.column_dimensions['G'].width = 18
-        ws.column_dimensions['H'].width = 18
-        ws.column_dimensions['I'].width = 18
-        ws.column_dimensions['J'].width = 18
-        ws.column_dimensions['K'].width = 13
-        ws.column_dimensions['L'].width = 13
-        ws.column_dimensions['M'].width = 18
-        ws.column_dimensions['N'].width = 14
-        ws.column_dimensions['O'].width = 14
-        ws.column_dimensions['P'].width = 8
 
-        # Component columns
-        for i in range(len(component_names)):
-            col_letter = get_column_letter(17 + i)
-            ws.column_dimensions[col_letter].width = 12
+        for col_idx, (_, header) in enumerate(self.CANDIDATE_COLUMNS, start=1):
+            col = get_column_letter(col_idx)
+            ws.column_dimensions[col].width = max(12, min(len(header) + 4, 36))
 
-        # Flags column
-        flags_col = get_column_letter(17 + len(component_names))
-        ws.column_dimensions[flags_col].width = 25
-    
+    @classmethod
+    def _to_excel_cell_value(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return " | ".join(str(item) for item in value)
+        if isinstance(value, dict):
+            return str(value)
+        return cls._sanitize_float_if_needed(value)
 
     @staticmethod
-    def _sanitize_optional_metric(value: Any) -> Any:
-        """Return nullable numeric metric; invalid values become None."""
-        if value is None:
+    def _sanitize_float_if_needed(value: Any) -> Any:
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
             return None
+        return value
+
+    @staticmethod
+    def _sanitize_float_or_none(value: Any, default: float | None = None) -> float | None:
+        if value is None:
+            return default
         try:
             numeric = float(value)
         except (TypeError, ValueError):
-            return None
-        if numeric < 0:
-            return None
-        if numeric != numeric:  # NaN
-            return None
+            return default
+        if math.isnan(numeric) or math.isinf(numeric):
+            return default
         return numeric
-
-    def _format_large_number(self, num: float) -> str:
-        """
-        Format large numbers with M/B suffix.
-        
-        Args:
-            num: Number to format
-        
-        Returns:
-            Formatted string (e.g., "$1.23M", "$4.56B")
-        """
-        if num >= 1_000_000_000:
-            return f"${num / 1_000_000_000:.2f}B"
-        elif num >= 1_000_000:
-            return f"${num / 1_000_000:.2f}M"
-        elif num >= 1_000:
-            return f"${num / 1_000:.2f}K"
-        else:
-            return f"${num:.2f}"

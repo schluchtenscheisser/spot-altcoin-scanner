@@ -609,7 +609,11 @@ class ReportGenerator:
             }
             excel_gen = ExcelReportGenerator(excel_config)
             excel_path = excel_gen.generate_excel_report(
-                reversal_results, breakout_results, pullback_results, global_top20, run_date, metadata, btc_regime=btc_regime
+                trade_candidates=json_content.get('trade_candidates', []),
+                run_date=run_date,
+                run_manifest=json_content.get('run_manifest', {}),
+                metadata=metadata,
+                btc_regime=btc_regime,
             )
             logger.info(f"Excel report saved: {excel_path}")
         except ImportError:

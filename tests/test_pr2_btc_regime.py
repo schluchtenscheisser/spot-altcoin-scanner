@@ -65,7 +65,7 @@ def test_excel_summary_has_btc_regime_header_at_a1(tmp_path: Path) -> None:
         },
     }
 
-    excel_path = generator.generate_excel_report([], [], [], [], "2026-02-21", btc_regime=btc_regime)
+    excel_path = generator.generate_excel_report(trade_candidates=[], run_date="2026-02-21", btc_regime=btc_regime)
     wb = load_workbook(excel_path)
     ws = wb["Summary"]
 
