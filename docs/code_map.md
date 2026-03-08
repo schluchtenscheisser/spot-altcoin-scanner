@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-03-08 16:48 UTC  
+**Last Updated:** 2026-03-08 16:59 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 45
 - **Total Classes:** 19
-- **Total Functions:** 376
+- **Total Functions:** 377
 
 ---
 
@@ -46,7 +46,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Module Variables:** `DEFAULT_THRESHOLDS_PCT, DEFAULT_T_HOLD, DEFAULT_T_TRIGGER_MAX, alias_list, breakout, breakout_invalid, candle, close, day, entry_price` _(+35 more)_
 
-**Imports:** `__future__, collections.abc, datetime, typing`
+**Imports:** `__future__, collections.abc, datetime, math, typing`
 
 ---
 
@@ -418,9 +418,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/tools/export_evaluation_dataset.py`
 
-**Functions:** `_build_price_series_by_symbol, _daterange, _load_snapshot, _parse_date, _run_id_from_export_start, _score_from_entry, _utc_iso, _utc_now, build_parser, export_dataset, main`
+**Functions:** `_build_price_series_by_symbol, _daterange, _evaluate_label_window_5d, _load_snapshot, _parse_date, _run_id_from_export_start, _score_from_entry, _utc_iso, _utc_now, build_parser, export_dataset, main`
 
-**Module Variables:** `DATASET_SCHEMA_VERSION, args, backtest_cfg, candle, config, config_root, current, e2, end, entries` _(+33 more)_
+**Module Variables:** `DATASET_SCHEMA_VERSION, args, backtest_cfg, candle, config, config_root, current, e2, e2_labels_5d, end` _(+36 more)_
 
 **Imports:** `__future__, argparse, datetime, json, pathlib, scanner.backtest.e2_model, scanner.config, scanner.pipeline.global_ranking` _(+2 more)_
 
@@ -506,8 +506,9 @@ _This section shows which functions call which other functions, helping identify
 | `_resolve_param_int` | — | `ValueError`, `append`, `join` |
 | `_resolve_thresholds` | `_to_float` | `ValueError`, `add` |
 | `_threshold_key` | — | `is_integer` |
+| `_to_float` | — | `isfinite` |
 | `_trade_level_status` | `_to_float` | `get` |
-| `evaluate_e2_candidate` | `_is_triggered`, `_parse_date`, `_resolve_param_int`, `_resolve_thresholds`, `_threshold_key`, `_to_float`, `_trade_level_status` | `append`, `get`, `isoformat`, `timedelta` |
+| `evaluate_e2_candidate` | `_is_triggered`, `_parse_date`, `_resolve_param_int`, `_resolve_thresholds`, `_threshold_key`, `_to_float`, `_trade_level_status` | `append`, `get`, `isclose`, `isoformat`, `timedelta` |
 
 ### 📄 scanner/clients/mapping.py
 
@@ -977,6 +978,7 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `_build_price_series_by_symbol` | — | `get`, `items`, `setdefault` |
 | `_daterange` | — | `timedelta` |
+| `_evaluate_label_window_5d` | — | `evaluate_e2_candidate` |
 | `_load_snapshot` | — | `ValueError`, `load` |
 | `_parse_date` | — | `fromisoformat` |
 | `_run_id_from_export_start` | — | `strftime` |
@@ -984,7 +986,7 @@ _This section shows which functions call which other functions, helping identify
 | `_utc_iso` | — | `strftime` |
 | `_utc_now` | — | `now` |
 | `build_parser` | — | `ArgumentParser`, `add_argument` |
-| `export_dataset` | `_build_price_series_by_symbol`, `_daterange`, `_load_snapshot`, `_parse_date`, `_run_id_from_export_start`, `_score_from_entry`, `_utc_iso`, `_utc_now` | `FileNotFoundError`, `Path`, `ValueError`, `append`, `compute_global_top20`, `dumps`, `evaluate_e2_candidate`, `exists`, `get`, `isoformat`, `join`, `load_config`, `mkdir`, `sort`, `timestamp`, `write` |
+| `export_dataset` | `_build_price_series_by_symbol`, `_daterange`, `_evaluate_label_window_5d`, `_load_snapshot`, `_parse_date`, `_run_id_from_export_start`, `_score_from_entry`, `_utc_iso`, `_utc_now` | `FileNotFoundError`, `Path`, `ValueError`, `append`, `compute_global_top20`, `dumps`, `evaluate_e2_candidate`, `exists`, `get`, `isoformat`, `join`, `load_config`, `mkdir`, `sort`, `timestamp`, `write` |
 | `main` | `build_parser`, `export_dataset` | `parse_args` |
 
 ### 📄 scanner/tools/validate_features.py
@@ -1053,7 +1055,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/__init__.py` | 9 | 49 | 58 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
-| `scanner/tools/export_evaluation_dataset.py` | 10 | 31 | 41 | 🔴 High |
+| `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
@@ -1065,10 +1067,10 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/decision.py` | 11 | 20 | 31 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
+| `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
-| `scanner/backtest/e2_model.py` | 10 | 13 | 23 | ⚠️ Medium |
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 9 | 23 | ⚠️ Medium |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
@@ -1103,4 +1105,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 16:48 UTC_
+_Generated by GitHub Actions • 2026-03-08 16:59 UTC_
