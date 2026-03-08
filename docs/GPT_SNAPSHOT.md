@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 16:15 UTC  
-**Commit:** `fde771c` (fde771c0afa10f37273ca13180d8832bd872634d)  
+**Generated:** 2026-03-08 16:38 UTC  
+**Commit:** `24983c4` (24983c423310ec7bf687ae01c0fff502a00ad0b8)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -48,7 +48,7 @@
 | `scanner/pipeline/filters.py` | `UniverseFilters` | - |
 | `scanner/pipeline/global_ranking.py` | - | `_config_get`, `compute_global_top20` |
 | `scanner/pipeline/liquidity.py` | - | `_root_config`, `get_orderbook_top_k`, `get_slippage_notional_usdt`, `get_grade_thresholds_bps`, `_read_tradeability_thresholds` ... (+14 more) |
-| `scanner/pipeline/manifest.py` | - | `_nested_mapping_value`, `_nested_bool`, `derive_feature_flags`, `build_config_hash`, `read_canonical_schema_version` ... (+1 more) |
+| `scanner/pipeline/manifest.py` | - | `_nested_mapping_value`, `_nested_bool`, `resolve_shadow_mode`, `derive_pipeline_paths`, `derive_feature_flags` ... (+3 more) |
 | `scanner/pipeline/ohlcv.py` | `OHLCVFetcher` | - |
 | `scanner/pipeline/output.py` | `ReportGenerator` | - |
 | `scanner/pipeline/regime.py` | - | `compute_btc_regime_from_1d_features`, `compute_btc_regime`, `_to_float` |
@@ -78,7 +78,7 @@
 **Statistics:**
 - Total Modules: 45
 - Total Classes: 19
-- Total Functions: 151
+- Total Functions: 153
 
 ---
 
@@ -208,7 +208,7 @@ This is a research tool, not financial advice. Use at your own risk.
 
 ### `config/config.yml`
 
-**SHA256:** `142f91f53184592f66372204c64265a33af69f57a5b40d07541dfca60aedea56`
+**SHA256:** `772d9fe181ca8fd97834ca739d590b4f9e2baa093606361b69f0aeafe724ed36`
 
 ```yaml
 version:
@@ -263,6 +263,9 @@ btc_regime:
   enabled: true
   mode: "threshold_modifier"
   risk_off_enter_boost: 15
+
+shadow:
+  mode: "parallel"   # legacy_only | new_only | parallel
 
 data_sources:
   mexc:
@@ -959,12 +962,12 @@ if __name__ == "__main__":
 
 ### `scanner/schema.py`
 
-**SHA256:** `5a76b97a0232d42afa7c5c14f36b9653dee562b9d1c2fb166a2a4d9dedce43e9`
+**SHA256:** `ed2c01b8ab2f7414065c44cbe6576ab62d9c8adc4c5fd2c0b3265fa62e12db26`
 
 ```python
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.12"
+REPORT_SCHEMA_VERSION = "v1.13"
 REPORT_META_VERSION = "1.9"
 
 ```
@@ -987,7 +990,7 @@ See /docs/spec.md for the full technical specification.
 
 ### `scanner/config.py`
 
-**SHA256:** `77a3a95e27819505cc8ae43d62872f3e18e13828348dff863d0e4f0007fab530`
+**SHA256:** `5d67cfb53eb46c395784b3ef5eca3109498e5ff4698b2f4ea9c0a262a08ce123`
 
 ```python
 """
@@ -1241,6 +1244,14 @@ class ScannerConfig:
     def btc_regime_risk_off_enter_boost(self) -> float:
         return float(self.raw.get("btc_regime", {}).get("risk_off_enter_boost", 15))
 
+    # Shadow mode
+    @property
+    def shadow_mode(self) -> str:
+        shadow_cfg = self.raw.get("shadow")
+        if isinstance(shadow_cfg, dict):
+            return str(shadow_cfg.get("mode", "parallel"))
+        return "parallel"
+
     # Exclusions
     @property
     def exclude_stablecoins(self) -> bool:
@@ -1483,6 +1494,27 @@ def validate_config(config: ScannerConfig) -> List[str]:
     if mode != "threshold_modifier":
         errors.append("btc_regime.mode must be 'threshold_modifier'")
     _expect_number(errors, btc_cfg.get("risk_off_enter_boost", 15), "btc_regime.risk_off_enter_boost")
+
+    # Shadow mode / parallel run block
+    shadow_cfg = config.raw.get("shadow")
+    if shadow_cfg is None:
+        shadow_cfg = {}
+    elif not isinstance(shadow_cfg, dict):
+        errors.append("shadow must be an object")
+        shadow_cfg = {}
+
+    shadow_mode = str(shadow_cfg.get("mode", "parallel"))
+    allowed_shadow_modes = ["legacy_only", "new_only", "parallel"]
+    if shadow_mode not in allowed_shadow_modes:
+        errors.append(f"shadow.mode ({shadow_mode}) must be one of {allowed_shadow_modes}")
+    else:
+        if shadow_mode in {"new_only", "parallel"}:
+            if not config.tradeability_enabled:
+                errors.append(f"shadow.mode={shadow_mode} requires tradeability.enabled=true")
+            if not config.risk_enabled:
+                errors.append(f"shadow.mode={shadow_mode} requires risk.enabled=true")
+            if not config.decision_enabled:
+                errors.append(f"shadow.mode={shadow_mode} requires decision.enabled=true")
 
     return errors
 
@@ -4494,7 +4526,7 @@ class ExcelReportGenerator:
 
 ### `scanner/pipeline/__init__.py`
 
-**SHA256:** `dfa7c54697d78eb1ec0a16bc1a56f777ebf0044215ed7dd6d55f9bea6a2ad28f`
+**SHA256:** `e56a1cad0843dca8a4078b1bac747301e1e2f7134503c3a16b76572e9b0ed7d5`
 
 ```python
 """
@@ -4659,6 +4691,9 @@ def run_pipeline(config: ScannerConfig) -> None:
     12. Write snapshot for backtests
     """
     run_mode = config.run_mode
+    shadow_mode = config.shadow_mode
+    legacy_path_enabled = shadow_mode in {"legacy_only", "parallel"}
+    new_path_enabled = shadow_mode in {"new_only", "parallel"}
     pipeline_start_time = time.perf_counter()
 
     # As-Of Timestamp (einmal pro Run)
@@ -4911,7 +4946,10 @@ def run_pipeline(config: ScannerConfig) -> None:
     breakout_results = _enrich_scored_entries_with_market_activity(breakout_results, features)
     pullback_results = _enrich_scored_entries_with_market_activity(pullback_results, features)
     global_top20 = _enrich_scored_entries_with_market_activity(global_top20, features)
-    global_top20 = apply_decision_layer(global_top20, config.raw, btc_regime=btc_regime)
+    if new_path_enabled:
+        global_top20 = apply_decision_layer(global_top20, config.raw, btc_regime=btc_regime)
+    else:
+        logger.info("  Shadow mode legacy_only: skipping decision layer")
 
     logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
 
@@ -4932,6 +4970,8 @@ def run_pipeline(config: ScannerConfig) -> None:
         'breakout_scored': len(breakout_results),
         'pullback_scored': len(pullback_results),
         'global_top20': len(global_top20),
+        'legacy_path_enabled': 1 if legacy_path_enabled else 0,
+        'new_path_enabled': 1 if new_path_enabled else 0,
     }
     warnings = []
     if tradeability_stopped:
@@ -4939,11 +4979,16 @@ def run_pipeline(config: ScannerConfig) -> None:
     if len(orderbooks) < len(selected_symbols):
         warnings.append('orderbook_partial_fetch')
 
+    legacy_reversal_results = reversal_results if legacy_path_enabled else []
+    legacy_breakout_results = breakout_results if legacy_path_enabled else []
+    legacy_pullback_results = pullback_results if legacy_path_enabled else []
+    trade_candidate_source = global_top20 if new_path_enabled else []
+
     report_paths = report_gen.save_reports(
-        reversal_results,
-        breakout_results,
-        pullback_results,
-        global_top20,
+        legacy_reversal_results,
+        legacy_breakout_results,
+        legacy_pullback_results,
+        trade_candidate_source,
         run_date,
         metadata={
             'mode': run_mode,
@@ -4956,6 +5001,11 @@ def run_pipeline(config: ScannerConfig) -> None:
             'duration_seconds': time.perf_counter() - pipeline_start_time,
             'shortlist_size_used': config.budget_shortlist_size,
             'orderbook_top_k_used': config.budget_orderbook_top_k,
+            'pipeline_paths': {
+                'shadow_mode': shadow_mode,
+                'legacy_path_enabled': legacy_path_enabled,
+                'new_path_enabled': new_path_enabled,
+            },
             'data_freshness': {
                 'exchange_info_ts_utc': exchange_info_ts_utc,
                 'tickers_24h_ts_utc': tickers_24h_ts_utc,
@@ -5922,7 +5972,7 @@ def compute_discovery_fields(
 
 ### `scanner/pipeline/manifest.py`
 
-**SHA256:** `2f448573be5f56692958f7a742c04256787c47ccb8a8ad8dcbd3af89e5be09d0`
+**SHA256:** `fd5ca8a5ff3b0ea68a382b05c76fdc15739ecb7c5da27b71f19f0fb67ba28839`
 
 ```python
 """Run manifest generation and persistence helpers."""
@@ -5933,6 +5983,8 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict, List
+
+_ALLOWED_SHADOW_MODES = {"legacy_only", "new_only", "parallel"}
 
 
 def _nested_mapping_value(config: Dict[str, Any], path: List[str], default: Any) -> Any:
@@ -5948,6 +6000,24 @@ def _nested_bool(config: Dict[str, Any], path: List[str], default: bool) -> bool
     return bool(_nested_mapping_value(config, path, default))
 
 
+def resolve_shadow_mode(config: Dict[str, Any]) -> str:
+    shadow_cfg = config.get("shadow", {}) if isinstance(config, dict) else {}
+    mode = shadow_cfg.get("mode", "parallel") if isinstance(shadow_cfg, dict) else "parallel"
+    mode = str(mode)
+    if mode not in _ALLOWED_SHADOW_MODES:
+        raise ValueError(f"shadow.mode must be one of {sorted(_ALLOWED_SHADOW_MODES)}")
+    return mode
+
+
+def derive_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+    mode = resolve_shadow_mode(config)
+    return {
+        "shadow_mode": mode,
+        "legacy_path_enabled": mode in {"legacy_only", "parallel"},
+        "new_path_enabled": mode in {"new_only", "parallel"},
+    }
+
+
 def derive_feature_flags(config: Dict[str, Any]) -> Dict[str, bool]:
     """Return a deterministic map of relevant feature flags and their states."""
     return {
@@ -5959,6 +6029,7 @@ def derive_feature_flags(config: Dict[str, Any]) -> Dict[str, bool]:
         "pullback_scoring_enabled": _nested_bool(config, ["scoring", "pullback", "enabled"], True),
         "reversal_scoring_enabled": _nested_bool(config, ["scoring", "reversal", "enabled"], True),
         "mexc_enabled": _nested_bool(config, ["data_sources", "mexc", "enabled"], True),
+        "shadow_mode_parallel": derive_pipeline_paths(config)["shadow_mode"] == "parallel",
     }
 
 
@@ -6249,7 +6320,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `99e09fb69ed49843b4870b8fa27a8429d7ec3cc0e573c928729c586bb6bf7e98`
+**SHA256:** `dbb146654ba4408ba23fe3ad30175aa0370a5cdc161c8b2ce6f7899911f8b6d5`
 
 ```python
 """
@@ -6270,6 +6341,7 @@ from scanner.schema import REPORT_META_VERSION, REPORT_SCHEMA_VERSION
 from .manifest import (
     build_config_hash,
     derive_feature_flags,
+    derive_pipeline_paths,
     read_canonical_schema_version,
     write_manifest_atomic,
 )
@@ -6345,6 +6417,7 @@ class ReportGenerator:
             "config_hash": build_config_hash(self.root_config),
             "canonical_schema_version": read_canonical_schema_version(Path("docs/canonical/CHANGELOG.md")),
             "feature_flags": derive_feature_flags(self.root_config),
+            "pipeline_paths": derive_pipeline_paths(self.root_config),
             "counts_per_stage": stage_counts,
             "shortlist_size_used": metadata.get("shortlist_size_used", self.root_config.get("budget", {}).get("shortlist_size", 200)),
             "orderbook_top_k_used": metadata.get("orderbook_top_k_used", self.root_config.get("budget", {}).get("orderbook_top_k", 200)),
@@ -10849,7 +10922,7 @@ last_updated_utc: "2026-02-25T14:41:04Z"
 
 ### `docs/canonical/CONFIGURATION.md`
 
-**SHA256:** `32450a04d504b6d27a17b927df293caa0df86c09df9edb7f1dfbc72fd03ce136`
+**SHA256:** `b2772ffcfaa5f0b6b63a4c413625e940cad8af12aed484e5162c51e6e9444abd`
 
 ```markdown
 # Configuration — Keys, Defaults, Limits (Canonical)
@@ -10988,6 +11061,11 @@ btc_regime:
   mode_default: threshold_modifier
   mode_values: [threshold_modifier]
   risk_off_enter_boost_default: 15
+
+shadow:
+  mode_default: parallel
+  mode_values: [legacy_only, new_only, parallel]
+
 ```
 
 ## 2) Units & conventions
@@ -11070,6 +11148,7 @@ Canonical rule:
 | btc_regime.enabled_default | btc_regime.enabled |
 | btc_regime.mode_default | btc_regime.mode |
 | btc_regime.risk_off_enter_boost_default | btc_regime.risk_off_enter_boost |
+| shadow.mode_default | shadow.mode |
 
 Notes:
 - `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
@@ -11104,7 +11183,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `863b3b078e9587e1e0616db33790cb2ac5d519e7845d8f540ff05dd616d2e97a`
+**SHA256:** `2539294d07d2fe2c1d243e62f6e3cae2cda1e8cb16eabf2d9ed7004804a13b12`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11113,7 +11192,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.12
+schema_version: v1.13
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11135,6 +11214,7 @@ Required fields:
 - `config_hash`
 - `canonical_schema_version`
 - `feature_flags`
+- `pipeline_paths`
 - `counts_per_stage`
 - `shortlist_size_used`
 - `orderbook_top_k_used`
@@ -11146,6 +11226,12 @@ Notes:
 - `warnings` MUST be a machine-readable list and MAY be empty (`[]`), but MUST NOT be `null`.
 - `canonical_schema_version` MUST be sourced from `docs/canonical/CHANGELOG.md`.
 - Manifest metadata is operational and remains separated from `trade_candidates`.
+
+- `pipeline_paths` MUST include:
+  - `shadow_mode` (`legacy_only|new_only|parallel`)
+  - `legacy_path_enabled` (bool)
+  - `new_path_enabled` (bool)
+- `pipeline_paths` values must be deterministic from config and valid mode semantics.
 
 ## trade_candidates row contract
 Minimum required fields:
@@ -11246,7 +11332,7 @@ When a confirmation is semantically not evaluable due to missing/invalid/non-fin
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `adeffba2c8a216695ba6ba5e17c360c4b8d83b9fc59f5ff796c526eca7c658bf`
+**SHA256:** `eafe5280371c850d4c359ab82adeca25229442c91a7c81003c20cd47b9e1a29d`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -11340,6 +11426,14 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Non-evaluable risk (`risk_acceptable=null`) must produce `NO_TRADE` with `risk_data_insufficient`, never `WAIT`.
 - In `RISK_OFF`, candidates in `[min_score_for_enter, min_score_for_enter + risk_off_enter_boost)` degrade from potential `ENTER` to `WAIT` with `btc_regime_caution` (not a hard block).
 - Tradeability `UNKNOWN`/`FAIL` must be stopped before decision layer in pipeline integration; if evaluated defensively, they remain `NO_TRADE`.
+
+## Shadow mode verification boundaries
+- `shadow.mode` allowed values are exactly `{legacy_only, new_only, parallel}`; missing key defaults to `parallel`.
+- Invalid `shadow.mode` values raise a clear config validation error (no silent fallback).
+- `new_only`/`parallel` require `{tradeability.enabled, risk.enabled, decision.enabled} = true`; invalid partial activation fails validation.
+- Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, and `pipeline_paths.new_path_enabled`.
+- `trade_candidates` remains canonical SoT regardless of shadow mode.
+
 
 ```
 
@@ -11880,4 +11974,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 16:15 UTC_
+_Generated by GitHub Actions • 2026-03-08 16:38 UTC_
