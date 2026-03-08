@@ -102,3 +102,9 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, `pipeline_paths.new_path_enabled`, `pipeline_paths.primary_path`, and `pipeline_paths.primary_path_source`.
 - `trade_candidates` remains canonical SoT regardless of shadow mode and regardless of legacy artifacts produced in parallel.
 
+## Shadow calibration recommendation verification boundaries
+- Shadow recommendation status domain is exactly `{ready, insufficient_data, invalid_data}`.
+- `insufficient_data` (not enough valid/evaluable samples) is distinct from `invalid_data` (invalid/non-finite rows present).
+- Without sufficient sample basis, `shadow_recommendation.recommended_thresholds.*` and `shadow_recommendation.shadow_probabilities.overall.*` remain `null` (no coercion to live defaults).
+- Non-finite calibration inputs (`NaN`, `+inf`, `-inf`) are reported as invalid and must not propagate into recommendation outputs.
+- Recommendation outputs are analysis-only and MUST NOT change productive decision thresholds.
