@@ -35,6 +35,23 @@ Defines Phase-1 risk semantics for entry decisions. This is not a portfolio-mana
 Nullable semantics:
 - If a metric is not evaluable, value MUST be `null` (not coerced to `0`/`false`).
 
+## Deterministic Phase-1 computation contract
+For Long-Spot candidates, compute risk fields in this fixed order:
+1. Determine planned entry (`entry_trigger`, or `entry_zone.center` for pullback setups).
+2. Validate entry and ATR as positive finite numbers.
+3. Compute `stop_price_initial = entry_price - atr_multiple * atr_value`.
+4. Enforce long invariant: `stop_price_initial < entry_price`.
+5. Compute `risk_pct_to_stop = ((entry_price - stop_price_initial) / entry_price) * 100`.
+6. Compute `rr_to_tp10` and `rr_to_tp20` from configured orientation targets and absolute risk.
+7. Compute `risk_acceptable` from configured bounds:
+   - `min_stop_distance_pct <= risk_pct_to_stop <= max_stop_distance_pct`
+   - `rr_to_tp10 >= min_rr_to_tp10`
+
+Missing vs invalid semantics:
+- Missing required inputs (entry/ATR/targets) => all required risk metrics remain `null`.
+- Invalid required inputs (non-positive/NaN/non-numeric, or non-long stop invariant) => all required risk metrics remain `null`.
+- Not-evaluable risk is not implicitly treated as `false`.
+
 ## Risk blocker authority
 The following repo locations are authoritative for hard risk-blocking inputs:
 - `config/denylist.yaml`

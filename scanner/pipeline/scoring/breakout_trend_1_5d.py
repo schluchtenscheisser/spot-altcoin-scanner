@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
+
 
 class BreakoutTrend1to5DScorer:
     def __init__(self, config: Dict[str, Any]):
@@ -304,6 +306,8 @@ def score_breakout_trend_1_5d(
     root = config.raw if hasattr(config, "raw") else config
     min_1d = int(root.get("setup_validation", {}).get("min_history_breakout_1d", 30))
     min_4h = int(root.get("setup_validation", {}).get("min_history_breakout_4h", 50))
+    trade_levels_cfg = root.get("trade_levels", {}) if isinstance(root, dict) else {}
+    target_multipliers = [float(x) for x in trade_levels_cfg.get("target_atr_multipliers", [1.0, 2.0, 3.0])]
 
     results: List[Dict[str, Any]] = []
     for symbol, feature_row in features_data.items():
@@ -316,6 +320,9 @@ def score_breakout_trend_1_5d(
         volume_source_used = (volume_source_map or {}).get(symbol, "mexc")
         for row in rows:
             row["volume_source_used"] = volume_source_used
+            trade_levels = breakout_trade_levels(feature_row, target_multipliers)
+            row["analysis"] = {"trade_levels": trade_levels}
+            row.update(compute_phase1_risk_fields("breakout", trade_levels, root))
         results.extend(rows)
 
     results.sort(key=lambda x: (float(x.get("final_score", 0.0)), x.get("setup_id") == "breakout_retest_1_5d"), reverse=True)
