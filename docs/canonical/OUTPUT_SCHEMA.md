@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.13
+schema_version: v1.14
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -43,7 +43,10 @@ Notes:
   - `shadow_mode` (`legacy_only|new_only|parallel`)
   - `legacy_path_enabled` (bool)
   - `new_path_enabled` (bool)
+  - `primary_path` (`legacy|new`)
+  - `primary_path_source` (`config|default|derived`)
 - `pipeline_paths` values must be deterministic from config and valid mode semantics.
+- Contradictory mode/primary combinations MUST fail clearly and MUST NOT silently re-route truth sources.
 
 ## trade_candidates row contract
 Minimum required fields:

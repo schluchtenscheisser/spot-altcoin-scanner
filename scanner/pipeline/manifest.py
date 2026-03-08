@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 _ALLOWED_SHADOW_MODES = {"legacy_only", "new_only", "parallel"}
+_ALLOWED_PRIMARY_PATHS = {"legacy", "new"}
 
 
 def _nested_mapping_value(config: Dict[str, Any], path: List[str], default: Any) -> Any:
@@ -32,13 +33,45 @@ def resolve_shadow_mode(config: Dict[str, Any]) -> str:
     return mode
 
 
-def derive_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+def resolve_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
     mode = resolve_shadow_mode(config)
+    shadow_cfg = config.get("shadow", {}) if isinstance(config, dict) else {}
+
+    has_config_primary = isinstance(shadow_cfg, dict) and "primary_path" in shadow_cfg
+    raw_primary = shadow_cfg.get("primary_path") if isinstance(shadow_cfg, dict) else None
+
+    if has_config_primary:
+        primary_path = str(raw_primary)
+        if primary_path not in _ALLOWED_PRIMARY_PATHS:
+            raise ValueError(f"shadow.primary_path must be one of {sorted(_ALLOWED_PRIMARY_PATHS)}")
+    else:
+        primary_path = None
+
+    if mode == "legacy_only":
+        if has_config_primary and primary_path != "legacy":
+            raise ValueError("shadow.mode=legacy_only requires shadow.primary_path=legacy when configured")
+        resolved_primary = "legacy"
+        source = "config" if has_config_primary else "derived"
+    elif mode == "new_only":
+        if has_config_primary and primary_path != "new":
+            raise ValueError("shadow.mode=new_only requires shadow.primary_path=new when configured")
+        resolved_primary = "new"
+        source = "config" if has_config_primary else "derived"
+    else:
+        resolved_primary = primary_path if has_config_primary else "legacy"
+        source = "config" if has_config_primary else "default"
+
     return {
         "shadow_mode": mode,
         "legacy_path_enabled": mode in {"legacy_only", "parallel"},
         "new_path_enabled": mode in {"new_only", "parallel"},
+        "primary_path": resolved_primary,
+        "primary_path_source": source,
     }
+
+
+def derive_pipeline_paths(config: Dict[str, Any]) -> Dict[str, Any]:
+    return resolve_pipeline_paths(config)
 
 
 def derive_feature_flags(config: Dict[str, Any]) -> Dict[str, bool]:

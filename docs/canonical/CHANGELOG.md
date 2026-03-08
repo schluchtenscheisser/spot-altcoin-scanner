@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 5.4.0
+canonical_schema_version: 5.5.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -20,6 +20,12 @@ Rule: Every canonical contract change PR must evaluate version impact and update
 
 
 
+
+
+## 5.5.0 — Shadow-mode primary-path contract hardened
+- Added canonical `shadow.primary_path` semantics with deterministic behavior across `legacy_only`, `new_only`, and `parallel`.
+- Added required run-manifest `pipeline_paths` fields `primary_path` and `primary_path_source` for machine-readable switch transparency.
+- Canonicalized mode/primary contradiction handling: clear validation error, no silent fallback and no hidden primary-path switch.
 
 ## 5.4.0 — Shadow-mode pipeline path manifest contract
 - Added canonical shadow-mode operation contract (`legacy_only`, `new_only`, `parallel`) with deterministic default `parallel`.

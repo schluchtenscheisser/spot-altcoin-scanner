@@ -94,6 +94,8 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `shadow.mode` allowed values are exactly `{legacy_only, new_only, parallel}`; missing key defaults to `parallel`.
 - Invalid `shadow.mode` values raise a clear config validation error (no silent fallback).
 - `new_only`/`parallel` require `{tradeability.enabled, risk.enabled, decision.enabled} = true`; invalid partial activation fails validation.
-- Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, and `pipeline_paths.new_path_enabled`.
-- `trade_candidates` remains canonical SoT regardless of shadow mode.
+- `shadow.primary_path` allowed values are exactly `{legacy, new}`; missing key follows deterministic semantics (`derived` for single-path modes, canonical default `legacy` for `parallel`).
+- `mode`/`primary_path` contradictions fail validation clearly (e.g. `legacy_only`+`new`, `new_only`+`legacy`).
+- Run manifest exposes deterministic path state via `pipeline_paths.shadow_mode`, `pipeline_paths.legacy_path_enabled`, `pipeline_paths.new_path_enabled`, `pipeline_paths.primary_path`, and `pipeline_paths.primary_path_source`.
+- `trade_candidates` remains canonical SoT regardless of shadow mode and regardless of legacy artifacts produced in parallel.
 

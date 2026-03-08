@@ -510,6 +510,14 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
     shadow_mode = str(shadow_cfg.get("mode", "parallel"))
     allowed_shadow_modes = ["legacy_only", "new_only", "parallel"]
+    configured_primary = None
+    has_configured_primary = "primary_path" in shadow_cfg
+
+    if has_configured_primary:
+        configured_primary = str(shadow_cfg.get("primary_path"))
+        if configured_primary not in ["legacy", "new"]:
+            errors.append("shadow.primary_path must be one of ['legacy', 'new']")
+
     if shadow_mode not in allowed_shadow_modes:
         errors.append(f"shadow.mode ({shadow_mode}) must be one of {allowed_shadow_modes}")
     else:
@@ -520,5 +528,11 @@ def validate_config(config: ScannerConfig) -> List[str]:
                 errors.append(f"shadow.mode={shadow_mode} requires risk.enabled=true")
             if not config.decision_enabled:
                 errors.append(f"shadow.mode={shadow_mode} requires decision.enabled=true")
+
+        if configured_primary in {"legacy", "new"}:
+            if shadow_mode == "legacy_only" and configured_primary != "legacy":
+                errors.append("shadow.mode=legacy_only requires shadow.primary_path=legacy")
+            if shadow_mode == "new_only" and configured_primary != "new":
+                errors.append("shadow.mode=new_only requires shadow.primary_path=new")
 
     return errors

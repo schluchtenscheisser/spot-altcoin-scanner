@@ -104,7 +104,12 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 - Missing `shadow.mode` MUST resolve to canonical default `parallel`.
 - Invalid mode values MUST fail config validation clearly; no silent fallback.
 - `new_only` and `parallel` require a semantically complete new path (tradeability + risk + decision all enabled).
-- Run artifacts/manifest MUST expose active path state explicitly (`legacy_path_enabled`, `new_path_enabled`, resolved mode).
+- Run artifacts/manifest MUST expose active + primary path state explicitly (`legacy_path_enabled`, `new_path_enabled`, `primary_path`, `primary_path_source`, resolved mode).
+- Primary-path semantics are deterministic:
+  - `legacy_only` => `primary_path=legacy`
+  - `new_only` => `primary_path=new`
+  - `parallel` => `primary_path` is required semantically; missing runtime key MUST resolve to canonical default `legacy` and manifest MUST mark `primary_path_source=default`.
+- Contradictory mode/primary combinations (e.g. `mode=legacy_only` with `primary_path=new`) MUST fail clear validation (no silent fallback).
 - `trade_candidates` remains the target SoT; shadow mode is transitional control, not a second business truth.
 
 ## Non-goals in Phase 1

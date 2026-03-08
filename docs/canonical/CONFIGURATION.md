@@ -138,6 +138,8 @@ btc_regime:
 shadow:
   mode_default: parallel
   mode_values: [legacy_only, new_only, parallel]
+  primary_path_default_parallel: legacy
+  primary_path_values: [legacy, new]
 
 ```
 
@@ -198,6 +200,8 @@ Canonical rule:
 | tradeability.enabled_default | tradeability.enabled |
 | tradeability.notional_total_usdt_default | tradeability.notional_total_usdt |
 | tradeability.notional_chunk_usdt_default | tradeability.notional_chunk_usdt |
+| shadow.mode_default | shadow.mode |
+| shadow.primary_path_default_parallel | shadow.primary_path |
 | tradeability.max_tranches_default | tradeability.max_tranches |
 | tradeability.band_pct_default | tradeability.band_pct |
 | tradeability.max_spread_pct_default | tradeability.max_spread_pct |
@@ -221,7 +225,6 @@ Canonical rule:
 | btc_regime.enabled_default | btc_regime.enabled |
 | btc_regime.mode_default | btc_regime.mode |
 | btc_regime.risk_off_enter_boost_default | btc_regime.risk_off_enter_boost |
-| shadow.mode_default | shadow.mode |
 
 Notes:
 - `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.

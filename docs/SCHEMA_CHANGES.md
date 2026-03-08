@@ -55,6 +55,43 @@ Dieses Dokument protokolliert alle Änderungen an:
 *(Neue Einträge kommen hier darunter)*
 
 
+### 2026-03-08 — schema_version v1.13 → v1.14 — Run-Manifest `pipeline_paths.primary_path` & Umschalttransparenz (additiv)
+**PR:** (branch-local, ticket/2026-03-08_P0_PR-24_umschaltlogik)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `run_manifest.pipeline_paths` enthält zusätzlich:
+  - `primary_path` (`legacy|new`)
+  - `primary_path_source` (`config|default|derived`)
+- Umschaltzustände werden dadurch explizit maschinenlesbar: aktiver Modus, primärer Pfad, Herkunft der Primärwahl.
+- Widersprüchliche Modus/Primärpfad-Kombinationen sind jetzt als invalid spezifiziert (kein stiller Fallback).
+
+#### Warum?
+- PR-24 verlangt deterministische Umschalttransparenz zwischen Legacy- und Decision-first-Pfad ohne heimlichen Primärwechsel.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Additive Felder; bestehende Consumer können neue Felder ignorieren.
+
+#### Migration / Vorgehen
+- Consumer können ab `schema_version >= v1.14` den primären Pfad direkt aus `run_manifest.pipeline_paths.primary_path` lesen und mit `primary_path_source` nachvollziehen, ob die Wahl aus Config, Default oder Modusableitung stammt.
+
+#### Beispiel (kurz)
+```json
+{
+  "schema_version": "v1.14",
+  "run_manifest": {
+    "pipeline_paths": {
+      "shadow_mode": "parallel",
+      "legacy_path_enabled": true,
+      "new_path_enabled": true,
+      "primary_path": "legacy",
+      "primary_path_source": "default"
+    }
+  }
+}
+```
+
 ### 2026-03-08 — schema_version v1.12 → v1.13 — Run-Manifest `pipeline_paths` für Shadow-Mode (additiv)
 **PR:** (branch-local, ticket/pr-23-shadow-mode-parallelbetrieb)  
 **Typ:** additiv

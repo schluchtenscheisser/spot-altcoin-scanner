@@ -29,6 +29,7 @@ from .runtime_market_meta import RuntimeMarketMetaExporter
 from .discovery import compute_discovery_fields
 from .regime import compute_btc_regime
 from .decision import apply_decision_layer
+from .manifest import derive_pipeline_paths
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +161,10 @@ def run_pipeline(config: ScannerConfig) -> None:
     12. Write snapshot for backtests
     """
     run_mode = config.run_mode
-    shadow_mode = config.shadow_mode
-    legacy_path_enabled = shadow_mode in {"legacy_only", "parallel"}
-    new_path_enabled = shadow_mode in {"new_only", "parallel"}
+    pipeline_paths = derive_pipeline_paths(config.raw)
+    shadow_mode = pipeline_paths['shadow_mode']
+    legacy_path_enabled = pipeline_paths['legacy_path_enabled']
+    new_path_enabled = pipeline_paths['new_path_enabled']
     pipeline_start_time = time.perf_counter()
 
     # As-Of Timestamp (einmal pro Run)
@@ -470,11 +472,7 @@ def run_pipeline(config: ScannerConfig) -> None:
             'duration_seconds': time.perf_counter() - pipeline_start_time,
             'shortlist_size_used': config.budget_shortlist_size,
             'orderbook_top_k_used': config.budget_orderbook_top_k,
-            'pipeline_paths': {
-                'shadow_mode': shadow_mode,
-                'legacy_path_enabled': legacy_path_enabled,
-                'new_path_enabled': new_path_enabled,
-            },
+            'pipeline_paths': pipeline_paths,
             'data_freshness': {
                 'exchange_info_ts_utc': exchange_info_ts_utc,
                 'tickers_24h_ts_utc': tickers_24h_ts_utc,

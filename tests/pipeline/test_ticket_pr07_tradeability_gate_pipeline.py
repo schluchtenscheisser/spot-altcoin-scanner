@@ -189,6 +189,8 @@ def test_shadow_mode_legacy_only_disables_new_path_outputs(monkeypatch):
         "shadow_mode": "legacy_only",
         "legacy_path_enabled": True,
         "new_path_enabled": False,
+        "primary_path": "legacy",
+        "primary_path_source": "derived",
     }
 
 
@@ -210,4 +212,6 @@ def test_shadow_mode_new_only_disables_legacy_setup_outputs(monkeypatch):
         "shadow_mode": "new_only",
         "legacy_path_enabled": False,
         "new_path_enabled": True,
+        "primary_path": "new",
+        "primary_path_source": "derived",
     }

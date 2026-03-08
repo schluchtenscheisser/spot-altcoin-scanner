@@ -168,3 +168,24 @@ def test_v421_shadow_new_path_requires_complete_stage_enablement() -> None:
 
     errors = validate_config(ScannerConfig(raw=raw))
     assert "shadow.mode=new_only requires decision.enabled=true" in errors
+
+
+def test_v421_shadow_primary_path_validation_and_contradictions() -> None:
+    invalid = _offline_base()
+    invalid["shadow"] = {"mode": "parallel", "primary_path": "bad"}
+    errors = validate_config(ScannerConfig(raw=invalid))
+    assert "shadow.primary_path must be one of ['legacy', 'new']" in errors
+
+    contradictory = _offline_base()
+    contradictory["shadow"] = {"mode": "legacy_only", "primary_path": "new"}
+    errors = validate_config(ScannerConfig(raw=contradictory))
+    assert "shadow.mode=legacy_only requires shadow.primary_path=legacy" in errors
+
+
+def test_v421_shadow_parallel_allows_missing_primary_path_default_resolution() -> None:
+    raw = _offline_base()
+    raw["shadow"] = {"mode": "parallel"}
+
+    errors = validate_config(ScannerConfig(raw=raw))
+
+    assert errors == []
