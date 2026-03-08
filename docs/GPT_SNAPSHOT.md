@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-08 12:25 UTC  
-**Commit:** `b538c4d` (b538c4dae7654595fcff47cfd337e4a12569a881)  
+**Generated:** 2026-03-08 12:38 UTC  
+**Commit:** `a134f2f` (a134f2ff9cc60da6d58edcd39560f7d4f91a6ede)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -41,7 +41,7 @@
 | `scanner/pipeline/__init__.py` | - | `_to_optional_float`, `_extract_cmc_global_volume_24h`, `_compute_turnover_24h`, `_compute_mexc_share_24h`, `_build_scoring_volume_maps` ... (+3 more) |
 | `scanner/pipeline/backtest_runner.py` | - | `_float_or_none`, `_extract_backtest_config`, `_setup_triggered`, `_evaluate_candidate`, `_summarize` ... (+4 more) |
 | `scanner/pipeline/cross_section.py` | - | `percent_rank_average_ties` |
-| `scanner/pipeline/decision.py` | - | `apply_decision_layer`, `_load_decision_config`, `_expect_number`, `_expect_bool`, `_to_optional_float` ... (+5 more) |
+| `scanner/pipeline/decision.py` | - | `apply_decision_layer`, `_resolve_btc_regime_state`, `_load_decision_config`, `_expect_number`, `_expect_bool` ... (+6 more) |
 | `scanner/pipeline/discovery.py` | - | `_iso_to_ts_ms`, `compute_discovery_fields` |
 | `scanner/pipeline/excel_output.py` | `ExcelReportGenerator` | - |
 | `scanner/pipeline/features.py` | `FeatureEngine` | - |
@@ -77,7 +77,7 @@
 **Statistics:**
 - Total Modules: 44
 - Total Classes: 19
-- Total Functions: 144
+- Total Functions: 145
 
 ---
 
@@ -3239,7 +3239,7 @@ class ShortlistSelector:
 
 ### `scanner/pipeline/regime.py`
 
-**SHA256:** `d451dcb35abfa1ae4ca17222e68212049137c202dd81b29c5887e186c20d527e`
+**SHA256:** `d91b92a42f99c5e4063cb1b2412da752fff19b90a91b0c83a8a73c8857312151`
 
 ```python
 """BTC regime helpers for report-level risk context."""
@@ -3259,17 +3259,23 @@ def compute_btc_regime_from_1d_features(features_1d: Optional[Dict[str, Any]]) -
     ema20 = _to_float(features_1d.get("ema_20"))
     ema50 = _to_float(features_1d.get("ema_50"))
 
-    close_gt_ema50 = (close is not None and ema50 is not None and close > ema50)
-    ema20_gt_ema50 = (ema20 is not None and ema50 is not None and ema20 > ema50)
-    btc_risk_on = bool(close_gt_ema50 and ema20_gt_ema50)
+    close_gt_ema50 = (close > ema50) if close is not None and ema50 is not None else None
+    ema20_gt_ema50 = (ema20 > ema50) if ema20 is not None and ema50 is not None else None
+
+    if close_gt_ema50 is None or ema20_gt_ema50 is None:
+        state = "NEUTRAL"
+    elif close_gt_ema50 and ema20_gt_ema50:
+        state = "RISK_ON"
+    else:
+        state = "RISK_OFF"
 
     return {
-        "state": "RISK_ON" if btc_risk_on else "RISK_OFF",
+        "state": state,
         "multiplier_risk_on": 1.0,
         "multiplier_risk_off": 0.85,
         "checks": {
-            "close_gt_ema50": bool(close_gt_ema50),
-            "ema20_gt_ema50": bool(ema20_gt_ema50),
+            "close_gt_ema50": close_gt_ema50,
+            "ema20_gt_ema50": ema20_gt_ema50,
         },
     }
 
@@ -3281,7 +3287,7 @@ def compute_btc_regime(mexc_client: Any, feature_engine: Any, lookback_1d: int, 
         btc_features = feature_engine.compute_all({"BTCUSDT": {"1d": btc_klines_1d}}, asof_ts_ms=asof_ts_ms)
         return compute_btc_regime_from_1d_features(btc_features.get("BTCUSDT", {}).get("1d", {}))
     except Exception as exc:  # pragma: no cover - defensive runtime fallback
-        logger.warning("BTC regime fallback to RISK_OFF due to recoverable error: %s", exc)
+        logger.warning("BTC regime fallback to NEUTRAL due to recoverable error: %s", exc)
         return compute_btc_regime_from_1d_features({})
 
 
@@ -6027,7 +6033,7 @@ def compute_discovery_fields(
 
 ### `scanner/pipeline/decision.py`
 
-**SHA256:** `da58b707da50e75cb0060a05d6d15afa9535d489b69c979922b5c5bafc632e21`
+**SHA256:** `279c451d27aadbb8a5a48b1ed3cb1e199609633d5489098967d2d9638daf9bbb`
 
 ```python
 """Decision layer for canonical Phase-1 outcomes."""
@@ -6039,6 +6045,8 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional,
 
 ALLOWED_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK", "MARGINAL"}
 ENTER_TRADEABILITY = {"DIRECT_OK", "TRANCHE_OK"}
+VALID_BTC_REGIME_STATES = {"RISK_OFF", "NEUTRAL", "RISK_ON"}
+
 REASON_ORDER = [
     "tradeability_fail",
     "tradeability_marginal",
@@ -6063,12 +6071,14 @@ def apply_decision_layer(
     """Attach deterministic decision state and reasons to fully evaluated candidates."""
 
     cfg = _load_decision_config(config)
-    is_risk_off = str((btc_regime or {}).get("state", "")).upper() == "RISK_OFF"
+    btc_regime_state = _resolve_btc_regime_state(btc_regime)
+    is_risk_off = btc_regime_state == "RISK_OFF"
     enter_threshold = cfg["min_score_for_enter"] + (cfg["risk_off_enter_boost"] if is_risk_off else 0)
 
     out: List[Dict[str, Any]] = []
     for row in candidates:
         entry = dict(row)
+        entry["btc_regime_state"] = btc_regime_state
 
         tradeability_class = _to_optional_str(entry.get("tradeability_class"))
         setup_score = _to_optional_float(entry.get("setup_score"))
@@ -6145,6 +6155,26 @@ def apply_decision_layer(
         out.append(entry)
 
     return out
+
+
+def _resolve_btc_regime_state(btc_regime: Optional[Mapping[str, Any]]) -> str:
+    if btc_regime is None:
+        return "NEUTRAL"
+
+    raw_state = btc_regime.get("state")
+    if raw_state is None:
+        return "NEUTRAL"
+
+    if not isinstance(raw_state, str):
+        raise ValueError("btc_regime.state must be string when provided")
+
+    state = raw_state.strip().upper()
+    if state not in VALID_BTC_REGIME_STATES:
+        raise ValueError(
+            "btc_regime.state must be one of {'RISK_OFF','NEUTRAL','RISK_ON'}"
+        )
+
+    return state
 
 
 def _load_decision_config(config: Mapping[str, Any]) -> Dict[str, Any]:
@@ -10953,7 +10983,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `56ca4791edf280ff8b84801cbe052d262f56d24dcbfddd329342fba90742287c`
+**SHA256:** `bab5fc49083010ab40ae6d7c4133146d9cf3fc8f9111481534d58501b0863071`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -10962,7 +10992,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.10
+schema_version: v1.11
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11002,6 +11032,7 @@ Minimum required fields:
 - `entry_ready`
 - `entry_readiness_reasons`
 - `setup_subtype`
+- `btc_regime_state`
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
@@ -11050,7 +11081,7 @@ When a confirmation is semantically not evaluable due to missing/invalid/non-fin
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `e2254b6aa8943bc5a41fd1861e78bc9f66118e8e06b90f8e62b99df378e036b2`
+**SHA256:** `adeffba2c8a216695ba6ba5e17c360c4b8d83b9fc59f5ff796c526eca7c658bf`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -11086,7 +11117,7 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 ## Breakout Trend 1-5D verification boundaries
 - Trigger lookup window uses `trigger_4h_lookback_bars` (default 30), not a fixed 6-bar window.
 - `_find_breakout_indices` returns `(first_breakout_idx, last_breakout_idx)` over the configured trigger window.
-- In `RISK_OFF`, BTC multiplier never excludes candidates: `0.85` when `rs_override AND liq_ok`, otherwise `0.75`.
+- BTC regime state domain is exactly `{RISK_OFF, NEUTRAL, RISK_ON}` with deterministic parsing (`missing => NEUTRAL`, invalid => validation error).
 - `bb_width_rank_120_4h` is interpreted on percent scale `[0..100]`; defensive rank01 input (`<=1.0`) is multiplied by 100 before scoring.
 
 
@@ -11684,4 +11715,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-08 12:25 UTC_
+_Generated by GitHub Actions • 2026-03-08 12:38 UTC_
