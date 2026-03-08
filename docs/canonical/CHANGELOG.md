@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 5.1.0
+canonical_schema_version: 5.2.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -18,6 +18,11 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
 
+
+## 5.2.0 — trade_candidates canonical JSON SoT
+- Canonicalized the required `trade_candidates` row minimum contract for Phase-1 candidate decisions and risk context.
+- Added deterministic output ordering contract `ENTER > WAIT > NO_TRADE`, then `global_score` desc, then stable tie-breakers.
+- Clarified separation between candidate SoT (`trade_candidates`) and technical run-manifest metadata.
 
 ## 5.1.0 — BTC regime V2 threshold modifier clarity
 - Added explicit Phase-1 BTC regime state contract `{RISK_OFF, NEUTRAL, RISK_ON}` for decision integration.

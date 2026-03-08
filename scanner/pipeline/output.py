@@ -16,6 +16,8 @@ from scanner.schema import REPORT_META_VERSION, REPORT_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
+_DECISION_PRIORITY = {"ENTER": 0, "WAIT": 1, "NO_TRADE": 2}
+
 
 class ReportGenerator:
     """Generates daily reports from scoring results."""
@@ -327,6 +329,92 @@ class ReportGenerator:
             return None
         return numeric
 
+    @staticmethod
+    def _sanitize_reason_list(value: Any) -> List[str]:
+        if not isinstance(value, list):
+            return []
+        out: List[str] = []
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                out.append(item.strip())
+        return out
+
+    @staticmethod
+    def _sanitize_bool_or_none(value: Any) -> Any:
+        if value is None or isinstance(value, bool):
+            return value
+        return None
+
+    @staticmethod
+    def _sanitize_float_or_none(value: Any) -> Any:
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if numeric != numeric:
+            return None
+        return numeric
+
+    @staticmethod
+    def _decision_sort_key(row: Dict[str, Any]) -> Any:
+        decision = str(row.get("decision") or "NO_TRADE").upper()
+        priority = _DECISION_PRIORITY.get(decision, 99)
+        global_score = ReportGenerator._sanitize_float_or_none(row.get("global_score"))
+        score_key = -(global_score if global_score is not None else float("-inf"))
+        return (
+            priority,
+            score_key,
+            str(row.get("symbol") or ""),
+            str(row.get("best_setup_type") or ""),
+        )
+
+    def _build_trade_candidates(self, global_top20: List[Dict[str, Any]], btc_regime: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        regime_state = ((btc_regime or {}).get("state") or "NEUTRAL")
+        candidates: List[Dict[str, Any]] = []
+        for row in global_top20:
+            trade_levels = (row.get("analysis") or {}).get("trade_levels") if isinstance(row.get("analysis"), dict) else {}
+            targets = trade_levels.get("targets") if isinstance(trade_levels, dict) and isinstance(trade_levels.get("targets"), list) else []
+            entry_price = row.get("entry_price_usdt", row.get("price_usdt"))
+            candidate = {
+                "rank": None,
+                "symbol": row.get("symbol"),
+                "coin_name": row.get("coin_name"),
+                "decision": row.get("decision", "NO_TRADE"),
+                "decision_reasons": self._sanitize_reason_list(row.get("decision_reasons")),
+                "entry_price_usdt": self._sanitize_float_or_none(entry_price),
+                "stop_price_initial": self._sanitize_float_or_none(row.get("stop_price_initial")),
+                "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
+                "tp10_price": self._sanitize_float_or_none(row.get("tp10_price", targets[0] if len(targets) >= 1 else None)),
+                "tp20_price": self._sanitize_float_or_none(row.get("tp20_price", targets[1] if len(targets) >= 2 else None)),
+                "rr_to_tp10": self._sanitize_float_or_none(row.get("rr_to_tp10")),
+                "rr_to_tp20": self._sanitize_float_or_none(row.get("rr_to_tp20")),
+                "best_setup_type": row.get("best_setup_type"),
+                "setup_subtype": row.get("setup_subtype"),
+                "setup_score": self._sanitize_float_or_none(row.get("setup_score", row.get("score"))),
+                "global_score": self._sanitize_float_or_none(row.get("global_score", row.get("score"))),
+                "entry_ready": self._sanitize_bool_or_none(row.get("entry_ready")),
+                "entry_readiness_reasons": self._sanitize_reason_list(row.get("entry_readiness_reasons")),
+                "tradeability_class": row.get("tradeability_class"),
+                "execution_mode": row.get("execution_mode", "none"),
+                "spread_pct": self._sanitize_float_or_none(row.get("spread_pct")),
+                "depth_bid_1pct_usd": self._sanitize_float_or_none(row.get("depth_bid_1pct_usd")),
+                "depth_ask_1pct_usd": self._sanitize_float_or_none(row.get("depth_ask_1pct_usd")),
+                "slippage_bps_5k": self._sanitize_float_or_none(row.get("slippage_bps_5k")),
+                "slippage_bps_20k": self._sanitize_float_or_none(row.get("slippage_bps_20k", row.get("slippage_bps"))),
+                "risk_acceptable": self._sanitize_bool_or_none(row.get("risk_acceptable")),
+                "market_cap_usd": self._sanitize_float_or_none(row.get("market_cap_usd", row.get("market_cap"))),
+                "btc_regime": row.get("btc_regime", row.get("btc_regime_state", regime_state)),
+                "flags": row.get("flags", []),
+            }
+            candidates.append(candidate)
+
+        candidates.sort(key=self._decision_sort_key)
+        for idx, row in enumerate(candidates, start=1):
+            row["rank"] = idx
+        return candidates
+
     def generate_json_report(
         self,
         reversal_results: List[Dict[str, Any]],
@@ -376,6 +464,7 @@ class ReportGenerator:
                 'pullbacks': self._with_rank(pullback_results[:self.top_n]),
                 'global_top20': self._with_rank(global_top20[:20])
             },
+            'trade_candidates': self._build_trade_candidates(global_top20[:20], btc_regime=btc_regime),
             'btc_regime': btc_regime or {
                 'state': 'RISK_OFF',
                 'multiplier_risk_on': 1.0,

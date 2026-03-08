@@ -27,6 +27,7 @@ from .snapshot import SnapshotManager
 from .runtime_market_meta import RuntimeMarketMetaExporter
 from .discovery import compute_discovery_fields
 from .regime import compute_btc_regime
+from .decision import apply_decision_layer
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,20 @@ def _enrich_scored_entries_with_market_activity(entries, features):
         entry['global_volume_24h_usd'] = feature_row.get('global_volume_24h_usd')
         entry['turnover_24h'] = feature_row.get('turnover_24h')
         entry['mexc_share_24h'] = feature_row.get('mexc_share_24h')
+        if entry.get('spread_pct') is None:
+            entry['spread_pct'] = feature_row.get('spread_pct')
+        if entry.get('depth_bid_1pct_usd') is None:
+            entry['depth_bid_1pct_usd'] = feature_row.get('depth_bid_1pct_usd')
+        if entry.get('depth_ask_1pct_usd') is None:
+            entry['depth_ask_1pct_usd'] = feature_row.get('depth_ask_1pct_usd')
+        if entry.get('slippage_bps_5k') is None:
+            entry['slippage_bps_5k'] = feature_row.get('slippage_bps_5k')
+        if entry.get('slippage_bps_20k') is None:
+            entry['slippage_bps_20k'] = feature_row.get('slippage_bps_20k')
+        if entry.get('tradeability_class') is None:
+            entry['tradeability_class'] = feature_row.get('tradeability_class')
+        if entry.get('execution_mode') is None:
+            entry['execution_mode'] = feature_row.get('execution_mode')
     return entries
 
 
@@ -314,6 +329,10 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['depth_bid_1pct_usd'] = shortlist_entry.get('depth_bid_1pct_usd')
             features[symbol]['depth_ask_1pct_usd'] = shortlist_entry.get('depth_ask_1pct_usd')
             features[symbol]['orderbook_ok'] = shortlist_entry.get('orderbook_ok')
+            features[symbol]['slippage_bps_5k'] = shortlist_entry.get('slippage_bps_5k')
+            features[symbol]['slippage_bps_20k'] = shortlist_entry.get('slippage_bps_20k')
+            features[symbol]['tradeability_class'] = shortlist_entry.get('tradeability_class')
+            features[symbol]['execution_mode'] = shortlist_entry.get('execution_mode')
             features[symbol]['risk_flags'] = shortlist_entry.get('risk_flags', [])
             features[symbol]['soft_penalties'] = shortlist_entry.get('soft_penalties', {})
         else:
@@ -333,6 +352,10 @@ def run_pipeline(config: ScannerConfig) -> None:
             features[symbol]['depth_bid_1pct_usd'] = None
             features[symbol]['depth_ask_1pct_usd'] = None
             features[symbol]['orderbook_ok'] = None
+            features[symbol]['slippage_bps_5k'] = None
+            features[symbol]['slippage_bps_20k'] = None
+            features[symbol]['tradeability_class'] = None
+            features[symbol]['execution_mode'] = None
             features[symbol]['risk_flags'] = []
             features[symbol]['soft_penalties'] = {}
 
@@ -387,6 +410,7 @@ def run_pipeline(config: ScannerConfig) -> None:
     breakout_results = _enrich_scored_entries_with_market_activity(breakout_results, features)
     pullback_results = _enrich_scored_entries_with_market_activity(pullback_results, features)
     global_top20 = _enrich_scored_entries_with_market_activity(global_top20, features)
+    global_top20 = apply_decision_layer(global_top20, config.raw, btc_regime=btc_regime)
 
     logger.info(f"  ✓ Global Top20: {len(global_top20)} entries")
 

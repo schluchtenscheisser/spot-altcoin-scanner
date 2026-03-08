@@ -33,18 +33,40 @@ Optional:
 
 ## trade_candidates row contract
 Minimum required fields:
+- `rank`
 - `symbol`
-- `setup_id`
-- `setup_score`
-- `global_score`
+- `coin_name`
 - `decision`
 - `decision_reasons`
-- `tradeability_class`
-- `risk_acceptable`
+- `entry_price_usdt`
+- `stop_price_initial`
+- `risk_pct_to_stop`
+- `tp10_price`
+- `tp20_price`
+- `rr_to_tp10`
+- `rr_to_tp20`
+- `best_setup_type`
+- `setup_subtype`
+- `setup_score`
+- `global_score`
 - `entry_ready`
 - `entry_readiness_reasons`
-- `setup_subtype`
-- `btc_regime_state`
+- `tradeability_class`
+- `execution_mode`
+- `spread_pct`
+- `depth_bid_1pct_usd`
+- `depth_ask_1pct_usd`
+- `slippage_bps_5k`
+- `slippage_bps_20k`
+- `risk_acceptable`
+- `market_cap_usd`
+- `btc_regime`
+- `flags`
+
+Deterministic ordering:
+- Primary: `decision` priority `ENTER` > `WAIT` > `NO_TRADE`
+- Secondary for `ENTER` and `WAIT`: `global_score` descending
+- Stable tie-breakers: `symbol` ascending, then `best_setup_type` ascending
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.

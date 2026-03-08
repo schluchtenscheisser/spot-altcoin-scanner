@@ -137,3 +137,160 @@ def test_json_report_adds_explicit_rank_field_per_setup() -> None:
     assert [e["rank"] for e in report["setups"]["reversals"]] == [1, 2]
     assert report["setups"]["breakouts"][0]["rank"] == 1
     assert "rank" not in reversals[0]
+
+
+def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "CCCUSDT",
+            "coin_name": "CCC",
+            "decision": "NO_TRADE",
+            "decision_reasons": ["insufficient_edge"],
+            "price_usdt": 10.0,
+            "stop_price_initial": None,
+            "risk_pct_to_stop": None,
+            "analysis": {"trade_levels": {"targets": [11.0, 12.0]}},
+            "rr_to_tp10": None,
+            "rr_to_tp20": None,
+            "best_setup_type": "reversal",
+            "setup_subtype": "reversal_base_reclaim",
+            "setup_score": 40.0,
+            "global_score": 40.0,
+            "entry_ready": False,
+            "entry_readiness_reasons": ["entry_not_confirmed"],
+            "tradeability_class": "DIRECT_OK",
+            "execution_mode": "direct",
+            "spread_pct": 0.1,
+            "depth_bid_1pct_usd": 100_000.0,
+            "depth_ask_1pct_usd": 100_000.0,
+            "slippage_bps_5k": 10.0,
+            "slippage_bps_20k": 20.0,
+            "risk_acceptable": False,
+            "market_cap": 100_000_000,
+            "flags": ["sample"],
+        },
+        {
+            "symbol": "AAAUSDT",
+            "coin_name": "AAA",
+            "decision": "ENTER",
+            "decision_reasons": [],
+            "price_usdt": 1.0,
+            "stop_price_initial": 0.9,
+            "risk_pct_to_stop": 10.0,
+            "analysis": {"trade_levels": {"targets": [1.1, 1.2]}},
+            "rr_to_tp10": 1.0,
+            "rr_to_tp20": 2.0,
+            "best_setup_type": "breakout",
+            "setup_subtype": "confirmed_breakout",
+            "setup_score": 80.0,
+            "global_score": 80.0,
+            "entry_ready": True,
+            "entry_readiness_reasons": [],
+            "tradeability_class": "DIRECT_OK",
+            "execution_mode": "direct",
+            "spread_pct": 0.05,
+            "depth_bid_1pct_usd": 200_000.0,
+            "depth_ask_1pct_usd": 200_000.0,
+            "slippage_bps_5k": 5.0,
+            "slippage_bps_20k": 12.0,
+            "risk_acceptable": True,
+            "market_cap": 200_000_000,
+            "flags": [],
+        },
+        {
+            "symbol": "BBBUSDT",
+            "coin_name": "BBB",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 2.0,
+            "stop_price_initial": 1.8,
+            "risk_pct_to_stop": 10.0,
+            "analysis": {"trade_levels": {"targets": [2.2, 2.4]}},
+            "rr_to_tp10": 1.0,
+            "rr_to_tp20": 2.0,
+            "best_setup_type": "pullback",
+            "setup_subtype": "pullback_to_ema",
+            "setup_score": 70.0,
+            "global_score": 70.0,
+            "entry_ready": False,
+            "entry_readiness_reasons": ["rebound_not_confirmed"],
+            "tradeability_class": "TRANCHE_OK",
+            "execution_mode": "tranches",
+            "spread_pct": 0.08,
+            "depth_bid_1pct_usd": 150_000.0,
+            "depth_ask_1pct_usd": 150_000.0,
+            "slippage_bps_5k": 8.0,
+            "slippage_bps_20k": 40.0,
+            "risk_acceptable": True,
+            "market_cap": 150_000_000,
+            "flags": [],
+        },
+    ]
+
+    report = generator.generate_json_report([], [], [], global_top20, "2026-03-08", btc_regime={"state": "RISK_OFF"})
+    trade_candidates = report["trade_candidates"]
+
+    assert [row["symbol"] for row in trade_candidates] == ["AAAUSDT", "BBBUSDT", "CCCUSDT"]
+    assert [row["rank"] for row in trade_candidates] == [1, 2, 3]
+
+    required_fields = {
+        "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "stop_price_initial",
+        "risk_pct_to_stop", "tp10_price", "tp20_price", "rr_to_tp10", "rr_to_tp20", "best_setup_type", "setup_subtype",
+        "setup_score", "global_score", "entry_ready", "entry_readiness_reasons", "tradeability_class", "execution_mode",
+        "spread_pct", "depth_bid_1pct_usd", "depth_ask_1pct_usd", "slippage_bps_5k", "slippage_bps_20k", "risk_acceptable",
+        "market_cap_usd", "btc_regime", "flags",
+    }
+    assert required_fields.issubset(trade_candidates[0].keys())
+    assert trade_candidates[0]["tp10_price"] == 1.1
+    assert trade_candidates[0]["tp20_price"] == 1.2
+    assert trade_candidates[0]["btc_regime"] == "RISK_OFF"
+
+
+def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [{
+        "symbol": "NANUSDT",
+        "coin_name": "Nan",
+        "decision": "WAIT",
+        "decision_reasons": ["risk_data_insufficient"],
+        "price_usdt": "bad",
+        "stop_price_initial": "bad",
+        "risk_pct_to_stop": float("nan"),
+        "analysis": {"trade_levels": {"targets": ["bad", None]}},
+        "rr_to_tp10": "bad",
+        "rr_to_tp20": None,
+        "best_setup_type": "breakout",
+        "setup_subtype": "confirmed_breakout",
+        "setup_score": "bad",
+        "global_score": "bad",
+        "entry_ready": "bad",
+        "entry_readiness_reasons": "bad",
+        "tradeability_class": "UNKNOWN",
+        "execution_mode": "none",
+        "spread_pct": "bad",
+        "depth_bid_1pct_usd": "bad",
+        "depth_ask_1pct_usd": "bad",
+        "slippage_bps_5k": "bad",
+        "slippage_bps_20k": "bad",
+        "risk_acceptable": "bad",
+        "market_cap": "bad",
+        "flags": [],
+    }]
+
+    report = generator.generate_json_report([], [], [], global_top20, "2026-03-08")
+    row = report["trade_candidates"][0]
+
+    assert row["entry_price_usdt"] is None
+    assert row["stop_price_initial"] is None
+    assert row["risk_pct_to_stop"] is None
+    assert row["tp10_price"] is None
+    assert row["tp20_price"] is None
+    assert row["rr_to_tp10"] is None
+    assert row["setup_score"] is None
+    assert row["global_score"] is None
+    assert row["entry_ready"] is None
+    assert row["entry_readiness_reasons"] == []
+    assert row["risk_acceptable"] is None
