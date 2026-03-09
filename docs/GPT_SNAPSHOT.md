@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-09 14:19 UTC  
-**Commit:** `fb746bb` (fb746bbcd0481dbebb6cb023493ab9a2448124d8)  
+**Generated:** 2026-03-09 14:54 UTC  
+**Commit:** `b5a4da7` (b5a4da7e504ab8d3fdddcff2ce7ecbb823c20db3)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -963,12 +963,12 @@ if __name__ == "__main__":
 
 ### `scanner/schema.py`
 
-**SHA256:** `cd319833be8109845e21f6c6e5f1084249154db815b2c941cb01e8b7271b3756`
+**SHA256:** `3716c20f54f4b76d6398efd390dac5dbd464ae1b7f915514eccf93a7f1382ad7`
 
 ```python
 """Schema/version constants for scanner outputs."""
 
-REPORT_SCHEMA_VERSION = "v1.15"
+REPORT_SCHEMA_VERSION = "v1.16"
 REPORT_META_VERSION = "1.9"
 
 ```
@@ -4295,7 +4295,7 @@ def apply_liquidity_metrics_to_shortlist(
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `fd482ca9644d156320e7d845e69cd88db50678920e221daedf630a2c53f57247`
+**SHA256:** `45f32fcb4c0f42e1b490fb4e0ce4d038b6ffdc96fbbbff06faca06ed17871060`
 
 ```python
 """
@@ -4340,6 +4340,8 @@ class ExcelReportGenerator:
         ("risk_acceptable", "Risk Acceptable"),
         ("entry_price_usdt", "Entry Price (USDT)"),
         ("current_price_usdt", "Current Price (USDT)"),
+        ("distance_to_entry_pct", "Distance to Entry (%)"),
+        ("entry_state", "Entry State"),
         ("stop_price_initial", "Stop Price Initial"),
         ("risk_pct_to_stop", "Risk % to Stop"),
         ("tp10_price", "TP10 Price"),
@@ -6368,7 +6370,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `2ac36e5471ca2c94322bd2acfb0dd62278cba05583d9fce3b221ea4d75f4b879`
+**SHA256:** `594c5166ecb967a50133e00a855efa0152b435ecb9d9028b275fc59bd6f05bef`
 
 ```python
 """
@@ -6397,6 +6399,8 @@ from .manifest import (
 logger = logging.getLogger(__name__)
 
 _DECISION_PRIORITY = {"ENTER": 0, "WAIT": 1, "NO_TRADE": 2}
+_ENTRY_AT_TRIGGER_TOLERANCE_PCT = 0.25
+_ENTRY_CHASED_THRESHOLD_PCT = 3.0
 
 
 class ReportGenerator:
@@ -6595,6 +6599,8 @@ class ReportGenerator:
         lines.append(f"- risk_acceptable: {self._format_nullable_bool(row.get('risk_acceptable'))}")
         lines.append(f"- rr_to_tp10: {self._format_nullable_float(row.get('rr_to_tp10'))}")
         lines.append(f"- slippage_bps_20k: {self._format_nullable_float(row.get('slippage_bps_20k'))}")
+        lines.append(f"- distance_to_entry_pct: {self._format_nullable_float(row.get('distance_to_entry_pct'))}")
+        lines.append(f"- entry_state: {row.get('entry_state') or 'n/a'}")
         lines.append(f"- spread_pct: {self._format_nullable_float(row.get('spread_pct'), digits=6)}")
         lines.append(f"- depth_bid_1pct_usd: {self._format_nullable_float(row.get('depth_bid_1pct_usd'), digits=2)}")
         lines.append(f"- depth_ask_1pct_usd: {self._format_nullable_float(row.get('depth_ask_1pct_usd'), digits=2)}")
@@ -6833,6 +6839,28 @@ class ReportGenerator:
             str(row.get("best_setup_type") or ""),
         )
 
+
+    @classmethod
+    def _compute_distance_to_entry_pct(cls, entry_price: Any, current_price: Any) -> float | None:
+        entry_numeric = cls._sanitize_positive_float_or_none(entry_price)
+        current_numeric = cls._sanitize_positive_float_or_none(current_price)
+        if entry_numeric is None or current_numeric is None:
+            return None
+        return ((current_numeric / entry_numeric) - 1.0) * 100.0
+
+    @classmethod
+    def _classify_entry_state(cls, distance_to_entry_pct: Any) -> str | None:
+        distance_numeric = cls._sanitize_float_or_none(distance_to_entry_pct)
+        if distance_numeric is None:
+            return None
+        if distance_numeric < -_ENTRY_AT_TRIGGER_TOLERANCE_PCT:
+            return "early"
+        if abs(distance_numeric) <= _ENTRY_AT_TRIGGER_TOLERANCE_PCT:
+            return "at_trigger"
+        if distance_numeric <= _ENTRY_CHASED_THRESHOLD_PCT:
+            return "late"
+        return "chased"
+
     def _build_trade_candidates(self, global_top20: List[Dict[str, Any]], btc_regime: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         regime_state = ((btc_regime or {}).get("state") or "NEUTRAL")
         candidates: List[Dict[str, Any]] = []
@@ -6840,6 +6868,8 @@ class ReportGenerator:
             trade_levels = (row.get("analysis") or {}).get("trade_levels") if isinstance(row.get("analysis"), dict) else {}
             targets = trade_levels.get("targets") if isinstance(trade_levels, dict) and isinstance(trade_levels.get("targets"), list) else []
             entry_price = self._resolve_planned_entry_price(row)
+            current_price = self._sanitize_positive_float_or_none(row.get("price_usdt"))
+            distance_to_entry_pct = self._compute_distance_to_entry_pct(entry_price, current_price)
             candidate = {
                 "rank": None,
                 "symbol": row.get("symbol"),
@@ -6847,7 +6877,9 @@ class ReportGenerator:
                 "decision": row.get("decision", "NO_TRADE"),
                 "decision_reasons": self._sanitize_reason_list(row.get("decision_reasons")),
                 "entry_price_usdt": entry_price,
-                "current_price_usdt": self._sanitize_positive_float_or_none(row.get("price_usdt")),
+                "current_price_usdt": current_price,
+                "distance_to_entry_pct": self._sanitize_float_or_none(distance_to_entry_pct),
+                "entry_state": self._classify_entry_state(distance_to_entry_pct),
                 "stop_price_initial": self._sanitize_float_or_none(row.get("stop_price_initial")),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "tp10_price": self._sanitize_float_or_none(row.get("tp10_price", targets[0] if len(targets) >= 1 else None)),
@@ -11692,7 +11724,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `3d91e39f04d0aa7d4b8cb8327c1efbac952db776f61ccdc747090552f4efa423`
+**SHA256:** `671d4f186db813be420f7b3f46168b05a580fd2788dd7637c24b8c0e8b65a86c`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11701,7 +11733,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.15
+schema_version: v1.16
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11755,6 +11787,8 @@ Minimum required fields:
 - `decision_reasons`
 - `entry_price_usdt`
 - `current_price_usdt`
+- `distance_to_entry_pct`
+- `entry_state`
 - `stop_price_initial`
 - `risk_pct_to_stop`
 - `tp10_price`
@@ -11790,6 +11824,13 @@ Price semantics (authoritative):
   - breakout/reversal: `entry_trigger`
 - `current_price_usdt` MUST represent the current spot price (`price_usdt`) as a separate field.
 - Both fields are nullable and MUST be `null` when missing, non-finite, non-positive, or otherwise not evaluable.
+- `distance_to_entry_pct` MUST be computed as `((current_price_usdt / entry_price_usdt) - 1.0) * 100` when both prices are valid positive finite numbers; otherwise `null`.
+- `entry_state` is a deterministic timing-state enum derived from `distance_to_entry_pct` and MUST be `null` when distance is `null`.
+- Entry-state thresholds (V1):
+  - `early`: `distance_to_entry_pct < -0.25`
+  - `at_trigger`: `-0.25 <= distance_to_entry_pct <= +0.25`
+  - `late`: `+0.25 < distance_to_entry_pct <= +3.00`
+  - `chased`: `distance_to_entry_pct > +3.00`
 
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
@@ -11804,6 +11845,8 @@ Typical nullable fields include (non-exhaustive):
 - `rr_to_tp20`
 - `entry_price_usdt`
 - `current_price_usdt`
+- `distance_to_entry_pct`
+- `entry_state`
 - `spread_bps`
 - `slippage_bps`
 - `global_volume_24h_usd`
@@ -11867,7 +11910,7 @@ Directional Volume preparation namespace (Phase-1 inactive, optional):
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `00a49d6efe7e1c2d05a61af3c7fc8a0fedec2e8945c8800ccfd40767adbcc660`
+**SHA256:** `7ee99cdb77c6448c2cd255fcdf2a5e4680c4c6a5ab6a36fceea206831836105f`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -11940,6 +11983,12 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `UNKNOWN` must remain distinct from `FAIL`; required reason identities include `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`.
 - Missing tradeability config keys use canonical defaults; invalid threshold ordering raises a clear validation error (no silent coercion).
 
+
+## Entry timing verification boundaries
+- `distance_to_entry_pct` uses `((current_price_usdt / entry_price_usdt) - 1.0) * 100` with no UI-rounding dependence.
+- Missing/invalid/non-positive `entry_price_usdt` or `current_price_usdt` yields `distance_to_entry_pct=null` and `entry_state=null`.
+- Entry-state thresholds are deterministic: `early (<-0.25)`, `at_trigger ([-0.25,+0.25])`, `late ((+0.25,+3.00])`, `chased (>+3.00)`.
+- Entry-timing fields are output-only semantics and MUST NOT alter decision, risk, scoring, or ranking behavior.
 
 ## Phase-1 risk computation verification boundaries
 - Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
@@ -12529,4 +12578,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-09 14:19 UTC_
+_Generated by GitHub Actions • 2026-03-09 14:54 UTC_
