@@ -12,9 +12,71 @@ Ziel:
 """
 
 import json
+import math
 import pandas as pd
 from typing import List, Dict, Any
 from scanner.utils.save_raw import save_raw_snapshot
+
+
+_IEEE754_SAFE_INT_MAX = (1 << 53) - 1
+
+
+def _prepare_marketcap_payload_for_normalize(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _prepare_marketcap_payload_for_normalize(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_prepare_marketcap_payload_for_normalize(v) for v in value]
+    if isinstance(value, int) and not isinstance(value, bool) and abs(value) > _IEEE754_SAFE_INT_MAX:
+        return str(value)
+    return value
+
+
+def _is_missing_value(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
+
+
+def _stringify_scalar_for_raw_snapshot(value: Any) -> Any:
+    if _is_missing_value(value):
+        return None
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "nan"
+        if math.isinf(value):
+            return "inf" if value > 0 else "-inf"
+    return str(value)
+
+
+def _sanitize_marketcap_df_for_parquet(df: pd.DataFrame) -> pd.DataFrame:
+    sanitized = df.copy()
+    for col in sanitized.columns:
+        if sanitized[col].dtype != "object":
+            continue
+
+        series = sanitized[col]
+
+        if series.map(lambda v: isinstance(v, (dict, list))).any():
+            series = series.map(
+                lambda v: json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v
+            )
+
+        has_oversized_int = series.map(
+            lambda v: isinstance(v, int) and not isinstance(v, bool) and abs(v) > _IEEE754_SAFE_INT_MAX
+        ).any()
+        has_non_finite_float = series.map(
+            lambda v: isinstance(v, float) and (math.isnan(v) or math.isinf(v))
+        ).any()
+
+        if has_oversized_int or has_non_finite_float:
+            series = series.map(_stringify_scalar_for_raw_snapshot)
+
+        sanitized[col] = series
+
+    return sanitized
 
 
 # ===============================================================
@@ -75,16 +137,13 @@ def collect_raw_marketcap(data: List[Dict[str, Any]]):
         return None
 
     try:
-        # Flach machen: quote.USD.* etc. -> quote__USD__*
-        df = pd.json_normalize(data, sep="__")
+        prepared_data = [_prepare_marketcap_payload_for_normalize(item) for item in data]
 
-        # Restliche dict/list Werte Parquet-sicher machen (als JSON-String)
-        for col in df.columns:
-            if df[col].dtype == "object":
-                if df[col].map(lambda v: isinstance(v, (dict, list))).any():
-                    df[col] = df[col].map(
-                        lambda v: json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v
-                    )
+        # Flach machen: quote.USD.* etc. -> quote__USD__*
+        df = pd.json_normalize(prepared_data, sep="__")
+
+        # Objektspalten parquet-sicher und präzisionsfest bereinigen
+        df = _sanitize_marketcap_df_for_parquet(df)
 
         # Parquet ist hier zwingend (und sollte nach Normalisierung sauber durchlaufen)
         return save_raw_snapshot(df, source_name="marketcap_snapshot", require_parquet=True)
