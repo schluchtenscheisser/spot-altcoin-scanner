@@ -39,6 +39,7 @@ class ExcelReportGenerator:
         ("tradeability_class", "Tradeability Class"),
         ("risk_acceptable", "Risk Acceptable"),
         ("entry_price_usdt", "Entry Price (USDT)"),
+        ("current_price_usdt", "Current Price (USDT)"),
         ("stop_price_initial", "Stop Price Initial"),
         ("risk_pct_to_stop", "Risk % to Stop"),
         ("tp10_price", "TP10 Price"),

@@ -154,7 +154,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "price_usdt": 10.0,
             "stop_price_initial": None,
             "risk_pct_to_stop": None,
-            "analysis": {"trade_levels": {"targets": [11.0, 12.0]}},
+            "analysis": {"trade_levels": {"entry_trigger": 9.5, "targets": [11.0, 12.0]}},
             "rr_to_tp10": None,
             "rr_to_tp20": None,
             "best_setup_type": "reversal",
@@ -182,7 +182,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "price_usdt": 1.0,
             "stop_price_initial": 0.9,
             "risk_pct_to_stop": 10.0,
-            "analysis": {"trade_levels": {"targets": [1.1, 1.2]}},
+            "analysis": {"trade_levels": {"entry_trigger": 0.95, "targets": [1.1, 1.2]}},
             "rr_to_tp10": 1.0,
             "rr_to_tp20": 2.0,
             "best_setup_type": "breakout",
@@ -210,7 +210,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "price_usdt": 2.0,
             "stop_price_initial": 1.8,
             "risk_pct_to_stop": 10.0,
-            "analysis": {"trade_levels": {"targets": [2.2, 2.4]}},
+            "analysis": {"trade_levels": {"entry_zone": {"center": 2.1}, "targets": [2.2, 2.4]}},
             "rr_to_tp10": 1.0,
             "rr_to_tp20": 2.0,
             "best_setup_type": "pullback",
@@ -239,7 +239,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
     assert [row["rank"] for row in trade_candidates] == [1, 2, 3]
 
     required_fields = {
-        "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "stop_price_initial",
+        "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "current_price_usdt", "stop_price_initial",
         "risk_pct_to_stop", "tp10_price", "tp20_price", "rr_to_tp10", "rr_to_tp20", "best_setup_type", "setup_subtype",
         "setup_score", "global_score", "entry_ready", "entry_readiness_reasons", "tradeability_class", "execution_mode",
         "spread_pct", "depth_bid_1pct_usd", "depth_ask_1pct_usd", "slippage_bps_5k", "slippage_bps_20k", "risk_acceptable",
@@ -249,6 +249,12 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
     assert trade_candidates[0]["tp10_price"] == 1.1
     assert trade_candidates[0]["tp20_price"] == 1.2
     assert trade_candidates[0]["btc_regime"] == "RISK_OFF"
+    assert trade_candidates[0]["entry_price_usdt"] == 0.95
+    assert trade_candidates[0]["current_price_usdt"] == 1.0
+    assert trade_candidates[1]["entry_price_usdt"] == 2.1
+    assert trade_candidates[1]["current_price_usdt"] == 2.0
+    assert trade_candidates[2]["entry_price_usdt"] == 9.5
+    assert trade_candidates[2]["current_price_usdt"] == 10.0
 
 
 def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> None:
@@ -262,7 +268,7 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
         "price_usdt": "bad",
         "stop_price_initial": "bad",
         "risk_pct_to_stop": float("nan"),
-        "analysis": {"trade_levels": {"targets": ["bad", None]}},
+        "analysis": {"trade_levels": {"entry_trigger": float("inf"), "targets": ["bad", None]}},
         "rr_to_tp10": "bad",
         "rr_to_tp20": None,
         "best_setup_type": "breakout",
@@ -287,6 +293,7 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
     row = report["trade_candidates"][0]
 
     assert row["entry_price_usdt"] is None
+    assert row["current_price_usdt"] is None
     assert row["stop_price_initial"] is None
     assert row["risk_pct_to_stop"] is None
     assert row["tp10_price"] is None
@@ -297,6 +304,67 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
     assert row["entry_ready"] is None
     assert row["entry_readiness_reasons"] == []
     assert row["risk_acceptable"] is None
+
+
+def test_trade_candidates_uses_setup_planned_entry_and_separate_spot_with_null_edge_cases() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "PULLUSDT",
+            "coin_name": "Pull",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 1.5,
+            "analysis": {"trade_levels": {"entry_zone": {"center": 1.25}}},
+            "best_setup_type": "pullback",
+            "global_score": 30.0,
+        },
+        {
+            "symbol": "BRKUSDT",
+            "coin_name": "Break",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 2.5,
+            "analysis": {"trade_levels": {"entry_trigger": 2.2}},
+            "best_setup_type": "breakout",
+            "global_score": 29.0,
+        },
+        {
+            "symbol": "MISSUSDT",
+            "coin_name": "Missing",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 3.5,
+            "analysis": {},
+            "best_setup_type": "reversal",
+            "global_score": 28.0,
+        },
+        {
+            "symbol": "BADSPOTUSDT",
+            "coin_name": "BadSpot",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": float("-inf"),
+            "analysis": {"trade_levels": {"entry_trigger": 4.4}},
+            "best_setup_type": "reversal",
+            "global_score": 27.0,
+        },
+    ]
+
+    by_symbol = {
+        row["symbol"]: row
+        for row in generator.generate_json_report([], [], [], global_top20, "2026-03-08")["trade_candidates"]
+    }
+
+    assert by_symbol["PULLUSDT"]["entry_price_usdt"] == 1.25
+    assert by_symbol["PULLUSDT"]["current_price_usdt"] == 1.5
+    assert by_symbol["BRKUSDT"]["entry_price_usdt"] == 2.2
+    assert by_symbol["BRKUSDT"]["current_price_usdt"] == 2.5
+    assert by_symbol["MISSUSDT"]["entry_price_usdt"] is None
+    assert by_symbol["MISSUSDT"]["current_price_usdt"] == 3.5
+    assert by_symbol["BADSPOTUSDT"]["entry_price_usdt"] == 4.4
+    assert by_symbol["BADSPOTUSDT"]["current_price_usdt"] is None
 
 
 def test_trade_candidates_directional_volume_preparation_is_optional_and_nullable() -> None:
