@@ -81,5 +81,10 @@ def test_collect_raw_marketcap_mixed_object_column_serialization_is_deterministi
     parquet_path = Path(saved["parquet"])
     df = pd.read_parquet(parquet_path)
 
-    assert df["tags"].tolist() == ['["alpha", "beta"]', '["gamma"]', None]
-    assert df["minted_market_cap"].tolist() == ["-9007199254740993", "inf", None]
+    tags = df["tags"].tolist()
+    assert tags[:2] == ['["alpha", "beta"]', '["gamma"]']
+    assert pd.isna(tags[2])
+
+    minted_values = df["minted_market_cap"].tolist()
+    assert minted_values[:2] == ["-9007199254740993", "inf"]
+    assert pd.isna(minted_values[2])
