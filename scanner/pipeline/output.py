@@ -418,6 +418,35 @@ class ReportGenerator:
             return None
         return numeric
 
+    @classmethod
+    def _sanitize_positive_float_or_none(cls, value: Any) -> Any:
+        numeric = cls._sanitize_float_or_none(value)
+        if numeric is None:
+            return None
+        if numeric in (float("inf"), float("-inf")):
+            return None
+        if numeric <= 0:
+            return None
+        return numeric
+
+    @classmethod
+    def _resolve_planned_entry_price(cls, row: Dict[str, Any]) -> Any:
+        analysis = row.get("analysis")
+        if not isinstance(analysis, dict):
+            return None
+
+        trade_levels = analysis.get("trade_levels")
+        if not isinstance(trade_levels, dict):
+            return None
+
+        setup_type = str(row.get("best_setup_type") or "").lower()
+        if setup_type == "pullback":
+            zone = trade_levels.get("entry_zone")
+            zone = zone if isinstance(zone, dict) else {}
+            return cls._sanitize_positive_float_or_none(zone.get("center"))
+
+        return cls._sanitize_positive_float_or_none(trade_levels.get("entry_trigger"))
+
     @staticmethod
     def _decision_sort_key(row: Dict[str, Any]) -> Any:
         decision = str(row.get("decision") or "NO_TRADE").upper()
@@ -437,14 +466,15 @@ class ReportGenerator:
         for row in global_top20:
             trade_levels = (row.get("analysis") or {}).get("trade_levels") if isinstance(row.get("analysis"), dict) else {}
             targets = trade_levels.get("targets") if isinstance(trade_levels, dict) and isinstance(trade_levels.get("targets"), list) else []
-            entry_price = row.get("entry_price_usdt", row.get("price_usdt"))
+            entry_price = self._resolve_planned_entry_price(row)
             candidate = {
                 "rank": None,
                 "symbol": row.get("symbol"),
                 "coin_name": row.get("coin_name"),
                 "decision": row.get("decision", "NO_TRADE"),
                 "decision_reasons": self._sanitize_reason_list(row.get("decision_reasons")),
-                "entry_price_usdt": self._sanitize_float_or_none(entry_price),
+                "entry_price_usdt": entry_price,
+                "current_price_usdt": self._sanitize_positive_float_or_none(row.get("price_usdt")),
                 "stop_price_initial": self._sanitize_float_or_none(row.get("stop_price_initial")),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "tp10_price": self._sanitize_float_or_none(row.get("tp10_price", targets[0] if len(targets) >= 1 else None)),

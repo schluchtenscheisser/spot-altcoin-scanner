@@ -57,6 +57,7 @@ Minimum required fields:
 - `decision`
 - `decision_reasons`
 - `entry_price_usdt`
+- `current_price_usdt`
 - `stop_price_initial`
 - `risk_pct_to_stop`
 - `tp10_price`
@@ -86,6 +87,13 @@ Deterministic ordering:
 - Secondary for `ENTER` and `WAIT`: `global_score` descending
 - Stable tie-breakers: `symbol` ascending, then `best_setup_type` ascending
 
+Price semantics (authoritative):
+- `entry_price_usdt` MUST represent the planned setup entry anchor from `analysis.trade_levels`:
+  - pullback: `entry_zone.center`
+  - breakout/reversal: `entry_trigger`
+- `current_price_usdt` MUST represent the current spot price (`price_usdt`) as a separate field.
+- Both fields are nullable and MUST be `null` when missing, non-finite, non-positive, or otherwise not evaluable.
+
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
@@ -97,6 +105,8 @@ Typical nullable fields include (non-exhaustive):
 - `risk_pct_to_stop`
 - `rr_to_tp10`
 - `rr_to_tp20`
+- `entry_price_usdt`
+- `current_price_usdt`
 - `spread_bps`
 - `slippage_bps`
 - `global_volume_24h_usd`
@@ -155,4 +165,3 @@ Directional Volume preparation namespace (Phase-1 inactive, optional):
 - `null` means “not evaluated / not used” and MUST NOT be coerced to negative/false signals.
 - Invalid nested values are invalid-contract input and must fail clearly, distinct from missing/null.
 - This namespace is preparatory only and MUST NOT change Phase-1 decision/scoring behavior by itself.
-
