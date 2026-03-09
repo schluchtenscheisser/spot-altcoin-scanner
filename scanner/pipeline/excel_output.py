@@ -167,6 +167,13 @@ class ExcelReportGenerator:
             ws[cell].alignment = Alignment(horizontal="center")
 
         row_idx = 9
+        entry_state_order = ("early", "at_trigger", "late", "chased", "null")
+        entry_state_counts = {state: 0 for state in entry_state_order}
+        for row in trade_candidates:
+            entry_state = row.get("entry_state")
+            key = entry_state if entry_state in {"early", "at_trigger", "late", "chased"} else "null"
+            entry_state_counts[key] += 1
+
         summary_rows = [
             ("Run Date", run_date),
             ("Generated At", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
@@ -174,6 +181,11 @@ class ExcelReportGenerator:
             ("ENTER Candidates", counts["ENTER"]),
             ("WAIT Candidates", counts["WAIT"]),
             ("NO_TRADE Candidates", counts["NO_TRADE"]),
+            ("entry_state_counts_all.early", entry_state_counts["early"]),
+            ("entry_state_counts_all.at_trigger", entry_state_counts["at_trigger"]),
+            ("entry_state_counts_all.late", entry_state_counts["late"]),
+            ("entry_state_counts_all.chased", entry_state_counts["chased"]),
+            ("entry_state_counts_all.null", entry_state_counts["null"]),
             ("run_id", run_manifest.get("run_id")),
             ("canonical_schema_version", run_manifest.get("canonical_schema_version")),
         ]

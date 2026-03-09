@@ -187,3 +187,25 @@ def test_pr22_deterministic_ordering_with_tied_scores_across_formats(tmp_path: P
     excel_second = excel_gen.generate_excel_report(json_second["trade_candidates"], RUN_DATE)
     assert _sheet_symbols_in_order(excel_first) == ["AAAUSDT", "ZZZUSDT"]
     assert _sheet_symbols_in_order(excel_second) == ["AAAUSDT", "ZZZUSDT"]
+
+
+def test_pr22_excel_summary_contains_entry_state_counts(tmp_path: Path) -> None:
+    report_gen = ReportGenerator({"output": {"reports_dir": str(tmp_path)}})
+    excel_gen = ExcelReportGenerator({"output": {"reports_dir": str(tmp_path)}})
+
+    json_report = report_gen.generate_json_report([], [], [], _global_top20_fixture(), RUN_DATE)
+    excel_path = excel_gen.generate_excel_report(json_report["trade_candidates"], RUN_DATE)
+
+    wb = load_workbook(excel_path)
+    ws = wb["Summary"]
+    values = {
+        ws.cell(row=row_idx, column=1).value: ws.cell(row=row_idx, column=2).value
+        for row_idx in range(1, ws.max_row + 1)
+        if ws.cell(row=row_idx, column=1).value is not None
+    }
+
+    assert values["entry_state_counts_all.early"] == 0
+    assert values["entry_state_counts_all.at_trigger"] == 0
+    assert values["entry_state_counts_all.late"] == 0
+    assert values["entry_state_counts_all.chased"] == 0
+    assert values["entry_state_counts_all.null"] == 3

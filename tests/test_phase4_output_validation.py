@@ -514,3 +514,132 @@ def test_trade_candidate_entry_timing_fields_follow_thresholds_and_nullability()
 
     assert by_symbol["NULUSDT"]["distance_to_entry_pct"] is None
     assert by_symbol["NULUSDT"]["entry_state"] is None
+
+
+def test_trade_candidates_adds_diagnostic_timing_reasons_without_reordering_existing_reasons() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "EARLYUSDT",
+            "coin_name": "Early",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 97.0,
+        },
+        {
+            "symbol": "LATEUSDT",
+            "coin_name": "Late",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed", "entry_late"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 101.0,
+        },
+        {
+            "symbol": "CHASEUSDT",
+            "coin_name": "Chase",
+            "decision": "NO_TRADE",
+            "decision_reasons": ["risk_reward_unattractive"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 105.0,
+        },
+    ]
+
+    rows = generator.generate_json_report([], [], [], global_top20, "2026-03-09")["trade_candidates"]
+    by_symbol = {row["symbol"]: row for row in rows}
+
+    assert by_symbol["EARLYUSDT"]["decision_reasons"] == ["entry_not_confirmed", "entry_too_early"]
+    assert by_symbol["LATEUSDT"]["decision_reasons"] == ["entry_not_confirmed", "entry_late"]
+    assert by_symbol["CHASEUSDT"]["decision_reasons"] == ["risk_reward_unattractive", "entry_chased"]
+
+
+def test_trade_candidates_do_not_add_timing_reason_for_at_trigger_or_null() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "ATUSDT",
+            "coin_name": "At",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 100.0,
+        },
+        {
+            "symbol": "NULUSDT",
+            "coin_name": "Null",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": None}},
+            "price_usdt": 100.0,
+        },
+    ]
+
+    rows = generator.generate_json_report([], [], [], global_top20, "2026-03-09")["trade_candidates"]
+    by_symbol = {row["symbol"]: row for row in rows}
+
+    assert by_symbol["ATUSDT"]["decision_reasons"] == ["entry_not_confirmed"]
+    assert by_symbol["NULUSDT"]["decision_reasons"] == ["entry_not_confirmed"]
+
+
+def test_json_summary_contains_entry_state_counts_all_and_by_decision() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [
+        {
+            "symbol": "ENUSDT",
+            "coin_name": "Enter",
+            "decision": "ENTER",
+            "decision_reasons": [],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 97.0,
+        },
+        {
+            "symbol": "WTUSDT",
+            "coin_name": "Wait",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 100.0,
+        },
+        {
+            "symbol": "NTUSDT",
+            "coin_name": "NoTrade",
+            "decision": "NO_TRADE",
+            "decision_reasons": ["risk_reward_unattractive"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": 100.0}},
+            "price_usdt": 102.0,
+        },
+        {
+            "symbol": "NULUSDT",
+            "coin_name": "Null",
+            "decision": "NO_TRADE",
+            "decision_reasons": ["risk_data_insufficient"],
+            "best_setup_type": "breakout",
+            "analysis": {"trade_levels": {"entry_trigger": None}},
+            "price_usdt": 100.0,
+        },
+    ]
+
+    summary = generator.generate_json_report([], [], [], global_top20, "2026-03-09")["summary"]
+
+    assert summary["entry_state_counts_all"] == {
+        "early": 1,
+        "at_trigger": 1,
+        "late": 1,
+        "chased": 0,
+        "null": 1,
+    }
+    assert summary["entry_state_counts_enter"]["early"] == 1
+    assert summary["entry_state_counts_wait"]["at_trigger"] == 1
+    assert summary["entry_state_counts_no_trade"]["late"] == 1
+    assert summary["entry_state_counts_no_trade"]["null"] == 1

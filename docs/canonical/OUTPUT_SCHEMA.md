@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.16
+schema_version: v1.17
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -103,6 +103,16 @@ Price semantics (authoritative):
   - `late`: `+0.25 < distance_to_entry_pct <= +3.00`
   - `chased`: `distance_to_entry_pct > +3.00`
 
+## Summary contract
+- `summary` MUST include setup counters (`reversal_count`, `breakout_count`, `pullback_count`, `total_scored`, `global_top20_count`).
+- `summary` MUST include deterministic entry-state diagnostics over `trade_candidates`:
+  - `entry_state_counts_all`
+  - `entry_state_counts_enter`
+  - `entry_state_counts_wait`
+  - `entry_state_counts_no_trade`
+- Each entry-state-count object MUST contain exactly these keys: `early`, `at_trigger`, `late`, `chased`, `null`.
+- `null` count represents not-evaluable/missing `entry_state`; it MUST NOT be coerced to any timing failure.
+
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
@@ -129,6 +139,12 @@ No implicit bool/number coercion is allowed for nullable fields.
 ## decision_reasons contract
 - `decision_reasons` must preserve deterministic reason identity and ordering.
 - UNKNOWN-path reasons (e.g. `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`) MUST remain distinct.
+- Output-layer diagnostic timing reasons are additive-only and MUST NOT alter decision logic:
+  - `entry_too_early` only when `entry_state=early`
+  - `entry_late` only when `entry_state=late`
+  - `entry_chased` only when `entry_state=chased`
+- For `entry_state=at_trigger` or `entry_state=null`, no new timing reason may be appended.
+- Existing reasons MUST be preserved; timing reasons are appended only if missing (deduplicated, stable order).
 
 ## entry_readiness_reasons contract
 - `entry_readiness_reasons` must be a deterministic list of standardized reason keys (no free text).
