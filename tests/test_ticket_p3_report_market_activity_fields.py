@@ -56,7 +56,16 @@ def test_json_report_contains_market_activity_fields_with_values_and_nulls() -> 
 def test_markdown_formats_nullable_trade_candidate_fields() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
 
-    row = _row("AAAUSDT", decision="WAIT", decision_reasons=["entry_not_confirmed"], global_score=80.0, rr_to_tp10=1.23456, slippage_bps_20k=20.5)
+    row = _row(
+        "AAAUSDT",
+        decision="WAIT",
+        decision_reasons=["entry_not_confirmed"],
+        global_score=80.0,
+        price_usdt=100.0,
+        stop_price_initial=91.9,
+        analysis={"trade_levels": {"entry_trigger": 100.0}},
+        slippage_bps_20k=20.5,
+    )
     md = generator.generate_markdown_report([], [], [], [row], "2026-02-28")
 
     assert "rr_to_tp10: 1.2346" in md
