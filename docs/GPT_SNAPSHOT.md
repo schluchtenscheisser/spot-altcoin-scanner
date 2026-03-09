@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-09 17:27 UTC  
-**Commit:** `feb77ef` (feb77efdbdef3f6f78c73e704e6340d1728c6a72)  
+**Generated:** 2026-03-09 17:35 UTC  
+**Commit:** `6231638` (6231638fe0a5736eb76084cbc0d91e8697556e64)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -4295,7 +4295,7 @@ def apply_liquidity_metrics_to_shortlist(
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `45f32fcb4c0f42e1b490fb4e0ce4d038b6ffdc96fbbbff06faca06ed17871060`
+**SHA256:** `bb4ca28bb4b6abe06cf98e390cd2af2a7dea74e4cb3efeb9116233b73de7754d`
 
 ```python
 """
@@ -4467,6 +4467,13 @@ class ExcelReportGenerator:
             ws[cell].alignment = Alignment(horizontal="center")
 
         row_idx = 9
+        entry_state_order = ("early", "at_trigger", "late", "chased", "null")
+        entry_state_counts = {state: 0 for state in entry_state_order}
+        for row in trade_candidates:
+            entry_state = row.get("entry_state")
+            key = entry_state if entry_state in {"early", "at_trigger", "late", "chased"} else "null"
+            entry_state_counts[key] += 1
+
         summary_rows = [
             ("Run Date", run_date),
             ("Generated At", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
@@ -4474,6 +4481,11 @@ class ExcelReportGenerator:
             ("ENTER Candidates", counts["ENTER"]),
             ("WAIT Candidates", counts["WAIT"]),
             ("NO_TRADE Candidates", counts["NO_TRADE"]),
+            ("entry_state_counts_all.early", entry_state_counts["early"]),
+            ("entry_state_counts_all.at_trigger", entry_state_counts["at_trigger"]),
+            ("entry_state_counts_all.late", entry_state_counts["late"]),
+            ("entry_state_counts_all.chased", entry_state_counts["chased"]),
+            ("entry_state_counts_all.null", entry_state_counts["null"]),
             ("run_id", run_manifest.get("run_id")),
             ("canonical_schema_version", run_manifest.get("canonical_schema_version")),
         ]
@@ -6370,7 +6382,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `594c5166ecb967a50133e00a855efa0152b435ecb9d9028b275fc59bd6f05bef`
+**SHA256:** `1d44ae3c4f37c0e0100712d3749418bf5aff3fe9d3e13bb7af1400963c8594bf`
 
 ```python
 """
@@ -6401,6 +6413,12 @@ logger = logging.getLogger(__name__)
 _DECISION_PRIORITY = {"ENTER": 0, "WAIT": 1, "NO_TRADE": 2}
 _ENTRY_AT_TRIGGER_TOLERANCE_PCT = 0.25
 _ENTRY_CHASED_THRESHOLD_PCT = 3.0
+_ENTRY_STATE_ORDER = ("early", "at_trigger", "late", "chased", "null")
+_ENTRY_STATE_REASON_MAP = {
+    "early": "entry_too_early",
+    "late": "entry_late",
+    "chased": "entry_chased",
+}
 
 
 class ReportGenerator:
@@ -6623,6 +6641,10 @@ class ReportGenerator:
         lines.append(f"- ENTER: {counts['ENTER']}")
         lines.append(f"- WAIT: {counts['WAIT']}")
         lines.append(f"- NO_TRADE: {counts['NO_TRADE']}")
+        entry_state_counts = self._build_entry_state_counts(trade_candidates)
+        lines.append("- entry_state_counts_all:")
+        for state in _ENTRY_STATE_ORDER:
+            lines.append(f"  - {state}: {entry_state_counts[state]}")
 
         regime_state = (btc_regime or {}).get("state")
         if regime_state is not None:
@@ -6861,6 +6883,39 @@ class ReportGenerator:
             return "late"
         return "chased"
 
+    @staticmethod
+    def _entry_state_key(entry_state: Any) -> str:
+        if entry_state in {"early", "at_trigger", "late", "chased"}:
+            return entry_state
+        return "null"
+
+    def _build_entry_state_counts(self, trade_candidates: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts = {state: 0 for state in _ENTRY_STATE_ORDER}
+        for row in trade_candidates:
+            counts[self._entry_state_key(row.get("entry_state"))] += 1
+        return counts
+
+    def _build_entry_state_counts_by_decision(self, trade_candidates: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
+        out: Dict[str, Dict[str, int]] = {
+            "ENTER": {state: 0 for state in _ENTRY_STATE_ORDER},
+            "WAIT": {state: 0 for state in _ENTRY_STATE_ORDER},
+            "NO_TRADE": {state: 0 for state in _ENTRY_STATE_ORDER},
+        }
+        for row in trade_candidates:
+            decision = row.get("decision")
+            if decision in out:
+                out[decision][self._entry_state_key(row.get("entry_state"))] += 1
+        return out
+
+    @staticmethod
+    def _append_timing_reason(decision_reasons: List[str], entry_state: str | None) -> List[str]:
+        timing_reason = _ENTRY_STATE_REASON_MAP.get(entry_state)
+        if timing_reason is None:
+            return list(decision_reasons)
+        if timing_reason in decision_reasons:
+            return list(decision_reasons)
+        return [*decision_reasons, timing_reason]
+
     def _build_trade_candidates(self, global_top20: List[Dict[str, Any]], btc_regime: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         regime_state = ((btc_regime or {}).get("state") or "NEUTRAL")
         candidates: List[Dict[str, Any]] = []
@@ -6870,16 +6925,21 @@ class ReportGenerator:
             entry_price = self._resolve_planned_entry_price(row)
             current_price = self._sanitize_positive_float_or_none(row.get("price_usdt"))
             distance_to_entry_pct = self._compute_distance_to_entry_pct(entry_price, current_price)
+            entry_state = self._classify_entry_state(distance_to_entry_pct)
+            decision_reasons = self._append_timing_reason(
+                self._sanitize_reason_list(row.get("decision_reasons")),
+                entry_state,
+            )
             candidate = {
                 "rank": None,
                 "symbol": row.get("symbol"),
                 "coin_name": row.get("coin_name"),
                 "decision": row.get("decision", "NO_TRADE"),
-                "decision_reasons": self._sanitize_reason_list(row.get("decision_reasons")),
+                "decision_reasons": decision_reasons,
                 "entry_price_usdt": entry_price,
                 "current_price_usdt": current_price,
                 "distance_to_entry_pct": self._sanitize_float_or_none(distance_to_entry_pct),
-                "entry_state": self._classify_entry_state(distance_to_entry_pct),
+                "entry_state": entry_state,
                 "stop_price_initial": self._sanitize_float_or_none(row.get("stop_price_initial")),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "tp10_price": self._sanitize_float_or_none(row.get("tp10_price", targets[0] if len(targets) >= 1 else None)),
@@ -6988,6 +7048,7 @@ class ReportGenerator:
         """
         trade_candidates = self._build_trade_candidates(global_top20[:20], btc_regime=btc_regime)
         run_manifest = self._build_run_manifest(run_date=run_date, metadata=metadata, trade_candidates=trade_candidates)
+        entry_state_counts_by_decision = self._build_entry_state_counts_by_decision(trade_candidates)
 
         report = {
             'schema_version': REPORT_SCHEMA_VERSION,
@@ -7001,7 +7062,11 @@ class ReportGenerator:
                 'breakout_count': len(breakout_results),
                 'pullback_count': len(pullback_results),
                 'total_scored': len(reversal_results) + len(breakout_results) + len(pullback_results),
-                'global_top20_count': len(global_top20)
+                'global_top20_count': len(global_top20),
+                'entry_state_counts_all': self._build_entry_state_counts(trade_candidates),
+                'entry_state_counts_enter': entry_state_counts_by_decision['ENTER'],
+                'entry_state_counts_wait': entry_state_counts_by_decision['WAIT'],
+                'entry_state_counts_no_trade': entry_state_counts_by_decision['NO_TRADE'],
             },
             'setups': {
                 'reversals': self._with_rank(reversal_results[:self.top_n]),
@@ -11724,7 +11789,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `671d4f186db813be420f7b3f46168b05a580fd2788dd7637c24b8c0e8b65a86c`
+**SHA256:** `9971f42eb0cf3f4073192ac161f37068a11baa8087d636c37f645c73afd76491`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11733,7 +11798,7 @@ Notes:
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.16
+schema_version: v1.17
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -11832,6 +11897,16 @@ Price semantics (authoritative):
   - `late`: `+0.25 < distance_to_entry_pct <= +3.00`
   - `chased`: `distance_to_entry_pct > +3.00`
 
+## Summary contract
+- `summary` MUST include setup counters (`reversal_count`, `breakout_count`, `pullback_count`, `total_scored`, `global_top20_count`).
+- `summary` MUST include deterministic entry-state diagnostics over `trade_candidates`:
+  - `entry_state_counts_all`
+  - `entry_state_counts_enter`
+  - `entry_state_counts_wait`
+  - `entry_state_counts_no_trade`
+- Each entry-state-count object MUST contain exactly these keys: `early`, `at_trigger`, `late`, `chased`, `null`.
+- `null` count represents not-evaluable/missing `entry_state`; it MUST NOT be coerced to any timing failure.
+
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
@@ -11858,6 +11933,12 @@ No implicit bool/number coercion is allowed for nullable fields.
 ## decision_reasons contract
 - `decision_reasons` must preserve deterministic reason identity and ordering.
 - UNKNOWN-path reasons (e.g. `orderbook_data_missing`, `orderbook_data_stale`, `orderbook_not_in_budget`) MUST remain distinct.
+- Output-layer diagnostic timing reasons are additive-only and MUST NOT alter decision logic:
+  - `entry_too_early` only when `entry_state=early`
+  - `entry_late` only when `entry_state=late`
+  - `entry_chased` only when `entry_state=chased`
+- For `entry_state=at_trigger` or `entry_state=null`, no new timing reason may be appended.
+- Existing reasons MUST be preserved; timing reasons are appended only if missing (deduplicated, stable order).
 
 ## entry_readiness_reasons contract
 - `entry_readiness_reasons` must be a deterministic list of standardized reason keys (no free text).
@@ -12578,4 +12659,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-09 17:27 UTC_
+_Generated by GitHub Actions • 2026-03-09 17:35 UTC_
