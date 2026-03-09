@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-09 09:54 UTC  
-**Commit:** `249bf69` (249bf69259afbdccfcf7002c610e1b84ad8c0b56)  
+**Generated:** 2026-03-09 10:06 UTC  
+**Commit:** `3b84b1c` (3b84b1cf9ce5165e2443686eddc58d3509e6c67f)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -4295,7 +4295,7 @@ def apply_liquidity_metrics_to_shortlist(
 
 ### `scanner/pipeline/excel_output.py`
 
-**SHA256:** `846e3eb752351b98beca26144324dbe4590a6f30aa262461350107eae9669118`
+**SHA256:** `fd482ca9644d156320e7d845e69cd88db50678920e221daedf630a2c53f57247`
 
 ```python
 """
@@ -4339,6 +4339,7 @@ class ExcelReportGenerator:
         ("tradeability_class", "Tradeability Class"),
         ("risk_acceptable", "Risk Acceptable"),
         ("entry_price_usdt", "Entry Price (USDT)"),
+        ("current_price_usdt", "Current Price (USDT)"),
         ("stop_price_initial", "Stop Price Initial"),
         ("risk_pct_to_stop", "Risk % to Stop"),
         ("tp10_price", "TP10 Price"),
@@ -6367,7 +6368,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `03b9e020a3fb3f7d8732a08c4395014eca4db691a7a8115be40014f3d34df95b`
+**SHA256:** `2ac36e5471ca2c94322bd2acfb0dd62278cba05583d9fce3b221ea4d75f4b879`
 
 ```python
 """
@@ -6790,6 +6791,35 @@ class ReportGenerator:
             return None
         return numeric
 
+    @classmethod
+    def _sanitize_positive_float_or_none(cls, value: Any) -> Any:
+        numeric = cls._sanitize_float_or_none(value)
+        if numeric is None:
+            return None
+        if numeric in (float("inf"), float("-inf")):
+            return None
+        if numeric <= 0:
+            return None
+        return numeric
+
+    @classmethod
+    def _resolve_planned_entry_price(cls, row: Dict[str, Any]) -> Any:
+        analysis = row.get("analysis")
+        if not isinstance(analysis, dict):
+            return None
+
+        trade_levels = analysis.get("trade_levels")
+        if not isinstance(trade_levels, dict):
+            return None
+
+        setup_type = str(row.get("best_setup_type") or "").lower()
+        if setup_type == "pullback":
+            zone = trade_levels.get("entry_zone")
+            zone = zone if isinstance(zone, dict) else {}
+            return cls._sanitize_positive_float_or_none(zone.get("center"))
+
+        return cls._sanitize_positive_float_or_none(trade_levels.get("entry_trigger"))
+
     @staticmethod
     def _decision_sort_key(row: Dict[str, Any]) -> Any:
         decision = str(row.get("decision") or "NO_TRADE").upper()
@@ -6809,14 +6839,15 @@ class ReportGenerator:
         for row in global_top20:
             trade_levels = (row.get("analysis") or {}).get("trade_levels") if isinstance(row.get("analysis"), dict) else {}
             targets = trade_levels.get("targets") if isinstance(trade_levels, dict) and isinstance(trade_levels.get("targets"), list) else []
-            entry_price = row.get("entry_price_usdt", row.get("price_usdt"))
+            entry_price = self._resolve_planned_entry_price(row)
             candidate = {
                 "rank": None,
                 "symbol": row.get("symbol"),
                 "coin_name": row.get("coin_name"),
                 "decision": row.get("decision", "NO_TRADE"),
                 "decision_reasons": self._sanitize_reason_list(row.get("decision_reasons")),
-                "entry_price_usdt": self._sanitize_float_or_none(entry_price),
+                "entry_price_usdt": entry_price,
+                "current_price_usdt": self._sanitize_positive_float_or_none(row.get("price_usdt")),
                 "stop_price_initial": self._sanitize_float_or_none(row.get("stop_price_initial")),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "tp10_price": self._sanitize_float_or_none(row.get("tp10_price", targets[0] if len(targets) >= 1 else None)),
@@ -11661,7 +11692,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `44d84b2390dae8365c8b165ce2840418243e82f8b5d3fb52b77ec3cda4a64a57`
+**SHA256:** `3d91e39f04d0aa7d4b8cb8327c1efbac952db776f61ccdc747090552f4efa423`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11723,6 +11754,7 @@ Minimum required fields:
 - `decision`
 - `decision_reasons`
 - `entry_price_usdt`
+- `current_price_usdt`
 - `stop_price_initial`
 - `risk_pct_to_stop`
 - `tp10_price`
@@ -11752,6 +11784,13 @@ Deterministic ordering:
 - Secondary for `ENTER` and `WAIT`: `global_score` descending
 - Stable tie-breakers: `symbol` ascending, then `best_setup_type` ascending
 
+Price semantics (authoritative):
+- `entry_price_usdt` MUST represent the planned setup entry anchor from `analysis.trade_levels`:
+  - pullback: `entry_zone.center`
+  - breakout/reversal: `entry_trigger`
+- `current_price_usdt` MUST represent the current spot price (`price_usdt`) as a separate field.
+- Both fields are nullable and MUST be `null` when missing, non-finite, non-positive, or otherwise not evaluable.
+
 ## Nullable rules (authoritative)
 Whenever a field is semantically not evaluable, value MUST remain `null`.
 
@@ -11763,6 +11802,8 @@ Typical nullable fields include (non-exhaustive):
 - `risk_pct_to_stop`
 - `rr_to_tp10`
 - `rr_to_tp20`
+- `entry_price_usdt`
+- `current_price_usdt`
 - `spread_bps`
 - `slippage_bps`
 - `global_volume_24h_usd`
@@ -11821,7 +11862,6 @@ Directional Volume preparation namespace (Phase-1 inactive, optional):
 - `null` means “not evaluated / not used” and MUST NOT be coerced to negative/false signals.
 - Invalid nested values are invalid-contract input and must fail clearly, distinct from missing/null.
 - This namespace is preparatory only and MUST NOT change Phase-1 decision/scoring behavior by itself.
-
 
 ```
 
@@ -12489,4 +12529,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-09 09:54 UTC_
+_Generated by GitHub Actions • 2026-03-09 10:06 UTC_
