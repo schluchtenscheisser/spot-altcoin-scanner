@@ -445,6 +445,9 @@ class ReportGenerator:
 
     @classmethod
     def _resolve_planned_entry_price(cls, row: Dict[str, Any]) -> Any:
+        if "entry_price_usdt" in row:
+            return cls._sanitize_positive_float_or_none(row.get("entry_price_usdt"))
+
         analysis = row.get("analysis")
         if not isinstance(analysis, dict):
             return None

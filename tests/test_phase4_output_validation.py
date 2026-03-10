@@ -468,6 +468,57 @@ def test_trade_candidates_uses_setup_planned_entry_and_separate_spot_with_null_e
     assert by_symbol["BADSPOTUSDT"]["current_price_usdt"] is None
 
 
+
+
+def test_trade_candidates_prefers_top_level_entry_price_over_analysis_trade_levels() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [{
+        "symbol": "ENTRYUSDT",
+        "coin_name": "Entry",
+        "decision": "WAIT",
+        "decision_reasons": ["entry_not_confirmed"],
+        "price_usdt": 101.0,
+        "entry_price_usdt": 100.0,
+        "stop_price_initial": 95.0,
+        "analysis": {"trade_levels": {"entry_trigger": 80.0, "targets": [88.0, 96.0]}},
+        "best_setup_type": "breakout",
+        "global_score": 10.0,
+    }]
+
+    row = generator.generate_json_report([], [], [], global_top20, "2026-03-10")["trade_candidates"][0]
+
+    assert row["entry_price_usdt"] == pytest.approx(100.0)
+    assert row["tp10_price"] == pytest.approx(110.0)
+    assert row["tp20_price"] == pytest.approx(120.0)
+    assert row["rr_to_tp10"] == pytest.approx(2.0)
+    assert row["rr_to_tp20"] == pytest.approx(4.0)
+
+
+def test_trade_candidates_invalid_top_level_entry_does_not_fallback_to_analysis() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
+
+    global_top20 = [{
+        "symbol": "BADENTRYUSDT",
+        "coin_name": "BadEntry",
+        "decision": "WAIT",
+        "decision_reasons": ["entry_not_confirmed"],
+        "price_usdt": 101.0,
+        "entry_price_usdt": float("inf"),
+        "stop_price_initial": 95.0,
+        "analysis": {"trade_levels": {"entry_trigger": 100.0, "targets": [110.0, 120.0]}},
+        "best_setup_type": "breakout",
+        "global_score": 10.0,
+    }]
+
+    row = generator.generate_json_report([], [], [], global_top20, "2026-03-10")["trade_candidates"][0]
+
+    assert row["entry_price_usdt"] is None
+    assert row["tp10_price"] is None
+    assert row["tp20_price"] is None
+    assert row["rr_to_tp10"] is None
+    assert row["rr_to_tp20"] is None
+
 def test_trade_candidates_directional_volume_preparation_is_optional_and_nullable() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
 

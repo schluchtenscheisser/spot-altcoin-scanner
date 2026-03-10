@@ -88,6 +88,7 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Missing/invalid/non-positive/non-finite `entry_price_usdt` yields `tp10_price=null`, `tp20_price=null`, `rr_to_tp10=null`, `rr_to_tp20=null`.
 - Missing/invalid/non-positive `stop_price_initial` or `stop_price_initial >= entry_price_usdt` yields `rr_to_tp10=null`, `rr_to_tp20=null` while TP orientation prices remain evaluable from valid entry.
 - Analysis/scorer raw target fields (e.g. `analysis.trade_levels.targets`) may exist for analysis, but must not override canonical TP/RR output fields.
+- Drift guard: reports that keep `tp10_price`/`tp20_price` fields but show RR values numerically matching legacy scorer-target behavior (typical `rr_to_tp10≈0.5`, `rr_to_tp20≈1.0` despite different entry/stop-implied canonical RR) must fail verification.
 
 
 ## Scorer V2 readiness verification boundaries

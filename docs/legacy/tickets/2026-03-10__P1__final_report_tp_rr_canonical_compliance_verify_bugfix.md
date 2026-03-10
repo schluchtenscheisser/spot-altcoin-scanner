@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Final report TP/RR canonical compliance hart absichern und gegen 2026-03-10 regressionsfest verifizieren
 
