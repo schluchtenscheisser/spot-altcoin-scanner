@@ -589,6 +589,7 @@ class ReportGenerator:
                 "distance_to_entry_pct": self._sanitize_float_or_none(distance_to_entry_pct),
                 "entry_state": entry_state,
                 "stop_price_initial": stop_price_initial,
+                "stop_source": row.get("stop_source"),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "target_1_price": self._sanitize_float_or_none(target_1_price),
                 "target_2_price": self._sanitize_float_or_none(target_2_price),

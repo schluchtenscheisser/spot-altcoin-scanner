@@ -240,7 +240,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
     assert [row["rank"] for row in trade_candidates] == [1, 2, 3]
 
     required_fields = {
-        "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "current_price_usdt", "stop_price_initial",
+        "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "current_price_usdt", "stop_price_initial", "stop_source",
         "risk_pct_to_stop", "target_1_price", "target_2_price", "rr_to_target_1", "rr_to_target_2", "distance_to_entry_pct", "entry_state", "best_setup_type", "setup_subtype",
         "setup_score", "global_score", "entry_ready", "entry_readiness_reasons", "tradeability_class", "execution_mode",
         "spread_pct", "depth_bid_1pct_usd", "depth_ask_1pct_usd", "slippage_bps_5k", "slippage_bps_20k", "risk_acceptable",
@@ -249,6 +249,7 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
     assert required_fields.issubset(trade_candidates[0].keys())
     assert trade_candidates[0]["target_1_price"] == pytest.approx(1.1)
     assert trade_candidates[0]["target_2_price"] == pytest.approx(1.2)
+    assert trade_candidates[0]["stop_source"] is None
     assert trade_candidates[0]["rr_to_target_1"] == pytest.approx(3.0)
     assert trade_candidates[0]["rr_to_target_2"] == pytest.approx(5.0)
     assert trade_candidates[0]["btc_regime"] == "RISK_OFF"

@@ -18,14 +18,31 @@ def _risk_cfg(**overrides):
     return {"risk": risk}
 
 
-def _trade_levels(entry=100.0, atr=2.0, tp10=110.0, tp20=120.0):
-    return {"entry_trigger": entry, "atr_value": atr, "targets": [tp10, tp20]}
+def _trade_levels(entry=100.0, atr=2.0, tp10=110.0, tp20=120.0, invalidation=None):
+    return {
+        "entry_trigger": entry,
+        "atr_value": atr,
+        "targets": [tp10, tp20],
+        "invalidation": invalidation,
+    }
 
 
-def test_risk_stop_calculation_default_path() -> None:
+def test_risk_uses_valid_invalidation_before_atr_fallback() -> None:
+    fields = compute_phase1_risk_fields("breakout", _trade_levels(invalidation=97.0), _risk_cfg())
+
+    assert fields["stop_price_initial"] == pytest.approx(97.0)
+    assert fields["stop_source"] == "invalidation"
+    assert fields["risk_pct_to_stop"] == pytest.approx(3.0)
+    assert fields["rr_to_target_1"] == pytest.approx(10.0 / 3.0)
+    assert fields["rr_to_target_2"] == pytest.approx(20.0 / 3.0)
+    assert fields["risk_acceptable"] is False
+
+
+def test_risk_stop_calculation_falls_back_to_atr_path() -> None:
     fields = compute_phase1_risk_fields("breakout", _trade_levels(), _risk_cfg())
 
     assert fields["stop_price_initial"] == pytest.approx(96.0)
+    assert fields["stop_source"] == "atr_fallback"
     assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
     assert fields["rr_to_target_1"] == pytest.approx(2.5)
     assert fields["rr_to_target_2"] == pytest.approx(5.0)
@@ -64,19 +81,69 @@ def test_risk_rr_threshold_true_and_false() -> None:
     assert unattractive["risk_acceptable"] is False
 
 
+@pytest.mark.parametrize("invalidation", [math.nan, math.inf, -math.inf, 100.0, 101.0, -1.0, 0.0])
+def test_invalid_invalidation_is_ignored_and_atr_fallback_used(invalidation: float) -> None:
+    fields = compute_phase1_risk_fields("breakout", _trade_levels(invalidation=invalidation), _risk_cfg())
+
+    assert fields["stop_price_initial"] == pytest.approx(96.0)
+    assert fields["stop_source"] == "atr_fallback"
+    assert fields["risk_acceptable"] is True
+
+
+def test_no_valid_invalidation_and_no_valid_atr_keeps_all_risk_fields_nullable() -> None:
+    fields = compute_phase1_risk_fields("breakout", _trade_levels(atr=None, invalidation=101.0), _risk_cfg())
+
+    assert fields["stop_price_initial"] is None
+    assert fields["stop_source"] is None
+    assert fields["risk_pct_to_stop"] is None
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
+    assert fields["risk_acceptable"] is None
+
+
+def test_stop_and_risk_distance_available_when_targets_missing() -> None:
+    fields = compute_phase1_risk_fields(
+        "breakout",
+        {"entry_trigger": 100.0, "atr_value": 2.0, "targets": [None, 120.0], "invalidation": 98.0},
+        _risk_cfg(),
+    )
+
+    assert fields["stop_price_initial"] == pytest.approx(98.0)
+    assert fields["stop_source"] == "invalidation"
+    assert fields["risk_pct_to_stop"] == pytest.approx(2.0)
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
+    assert fields["risk_acceptable"] is None
+
+
 @pytest.mark.parametrize(
     "trade_levels",
     [
         {"entry_trigger": 100.0, "targets": [110.0, 120.0]},
         {"atr_value": 2.0, "targets": [110.0, 120.0]},
-        {"entry_trigger": 100.0, "atr_value": 2.0, "targets": [None, 120.0]},
     ],
 )
 def test_missing_required_inputs_keep_risk_nullable(trade_levels) -> None:
     fields = compute_phase1_risk_fields("breakout", trade_levels, _risk_cfg())
 
     assert fields["stop_price_initial"] is None
+    assert fields["stop_source"] is None
     assert fields["risk_pct_to_stop"] is None
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
+    assert fields["risk_acceptable"] is None
+
+
+def test_missing_targets_keep_rr_and_acceptability_nullable_but_preserve_stop_fields() -> None:
+    fields = compute_phase1_risk_fields(
+        "breakout",
+        {"entry_trigger": 100.0, "atr_value": 2.0, "targets": [None, 120.0]},
+        _risk_cfg(),
+    )
+
+    assert fields["stop_price_initial"] == pytest.approx(96.0)
+    assert fields["stop_source"] == "atr_fallback"
+    assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
     assert fields["rr_to_target_1"] is None
     assert fields["rr_to_target_2"] is None
     assert fields["risk_acceptable"] is None
@@ -87,6 +154,7 @@ def test_non_finite_inputs_are_not_evaluable(value: float) -> None:
     fields = compute_phase1_risk_fields("breakout", _trade_levels(atr=value), _risk_cfg())
 
     assert fields["stop_price_initial"] is None
+    assert fields["stop_source"] is None
     assert fields["risk_pct_to_stop"] is None
     assert fields["rr_to_target_1"] is None
     assert fields["rr_to_target_2"] is None
@@ -104,8 +172,14 @@ def test_non_finite_entry_and_targets_are_not_evaluable(field: str) -> None:
         _risk_cfg(),
     )
 
-    assert fields["stop_price_initial"] is None
-    assert fields["risk_pct_to_stop"] is None
+    if field == "entry":
+        assert fields["stop_price_initial"] is None
+        assert fields["stop_source"] is None
+        assert fields["risk_pct_to_stop"] is None
+    else:
+        assert fields["stop_price_initial"] == pytest.approx(96.0)
+        assert fields["stop_source"] == "atr_fallback"
+        assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
     assert fields["rr_to_target_1"] is None
     assert fields["rr_to_target_2"] is None
     assert fields["risk_acceptable"] is None
@@ -115,6 +189,7 @@ def test_missing_risk_keys_use_defaults_in_compute() -> None:
     fields = compute_phase1_risk_fields("breakout", _trade_levels(), {"risk": {}})
 
     assert fields["stop_price_initial"] == pytest.approx(96.0)
+    assert fields["stop_source"] == "atr_fallback"
     assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
     assert fields["risk_acceptable"] is True
 

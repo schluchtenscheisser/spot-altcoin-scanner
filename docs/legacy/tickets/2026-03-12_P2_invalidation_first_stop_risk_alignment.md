@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Make stop/risk derivation invalidation-first with ATR fallback and align risk outputs to setup truth
 

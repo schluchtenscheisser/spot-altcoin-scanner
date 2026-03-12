@@ -74,7 +74,7 @@ Define the Phase-1 execution order and stop rules so downstream PRs implement on
 - Setup scorers may add optional context fields `invalidation_anchor_price`, `invalidation_anchor_type`, `invalidation_derivable`; these are additive and must not alter risk/decision semantics in Phase 1.
 
 ### 9) Risk model
-- Compute ATR-default stop and risk metrics (`stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable`).
+- Compute invalidation-first stop with ATR fallback and risk metrics (`stop_price_initial`, `stop_source`, `risk_pct_to_stop`, `rr_to_target_1`, `rr_to_target_2`, `risk_acceptable`).
 - Risk blockers from repo authority are applied (see `RISK_MODEL.md`).
 
 ### 10) Decision layer

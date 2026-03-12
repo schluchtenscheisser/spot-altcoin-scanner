@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 6.0.0
+canonical_schema_version: 6.1.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -19,6 +19,11 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
 
 
+
+## 6.1.0 — Invalidation-first stop derivation with ATR fallback
+- Canonicalized deterministic stop-source priority: setup `invalidation` first, then ATR fallback, else nullable stop/risk path.
+- Added `stop_source` contract (`invalidation|atr_fallback|null`) to align risk outputs with setup truth.
+- Clarified nullable evaluation behavior: evaluable stop/risk distance may coexist with nullable RR/acceptability when targets are not evaluable.
 
 ## 6.0.0 — Remove fixed TP10/TP20 output semantics (breaking)
 - Breaking canonical output contract: removed fixed-percentage `tp10_price`/`tp20_price` and `rr_to_tp10`/`rr_to_tp20` runtime fields.

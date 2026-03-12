@@ -28,6 +28,9 @@ A candidate can be `ENTER` only if all are true:
 3. Risk is evaluable and acceptable (`risk_acceptable = true`).
 4. `setup_score` meets configured ENTER threshold.
 
+Risk consistency rule:
+- Decision evaluation MUST use the same effective stop as risk computation (`stop_price_initial` selected by `stop_source`), with no alternate hidden stop model.
+
 ## WAIT semantics
 - `WAIT` applies only to fully evaluated candidates.
 - Typical WAIT causes: valid setup but below ENTER threshold, timing/confirmation pending, or `MARGINAL` execution quality.

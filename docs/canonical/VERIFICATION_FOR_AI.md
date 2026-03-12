@@ -76,9 +76,14 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Entry-timing fields are output-only semantics and MUST NOT alter decision, risk, scoring, or ranking behavior.
 
 ## Phase-1 risk computation verification boundaries
-- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_target_1`, `rr_to_target_2`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
+- Risk fields include `stop_source` with allowed values `invalidation`, `atr_fallback`, `null`.
+- Stop selection is deterministic and invalidation-first:
+  1) valid setup invalidation below entry
+  2) else valid ATR fallback below entry
+  3) else non-evaluable (`null`) stop/risk path
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
-- Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
+- Missing required stop inputs and invalid stop inputs are non-evaluable paths and must keep stop/risk fields nullable (`null`) without coercion.
+- If stop/risk distance is evaluable but targets are not evaluable, RR fields and `risk_acceptable` remain `null` while `stop_price_initial`/`stop_source`/`risk_pct_to_stop` remain populated.
 - `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_target_1` are evaluable.
 
 

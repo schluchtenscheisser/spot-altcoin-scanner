@@ -61,6 +61,7 @@ Minimum required fields:
 - `distance_to_entry_pct`
 - `entry_state`
 - `stop_price_initial`
+- `stop_source`
 - `risk_pct_to_stop`
 - `target_1_price`
 - `target_2_price`
@@ -105,6 +106,8 @@ Price semantics (authoritative):
   - `chased`: `distance_to_entry_pct > +3.00`
 
 Target / RR semantics (authoritative):
+- `stop_source` MUST be `invalidation`, `atr_fallback`, or `null`.
+- `stop_price_initial` MUST be derived from the selected `stop_source` and match risk-model stop selection deterministically.
 - `target_1_price`/`target_2_price`/`target_3_price` MUST be derived exclusively from setup target levels (for example `analysis.trade_levels.targets` or equivalent canonicalized target fields), not from fixed percentage projections.
 - `rr_to_target_1` / `rr_to_target_2` MUST be computed from setup targets and absolute risk:
   - `rr_to_target_1 = (target_1_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
@@ -132,6 +135,7 @@ Typical nullable fields include (non-exhaustive):
 - `invalidation_anchor_type`
 - `invalidation_derivable`
 - `stop_price_initial`
+- `stop_source`
 - `risk_pct_to_stop`
 - `rr_to_target_1`
 - `rr_to_target_2`

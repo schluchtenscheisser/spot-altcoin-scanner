@@ -113,18 +113,31 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
 
     result: Dict[str, Any] = {
         "stop_price_initial": None,
+        "stop_source": None,
         "risk_pct_to_stop": None,
         "rr_to_target_1": None,
         "rr_to_target_2": None,
         "risk_acceptable": None,
     }
 
-    if entry_price is None or atr_value is None:
-        return result
-    if entry_price <= 0 or atr_value <= 0:
+    if entry_price is None or entry_price <= 0:
         return result
 
-    stop_price_initial = entry_price - (cfg["atr_multiple"] * atr_value)
+    invalidation = _to_float(trade_levels.get("invalidation"))
+    stop_price_initial: Optional[float] = None
+    stop_source: Optional[str] = None
+    if invalidation is not None and invalidation > 0 and invalidation < entry_price:
+        stop_price_initial = invalidation
+        stop_source = "invalidation"
+
+    if stop_price_initial is None and atr_value is not None and atr_value > 0:
+        atr_stop = entry_price - (cfg["atr_multiple"] * atr_value)
+        if atr_stop < entry_price:
+            stop_price_initial = atr_stop
+            stop_source = "atr_fallback"
+
+    if stop_price_initial is None:
+        return result
     if stop_price_initial >= entry_price:
         return result
 
@@ -133,6 +146,14 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
         return result
 
     risk_pct_to_stop = (risk_abs / entry_price) * 100.0
+
+    result.update(
+        {
+            "stop_price_initial": stop_price_initial,
+            "stop_source": stop_source,
+            "risk_pct_to_stop": risk_pct_to_stop,
+        }
+    )
 
     targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
     tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
@@ -153,8 +174,6 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
 
     result.update(
         {
-            "stop_price_initial": stop_price_initial,
-            "risk_pct_to_stop": risk_pct_to_stop,
             "rr_to_target_1": rr_to_target_1,
             "rr_to_target_2": rr_to_target_2,
             "risk_acceptable": risk_acceptable,
