@@ -58,10 +58,10 @@ Es muss zusätzlich gegen folgende Ebenen geprüft werden:
 - [ ] Ist ausgeschlossen, dass das Ticket implizit spätere oder benachbarte PRs mitzieht?
 
 ### Abbruchregel
-Wenn Referenz oder Scope unklar sind: **kein Ticket schreiben**.
+Wenn Referenz oder Scope unklar sind: **kein Ticket schreiben und User informieren**.
 
 ### Pflichtsatz im Ticket
-> Wenn die aktuelle alleinige Referenz, Canonical und bestehender Code kollidieren, gewinnen die autoritativen Vorgaben. Bei zusätzlichem Klärungsbedarf Ticket ergänzen statt interpretieren.
+> Wenn die aktuelle alleinige Referenz, Canonical und bestehender Code kollidieren, gewinnen die autoritativen Vorgaben. Bei zusätzlichem Klärungsbedarf Ticket ergänzen oder User fragen statt interpretieren.
 
 ---
 
@@ -467,3 +467,7 @@ Ein Ticket ist erst dann „codex-fest“, wenn es:
 - deterministisch testbar ist,
 - frühere Tickets nicht unbemerkt überschreibt,
 - und Missing vs Invalid / null vs false / unknown vs fail explizit trennt.
+
+## 21. Ausgabe
+
+Je Ticket eine Datwi im Markdown-Format erzeugen und dem User als Downloadbare Datei zur Verfügung stellen.
