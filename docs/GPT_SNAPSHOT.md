@@ -1,7 +1,7 @@
 # Spot Altcoin Scanner • GPT Snapshot
 
-**Generated:** 2026-03-12 22:59 UTC  
-**Commit:** `c4b1ef1` (c4b1ef182171bc92f75426394ff5126075bbee6b)  
+**Generated:** 2026-03-12 23:09 UTC  
+**Commit:** `ef97433` (ef9743373c505941e3fdb7ae0a33c755b11d45bb)  
 **Status:** MVP Complete (Phase 6)  
 
 ---
@@ -6443,7 +6443,7 @@ def _stable_reason_order(reasons: Iterable[str]) -> List[str]:
 
 ### `scanner/pipeline/output.py`
 
-**SHA256:** `0d24dc87b7b7d1ffbbc1a8ce80e3aac58be6e2a9bca0e0f339b54628e1d8a80d`
+**SHA256:** `59022f638fd8e5a1265f769043289fa43747b19977c5db423fb5fb633b98b48b`
 
 ```python
 """
@@ -7037,6 +7037,7 @@ class ReportGenerator:
                 "distance_to_entry_pct": self._sanitize_float_or_none(distance_to_entry_pct),
                 "entry_state": entry_state,
                 "stop_price_initial": stop_price_initial,
+                "stop_source": row.get("stop_source"),
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
                 "target_1_price": self._sanitize_float_or_none(target_1_price),
                 "target_2_price": self._sanitize_float_or_none(target_2_price),
@@ -10058,7 +10059,7 @@ def score_breakouts(features_data: Dict[str, Dict[str, Any]], volumes: Dict[str,
 
 ### `scanner/pipeline/scoring/trade_levels.py`
 
-**SHA256:** `f24698445b7c8492580a83204b3ac50d130ca6f07d51d2ed83773624446d29b5`
+**SHA256:** `e518b16851ffb40094f3159555fcb268dac57707dc693cb1e50198d22f618ef9`
 
 ```python
 """Deterministic trade-level helpers (output-only, no scoring impact)."""
@@ -10176,18 +10177,31 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
 
     result: Dict[str, Any] = {
         "stop_price_initial": None,
+        "stop_source": None,
         "risk_pct_to_stop": None,
         "rr_to_target_1": None,
         "rr_to_target_2": None,
         "risk_acceptable": None,
     }
 
-    if entry_price is None or atr_value is None:
-        return result
-    if entry_price <= 0 or atr_value <= 0:
+    if entry_price is None or entry_price <= 0:
         return result
 
-    stop_price_initial = entry_price - (cfg["atr_multiple"] * atr_value)
+    invalidation = _to_float(trade_levels.get("invalidation"))
+    stop_price_initial: Optional[float] = None
+    stop_source: Optional[str] = None
+    if invalidation is not None and invalidation > 0 and invalidation < entry_price:
+        stop_price_initial = invalidation
+        stop_source = "invalidation"
+
+    if stop_price_initial is None and atr_value is not None and atr_value > 0:
+        atr_stop = entry_price - (cfg["atr_multiple"] * atr_value)
+        if atr_stop < entry_price:
+            stop_price_initial = atr_stop
+            stop_source = "atr_fallback"
+
+    if stop_price_initial is None:
+        return result
     if stop_price_initial >= entry_price:
         return result
 
@@ -10196,6 +10210,14 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
         return result
 
     risk_pct_to_stop = (risk_abs / entry_price) * 100.0
+
+    result.update(
+        {
+            "stop_price_initial": stop_price_initial,
+            "stop_source": stop_source,
+            "risk_pct_to_stop": risk_pct_to_stop,
+        }
+    )
 
     targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
     tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
@@ -10216,8 +10238,6 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
 
     result.update(
         {
-            "stop_price_initial": stop_price_initial,
-            "risk_pct_to_stop": risk_pct_to_stop,
             "rr_to_target_1": rr_to_target_1,
             "rr_to_target_2": rr_to_target_2,
             "risk_acceptable": risk_acceptable,
@@ -11886,7 +11906,7 @@ Notes:
 
 ### `docs/canonical/OUTPUT_SCHEMA.md`
 
-**SHA256:** `c50349a71422791ff9286ea79c340b9bbe69b426a44ce0f6d2b633b0ff770a9f`
+**SHA256:** `afb9e5f9979e71aec599aee97410fa25b28351a249c57ebef36a26c27654b338`
 
 ```markdown
 # Output Schema — Trade Candidates Source of Truth (Canonical)
@@ -11952,6 +11972,7 @@ Minimum required fields:
 - `distance_to_entry_pct`
 - `entry_state`
 - `stop_price_initial`
+- `stop_source`
 - `risk_pct_to_stop`
 - `target_1_price`
 - `target_2_price`
@@ -11996,6 +12017,8 @@ Price semantics (authoritative):
   - `chased`: `distance_to_entry_pct > +3.00`
 
 Target / RR semantics (authoritative):
+- `stop_source` MUST be `invalidation`, `atr_fallback`, or `null`.
+- `stop_price_initial` MUST be derived from the selected `stop_source` and match risk-model stop selection deterministically.
 - `target_1_price`/`target_2_price`/`target_3_price` MUST be derived exclusively from setup target levels (for example `analysis.trade_levels.targets` or equivalent canonicalized target fields), not from fixed percentage projections.
 - `rr_to_target_1` / `rr_to_target_2` MUST be computed from setup targets and absolute risk:
   - `rr_to_target_1 = (target_1_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
@@ -12023,6 +12046,7 @@ Typical nullable fields include (non-exhaustive):
 - `invalidation_anchor_type`
 - `invalidation_derivable`
 - `stop_price_initial`
+- `stop_source`
 - `risk_pct_to_stop`
 - `rr_to_target_1`
 - `rr_to_target_2`
@@ -12099,7 +12123,7 @@ Directional Volume preparation namespace (Phase-1 inactive, optional):
 
 ### `docs/canonical/VERIFICATION_FOR_AI.md`
 
-**SHA256:** `1a07fb2538a5715b2630e797a2d12e12fd4af5eb99236b00072de3f20a71e9ea`
+**SHA256:** `2285bb6fa776836afacfc7be533232e51f4b17f41cc28b022c4845f7d136f2c2`
 
 ```markdown
 # Verification for AI — Golden Fixtures, Invariants, Checklist (Canonical)
@@ -12180,9 +12204,14 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Entry-timing fields are output-only semantics and MUST NOT alter decision, risk, scoring, or ranking behavior.
 
 ## Phase-1 risk computation verification boundaries
-- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_target_1`, `rr_to_target_2`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
+- Risk fields include `stop_source` with allowed values `invalidation`, `atr_fallback`, `null`.
+- Stop selection is deterministic and invalidation-first:
+  1) valid setup invalidation below entry
+  2) else valid ATR fallback below entry
+  3) else non-evaluable (`null`) stop/risk path
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
-- Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
+- Missing required stop inputs and invalid stop inputs are non-evaluable paths and must keep stop/risk fields nullable (`null`) without coercion.
+- If stop/risk distance is evaluable but targets are not evaluable, RR fields and `risk_acceptable` remain `null` while `stop_price_initial`/`stop_source`/`risk_pct_to_stop` remain populated.
 - `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_target_1` are evaluable.
 
 
@@ -12776,4 +12805,4 @@ discovery_source_allowed:
 
 ---
 
-_Generated by GitHub Actions • 2026-03-12 22:59 UTC_
+_Generated by GitHub Actions • 2026-03-12 23:09 UTC_
