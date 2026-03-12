@@ -76,19 +76,19 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Entry-timing fields are output-only semantics and MUST NOT alter decision, risk, scoring, or ranking behavior.
 
 ## Phase-1 risk computation verification boundaries
-- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_tp10`, `rr_to_tp20`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
+- Risk fields `stop_price_initial`, `risk_pct_to_stop`, `rr_to_target_1`, `rr_to_target_2`, `risk_acceptable` are computed only when planned entry and ATR are valid positive numbers.
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
 - Missing required risk inputs and invalid required risk inputs are both non-evaluable paths and must keep risk fields nullable (`null`) without coercion.
-- `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_tp10` are evaluable.
+- `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_target_1` are evaluable.
 
 
 ## Trade-candidates TP/RR orientation verification boundaries
-- Canonical `trade_candidates.tp10_price` / `trade_candidates.tp20_price` must be derived only from planned entry as `entry*1.10` and `entry*1.20`.
-- Canonical `trade_candidates.rr_to_tp10` / `trade_candidates.rr_to_tp20` must be derived against those canonical TP orientation targets.
-- Missing/invalid/non-positive/non-finite `entry_price_usdt` yields `tp10_price=null`, `tp20_price=null`, `rr_to_tp10=null`, `rr_to_tp20=null`.
-- Missing/invalid/non-positive `stop_price_initial` or `stop_price_initial >= entry_price_usdt` yields `rr_to_tp10=null`, `rr_to_tp20=null` while TP orientation prices remain evaluable from valid entry.
+- Canonical `trade_candidates.target_1_price` / `trade_candidates.target_2_price` must be derived from setup-target levels only (no fixed +10%/+20% projection fallback).
+- Canonical `trade_candidates.rr_to_target_1` / `trade_candidates.rr_to_target_2` must be derived against those canonical TP orientation targets.
+- Missing/invalid/non-positive/non-finite `entry_price_usdt` yields `target_1_price=null`, `target_2_price=null`, `rr_to_target_1=null`, `rr_to_target_2=null`.
+- Missing/invalid/non-positive `stop_price_initial` or `stop_price_initial >= entry_price_usdt` yields `rr_to_target_1=null`, `rr_to_target_2=null` and target prices remain nullable based on setup target availability/validity.
 - Analysis/scorer raw target fields (e.g. `analysis.trade_levels.targets`) may exist for analysis, but must not override canonical TP/RR output fields.
-- Drift guard: reports that keep `tp10_price`/`tp20_price` fields but show RR values numerically matching legacy scorer-target behavior (typical `rr_to_tp10≈0.5`, `rr_to_tp20≈1.0` despite different entry/stop-implied canonical RR) must fail verification.
+- Drift guard: reports that keep `target_1_price`/`target_2_price` fields but show RR values numerically matching legacy scorer-target behavior (typical `rr_to_target_1≈0.5`, `rr_to_target_2≈1.0` despite different entry/stop-implied canonical RR) must fail verification.
 
 
 ## Scorer V2 readiness verification boundaries

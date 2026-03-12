@@ -68,7 +68,7 @@ def test_markdown_formats_nullable_trade_candidate_fields() -> None:
     )
     md = generator.generate_markdown_report([], [], [], [row], "2026-02-28")
 
-    assert "rr_to_tp10: 1.2346" in md
+    assert "rr_to_target_1: n/a" in md
     assert "slippage_bps_20k: 20.5000" in md
 
 
@@ -94,10 +94,10 @@ def test_excel_report_contains_trade_candidates_columns_and_null_semantics(tmp_p
 def test_markdown_keeps_nullables_as_na() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
 
-    row = _row("AAAUSDT", decision="WAIT", decision_reasons=None, global_score=80.0, rr_to_tp10=None, slippage_bps_20k=None, risk_acceptable=None)
+    row = _row("AAAUSDT", decision="WAIT", decision_reasons=None, global_score=80.0, rr_to_target_1=None, slippage_bps_20k=None, risk_acceptable=None)
     md = generator.generate_markdown_report([], [], [], [row], "2026-02-28")
 
     assert "decision_reasons: []" in md
     assert "risk_acceptable: n/a" in md
-    assert "rr_to_tp10: n/a" in md
+    assert "rr_to_target_1: n/a" in md
     assert "slippage_bps_20k: n/a" in md

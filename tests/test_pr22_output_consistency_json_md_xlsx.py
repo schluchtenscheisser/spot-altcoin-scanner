@@ -21,7 +21,7 @@ def _global_top20_fixture() -> list[dict]:
             "decision_reasons": ["entry_not_confirmed", "überhitzung"],
             "global_score": 88.0,
             "risk_acceptable": None,
-            "rr_to_tp10": None,
+            "rr_to_target_1": None,
             "tradeability_class": "UNKNOWN",
             "spread_pct": 0.0012,
             "depth_bid_1pct_usd": 12000.0,
@@ -36,7 +36,7 @@ def _global_top20_fixture() -> list[dict]:
             "decision_reasons": [],
             "global_score": 88.0,
             "risk_acceptable": True,
-            "rr_to_tp10": 1.8,
+            "rr_to_target_1": 1.8,
             "tradeability_class": "A",
             "spread_pct": 0.0009,
             "depth_bid_1pct_usd": 25000.0,
@@ -51,7 +51,7 @@ def _global_top20_fixture() -> list[dict]:
             "decision_reasons": ["risk_budget_exceeded"],
             "global_score": 91.0,
             "risk_acceptable": False,
-            "rr_to_tp10": 0.5,
+            "rr_to_target_1": 0.5,
             "tradeability_class": "B",
         },
     ]
@@ -90,14 +90,14 @@ def test_pr22_json_markdown_excel_semantics_are_consistent(tmp_path: Path) -> No
     assert markdown.index("### 1. AAAUSDT (Alpha)") < markdown.index("### 2. BBBUSDT (Beta)")
     assert "decision_reasons: entry_not_confirmed, überhitzung" in markdown
     assert "- risk_acceptable: n/a" in markdown
-    assert "- rr_to_tp10: n/a" in markdown
+    assert "- rr_to_target_1: n/a" in markdown
 
     excel_rows = _sheet_rows_by_symbol(excel_path)
     bbb = excel_rows["BBBUSDT"]
     assert bbb["Decision"] == "WAIT"
     assert bbb["Decision Reasons"] == "entry_not_confirmed | überhitzung"
     assert bbb["Risk Acceptable"] is None
-    assert bbb["RR to TP10"] is None
+    assert bbb["RR to Target 1"] is None
     assert bbb["Tradeability Class"] == "UNKNOWN"
 
 

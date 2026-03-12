@@ -228,7 +228,7 @@ class ReportGenerator:
         if include_reasons:
             lines.append(f"- decision_reasons: {self._format_reason_list(row.get('decision_reasons'))}")
         lines.append(f"- risk_acceptable: {self._format_nullable_bool(row.get('risk_acceptable'))}")
-        lines.append(f"- rr_to_tp10: {self._format_nullable_float(row.get('rr_to_tp10'))}")
+        lines.append(f"- rr_to_target_1: {self._format_nullable_float(row.get('rr_to_target_1'))}")
         lines.append(f"- slippage_bps_20k: {self._format_nullable_float(row.get('slippage_bps_20k'))}")
         lines.append(f"- distance_to_entry_pct: {self._format_nullable_float(row.get('distance_to_entry_pct'))}")
         lines.append(f"- entry_state: {row.get('entry_state') or 'n/a'}")
@@ -487,11 +487,18 @@ class ReportGenerator:
         return ((current_numeric / entry_numeric) - 1.0) * 100.0
 
     @classmethod
-    def _compute_canonical_tp_prices(cls, entry_price: Any) -> tuple[float | None, float | None]:
-        entry_numeric = cls._sanitize_positive_float_or_none(entry_price)
-        if entry_numeric is None:
-            return None, None
-        return entry_numeric * 1.10, entry_numeric * 1.20
+    def _resolve_target_price(cls, row: Dict[str, Any], index: int) -> float | None:
+        direct_key = f"target_{index}_price"
+        direct_value = cls._sanitize_positive_float_or_none(row.get(direct_key))
+        if direct_value is not None:
+            return direct_value
+
+        analysis = row.get("analysis") if isinstance(row.get("analysis"), dict) else {}
+        trade_levels = analysis.get("trade_levels") if isinstance(analysis.get("trade_levels"), dict) else {}
+        targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
+        if len(targets) < index:
+            return None
+        return cls._sanitize_positive_float_or_none(targets[index - 1])
 
     @classmethod
     def _compute_rr_to_target(cls, entry_price: Any, stop_price: Any, target_price: Any) -> float | None:
@@ -501,6 +508,8 @@ class ReportGenerator:
         if entry_numeric is None or stop_numeric is None or target_numeric is None:
             return None
         if stop_numeric >= entry_numeric:
+            return None
+        if target_numeric <= entry_numeric:
             return None
         risk_abs = entry_numeric - stop_numeric
         return (target_numeric - entry_numeric) / risk_abs
@@ -559,10 +568,12 @@ class ReportGenerator:
             current_price = self._sanitize_positive_float_or_none(row.get("price_usdt"))
             distance_to_entry_pct = self._compute_distance_to_entry_pct(entry_price, current_price)
             entry_state = self._classify_entry_state(distance_to_entry_pct)
-            tp10_price, tp20_price = self._compute_canonical_tp_prices(entry_price)
             stop_price_initial = self._sanitize_positive_float_or_none(row.get("stop_price_initial"))
-            rr_to_tp10 = self._compute_rr_to_target(entry_price, stop_price_initial, tp10_price)
-            rr_to_tp20 = self._compute_rr_to_target(entry_price, stop_price_initial, tp20_price)
+            target_1_price = self._resolve_target_price(row, index=1)
+            target_2_price = self._resolve_target_price(row, index=2)
+            target_3_price = self._resolve_target_price(row, index=3)
+            rr_to_target_1 = self._compute_rr_to_target(entry_price, stop_price_initial, target_1_price)
+            rr_to_target_2 = self._compute_rr_to_target(entry_price, stop_price_initial, target_2_price)
             decision_reasons = self._append_timing_reason(
                 self._sanitize_reason_list(row.get("decision_reasons")),
                 entry_state,
@@ -579,10 +590,11 @@ class ReportGenerator:
                 "entry_state": entry_state,
                 "stop_price_initial": stop_price_initial,
                 "risk_pct_to_stop": self._sanitize_float_or_none(row.get("risk_pct_to_stop")),
-                "tp10_price": self._sanitize_float_or_none(tp10_price),
-                "tp20_price": self._sanitize_float_or_none(tp20_price),
-                "rr_to_tp10": self._sanitize_float_or_none(rr_to_tp10),
-                "rr_to_tp20": self._sanitize_float_or_none(rr_to_tp20),
+                "target_1_price": self._sanitize_float_or_none(target_1_price),
+                "target_2_price": self._sanitize_float_or_none(target_2_price),
+                "target_3_price": self._sanitize_float_or_none(target_3_price),
+                "rr_to_target_1": self._sanitize_float_or_none(rr_to_target_1),
+                "rr_to_target_2": self._sanitize_float_or_none(rr_to_target_2),
                 "best_setup_type": row.get("best_setup_type"),
                 "setup_subtype": row.get("setup_subtype"),
                 "setup_score": self._sanitize_float_or_none(row.get("setup_score", row.get("score"))),

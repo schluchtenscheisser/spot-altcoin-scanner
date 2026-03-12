@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 5.7.0
+canonical_schema_version: 6.0.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -18,6 +18,12 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
 
+
+
+## 6.0.0 — Remove fixed TP10/TP20 output semantics (breaking)
+- Breaking canonical output contract: removed fixed-percentage `tp10_price`/`tp20_price` and `rr_to_tp10`/`rr_to_tp20` runtime fields.
+- Canonical trade-candidate semantics now use setup-target fields `target_1_price`, `target_2_price`, `target_3_price`, `rr_to_target_1`, and `rr_to_target_2`.
+- Clarified nullability: missing/invalid/non-finite target data remains `null`; no synthetic fixed-percentage fallback is allowed.
 
 ## 5.7.0 — Entry timing output semantics
 - Added optional `trade_candidates.distance_to_entry_pct` as deterministic percentage distance between `current_price_usdt` and `entry_price_usdt`.

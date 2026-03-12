@@ -1,53 +1,49 @@
-import json
-import math
-from pathlib import Path
-
 import pytest
 
-
-REPORT_PATH = Path("reports/2026-03-10.json")
-
-
-def _finite_positive(value: object) -> float | None:
-    if isinstance(value, bool):
-        return None
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(numeric) or numeric <= 0:
-        return None
-    return numeric
+from scanner.pipeline.output import ReportGenerator
 
 
-def test_report_2026_03_10_tp_rr_fields_follow_canonical_formula() -> None:
-    report = json.loads(REPORT_PATH.read_text())
-    candidates = report.get("trade_candidates")
-    assert isinstance(candidates, list) and candidates
+def test_trade_candidates_target_rr_fields_follow_setup_targets_only() -> None:
+    generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
 
-    for row in candidates:
-        entry = _finite_positive(row.get("entry_price_usdt"))
-        stop = _finite_positive(row.get("stop_price_initial"))
-        tp10 = row.get("tp10_price")
-        tp20 = row.get("tp20_price")
-        rr10 = row.get("rr_to_tp10")
-        rr20 = row.get("rr_to_tp20")
+    global_top20 = [
+        {
+            "symbol": "AUSDT",
+            "coin_name": "A",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 100.0,
+            "stop_price_initial": 95.0,
+            "analysis": {"trade_levels": {"entry_trigger": 100.0, "targets": [110.0, 120.0]}},
+            "best_setup_type": "breakout",
+        },
+        {
+            "symbol": "BUSDT",
+            "coin_name": "B",
+            "decision": "WAIT",
+            "decision_reasons": ["entry_not_confirmed"],
+            "price_usdt": 100.0,
+            "stop_price_initial": None,
+            "analysis": {"trade_levels": {"entry_trigger": 100.0, "targets": [110.0]}},
+            "best_setup_type": "breakout",
+        },
+    ]
 
-        if entry is None:
-            assert tp10 is None
-            assert tp20 is None
-            assert rr10 is None
-            assert rr20 is None
-            continue
+    rows = generator.generate_json_report([], [], [], global_top20, "2026-03-10")["trade_candidates"]
+    by_symbol = {row["symbol"]: row for row in rows}
 
-        assert tp10 == pytest.approx(entry * 1.10)
-        assert tp20 == pytest.approx(entry * 1.20)
+    a = by_symbol["AUSDT"]
+    assert "tp10_price" not in a
+    assert "tp20_price" not in a
+    assert "rr_to_tp10" not in a
+    assert "rr_to_tp20" not in a
+    assert a["target_1_price"] == pytest.approx(110.0)
+    assert a["target_2_price"] == pytest.approx(120.0)
+    assert a["rr_to_target_1"] == pytest.approx((110.0 - 100.0) / (100.0 - 95.0))
+    assert a["rr_to_target_2"] == pytest.approx((120.0 - 100.0) / (100.0 - 95.0))
 
-        if stop is None or stop >= entry:
-            assert rr10 is None
-            assert rr20 is None
-            continue
-
-        risk_abs = entry - stop
-        assert rr10 == pytest.approx((entry * 1.10 - entry) / risk_abs)
-        assert rr20 == pytest.approx((entry * 1.20 - entry) / risk_abs)
+    b = by_symbol["BUSDT"]
+    assert b["target_1_price"] == pytest.approx(110.0)
+    assert b["target_2_price"] is None
+    assert b["rr_to_target_1"] is None
+    assert b["rr_to_target_2"] is None

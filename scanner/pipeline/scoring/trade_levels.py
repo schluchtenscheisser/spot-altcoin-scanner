@@ -114,8 +114,8 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
     result: Dict[str, Any] = {
         "stop_price_initial": None,
         "risk_pct_to_stop": None,
-        "rr_to_tp10": None,
-        "rr_to_tp20": None,
+        "rr_to_target_1": None,
+        "rr_to_target_2": None,
         "risk_acceptable": None,
     }
 
@@ -142,21 +142,21 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
     if tp10 <= entry_price or tp20 <= entry_price:
         return result
 
-    rr_to_tp10 = (tp10 - entry_price) / risk_abs
-    rr_to_tp20 = (tp20 - entry_price) / risk_abs
+    rr_to_target_1 = (tp10 - entry_price) / risk_abs
+    rr_to_target_2 = (tp20 - entry_price) / risk_abs
 
     risk_acceptable = (
         cfg["min_stop_distance_pct"] <= risk_pct_to_stop <= cfg["max_stop_distance_pct"]
-        and rr_to_tp10 is not None
-        and rr_to_tp10 >= cfg["min_rr_to_tp10"]
+        and rr_to_target_1 is not None
+        and rr_to_target_1 >= cfg["min_rr_to_tp10"]
     )
 
     result.update(
         {
             "stop_price_initial": stop_price_initial,
             "risk_pct_to_stop": risk_pct_to_stop,
-            "rr_to_tp10": rr_to_tp10,
-            "rr_to_tp20": rr_to_tp20,
+            "rr_to_target_1": rr_to_target_1,
+            "rr_to_target_2": rr_to_target_2,
             "risk_acceptable": risk_acceptable,
         }
     )

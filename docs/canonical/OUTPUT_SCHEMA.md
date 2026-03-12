@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
-schema_version: v1.17
+schema_version: v1.18
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
   - json
@@ -62,10 +62,11 @@ Minimum required fields:
 - `entry_state`
 - `stop_price_initial`
 - `risk_pct_to_stop`
-- `tp10_price`
-- `tp20_price`
-- `rr_to_tp10`
-- `rr_to_tp20`
+- `target_1_price`
+- `target_2_price`
+- `target_3_price`
+- `rr_to_target_1`
+- `rr_to_target_2`
 - `best_setup_type`
 - `setup_subtype`
 - `setup_score`
@@ -103,17 +104,15 @@ Price semantics (authoritative):
   - `late`: `+0.25 < distance_to_entry_pct <= +3.00`
   - `chased`: `distance_to_entry_pct > +3.00`
 
-TP / RR orientation semantics (authoritative):
-- `tp10_price` and `tp20_price` are canonical reward/risk orientation targets derived only from planned entry:
-  - `tp10_price = entry_price_usdt * 1.10`
-  - `tp20_price = entry_price_usdt * 1.20`
-- `tp10_price` / `tp20_price` MUST be `null` when `entry_price_usdt` is missing, non-finite, or non-positive.
-- `rr_to_tp10` / `rr_to_tp20` MUST be computed against the canonical TP orientation targets:
-  - `rr_to_tp10 = (tp10_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
-  - `rr_to_tp20 = (tp20_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
-- If `stop_price_initial` is missing/invalid/non-positive or `stop_price_initial >= entry_price_usdt`, `rr_to_tp10` and `rr_to_tp20` MUST be `null`.
-- `tp10_price` / `tp20_price` are orientation levels for RR evaluation only; they MUST NOT imply mandatory exits or automated take-profit behavior.
-- Analysis-/scorer-internal targets (for example `analysis.trade_levels.targets`) are allowed as raw analysis context, but MUST NOT overwrite canonical `trade_candidates.tp10_price` / `trade_candidates.tp20_price`.
+Target / RR semantics (authoritative):
+- `target_1_price`/`target_2_price`/`target_3_price` MUST be derived exclusively from setup target levels (for example `analysis.trade_levels.targets` or equivalent canonicalized target fields), not from fixed percentage projections.
+- `rr_to_target_1` / `rr_to_target_2` MUST be computed from setup targets and absolute risk:
+  - `rr_to_target_1 = (target_1_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
+  - `rr_to_target_2 = (target_2_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
+- `target_2_price`, `target_3_price`, and `rr_to_target_2` are nullable and MUST remain `null` when fewer targets are available or values are missing/invalid/non-finite/non-positive.
+- If `stop_price_initial` is missing/invalid/non-positive or `stop_price_initial >= entry_price_usdt`, RR fields MUST be `null`.
+- If target prices are missing/invalid/non-positive or `target_n_price <= entry_price_usdt`, the corresponding RR field MUST be `null`.
+- Target fields are orientation levels for RR evaluation only; they MUST NOT imply mandatory exits or automated take-profit behavior.
 
 ## Summary contract
 - `summary` MUST include setup counters (`reversal_count`, `breakout_count`, `pullback_count`, `total_scored`, `global_top20_count`).
@@ -134,8 +133,8 @@ Typical nullable fields include (non-exhaustive):
 - `invalidation_derivable`
 - `stop_price_initial`
 - `risk_pct_to_stop`
-- `rr_to_tp10`
-- `rr_to_tp20`
+- `rr_to_target_1`
+- `rr_to_target_2`
 - `entry_price_usdt`
 - `current_price_usdt`
 - `distance_to_entry_pct`

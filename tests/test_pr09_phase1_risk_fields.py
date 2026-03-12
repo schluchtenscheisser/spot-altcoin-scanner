@@ -23,8 +23,8 @@ def test_compute_phase1_risk_fields_valid_breakout_path() -> None:
 
     assert fields["stop_price_initial"] == pytest.approx(96.0)
     assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
-    assert fields["rr_to_tp10"] == pytest.approx(0.5)
-    assert fields["rr_to_tp20"] == pytest.approx(1.0)
+    assert fields["rr_to_target_1"] == pytest.approx(0.5)
+    assert fields["rr_to_target_2"] == pytest.approx(1.0)
     assert fields["risk_acceptable"] is True
 
 
@@ -37,8 +37,8 @@ def test_compute_phase1_risk_fields_missing_and_invalid_are_nullable() -> None:
     for row in (missing, invalid):
         assert row["stop_price_initial"] is None
         assert row["risk_pct_to_stop"] is None
-        assert row["rr_to_tp10"] is None
-        assert row["rr_to_tp20"] is None
+        assert row["rr_to_target_1"] is None
+        assert row["rr_to_target_2"] is None
         assert row["risk_acceptable"] is None
 
 
@@ -79,6 +79,6 @@ def test_breakout_scoring_emits_phase1_risk_fields() -> None:
     row = result[0]
     assert row["stop_price_initial"] == pytest.approx(95.8)
     assert row["risk_pct_to_stop"] == pytest.approx(4.2)
-    assert row["rr_to_tp10"] == pytest.approx(0.5)
-    assert row["rr_to_tp20"] == pytest.approx(1.0)
+    assert row["rr_to_target_1"] == pytest.approx(0.5)
+    assert row["rr_to_target_2"] == pytest.approx(1.0)
     assert row["risk_acceptable"] is True

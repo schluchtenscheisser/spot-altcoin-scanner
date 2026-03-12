@@ -27,8 +27,8 @@ def test_risk_stop_calculation_default_path() -> None:
 
     assert fields["stop_price_initial"] == pytest.approx(96.0)
     assert fields["risk_pct_to_stop"] == pytest.approx(4.0)
-    assert fields["rr_to_tp10"] == pytest.approx(2.5)
-    assert fields["rr_to_tp20"] == pytest.approx(5.0)
+    assert fields["rr_to_target_1"] == pytest.approx(2.5)
+    assert fields["rr_to_target_2"] == pytest.approx(5.0)
     assert fields["risk_acceptable"] is True
 
 
@@ -58,9 +58,9 @@ def test_risk_rr_threshold_true_and_false() -> None:
         _risk_cfg(min_rr_to_tp10=1.3),
     )
 
-    assert acceptable["rr_to_tp10"] == pytest.approx(1.5)
+    assert acceptable["rr_to_target_1"] == pytest.approx(1.5)
     assert acceptable["risk_acceptable"] is True
-    assert unattractive["rr_to_tp10"] == pytest.approx(1.0)
+    assert unattractive["rr_to_target_1"] == pytest.approx(1.0)
     assert unattractive["risk_acceptable"] is False
 
 
@@ -77,8 +77,8 @@ def test_missing_required_inputs_keep_risk_nullable(trade_levels) -> None:
 
     assert fields["stop_price_initial"] is None
     assert fields["risk_pct_to_stop"] is None
-    assert fields["rr_to_tp10"] is None
-    assert fields["rr_to_tp20"] is None
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
     assert fields["risk_acceptable"] is None
 
 
@@ -88,8 +88,8 @@ def test_non_finite_inputs_are_not_evaluable(value: float) -> None:
 
     assert fields["stop_price_initial"] is None
     assert fields["risk_pct_to_stop"] is None
-    assert fields["rr_to_tp10"] is None
-    assert fields["rr_to_tp20"] is None
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
     assert fields["risk_acceptable"] is None
 
 
@@ -106,8 +106,8 @@ def test_non_finite_entry_and_targets_are_not_evaluable(field: str) -> None:
 
     assert fields["stop_price_initial"] is None
     assert fields["risk_pct_to_stop"] is None
-    assert fields["rr_to_tp10"] is None
-    assert fields["rr_to_tp20"] is None
+    assert fields["rr_to_target_1"] is None
+    assert fields["rr_to_target_2"] is None
     assert fields["risk_acceptable"] is None
 
 

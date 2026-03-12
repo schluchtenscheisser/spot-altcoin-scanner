@@ -17,7 +17,7 @@ def test_markdown_report_contains_enter_wait_and_summary_sections(tmp_path: Path
         "score": 81.23,
         "global_score": 81.23,
         "risk_acceptable": True,
-        "rr_to_tp10": 1.2,
+        "rr_to_target_1": 1.2,
         "slippage_bps_20k": 15.0,
     }]
 
@@ -156,8 +156,8 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "stop_price_initial": None,
             "risk_pct_to_stop": None,
             "analysis": {"trade_levels": {"entry_trigger": 9.5, "targets": [11.0, 12.0]}},
-            "rr_to_tp10": None,
-            "rr_to_tp20": None,
+            "rr_to_target_1": None,
+            "rr_to_target_2": None,
             "best_setup_type": "reversal",
             "setup_subtype": "reversal_base_reclaim",
             "setup_score": 40.0,
@@ -184,8 +184,8 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "stop_price_initial": 0.9,
             "risk_pct_to_stop": 10.0,
             "analysis": {"trade_levels": {"entry_trigger": 0.95, "targets": [1.1, 1.2]}},
-            "rr_to_tp10": 1.0,
-            "rr_to_tp20": 2.0,
+            "rr_to_target_1": 1.0,
+            "rr_to_target_2": 2.0,
             "best_setup_type": "breakout",
             "setup_subtype": "confirmed_breakout",
             "setup_score": 80.0,
@@ -212,8 +212,8 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
             "stop_price_initial": 1.8,
             "risk_pct_to_stop": 10.0,
             "analysis": {"trade_levels": {"entry_zone": {"center": 2.1}, "targets": [2.2, 2.4]}},
-            "rr_to_tp10": 1.0,
-            "rr_to_tp20": 2.0,
+            "rr_to_target_1": 1.0,
+            "rr_to_target_2": 2.0,
             "best_setup_type": "pullback",
             "setup_subtype": "pullback_to_ema",
             "setup_score": 70.0,
@@ -241,34 +241,34 @@ def test_trade_candidates_contains_required_fields_and_deterministic_sorting() -
 
     required_fields = {
         "rank", "symbol", "coin_name", "decision", "decision_reasons", "entry_price_usdt", "current_price_usdt", "stop_price_initial",
-        "risk_pct_to_stop", "tp10_price", "tp20_price", "rr_to_tp10", "rr_to_tp20", "distance_to_entry_pct", "entry_state", "best_setup_type", "setup_subtype",
+        "risk_pct_to_stop", "target_1_price", "target_2_price", "rr_to_target_1", "rr_to_target_2", "distance_to_entry_pct", "entry_state", "best_setup_type", "setup_subtype",
         "setup_score", "global_score", "entry_ready", "entry_readiness_reasons", "tradeability_class", "execution_mode",
         "spread_pct", "depth_bid_1pct_usd", "depth_ask_1pct_usd", "slippage_bps_5k", "slippage_bps_20k", "risk_acceptable",
         "market_cap_usd", "btc_regime", "flags",
     }
     assert required_fields.issubset(trade_candidates[0].keys())
-    assert trade_candidates[0]["tp10_price"] == pytest.approx(1.045)
-    assert trade_candidates[0]["tp20_price"] == pytest.approx(1.14)
-    assert trade_candidates[0]["rr_to_tp10"] == pytest.approx(1.9)
-    assert trade_candidates[0]["rr_to_tp20"] == pytest.approx(3.8)
+    assert trade_candidates[0]["target_1_price"] == pytest.approx(1.1)
+    assert trade_candidates[0]["target_2_price"] == pytest.approx(1.2)
+    assert trade_candidates[0]["rr_to_target_1"] == pytest.approx(3.0)
+    assert trade_candidates[0]["rr_to_target_2"] == pytest.approx(5.0)
     assert trade_candidates[0]["btc_regime"] == "RISK_OFF"
     assert trade_candidates[0]["entry_price_usdt"] == 0.95
     assert trade_candidates[0]["current_price_usdt"] == 1.0
     assert trade_candidates[0]["distance_to_entry_pct"] == 5.263157894736836
     assert trade_candidates[0]["entry_state"] == "chased"
     assert trade_candidates[1]["entry_price_usdt"] == 2.1
-    assert trade_candidates[1]["tp10_price"] == pytest.approx(2.31)
-    assert trade_candidates[1]["tp20_price"] == pytest.approx(2.52)
-    assert trade_candidates[1]["rr_to_tp10"] == pytest.approx(0.7)
-    assert trade_candidates[1]["rr_to_tp20"] == pytest.approx(1.4)
+    assert trade_candidates[1]["target_1_price"] == pytest.approx(2.2)
+    assert trade_candidates[1]["target_2_price"] == pytest.approx(2.4)
+    assert trade_candidates[1]["rr_to_target_1"] == pytest.approx(1.0 / 3.0)
+    assert trade_candidates[1]["rr_to_target_2"] == pytest.approx(1.0)
     assert trade_candidates[1]["current_price_usdt"] == 2.0
     assert trade_candidates[1]["distance_to_entry_pct"] == -4.761904761904767
     assert trade_candidates[1]["entry_state"] == "early"
     assert trade_candidates[2]["entry_price_usdt"] == 9.5
-    assert trade_candidates[2]["tp10_price"] == pytest.approx(10.45)
-    assert trade_candidates[2]["tp20_price"] == pytest.approx(11.4)
-    assert trade_candidates[2]["rr_to_tp10"] is None
-    assert trade_candidates[2]["rr_to_tp20"] is None
+    assert trade_candidates[2]["target_1_price"] == pytest.approx(11.0)
+    assert trade_candidates[2]["target_2_price"] == pytest.approx(12.0)
+    assert trade_candidates[2]["rr_to_target_1"] is None
+    assert trade_candidates[2]["rr_to_target_2"] is None
     assert trade_candidates[2]["current_price_usdt"] == 10.0
     assert trade_candidates[2]["distance_to_entry_pct"] == 5.263157894736836
     assert trade_candidates[2]["entry_state"] == "chased"
@@ -286,8 +286,8 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
         "stop_price_initial": "bad",
         "risk_pct_to_stop": float("nan"),
         "analysis": {"trade_levels": {"entry_trigger": float("inf"), "targets": ["bad", None]}},
-        "rr_to_tp10": "bad",
-        "rr_to_tp20": None,
+        "rr_to_target_1": "bad",
+        "rr_to_target_2": None,
         "best_setup_type": "breakout",
         "setup_subtype": "confirmed_breakout",
         "setup_score": "bad",
@@ -313,9 +313,9 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
     assert row["current_price_usdt"] is None
     assert row["stop_price_initial"] is None
     assert row["risk_pct_to_stop"] is None
-    assert row["tp10_price"] is None
-    assert row["tp20_price"] is None
-    assert row["rr_to_tp10"] is None
+    assert row["target_1_price"] is None
+    assert row["target_2_price"] is None
+    assert row["rr_to_target_1"] is None
     assert row["setup_score"] is None
     assert row["global_score"] is None
     assert row["entry_ready"] is None
@@ -323,7 +323,7 @@ def test_trade_candidates_keeps_nullable_fields_as_null_without_coercion() -> No
     assert row["risk_acceptable"] is None
 
 
-def test_trade_candidates_uses_canonical_tp_from_entry_and_not_analysis_targets() -> None:
+def test_trade_candidates_uses_setup_targets_and_not_fixed_percentage_projection() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
 
     global_top20 = [{
@@ -334,10 +334,10 @@ def test_trade_candidates_uses_canonical_tp_from_entry_and_not_analysis_targets(
         "price_usdt": 100.0,
         "stop_price_initial": 95.0,
         "analysis": {"trade_levels": {"entry_trigger": 100.0, "targets": [150.0, 200.0]}},
-        "tp10_price": 123.0,
-        "tp20_price": 234.0,
-        "rr_to_tp10": 9.9,
-        "rr_to_tp20": 8.8,
+        "target_1_price": 123.0,
+        "target_2_price": 234.0,
+        "rr_to_target_1": 9.9,
+        "rr_to_target_2": 8.8,
         "best_setup_type": "breakout",
         "setup_subtype": "confirmed_breakout",
         "setup_score": 50.0,
@@ -358,10 +358,10 @@ def test_trade_candidates_uses_canonical_tp_from_entry_and_not_analysis_targets(
 
     row = generator.generate_json_report([], [], [], global_top20, "2026-03-09")["trade_candidates"][0]
 
-    assert row["tp10_price"] == pytest.approx(110.0)
-    assert row["tp20_price"] == pytest.approx(120.0)
-    assert row["rr_to_tp10"] == pytest.approx(2.0)
-    assert row["rr_to_tp20"] == pytest.approx(4.0)
+    assert row["target_1_price"] == pytest.approx(123.0)
+    assert row["target_2_price"] == pytest.approx(234.0)
+    assert row["rr_to_target_1"] == pytest.approx((123.0 - 100.0) / (100.0 - 95.0))
+    assert row["rr_to_target_2"] == pytest.approx((234.0 - 100.0) / (100.0 - 95.0))
 
 
 def test_trade_candidates_sets_rr_null_when_stop_missing_or_not_below_entry() -> None:
@@ -397,14 +397,14 @@ def test_trade_candidates_sets_rr_null_when_stop_missing_or_not_below_entry() ->
         for row in generator.generate_json_report([], [], [], global_top20, "2026-03-09")["trade_candidates"]
     }
 
-    assert by_symbol["NOSTOPUSDT"]["tp10_price"] == pytest.approx(11.0)
-    assert by_symbol["NOSTOPUSDT"]["tp20_price"] == pytest.approx(12.0)
-    assert by_symbol["NOSTOPUSDT"]["rr_to_tp10"] is None
-    assert by_symbol["NOSTOPUSDT"]["rr_to_tp20"] is None
-    assert by_symbol["BADSTOPUSDT"]["tp10_price"] == pytest.approx(11.0)
-    assert by_symbol["BADSTOPUSDT"]["tp20_price"] == pytest.approx(12.0)
-    assert by_symbol["BADSTOPUSDT"]["rr_to_tp10"] is None
-    assert by_symbol["BADSTOPUSDT"]["rr_to_tp20"] is None
+    assert by_symbol["NOSTOPUSDT"]["target_1_price"] is None
+    assert by_symbol["NOSTOPUSDT"]["target_2_price"] is None
+    assert by_symbol["NOSTOPUSDT"]["rr_to_target_1"] is None
+    assert by_symbol["NOSTOPUSDT"]["rr_to_target_2"] is None
+    assert by_symbol["BADSTOPUSDT"]["target_1_price"] is None
+    assert by_symbol["BADSTOPUSDT"]["target_2_price"] is None
+    assert by_symbol["BADSTOPUSDT"]["rr_to_target_1"] is None
+    assert by_symbol["BADSTOPUSDT"]["rr_to_target_2"] is None
 
 
 def test_trade_candidates_uses_setup_planned_entry_and_separate_spot_with_null_edge_cases() -> None:
@@ -489,10 +489,10 @@ def test_trade_candidates_prefers_top_level_entry_price_over_analysis_trade_leve
     row = generator.generate_json_report([], [], [], global_top20, "2026-03-10")["trade_candidates"][0]
 
     assert row["entry_price_usdt"] == pytest.approx(100.0)
-    assert row["tp10_price"] == pytest.approx(110.0)
-    assert row["tp20_price"] == pytest.approx(120.0)
-    assert row["rr_to_tp10"] == pytest.approx(2.0)
-    assert row["rr_to_tp20"] == pytest.approx(4.0)
+    assert row["target_1_price"] == pytest.approx(88.0)
+    assert row["target_2_price"] == pytest.approx(96.0)
+    assert row["rr_to_target_1"] is None
+    assert row["rr_to_target_2"] is None
 
 
 def test_trade_candidates_invalid_top_level_entry_does_not_fallback_to_analysis() -> None:
@@ -514,10 +514,10 @@ def test_trade_candidates_invalid_top_level_entry_does_not_fallback_to_analysis(
     row = generator.generate_json_report([], [], [], global_top20, "2026-03-10")["trade_candidates"][0]
 
     assert row["entry_price_usdt"] is None
-    assert row["tp10_price"] is None
-    assert row["tp20_price"] is None
-    assert row["rr_to_tp10"] is None
-    assert row["rr_to_tp20"] is None
+    assert row["target_1_price"] == pytest.approx(110.0)
+    assert row["target_2_price"] == pytest.approx(120.0)
+    assert row["rr_to_target_1"] is None
+    assert row["rr_to_target_2"] is None
 
 def test_trade_candidates_directional_volume_preparation_is_optional_and_nullable() -> None:
     generator = ReportGenerator({"output": {"top_n_per_setup": 5}})
