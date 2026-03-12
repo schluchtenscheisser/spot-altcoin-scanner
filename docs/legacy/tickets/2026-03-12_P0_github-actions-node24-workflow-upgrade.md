@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # [P1] Upgrade GitHub Actions workflow dependencies to Node-24-compatible action versions
 
 ## Context / Source
