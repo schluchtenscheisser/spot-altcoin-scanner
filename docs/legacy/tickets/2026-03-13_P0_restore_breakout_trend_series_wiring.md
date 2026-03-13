@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Restore breakout trend scoring by wiring `close_series` / `high_series` / `low_series` from FeatureEngine into active breakout pipeline
 

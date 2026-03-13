@@ -206,6 +206,9 @@ class FeatureEngine:
 
         f = {}
         f["close"], f["high"], f["low"], f["volume"] = map(float, (closes[-1], highs[-1], lows[-1], volumes[-1]))
+        f["close_series"] = closes.tolist()
+        f["high_series"] = highs.tolist()
+        f["low_series"] = lows.tolist()
 
         # Returns & EMAs
         f["r_1"] = self._calc_return(symbol, closes, 1)
