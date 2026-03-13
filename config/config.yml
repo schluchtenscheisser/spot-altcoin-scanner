@@ -23,7 +23,7 @@ tradeability:
   max_tranches: 4
   band_pct: 1.0
   max_spread_pct: 0.15
-  min_depth_1pct_usd: 200000
+  min_depth_1pct_usd: 40000
   class_thresholds:
     direct_ok_max_slippage_bps: 50
     tranche_ok_max_slippage_bps: 100
