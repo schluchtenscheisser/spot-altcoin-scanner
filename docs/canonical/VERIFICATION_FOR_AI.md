@@ -98,6 +98,15 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Drift guard: reports that keep `target_1_price`/`target_2_price` fields but show RR values numerically matching legacy scorer-target behavior (typical `rr_to_target_1≈0.5`, `rr_to_target_2≈1.0` despite different entry/stop-implied canonical RR) must fail verification.
 
 
+
+## Global ranking setup-weight verification boundaries
+- `phase_policy.setup_weights_active=true` applies canonical setup weights to global ranking as `global_score = final_score × setup_weight` (rounded to 6 decimals in runtime output).
+- `phase_policy.setup_weights_active=false` bypasses configured setup weights and uses `setup_weight=1.0` for all rows.
+- Weight resolution order is deterministic: direct lookup by `setup_type`, then optional `setup_id_to_weight_category_active` mapping, otherwise default `1.0`.
+- Missing resolved weight key defaults to `1.0`; invalid configured weights (non-numeric, non-finite, `<=0`) fail clearly.
+- Weighting must not alter `confluence`, `valid_setups`, dedup cardinality, or tie-breaker order definitions.
+
+
 ## Scorer V2 readiness verification boundaries
 - All affected setup scorers emit `entry_ready`, `entry_readiness_reasons`, and deterministic `setup_subtype`.
 - Breakout emits `breakout_confirmed`; pullback emits `rebound_confirmed` and `retest_reclaimed`; reversal emits `reclaim_confirmed` and `retest_reclaimed`.

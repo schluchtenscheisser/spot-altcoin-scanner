@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 6.2.0
+canonical_schema_version: 6.3.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -17,6 +17,12 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 - **PATCH**: non-semantic fixes/wording corrections with no contract behavior change.
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
+
+
+## 6.3.0 — Global ranking setup weights activated
+- Activated canonical setup-type weighting in global ranking (`setup_weights_active: true`) with active category map `setup_weights_by_category`.
+- Canonicalized global-score definition to `weighted_score = final_score × setup_weight` and dedup selection by highest weighted score.
+- Canonicalized missing-vs-invalid semantics: missing category/type weight defaults to `1.0`, invalid configured weights fail clearly.
 
 
 ## 6.2.0 — Canonical R-multiple targets and risk gate alignment

@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # [P1] Activate setup-type weights in global ranking (breakout: 1.0 / pullback: 0.9 / reversal: 0.8)
 
 > `2026-03-13__P1__activate-global-ranking-setup-weights.md`

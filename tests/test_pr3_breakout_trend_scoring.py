@@ -151,12 +151,16 @@ def test_global_top20_dedup_tie_prefers_retest_setup() -> None:
 def test_global_top20_prefers_higher_final_score_over_weighted_setup_type() -> None:
     reversals = [{"symbol": "AAAUSDT", "score": 99.0, "final_score": 99.0, "setup_id": "reversal"}]
     breakouts = [{"symbol": "AAAUSDT", "score": 90.0, "final_score": 90.0, "setup_id": "breakout_immediate_1_5d"}]
+    cfg = {
+        "phase_policy": {"setup_weights_active": True},
+        "setup_weights_by_category": {"breakout": 1.0, "pullback": 0.9, "reversal": 0.8},
+    }
 
-    top = compute_global_top20(reversals, breakouts, [], {})
+    top = compute_global_top20(reversals, breakouts, [], cfg)
 
     assert len(top) == 1
-    assert top[0]["setup_id"] == "reversal"
-    assert top[0]["global_score"] == 99.0
+    assert top[0]["setup_id"] == "breakout_immediate_1_5d"
+    assert top[0]["global_score"] == 90.0
 
 
 def test_score_output_contains_both_setup_ids() -> None:

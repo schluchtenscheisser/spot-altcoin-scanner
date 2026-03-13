@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List
 
 
@@ -16,6 +17,37 @@ def _config_get(root: Dict[str, Any], path: List[str], default: Any) -> Any:
     return cur
 
 
+def _validate_weight(raw_value: Any, path: str) -> float:
+    try:
+        weight = float(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid setup weight at {path}: {raw_value!r}") from exc
+
+    if not math.isfinite(weight) or weight <= 0:
+        raise ValueError(f"Invalid setup weight at {path}: must be finite and > 0, got {weight}")
+
+    return weight
+
+
+def _resolve_setup_weight(setup_type: str, setup_id: str, root: Dict[str, Any]) -> float:
+    weights = _config_get(root, ["setup_weights_by_category"], {})
+    if not isinstance(weights, dict):
+        raise ValueError("Invalid setup weights at setup_weights_by_category: expected mapping")
+
+    if setup_type in weights:
+        return _validate_weight(weights[setup_type], f"setup_weights_by_category.{setup_type}")
+
+    cat_map = _config_get(root, ["setup_id_to_weight_category_active"], {})
+    if not isinstance(cat_map, dict):
+        raise ValueError("Invalid setup weight mapping at setup_id_to_weight_category_active: expected mapping")
+
+    category = cat_map.get(setup_id)
+    if category and category in weights:
+        return _validate_weight(weights[category], f"setup_weights_by_category.{category}")
+
+    return 1.0
+
+
 def compute_global_top20(
     reversal_results: List[Dict[str, Any]],
     breakout_results: List[Dict[str, Any]],
@@ -24,6 +56,7 @@ def compute_global_top20(
 ) -> List[Dict[str, Any]]:
     """Build unique global top-20 list from setup results using weighted setup score."""
     root = config.raw if hasattr(config, "raw") else config
+    setup_weights_active = bool(_config_get(root, ["phase_policy", "setup_weights_active"], False))
 
     setup_map = {
         "breakout": breakout_results,
@@ -39,14 +72,15 @@ def compute_global_top20(
             if not symbol:
                 continue
             setup_score = float(entry.get("final_score", entry.get("score", 0.0)))
-            weighted = setup_score
+            setup_weight = _resolve_setup_weight(setup_type, str(entry.get("setup_id", "")), root) if setup_weights_active else 1.0
+            weighted = setup_score * setup_weight
 
             if symbol not in by_symbol:
                 agg = dict(entry)
                 agg["setup_score"] = setup_score
                 agg["best_setup_type"] = setup_type
                 agg["best_setup_score"] = setup_score
-                agg["setup_weight"] = 1.0
+                agg["setup_weight"] = setup_weight
                 agg["global_score"] = round(weighted, 6)
                 agg["confluence"] = 1
                 agg["valid_setups"] = [setup_type]
@@ -69,7 +103,7 @@ def compute_global_top20(
                 prev["setup_score"] = setup_score
                 prev["best_setup_type"] = setup_type
                 prev["best_setup_score"] = setup_score
-                prev["setup_weight"] = 1.0
+                prev["setup_weight"] = setup_weight
                 prev["global_score"] = round(weighted, 6)
                 prev["confluence"] = len(prev_setups)
                 prev["valid_setups"] = sorted(prev_setups)

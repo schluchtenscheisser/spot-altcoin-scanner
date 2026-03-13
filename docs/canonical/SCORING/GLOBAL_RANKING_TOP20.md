@@ -7,14 +7,14 @@ status: canonical
 global_top_n_default: 20
 phase_policy:
   phase1_single_setup_type: true
-  setup_weights_active: false
-setup_weights_by_category_reserved_for_future:
-  breakout_trend: 1.0
+  setup_weights_active: true
+setup_weights_by_category:
+  breakout: 1.0
   pullback: 0.9
   reversal: 0.8
 setup_id_to_weight_category_active:
-  breakout_immediate_1_5d: breakout_trend
-  breakout_retest_1_5d: breakout_trend
+  breakout_immediate_1_5d: breakout
+  breakout_retest_1_5d: breakout
 dedup:
   per_symbol_max_rows: 1
   prefer_setup_id_order:
@@ -51,27 +51,26 @@ Scored setup rows, each with:
 
 ## 2) Setup weights (Phase policy)
 Phase 1 (current canonical):
-- `setup_weights_active = false`
-- Effective weight is `1.0` for all active setup_ids.
-
-Reserved for future multi-setup phases:
-- breakout_trend: 1.0
-- pullback: 0.9
-- reversal: 0.8
-
-If/when pullback/reversal setups are added, their `setup_id` strings must be added to the Machine Header mapping and the weights activation must be explicitly switched on.
+- `setup_weights_active = true`
+- Effective setup-type weights are active in global score computation.
+- `setup_weights_by_category.breakout = 1.0`
+- `setup_weights_by_category.pullback = 0.9`
+- `setup_weights_by_category.reversal = 0.8`
+- Missing weight key for resolved category/type defaults to `1.0`.
+- Invalid configured weights (non-numeric, non-finite, `<= 0`) are invalid and must fail clearly.
 
 ## 3) Global score definition
 For a given symbol:
-- `global_score(symbol) = max(final_score over all valid setups for symbol)`
-- `best_setup_id = argmax(final_score)`
+- `weighted_score(row) = final_score(row) × setup_weight(row)`
+- `global_score(symbol) = max(weighted_score over all valid setups for symbol)`
+- `best_setup_id = argmax(weighted_score)`
 
 ## 4) Setup preference (deterministic)
 - `setup_preference(setup_id)` is defined by the mapping in the Machine Header and is used only as a deterministic tie-breaker.
 
 ## 5) Dedup rule (one row per symbol)
-1) For each symbol, select the row with the highest `final_score`.
-2) If multiple rows tie on `final_score`, select the one whose `setup_id` appears earliest in `prefer_setup_id_order`.
+1) For each symbol, select the row with the highest `weighted_score`.
+2) If multiple rows tie on `weighted_score`, select the one whose `setup_id` appears earliest in `prefer_setup_id_order`.
 3) If still tied, tie-break by `setup_id` lexicographically ascending.
 4) If still tied, tie-break by `symbol` ascending.
 
