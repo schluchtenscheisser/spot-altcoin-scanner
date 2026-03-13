@@ -83,8 +83,8 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   3) else non-evaluable (`null`) stop/risk path
 - Long-spot invariant is strict: if `stop_price_initial >= entry_price`, all risk fields remain nullable (`null`).
 - Missing required stop inputs and invalid stop inputs are non-evaluable paths and must keep stop/risk fields nullable (`null`) without coercion.
-- If stop/risk distance is evaluable but targets are not evaluable, RR fields and `risk_acceptable` remain `null` while `stop_price_initial`/`stop_source`/`risk_pct_to_stop` remain populated.
-- `risk_acceptable` is threshold-driven and evaluated only when risk distance and `rr_to_target_1` are evaluable.
+- If stop/risk distance is evaluable, canonical `1R/2R/3R` targets and RR fields are always derivable from `R`.
+- `risk_acceptable` is threshold-driven and evaluated only when risk distance is evaluable; RR gate uses `rr_to_target_2`.
 - RR threshold config key precedence is deterministic: `risk.min_rr_to_target_1` (canonical) wins when present; legacy alias `risk.min_rr_to_tp10` is only used when canonical key is absent; missing both uses default `1.3`.
 - If canonical key is present but invalid, validation fails even if legacy alias is valid; non-finite RR threshold values are invalid for both keys.
 

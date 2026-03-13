@@ -108,13 +108,13 @@ Price semantics (authoritative):
 Target / RR semantics (authoritative):
 - `stop_source` MUST be `invalidation`, `atr_fallback`, or `null`.
 - `stop_price_initial` MUST be derived from the selected `stop_source` and match risk-model stop selection deterministically.
-- `target_1_price`/`target_2_price`/`target_3_price` MUST be derived exclusively from setup target levels (for example `analysis.trade_levels.targets` or equivalent canonicalized target fields), not from fixed percentage projections.
-- `rr_to_target_1` / `rr_to_target_2` MUST be computed from setup targets and absolute risk:
+- `target_1_price`/`target_2_price`/`target_3_price` MUST be the canonical `1R/2R/3R` ladder derived from effective risk distance `R = entry_price_usdt - stop_price_initial`.
+- `rr_to_target_1` / `rr_to_target_2` / `rr_to_target_3` MUST be computed from canonical targets and absolute risk:
   - `rr_to_target_1 = (target_1_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
   - `rr_to_target_2 = (target_2_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
-- `target_2_price`, `target_3_price`, and `rr_to_target_2` are nullable and MUST remain `null` when fewer targets are available or values are missing/invalid/non-finite/non-positive.
-- If `stop_price_initial` is missing/invalid/non-positive or `stop_price_initial >= entry_price_usdt`, RR fields MUST be `null`.
-- If target prices are missing/invalid/non-positive or `target_n_price <= entry_price_usdt`, the corresponding RR field MUST be `null`.
+  - `rr_to_target_3 = (target_3_price - entry_price_usdt) / (entry_price_usdt - stop_price_initial)`
+- For evaluable long setups, RR values are deterministically `1.0`, `2.0`, `3.0` (floating-point tolerance).
+- If `stop_price_initial` is missing/invalid/non-positive or `stop_price_initial >= entry_price_usdt`, target and RR fields MUST be `null`.
 - Target fields are orientation levels for RR evaluation only; they MUST NOT imply mandatory exits or automated take-profit behavior.
 
 ## Summary contract

@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Align setup target derivation with structural invalidation stops and evaluate `risk_acceptable` against `rr_to_target_2`
 

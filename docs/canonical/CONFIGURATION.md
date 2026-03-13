@@ -120,7 +120,7 @@ risk:
   atr_multiple_default: 2.0
   min_stop_distance_pct_default: 4.0
   max_stop_distance_pct_default: 12.0
-  min_rr_to_target_1_default: 1.3
+  min_rr_to_target_1_default: 1.3  # applied to rr_to_target_2 acceptance checkpoint
 
 decision:
   enabled_default: true
@@ -232,6 +232,7 @@ Notes:
   - `universe_filters.volume.min_quote_volume_24h` aliases to `universe_filters.volume.min_mexc_quote_volume_24h_usdt`.
   - If both keys are present, `min_mexc_quote_volume_24h_usdt` wins.
   - `risk.min_rr_to_tp10` aliases to canonical `risk.min_rr_to_target_1` for one migration phase.
+  - In this phase, the configured threshold is applied to `rr_to_target_2` (2R checkpoint) while key naming remains backward-compatible.
   - If both risk keys are present, `risk.min_rr_to_target_1` wins; if canonical key is present but invalid, validation fails.
 - Legacy soft-prior keys for backward compatibility:
   - `universe_filters.market_cap.*` and `universe_filters.volume.*` remain readable and should be marked `legacy_soft_prior: true` in runtime config.

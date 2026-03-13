@@ -4,7 +4,7 @@
 ```yaml
 id: CANON_CHANGELOG
 status: canonical
-canonical_schema_version: 6.1.1
+canonical_schema_version: 6.2.0
 canonical_schema_versioning: semver
 canonical_schema_version_location: docs/canonical/CHANGELOG.md
 ```
@@ -17,6 +17,12 @@ canonical_schema_version_location: docs/canonical/CHANGELOG.md
 - **PATCH**: non-semantic fixes/wording corrections with no contract behavior change.
 
 Rule: Every canonical contract change PR must evaluate version impact and update this value accordingly.
+
+
+## 6.2.0 — Canonical R-multiple targets and risk gate alignment
+- Canonicalized trade-level target derivation to `1R/2R/3R` from effective stop distance (`R = entry - stop`).
+- Canonicalized RR acceptance checkpoint: configured `risk.min_rr_to_target_1` threshold is evaluated against `rr_to_target_2` (2R) while preserving config-key compatibility.
+- Clarified nullable behavior: if stop is not evaluable, target/RR/risk-acceptability remain `null`; otherwise canonical target ladder and RR fields are deterministic.
 
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from scanner.config import resolve_risk_min_rr_to_target_1
 
@@ -28,13 +28,13 @@ def _atr_absolute(tf_features: Dict[str, Any]) -> Optional[float]:
     return (atr_pct / 100.0) * close
 
 
-def _targets(base: Optional[float], atr: Optional[float], multipliers: List[float]) -> List[Optional[float]]:
+def _targets(base: Optional[float], atr: Optional[float], multipliers: list[float]) -> list[Optional[float]]:
     if base is None or atr is None:
         return [None for _ in multipliers]
     return [base + (k * atr) for k in multipliers]
 
 
-def breakout_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+def breakout_trade_levels(features: Dict[str, Any], multipliers: list[float]) -> Dict[str, Any]:
     f1d = features.get("1d", {})
     close_1d = _to_float(f1d.get("close"))
     breakout_dist_20 = _to_float(f1d.get("breakout_dist_20"))
@@ -58,7 +58,7 @@ def breakout_trade_levels(features: Dict[str, Any], multipliers: List[float]) ->
     }
 
 
-def pullback_trade_levels(features: Dict[str, Any], multipliers: List[float], pb_tol_pct: float) -> Dict[str, Any]:
+def pullback_trade_levels(features: Dict[str, Any], multipliers: list[float], pb_tol_pct: float) -> Dict[str, Any]:
     f4h = features.get("4h", {})
     ema20_4h = _to_float(f4h.get("ema_20"))
     ema50_4h = _to_float(f4h.get("ema_50"))
@@ -78,7 +78,7 @@ def pullback_trade_levels(features: Dict[str, Any], multipliers: List[float], pb
     }
 
 
-def reversal_trade_levels(features: Dict[str, Any], multipliers: List[float]) -> Dict[str, Any]:
+def reversal_trade_levels(features: Dict[str, Any], multipliers: list[float]) -> Dict[str, Any]:
     f1d = features.get("1d", {})
     ema20_1d = _to_float(f1d.get("ema_20"))
     base_low = _to_float(f1d.get("base_low"))
@@ -119,8 +119,12 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
         "risk_pct_to_stop": None,
         "rr_to_target_1": None,
         "rr_to_target_2": None,
+        "rr_to_target_3": None,
         "risk_acceptable": None,
     }
+
+    # Canonical target ladder defaults to nullable until a valid effective stop is derivable.
+    trade_levels["targets"] = [None, None, None]
 
     if entry_price is None or entry_price <= 0:
         return result
@@ -157,27 +161,26 @@ def compute_phase1_risk_fields(setup_type: str, trade_levels: Dict[str, Any], ro
         }
     )
 
-    targets = trade_levels.get("targets") if isinstance(trade_levels.get("targets"), list) else []
-    tp10 = _to_float(targets[0]) if len(targets) >= 1 else None
-    tp20 = _to_float(targets[1]) if len(targets) >= 2 else None
-    if tp10 is None or tp20 is None:
-        return result
-    if tp10 <= entry_price or tp20 <= entry_price:
-        return result
+    target_1 = entry_price + risk_abs
+    target_2 = entry_price + (2.0 * risk_abs)
+    target_3 = entry_price + (3.0 * risk_abs)
+    trade_levels["targets"] = [target_1, target_2, target_3]
 
-    rr_to_target_1 = (tp10 - entry_price) / risk_abs
-    rr_to_target_2 = (tp20 - entry_price) / risk_abs
+    rr_to_target_1 = (target_1 - entry_price) / risk_abs
+    rr_to_target_2 = (target_2 - entry_price) / risk_abs
+    rr_to_target_3 = (target_3 - entry_price) / risk_abs
 
     risk_acceptable = (
         cfg["min_stop_distance_pct"] <= risk_pct_to_stop <= cfg["max_stop_distance_pct"]
-        and rr_to_target_1 is not None
-        and rr_to_target_1 >= cfg["min_rr_to_target_1"]
+        and rr_to_target_2 is not None
+        and rr_to_target_2 >= cfg["min_rr_to_target_1"]
     )
 
     result.update(
         {
             "rr_to_target_1": rr_to_target_1,
             "rr_to_target_2": rr_to_target_2,
+            "rr_to_target_3": rr_to_target_3,
             "risk_acceptable": risk_acceptable,
         }
     )

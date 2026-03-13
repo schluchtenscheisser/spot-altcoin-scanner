@@ -28,8 +28,9 @@ A candidate can be `ENTER` only if all are true:
 3. Risk is evaluable and acceptable (`risk_acceptable = true`).
 4. `setup_score` meets configured ENTER threshold.
 
-Risk consistency rule:
+Risk consistency rules:
 - Decision evaluation MUST use the same effective stop as risk computation (`stop_price_initial` selected by `stop_source`), with no alternate hidden stop model.
+- `risk_acceptable` RR gating is evaluated on `rr_to_target_2` (2R checkpoint), not on `rr_to_target_1`.
 
 ## WAIT semantics
 - `WAIT` applies only to fully evaluated candidates.
