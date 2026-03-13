@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket for Codex — Single writer workflow for auto-docs
 
 > Generated for repo `schluchtenscheisser/spot-altcoin-scanner`.

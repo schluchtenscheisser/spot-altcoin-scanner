@@ -38,6 +38,9 @@ jobs:
         with:
           python-version: "3.12"
       
+      - name: Build docs/code_map.md
+        run: python scripts/update_codemap.py
+
       - name: Build docs/GPT_SNAPSHOT.md
         run: |
           python - <<'PY'
@@ -55,7 +58,6 @@ jobs:
             "README.md",
             "config/config.yml",
             ".github/workflows/daily.yml",
-            ".github/workflows/update-code-map.yml",
             ".github/workflows/generate-gpt-snapshot.yml",
           ]
           
@@ -224,11 +226,23 @@ jobs:
           print(f"  Files included: {len([p for p in include if Path(p).is_file()])}")
           PY
       
-      - name: Commit snapshot
+      - name: Ensure origin/main is unchanged before auto-commit
+        run: |
+          git fetch origin main --quiet
+          HEAD_SHA="$(git rev-parse HEAD)"
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if [ "$HEAD_SHA" != "$MAIN_SHA" ]; then
+            echo "origin/main changed during this run (head=$HEAD_SHA, origin/main=$MAIN_SHA). Skipping auto-commit."
+            exit 0
+          fi
+
+      - name: Commit auto-doc updates
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: update GPT_SNAPSHOT.md [skip ci]"
-          file_pattern: docs/GPT_SNAPSHOT.md
+          commit_message: "docs: update auto-docs (code_map + GPT_SNAPSHOT) [skip ci]"
+          file_pattern: |
+            docs/code_map.md
+            docs/GPT_SNAPSHOT.md
       
       - name: Summary
         run: |
