@@ -327,6 +327,23 @@ def test_reason_order_is_stable_for_late_entry_reasons_when_combined_with_other_
     assert out["decision_reasons"] == ["tradeability_marginal", "entry_not_confirmed", "breakout_not_confirmed"]
 
 
+def test_late_entry_guards_use_pre_output_fields_from_scoring_rows():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "price_usdt": 120.0,
+            "analysis": {"trade_levels": {"targets": [110.0, 130.0, 140.0]}},
+            "stop_price_initial": 100.0,
+        }
+    )
+    assert out["decision"] == "NO_TRADE"
+    assert out["decision_reasons"] == ["price_past_target_1"]
+
+
 def test_decision_output_is_deterministic_for_identical_inputs():
     rows = [
         {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": False, "entry_readiness_reasons": ["retest_not_reclaimed"], "risk_acceptable": True, "setup_score": 60},

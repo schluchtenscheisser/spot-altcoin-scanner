@@ -183,8 +183,8 @@ def _load_decision_config(config: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def _evaluate_late_entry_guard(entry: Mapping[str, Any], cfg: Mapping[str, Any]) -> Optional[str]:
-    current_price = _to_optional_float(entry.get("current_price_usdt"))
-    target_1 = _to_optional_float(entry.get("target_1_price"))
+    current_price = _resolve_current_price(entry)
+    target_1 = _resolve_target_price(entry, index=1)
 
     if current_price is None or target_1 is None:
         return None
@@ -192,7 +192,7 @@ def _evaluate_late_entry_guard(entry: Mapping[str, Any], cfg: Mapping[str, Any])
     if current_price >= target_1:
         return "price_past_target_1"
 
-    target_2 = _to_optional_float(entry.get("target_2_price"))
+    target_2 = _resolve_target_price(entry, index=2)
     stop_price = _to_optional_float(entry.get("stop_price_initial"))
     if target_2 is None or stop_price is None:
         return None
@@ -209,6 +209,37 @@ def _evaluate_late_entry_guard(entry: Mapping[str, Any], cfg: Mapping[str, Any])
 
     return None
 
+
+
+
+def _resolve_current_price(entry: Mapping[str, Any]) -> Optional[float]:
+    direct = _to_optional_float(entry.get("current_price_usdt"))
+    if direct is not None:
+        return direct
+    return _to_optional_float(entry.get("price_usdt"))
+
+
+def _resolve_target_price(entry: Mapping[str, Any], index: int) -> Optional[float]:
+    direct = _to_optional_float(entry.get(f"target_{index}_price"))
+    if direct is not None and direct > 0:
+        return direct
+
+    analysis = entry.get("analysis")
+    if not isinstance(analysis, Mapping):
+        return None
+
+    trade_levels = analysis.get("trade_levels")
+    if not isinstance(trade_levels, Mapping):
+        return None
+
+    targets = trade_levels.get("targets")
+    if not isinstance(targets, list) or len(targets) < index:
+        return None
+
+    fallback = _to_optional_float(targets[index - 1])
+    if fallback is None or fallback <= 0:
+        return None
+    return fallback
 
 def _expect_number(value: Any, field_name: str) -> float:
     try:
