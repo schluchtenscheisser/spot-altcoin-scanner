@@ -36,6 +36,15 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `_find_breakout_indices` returns `(first_breakout_idx, last_breakout_idx)` over the configured trigger window.
 - BTC regime state domain is exactly `{RISK_OFF, NEUTRAL, RISK_ON}` with deterministic parsing (`missing => NEUTRAL`, invalid => validation error).
 - `bb_width_rank_120_4h` is interpreted on percent scale `[0..100]`; defensive rank01 input (`<=1.0`) is multiplied by 100 before scoring.
+- Breakout calibration defaults are deterministic: `volume_score_min_spike=1.2`, `volume_score_full_spike=2.2`, weights `(distance,volume,trend,bb)=(0.40,0.30,0.20,0.10)`.
+- Breakout multiplier floors are deterministic: anti-chase minimum `0.80`, overextension pre-hard-gate minimum `0.80`, BTC risk-off multipliers `{0.90, 0.80}`.
+- Missing/non-finite breakout scoring inputs (`volume_quote_spike_*`, `dist_ema20_pct_1d`, `bb_width_rank_120_4h`, trigger close) are non-evaluable and must not emit breakout rows.
+- Deterministic breakout row order is `(final_score desc, retest-first, symbol asc, setup_id asc)`.
+- Fixed 2026-03-14 comparison set checks:
+  - HYPEUSDT and C98USDT breakout immediate `final_score` increase vs stored fixture rows.
+  - C98USDT remains `execution_gate_pass=false` in this fixture family.
+  - JSTUSDT remains execution-gated (`execution_gate_pass=false`) despite score calibration.
+  - KERNELUSDT, TAOUSDT, GRTUSDT, ALGOUSDT have no breakout-immediate rows in this fixture family; this absence is explicitly documented (no silent substitution).
 
 
 ## Execution gate verification boundaries

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional, Tuple
 
 from scanner.pipeline.scoring.trade_levels import breakout_trade_levels, compute_phase1_risk_fields
@@ -13,8 +14,21 @@ class BreakoutTrend1to5DScorer:
         root = config.raw if hasattr(config, "raw") else config
         cfg = root.get("scoring", {}).get("breakout_trend_1_5d", {})
 
-        self.min_24h_risk_off = float(cfg.get("risk_off_min_quote_volume_24h", 15_000_000))
-        self.trigger_4h_lookback_bars = int(cfg.get("trigger_4h_lookback_bars", 30))
+        self.min_24h_risk_off = self._require_finite_float(cfg, "risk_off_min_quote_volume_24h", 15_000_000)
+        self.trigger_4h_lookback_bars = self._require_int(cfg, "trigger_4h_lookback_bars", 30)
+
+        self.volume_score_min_spike = self._require_finite_float(cfg, "volume_score_min_spike", 1.2)
+        self.volume_score_full_spike = self._require_finite_float(cfg, "volume_score_full_spike", 2.2)
+        if self.volume_score_full_spike <= self.volume_score_min_spike:
+            raise ValueError("scoring.breakout_trend_1_5d.volume_score_full_spike must be > volume_score_min_spike")
+
+        self.weight_breakout_distance = self._require_finite_float(cfg, "weight_breakout_distance", 0.40)
+        self.weight_volume = self._require_finite_float(cfg, "weight_volume", 0.30)
+        self.weight_trend = self._require_finite_float(cfg, "weight_trend", 0.20)
+        self.weight_bb = self._require_finite_float(cfg, "weight_bb", 0.10)
+        weight_sum = self.weight_breakout_distance + self.weight_volume + self.weight_trend + self.weight_bb
+        if not math.isclose(weight_sum, 1.0, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError("scoring.breakout_trend_1_5d weights must sum to 1.0")
 
         gate_cfg = root.get("execution_gates", {}).get("mexc_orderbook", {})
         self.execution_gate_enabled = bool(gate_cfg.get("enabled", True))
@@ -24,6 +38,40 @@ class BreakoutTrend1to5DScorer:
             str(k): float(v)
             for k, v in (gate_cfg.get("min_depth_usd", {"0.5": 80_000, "1.0": 200_000}) or {}).items()
         }
+
+    @staticmethod
+    def _require_finite_float(cfg: Dict[str, Any], key: str, default: float) -> float:
+        value = cfg.get(key, default)
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"scoring.breakout_trend_1_5d.{key} must be numeric") from exc
+        if not math.isfinite(parsed):
+            raise ValueError(f"scoring.breakout_trend_1_5d.{key} must be finite")
+        return parsed
+
+    @staticmethod
+    def _require_int(cfg: Dict[str, Any], key: str, default: int) -> int:
+        value = cfg.get(key, default)
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"scoring.breakout_trend_1_5d.{key} must be integer") from exc
+        if parsed <= 0:
+            raise ValueError(f"scoring.breakout_trend_1_5d.{key} must be > 0")
+        return parsed
+
+    @staticmethod
+    def _optional_finite_float(value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(parsed):
+            return None
+        return parsed
 
     @staticmethod
     def _calc_high_20d_excluding_current(f1d: Dict[str, Any]) -> Optional[float]:
@@ -48,8 +96,8 @@ class BreakoutTrend1to5DScorer:
         if r7 < 30:
             return 1.0
         if r7 <= 60:
-            return 1.0 - ((r7 - 30.0) / 30.0) * 0.25
-        return 0.75
+            return 1.0 - ((r7 - 30.0) / 30.0) * 0.20
+        return 0.80
 
     @staticmethod
     def _overextension_multiplier(dist_ema20_pct_1d: float) -> float:
@@ -57,9 +105,9 @@ class BreakoutTrend1to5DScorer:
         if d < 12:
             return 1.0
         if d <= 20:
-            return 1.0 - ((d - 12.0) / 8.0) * 0.15
+            return 1.0 - ((d - 12.0) / 8.0) * 0.10
         if d < 28:
-            return 0.85 - ((d - 20.0) / 8.0) * 0.15
+            return 0.90 - ((d - 20.0) / 8.0) * 0.10
         return 0.0
 
     @staticmethod
@@ -77,13 +125,12 @@ class BreakoutTrend1to5DScorer:
             return 100.0 * (1.0 - (dist - ideal) / (max_breakout - ideal))
         return 0.0
 
-    @staticmethod
-    def _volume_score(spike_combined: float) -> float:
-        if spike_combined < 1.5:
+    def _volume_score(self, spike_combined: float) -> float:
+        if spike_combined < self.volume_score_min_spike:
             return 0.0
-        if spike_combined >= 2.5:
+        if spike_combined >= self.volume_score_full_spike:
             return 100.0
-        return (spike_combined - 1.5) * 100.0
+        return ((spike_combined - self.volume_score_min_spike) / (self.volume_score_full_spike - self.volume_score_min_spike)) * 100.0
 
     @staticmethod
     def _trend_score(f4h: Dict[str, Any]) -> float:
@@ -123,7 +170,7 @@ class BreakoutTrend1to5DScorer:
 
         rs_override = (alt_r7 - btc_r7) >= 7.5 or (alt_r3 - btc_r3) >= 3.5
         liq_ok = float(feature_row.get("quote_volume_24h") or 0.0) >= self.min_24h_risk_off
-        multiplier = 0.85 if rs_override and liq_ok else 0.75
+        multiplier = 0.90 if rs_override and liq_ok else 0.80
         return multiplier, state, rs_override, liq_ok
 
 
@@ -191,29 +238,37 @@ class BreakoutTrend1to5DScorer:
         if float(f1d.get("r_7") or 0.0) <= 0.0:
             return []
 
-        dist_ema20 = float(f1d.get("dist_ema20_pct") or 0.0)
+        dist_ema20 = self._optional_finite_float(f1d.get("dist_ema20_pct"))
+        if dist_ema20 is None:
+            return []
         if dist_ema20 >= 28.0:
             return []
 
         closes = f4h.get("close_series") or []
-        close_4h_trigger = float(closes[last_breakout_idx]) if last_breakout_idx < len(closes) else float(f4h.get("close") or 0.0)
+        close_4h_trigger = self._optional_finite_float(closes[last_breakout_idx]) if last_breakout_idx < len(closes) else self._optional_finite_float(f4h.get("close"))
+        if close_4h_trigger is None:
+            return []
         dist_pct = ((close_4h_trigger / high_20) - 1.0) * 100.0
 
-        spike_1d = float(f1d.get("volume_quote_spike") or 0.0)
-        spike_4h = float(f4h.get("volume_quote_spike") or 0.0)
+        spike_1d = self._optional_finite_float(f1d.get("volume_quote_spike"))
+        spike_4h = self._optional_finite_float(f4h.get("volume_quote_spike"))
+        if spike_1d is None or spike_4h is None:
+            return []
         spike_combined = 0.7 * spike_1d + 0.3 * spike_4h
 
         breakout_distance_score = self._breakout_distance_score(dist_pct)
         volume_score = self._volume_score(spike_combined)
         trend_score = self._trend_score(f4h)
-        bb_rank = float(f4h.get("bb_width_rank_120") or 0.0)
+        bb_rank = self._optional_finite_float(f4h.get("bb_width_rank_120"))
+        if bb_rank is None:
+            return []
         bb_score = self._bb_score(bb_rank)
 
         base_score = (
-            0.35 * breakout_distance_score
-            + 0.35 * volume_score
-            + 0.15 * trend_score
-            + 0.15 * bb_score
+            self.weight_breakout_distance * breakout_distance_score
+            + self.weight_volume * volume_score
+            + self.weight_trend * trend_score
+            + self.weight_bb * bb_score
         )
 
         anti = self._anti_chase_multiplier(float(f1d.get("r_7") or 0.0))
@@ -332,5 +387,12 @@ def score_breakout_trend_1_5d(
             row.update(compute_phase1_risk_fields("breakout", trade_levels, root))
         results.extend(rows)
 
-    results.sort(key=lambda x: (float(x.get("final_score", 0.0)), x.get("setup_id") == "breakout_retest_1_5d"), reverse=True)
+    results.sort(
+        key=lambda x: (
+            -float(x.get("final_score", 0.0)),
+            0 if x.get("setup_id") == "breakout_retest_1_5d" else 1,
+            str(x.get("symbol") or ""),
+            str(x.get("setup_id") or ""),
+        )
+    )
     return results

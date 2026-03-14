@@ -30,16 +30,19 @@ retest_4h:
   tolerance_pct: 1.0
   window_bars: 12
 weights_fixed:
-  breakout_distance: 0.35
-  volume: 0.35
-  trend: 0.15
-  bb_score: 0.15
+  breakout_distance: 0.40
+  volume: 0.30
+  trend: 0.20
+  bb_score: 0.10
+volume_curve:
+  min_spike_for_score: 1.2
+  full_score_spike: 2.2
 multipliers:
-  anti_chase: {start: 30, full: 60, min_mult: 0.75}
-  overextension: {start: 12, strong: 20, hard_gate: 28}
+  anti_chase: {start: 30, full: 60, min_mult: 0.80}
+  overextension: {start: 12, strong: 20, hard_gate: 28, min_mult_before_gate: 0.80}
   btc_regime:
     risk_on_definition: "(btc_close_1d > btc_ema50_1d) AND (btc_ema20_1d > btc_ema50_1d)"
-    risk_off_multiplier: 0.85
+    risk_off_multiplier: 0.80
 ```
 
 ## 0) Ziel
@@ -206,10 +209,10 @@ Spikes:
 - `spike_combined = 0.7*spike_1d + 0.3*spike_4h`
 
 Mapping:
-- Wenn `spike_combined < 1.5` → `0`
-- Wenn `spike_combined >= 2.5` → `100`
+- Wenn `spike_combined < 1.2` → `0`
+- Wenn `spike_combined >= 2.2` → `100`
 - Sonst linear:
-  - `((spike_combined - 1.5) / (2.5 - 1.5)) * 100`
+  - `((spike_combined - 1.2) / (2.2 - 1.2)) * 100`
 
 ### 7.3 Trend Score (Option A)
 Voraussetzung: Trend Gate ist erfüllt (sonst Setup invalid).
@@ -231,12 +234,12 @@ Mapping auf `rank_pct`:
 
 ### 7.5 Base Score (fixed weights)
 Fixed weights:
-- breakout_distance: `0.35`
-- volume: `0.35`
-- trend: `0.15`
-- bb_score: `0.15`
+- breakout_distance: `0.40`
+- volume: `0.30`
+- trend: `0.20`
+- bb_score: `0.10`
 
-- `base_score = 0.35*breakout_distance_score + 0.35*volume_score + 0.15*trend_score + 0.15*bb_score`
+- `base_score = 0.40*breakout_distance_score + 0.30*volume_score + 0.20*trend_score + 0.10*bb_score`
 
 ---
 
@@ -246,12 +249,12 @@ Fixed weights:
 Parameters:
 - start = 30
 - full = 60
-- min_mult = 0.75
+- min_mult = 0.80
 
 Piecewise:
 - Wenn `r_7_1d < 30` → `1.0`
-- Wenn `30 <= r_7_1d <= 60` → linear `1.0 -> 0.75`
-- Wenn `r_7_1d > 60` → `0.75`
+- Wenn `30 <= r_7_1d <= 60` → linear `1.0 -> 0.80`
+- Wenn `r_7_1d > 60` → `0.80`
 
 ### 8.2 Overextension Multiplier (based on dist_ema20_pct_1d)
 Parameters:
@@ -261,8 +264,8 @@ Parameters:
 
 Piecewise:
 - Wenn `d < 12` → `1.0`
-- Wenn `12 <= d <= 20` → linear `1.0 -> 0.85`
-- Wenn `20 < d < 28` → linear `0.85 -> 0.70`
+- Wenn `12 <= d <= 20` → linear `1.0 -> 0.90`
+- Wenn `20 < d < 28` → linear `0.90 -> 0.80`
 - Wenn `d >= 28` → invalid (Hard Gate)
 
 ### 8.3 BTC Regime Multiplier (forced)
@@ -275,7 +278,7 @@ Wenn `btc_risk_on == true`:
 Wenn `btc_risk_on == false` (Risk-Off):
 - `rs_override = ((alt_r7_1d - btc_r7_1d) >= 7.5) OR ((alt_r3_1d - btc_r3_1d) >= 3.5)`
 - `liq_ok = quote_volume_24h_usd >= 15_000_000`
-- `btc_multiplier = 0.85` wenn `rs_override AND liq_ok`, sonst `0.75`
+- `btc_multiplier = 0.90` wenn `rs_override AND liq_ok`, sonst `0.80`
 - Kandidat bleibt immer gelistet (kein Hard-Exclude durch BTC-Regime)
 
 ---
@@ -324,6 +327,7 @@ Wichtig:
 ### 11.3 Dedup (global)
 Wenn ein Symbol beide Setups erfüllt:
 - Retest wird bevorzugt (Tie-break).
+Für identische `final_score`-Werte innerhalb des breakout-Setups ist die Sortierung deterministisch über `(final_score desc, retest-first, symbol asc, setup_id asc)` definiert.
 Global Top-N dedup & Setup-Gewichte sind in `GLOBAL_RANKING_TOP20.md` zu definieren.
 
 ---

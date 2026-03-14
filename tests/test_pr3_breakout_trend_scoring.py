@@ -108,7 +108,7 @@ def test_risk_off_downweights_without_excluding_and_emits_btc_fields() -> None:
 
     assert rows
     immediate = next(r for r in rows if r["setup_id"] == "breakout_immediate_1_5d")
-    assert immediate["btc_multiplier"] == 0.75
+    assert immediate["btc_multiplier"] == 0.80
     assert immediate["btc_state"] == "RISK_OFF"
     assert immediate["btc_rs_override"] is False
     assert immediate["btc_liq_ok_risk_off"] is False
@@ -128,12 +128,12 @@ def test_multipliers_boundaries() -> None:
     scorer = BreakoutTrend1to5DScorer({})
 
     assert scorer._anti_chase_multiplier(30.0) == 1.0  # noqa: SLF001
-    assert scorer._anti_chase_multiplier(45.0) == 0.875  # noqa: SLF001
-    assert scorer._anti_chase_multiplier(60.0) == 0.75  # noqa: SLF001
+    assert scorer._anti_chase_multiplier(45.0) == 0.9  # noqa: SLF001
+    assert scorer._anti_chase_multiplier(60.0) == 0.8  # noqa: SLF001
 
     assert scorer._overextension_multiplier(12.0) == 1.0  # noqa: SLF001
-    assert scorer._overextension_multiplier(20.0) == 0.85  # noqa: SLF001
-    assert scorer._overextension_multiplier(27.9) > 0.70  # noqa: SLF001
+    assert scorer._overextension_multiplier(20.0) == 0.9  # noqa: SLF001
+    assert scorer._overextension_multiplier(27.9) > 0.80  # noqa: SLF001
 
 
 def test_global_top20_dedup_tie_prefers_retest_setup() -> None:
@@ -331,3 +331,85 @@ def test_breakout_trend_v2_fields_present() -> None:
         assert row["entry_readiness_reasons"] == []
         assert row["breakout_confirmed"] is True
         assert row["setup_subtype"] in {"fresh_breakout", "confirmed_breakout"}
+
+
+def test_calibrated_defaults_raise_breakout_score_vs_legacy_curve() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    legacy_cfg = {
+        "setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40},
+        "scoring": {
+            "breakout_trend_1_5d": {
+                "volume_score_min_spike": 1.5,
+                "volume_score_full_spike": 2.5,
+                "weight_breakout_distance": 0.35,
+                "weight_volume": 0.35,
+                "weight_trend": 0.15,
+                "weight_bb": 0.15,
+            }
+        },
+    }
+    feature = _feature_row(dist_pct=3.0, r7=35.0)
+    new_rows = score_breakout_trend_1_5d({"HYPEUSDT": feature}, {"HYPEUSDT": 30_000_000}, cfg, btc_regime={"state": "RISK_ON"})
+    old_rows = score_breakout_trend_1_5d({"HYPEUSDT": feature}, {"HYPEUSDT": 30_000_000}, legacy_cfg, btc_regime={"state": "RISK_ON"})
+
+    assert new_rows and old_rows
+    assert new_rows[0]["final_score"] > old_rows[0]["final_score"]
+    assert 0.0 <= new_rows[0]["final_score"] <= 100.0
+
+
+def test_volume_threshold_config_is_applied() -> None:
+    cfg = {
+        "setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40},
+        "scoring": {"breakout_trend_1_5d": {"volume_score_min_spike": 1.5, "volume_score_full_spike": 2.5}},
+    }
+    row = score_breakout_trend_1_5d({"C98USDT": _feature_row()}, {"C98USDT": 30_000_000}, cfg, btc_regime={"state": "RISK_ON"})[0]
+    assert row["spike_combined"] == 2.0
+    assert row["volume_score"] == 50.0
+
+
+def test_non_finite_inputs_do_not_propagate_and_return_no_rows() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    feature = _feature_row()
+    feature["1d"]["volume_quote_spike"] = float("nan")
+    rows = score_breakout_trend_1_5d({"AAAUSDT": feature}, {"AAAUSDT": 30_000_000}, cfg, btc_regime={"state": "RISK_ON"})
+    assert rows == []
+
+
+def test_missing_breakout_inputs_stay_not_evaluable_not_weak() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    feature = _feature_row()
+    feature["4h"]["bb_width_rank_120"] = None
+    rows = score_breakout_trend_1_5d({"AAAUSDT": feature}, {"AAAUSDT": 30_000_000}, cfg, btc_regime={"state": "RISK_ON"})
+    assert rows == []
+
+
+def test_breakout_sorting_is_deterministic_with_symbol_tiebreaker() -> None:
+    cfg = {"setup_validation": {"min_history_breakout_1d": 20, "min_history_breakout_4h": 40}}
+    feature_a = _feature_row(dist_pct=3.0, r7=20.0)
+    feature_b = _feature_row(dist_pct=3.0, r7=20.0)
+    run1 = score_breakout_trend_1_5d(
+        {"ZZZUSDT": feature_a, "AAAUSDT": feature_b},
+        {"ZZZUSDT": 30_000_000, "AAAUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    run2 = score_breakout_trend_1_5d(
+        {"AAAUSDT": feature_b, "ZZZUSDT": feature_a},
+        {"AAAUSDT": 30_000_000, "ZZZUSDT": 30_000_000},
+        cfg,
+        btc_regime={"state": "RISK_ON"},
+    )
+    assert [(r["symbol"], r["setup_id"], r["final_score"]) for r in run1] == [
+        (r["symbol"], r["setup_id"], r["final_score"]) for r in run2
+    ]
+
+
+def test_invalid_config_for_volume_thresholds_raises() -> None:
+    scorer_cfg = {
+        "scoring": {"breakout_trend_1_5d": {"volume_score_min_spike": 2.5, "volume_score_full_spike": 2.5}}
+    }
+    try:
+        BreakoutTrend1to5DScorer(scorer_cfg)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "volume_score_full_spike" in str(exc)

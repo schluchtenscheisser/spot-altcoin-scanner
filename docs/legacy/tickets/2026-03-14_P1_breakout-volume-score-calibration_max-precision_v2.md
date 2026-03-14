@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 ## Title
 [P1] Calibrate breakout volume and score scaling for breakout_trend_1_5d using fixed comparison set
 

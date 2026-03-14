@@ -159,6 +159,12 @@ scoring:
   breakout_trend_1_5d:
     risk_off_min_quote_volume_24h: 15000000
     trigger_4h_lookback_bars: 30
+    volume_score_min_spike: 1.2
+    volume_score_full_spike: 2.2
+    weight_breakout_distance: 0.40
+    weight_volume: 0.30
+    weight_trend: 0.20
+    weight_bb: 0.10
 
   pullback:
     weights_mode: "compat"
