@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-03-14 19:53 UTC  
+**Last Updated:** 2026-03-14 20:24 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 46
 - **Total Classes:** 19
-- **Total Functions:** 413
+- **Total Functions:** 417
 
 ---
 
@@ -96,7 +96,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _expect_integer_number, _expect_number, _parse_integer_budget_value, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _expect_integer_number, _expect_number, _parse_integer_budget_value, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
 **Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, configured_primary, d, decision_cfg` _(+24 more)_
 
@@ -146,9 +146,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/pipeline/decision.py`
 
-**Functions:** `_expect_bool, _expect_number, _load_decision_config, _normalize_reason_list, _normalize_tradeability_reasons, _resolve_btc_regime_state, _stable_reason_order, _to_optional_bool, _to_optional_float, _to_optional_str, apply_decision_layer`
+**Functions:** `_evaluate_late_entry_guard, _expect_bool, _expect_number, _load_decision_config, _normalize_reason_list, _normalize_tradeability_reasons, _resolve_btc_regime_state, _resolve_current_price, _resolve_target_price, _stable_reason_order, _to_optional_bool, _to_optional_float, _to_optional_str, apply_decision_layer`
 
-**Module Variables:** `ALLOWED_TRADEABILITY, ENTER_TRADEABILITY, REASON_ORDER, VALID_BTC_REGIME_STATES, btc_cfg, btc_regime_state, can_enter, can_wait, cfg, decision_cfg` _(+20 more)_
+**Module Variables:** `ALLOWED_TRADEABILITY, ENTER_TRADEABILITY, REASON_ORDER, VALID_BTC_REGIME_STATES, analysis, btc_cfg, btc_regime_state, can_enter, can_wait, cfg` _(+34 more)_
 
 **Imports:** `__future__, math, typing`
 
@@ -574,6 +574,7 @@ _This section shows which functions call which other functions, helping identify
 | `cmc_api_key` | — | `get`, `getenv` |
 | `config_version` | — | `get` |
 | `decision_enabled` | — | `get` |
+| `decision_min_effective_rr_to_target_2_for_enter` | — | `get` |
 | `decision_min_score_for_enter` | — | `get` |
 | `decision_min_score_for_wait` | — | `get` |
 | `decision_require_risk_acceptable_for_enter` | — | `get` |
@@ -663,16 +664,19 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_evaluate_late_entry_guard` | `_resolve_current_price`, `_resolve_target_price`, `_to_optional_float` | `get` |
 | `_expect_bool` | — | `ValueError` |
 | `_expect_number` | — | `ValueError`, `isfinite` |
 | `_load_decision_config` | `_expect_bool`, `_expect_number` | `ValueError`, `get` |
 | `_normalize_reason_list` | — | `add`, `append`, `strip` |
 | `_normalize_tradeability_reasons` | `_normalize_reason_list` | `get` |
 | `_resolve_btc_regime_state` | — | `ValueError`, `get`, `strip`, `upper` |
+| `_resolve_current_price` | `_to_optional_float` | `get` |
+| `_resolve_target_price` | `_to_optional_float` | `get` |
 | `_stable_reason_order` | — | `add`, `append` |
 | `_to_optional_float` | — | `isfinite` |
 | `_to_optional_str` | — | `strip` |
-| `apply_decision_layer` | `_load_decision_config`, `_normalize_reason_list`, `_normalize_tradeability_reasons`, `_resolve_btc_regime_state`, `_stable_reason_order`, `_to_optional_bool`, `_to_optional_float`, `_to_optional_str` | `append`, `extend`, `get` |
+| `apply_decision_layer` | `_evaluate_late_entry_guard`, `_load_decision_config`, `_normalize_reason_list`, `_normalize_tradeability_reasons`, `_resolve_btc_regime_state`, `_stable_reason_order`, `_to_optional_bool`, `_to_optional_float`, `_to_optional_str` | `append`, `extend`, `get` |
 
 ### 📄 scanner/pipeline/discovery.py
 
@@ -1096,7 +1100,7 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/config.py` | 10 | 68 | 78 | 🔴 High |
+| `scanner/config.py` | 10 | 69 | 79 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 49 | 58 | 🔴 High |
@@ -1105,6 +1109,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
+| `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/tools/prepare_shadow_calibration.py` | 13 | 27 | 40 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
@@ -1113,7 +1118,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/pullback.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
-| `scanner/pipeline/decision.py` | 11 | 20 | 31 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
@@ -1153,4 +1157,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-03-14 19:53 UTC_
+_Generated by GitHub Actions • 2026-03-14 20:24 UTC_
