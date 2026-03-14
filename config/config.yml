@@ -54,6 +54,14 @@ btc_regime:
 shadow:
   mode: "parallel"   # legacy_only | new_only | parallel
   primary_path: "new"
+
+phase_policy:
+  setup_weights_active: true
+
+setup_weights_by_category:
+  breakout: 1.0
+  pullback: 0.9
+  reversal: 0.8
   
 data_sources:
   mexc:

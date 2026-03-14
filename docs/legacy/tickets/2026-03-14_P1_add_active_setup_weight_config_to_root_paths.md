@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] Add active setup-weight config blocks to `config/config.yml` using the implemented root-level paths
 
