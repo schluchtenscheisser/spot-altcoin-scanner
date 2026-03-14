@@ -49,6 +49,21 @@ Use `NO_TRADE` for hard blockers/non-eligibility (e.g., `FAIL`, denied risk, inv
 - If a candidate would be `ENTER` at baseline but fails only due to `RISK_OFF` threshold boost, decision becomes `WAIT` with reason `btc_regime_caution`.
 - Decision rows must expose `btc_regime_state` explicitly for transparent context.
 
+
+## Late-entry guards for ENTER (Phase 1)
+For candidates that would otherwise qualify as `ENTER`, the decision layer applies deterministic late-entry guards in this exact order:
+
+1. **Hard target-1 stop**
+   - If `current_price_usdt >= target_1_price`, the candidate MUST be downgraded to `NO_TRADE` with reason `price_past_target_1`.
+2. **Effective RR guard from current price**
+   - Otherwise compute `effective_rr_to_target_2 = (target_2_price - current_price_usdt) / (current_price_usdt - stop_price_initial)`.
+   - If `effective_rr_to_target_2 < decision.min_effective_rr_to_target_2_for_enter`, the candidate MUST be downgraded to `WAIT` with reason `effective_rr_insufficient`.
+
+Guard-evaluation semantics:
+- Missing/invalid/non-finite inputs for guard evaluation are non-evaluable and MUST NOT be coerced into guard failures.
+- `entry_state=chased` alone is not a hard blocker.
+- Late-entry guards MUST NOT change stop derivation, risk model acceptance semantics, setup scoring, or tradeability semantics.
+
 ## Explicit exclusions
 - Reversal without reclaim is not entry-ready.
 - Phase 1 does not define hold/rotate/portfolio orchestration decisions.

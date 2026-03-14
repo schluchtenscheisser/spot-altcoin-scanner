@@ -160,6 +160,9 @@ No implicit bool/number coercion is allowed for nullable fields.
   - `entry_chased` only when `entry_state=chased`
 - For `entry_state=at_trigger` or `entry_state=null`, no new timing reason may be appended.
 - Existing reasons MUST be preserved; timing reasons are appended only if missing (deduplicated, stable order).
+- Decision-layer late-entry reasons are canonical reason keys when guards fire:
+  - `price_past_target_1` (hard block; decision forced to `NO_TRADE`)
+  - `effective_rr_insufficient` (soft downgrade; decision forced to `WAIT`)
 
 ## entry_readiness_reasons contract
 - `entry_readiness_reasons` must be a deterministic list of standardized reason keys (no free text).

@@ -192,6 +192,158 @@ def test_reason_order_is_stable_when_multiple_wait_reasons_apply():
     ]
 
 
+def test_enter_is_blocked_as_no_trade_when_current_price_is_past_target_1():
+    out = _single(
+        {
+            "symbol": "TRUMPUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 85,
+            "current_price_usdt": 112.0,
+            "target_1_price": 111.0,
+            "target_2_price": 122.0,
+            "stop_price_initial": 95.0,
+            "entry_state": "chased",
+        }
+    )
+    assert out["decision"] == "NO_TRADE"
+    assert out["decision_reasons"] == ["price_past_target_1"]
+
+
+def test_enter_is_downgraded_to_wait_when_effective_rr_is_below_threshold():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "current_price_usdt": 109.0,
+            "target_1_price": 110.0,
+            "target_2_price": 110.5,
+            "stop_price_initial": 107.0,
+        }
+    )
+    assert out["decision"] == "WAIT"
+    assert out["decision_reasons"] == ["effective_rr_insufficient"]
+
+
+def test_chased_state_alone_does_not_force_downgrade_when_late_entry_guards_do_not_fire():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "entry_state": "chased",
+            "current_price_usdt": 100.0,
+            "target_1_price": 108.0,
+            "target_2_price": 116.0,
+            "stop_price_initial": 95.0,
+        }
+    )
+    assert out["decision"] == "ENTER"
+    assert out["decision_reasons"] == []
+
+
+def test_missing_late_entry_inputs_do_not_coerce_to_guard_failures():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "current_price_usdt": None,
+            "target_1_price": 108.0,
+            "target_2_price": 116.0,
+            "stop_price_initial": 95.0,
+        }
+    )
+    assert out["decision"] == "ENTER"
+    assert out["decision_reasons"] == []
+
+
+def test_non_finite_late_entry_inputs_do_not_coerce_to_guard_failures():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "current_price_usdt": float("inf"),
+            "target_1_price": 108.0,
+            "target_2_price": 116.0,
+            "stop_price_initial": 95.0,
+        }
+    )
+    assert out["decision"] == "ENTER"
+    assert out["decision_reasons"] == []
+
+
+def test_missing_late_entry_rr_threshold_uses_default():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "current_price_usdt": 109.0,
+            "target_1_price": 110.0,
+            "target_2_price": 110.5,
+            "stop_price_initial": 107.0,
+        },
+        config={"decision": {"min_score_for_enter": 65, "min_score_for_wait": 40, "require_risk_acceptable_for_enter": True}},
+    )
+    assert out["decision"] == "WAIT"
+    assert out["decision_reasons"] == ["effective_rr_insufficient"]
+
+
+def test_invalid_late_entry_rr_threshold_is_rejected():
+    with pytest.raises(ValueError, match="decision.min_effective_rr_to_target_2_for_enter must be numeric"):
+        apply_decision_layer([], {"decision": {"min_effective_rr_to_target_2_for_enter": "bad"}})
+
+
+def test_reason_order_is_stable_for_late_entry_reasons_when_combined_with_other_reasons():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "MARGINAL",
+            "entry_ready": False,
+            "entry_readiness_reasons": ["breakout_not_confirmed"],
+            "risk_acceptable": True,
+            "setup_score": 90,
+            "current_price_usdt": 120.0,
+            "target_1_price": 110.0,
+            "target_2_price": 130.0,
+            "stop_price_initial": 100.0,
+        }
+    )
+    assert out["decision"] == "WAIT"
+    assert out["decision_reasons"] == ["tradeability_marginal", "entry_not_confirmed", "breakout_not_confirmed"]
+
+
+def test_late_entry_guards_use_pre_output_fields_from_scoring_rows():
+    out = _single(
+        {
+            "symbol": "AAAUSDT",
+            "tradeability_class": "DIRECT_OK",
+            "entry_ready": True,
+            "risk_acceptable": True,
+            "setup_score": 80,
+            "price_usdt": 120.0,
+            "analysis": {"trade_levels": {"targets": [110.0, 130.0, 140.0]}},
+            "stop_price_initial": 100.0,
+        }
+    )
+    assert out["decision"] == "NO_TRADE"
+    assert out["decision_reasons"] == ["price_past_target_1"]
+
+
 def test_decision_output_is_deterministic_for_identical_inputs():
     rows = [
         {"symbol": "AAAUSDT", "tradeability_class": "DIRECT_OK", "entry_ready": False, "entry_readiness_reasons": ["retest_not_reclaimed"], "risk_acceptable": True, "setup_score": 60},

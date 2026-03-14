@@ -45,6 +45,7 @@ decision:
   min_score_for_wait: 40
   require_tradeability_for_enter: true
   require_risk_acceptable_for_enter: true
+  min_effective_rr_to_target_2_for_enter: 1.0
 
 btc_regime:
   enabled: true

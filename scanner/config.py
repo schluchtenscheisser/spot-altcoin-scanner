@@ -272,6 +272,10 @@ class ScannerConfig:
     def decision_require_risk_acceptable_for_enter(self) -> bool:
         return self.raw.get("decision", {}).get("require_risk_acceptable_for_enter", True)
 
+    @property
+    def decision_min_effective_rr_to_target_2_for_enter(self) -> float:
+        return float(self.raw.get("decision", {}).get("min_effective_rr_to_target_2_for_enter", 1.0))
+
     # BTC regime
     @property
     def btc_regime_enabled(self) -> bool:
@@ -533,6 +537,12 @@ def validate_config(config: ScannerConfig) -> List[str]:
     for bool_key in ["require_tradeability_for_enter", "require_risk_acceptable_for_enter"]:
         if bool_key in decision_cfg and not isinstance(decision_cfg.get(bool_key), bool):
             errors.append(f"decision.{bool_key} must be boolean")
+    _expect_number(
+        errors,
+        decision_cfg.get("min_effective_rr_to_target_2_for_enter", 1.0),
+        "decision.min_effective_rr_to_target_2_for_enter",
+        minimum=0,
+    )
 
     # BTC regime block
     btc_cfg = config.raw.get("btc_regime", {})

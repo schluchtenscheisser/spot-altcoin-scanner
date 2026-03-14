@@ -132,6 +132,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Non-evaluable risk (`risk_acceptable=null`) must produce `NO_TRADE` with `risk_data_insufficient`, never `WAIT`.
 - In `RISK_OFF`, candidates in `[min_score_for_enter, min_score_for_enter + risk_off_enter_boost)` degrade from potential `ENTER` to `WAIT` with `btc_regime_caution` (not a hard block).
 - Tradeability `UNKNOWN`/`FAIL` must be stopped before decision layer in pipeline integration; if evaluated defensively, they remain `NO_TRADE`.
+- Late-entry hard guard: if `current_price_usdt >= target_1_price`, decision cannot be `ENTER`; it must be `NO_TRADE` with `price_past_target_1`.
+- Late-entry effective RR guard: for otherwise ENTER-eligible rows with `current_price_usdt < target_1_price`, compute `(target_2_price-current_price_usdt)/(current_price_usdt-stop_price_initial)`; values below `decision.min_effective_rr_to_target_2_for_enter` must downgrade to `WAIT` with `effective_rr_insufficient`.
+- Missing/invalid/non-finite late-entry guard inputs are non-evaluable and must not be coerced to `price_past_target_1` or `effective_rr_insufficient`.
+- `entry_state=chased` alone must not force a downgrade if late-entry guards do not fire.
 
 ## Shadow mode verification boundaries
 - `shadow.mode` allowed values are exactly `{legacy_only, new_only, parallel}`; missing key defaults to `parallel`.

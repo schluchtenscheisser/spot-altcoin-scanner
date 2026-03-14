@@ -41,6 +41,7 @@ def test_v421_defaults_are_applied_when_new_blocks_missing() -> None:
     assert cfg.decision_min_score_for_wait == 40
     assert cfg.decision_require_tradeability_for_enter is True
     assert cfg.decision_require_risk_acceptable_for_enter is True
+    assert cfg.decision_min_effective_rr_to_target_2_for_enter == 1.0
 
     assert cfg.btc_regime_enabled is True
     assert cfg.btc_regime_mode == "threshold_modifier"
@@ -190,3 +191,11 @@ def test_v421_shadow_parallel_allows_missing_primary_path_default_resolution() -
     errors = validate_config(ScannerConfig(raw=raw))
 
     assert errors == []
+
+
+def test_v421_invalid_min_effective_rr_for_enter_fails() -> None:
+    raw = _offline_base()
+    raw["decision"] = {"min_effective_rr_to_target_2_for_enter": "bad"}
+
+    errors = validate_config(ScannerConfig(raw=raw))
+    assert "decision.min_effective_rr_to_target_2_for_enter must be numeric" in errors

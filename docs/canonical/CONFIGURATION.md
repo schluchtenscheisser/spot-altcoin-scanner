@@ -128,6 +128,7 @@ decision:
   min_score_for_wait_default: 40
   require_tradeability_for_enter_default: true
   require_risk_acceptable_for_enter_default: true
+  min_effective_rr_to_target_2_for_enter_default: 1.0
 
 btc_regime:
   enabled_default: true
@@ -222,6 +223,7 @@ Canonical rule:
 | decision.min_score_for_wait_default | decision.min_score_for_wait |
 | decision.require_tradeability_for_enter_default | decision.require_tradeability_for_enter |
 | decision.require_risk_acceptable_for_enter_default | decision.require_risk_acceptable_for_enter |
+| decision.min_effective_rr_to_target_2_for_enter_default | decision.min_effective_rr_to_target_2_for_enter |
 | btc_regime.enabled_default | btc_regime.enabled |
 | btc_regime.mode_default | btc_regime.mode |
 | btc_regime.risk_off_enter_boost_default | btc_regime.risk_off_enter_boost |

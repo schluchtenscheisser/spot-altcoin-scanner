@@ -16,6 +16,8 @@ REASON_ORDER = [
     "stop_distance_too_wide",
     "risk_reward_unattractive",
     "risk_data_insufficient",
+    "price_past_target_1",
+    "effective_rr_insufficient",
     "insufficient_edge",
     "btc_regime_caution",
     "entry_not_confirmed",
@@ -89,6 +91,19 @@ def apply_decision_layer(
         )
 
         if can_enter:
+            late_entry_guard = _evaluate_late_entry_guard(entry, cfg)
+            if late_entry_guard == "price_past_target_1":
+                entry["decision"] = "NO_TRADE"
+                entry["decision_reasons"] = _stable_reason_order(["price_past_target_1"])
+                out.append(entry)
+                continue
+            if late_entry_guard == "effective_rr_insufficient":
+                entry["decision"] = "WAIT"
+                entry["decision_reasons"] = _stable_reason_order(["effective_rr_insufficient"])
+                out.append(entry)
+                continue
+
+        if can_enter:
             entry["decision"] = "ENTER"
             entry["decision_reasons"] = []
             out.append(entry)
@@ -160,8 +175,71 @@ def _load_decision_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         "min_score_for_wait": min_score_for_wait,
         "require_risk_acceptable_for_enter": require_risk_acceptable_for_enter,
         "risk_off_enter_boost": risk_off_enter_boost,
+        "min_effective_rr_to_target_2_for_enter": _expect_number(
+            decision_cfg.get("min_effective_rr_to_target_2_for_enter", 1.0),
+            "decision.min_effective_rr_to_target_2_for_enter",
+        ),
     }
 
+
+def _evaluate_late_entry_guard(entry: Mapping[str, Any], cfg: Mapping[str, Any]) -> Optional[str]:
+    current_price = _resolve_current_price(entry)
+    target_1 = _resolve_target_price(entry, index=1)
+
+    if current_price is None or target_1 is None:
+        return None
+
+    if current_price >= target_1:
+        return "price_past_target_1"
+
+    target_2 = _resolve_target_price(entry, index=2)
+    stop_price = _to_optional_float(entry.get("stop_price_initial"))
+    if target_2 is None or stop_price is None:
+        return None
+
+    reward_abs = target_2 - current_price
+    risk_abs = current_price - stop_price
+    if reward_abs <= 0 or risk_abs <= 0:
+        return None
+
+    effective_rr_to_target_2 = reward_abs / risk_abs
+    min_effective_rr = cfg["min_effective_rr_to_target_2_for_enter"]
+    if effective_rr_to_target_2 < min_effective_rr:
+        return "effective_rr_insufficient"
+
+    return None
+
+
+
+
+def _resolve_current_price(entry: Mapping[str, Any]) -> Optional[float]:
+    direct = _to_optional_float(entry.get("current_price_usdt"))
+    if direct is not None:
+        return direct
+    return _to_optional_float(entry.get("price_usdt"))
+
+
+def _resolve_target_price(entry: Mapping[str, Any], index: int) -> Optional[float]:
+    direct = _to_optional_float(entry.get(f"target_{index}_price"))
+    if direct is not None and direct > 0:
+        return direct
+
+    analysis = entry.get("analysis")
+    if not isinstance(analysis, Mapping):
+        return None
+
+    trade_levels = analysis.get("trade_levels")
+    if not isinstance(trade_levels, Mapping):
+        return None
+
+    targets = trade_levels.get("targets")
+    if not isinstance(targets, list) or len(targets) < index:
+        return None
+
+    fallback = _to_optional_float(targets[index - 1])
+    if fallback is None or fallback <= 0:
+        return None
+    return fallback
 
 def _expect_number(value: Any, field_name: str) -> float:
     try:
