@@ -1,0 +1,2823 @@
+{
+  "generated_at_utc": "2026-03-15T22:11:49Z",
+  "runs_analyzed": 7,
+  "total_candidates": 147,
+  "decision_counts": {
+    "NO_TRADE": 127,
+    "WAIT": 19,
+    "ENTER": 1
+  },
+  "entry_state_counts": {
+    "chased": 116,
+    "late": 18,
+    "early": 13
+  },
+  "reason_counts": {
+    "risk_reward_unattractive": 125,
+    "tradeability_marginal": 122,
+    "entry_chased": 109,
+    "btc_regime_caution": 46,
+    "entry_not_confirmed": 46,
+    "retest_not_reclaimed": 39,
+    "entry_late": 18,
+    "entry_too_early": 13,
+    "rebound_not_confirmed": 7,
+    "price_past_target_1": 2
+  },
+  "per_run": [
+    {
+      "report_date": "2026-03-09",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 21
+      },
+      "entry_state_counts": {
+        "chased": 16,
+        "late": 4,
+        "early": 1
+      },
+      "setup_bucket_counts": {
+        "reversal": 11,
+        "pullback": 8,
+        "other": 2
+      },
+      "chased_bucket_counts": {
+        "reversal": 10,
+        "pullback": 4,
+        "other": 2
+      },
+      "chased_count": 16,
+      "chased_pct": 76.19047619047619,
+      "median_chased_distance_to_entry_pct": 16.586996951179177,
+      "p75_chased_distance_to_entry_pct": 26.599308489675554
+    },
+    {
+      "report_date": "2026-03-10",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 21
+      },
+      "entry_state_counts": {
+        "chased": 18,
+        "late": 2,
+        "early": 1
+      },
+      "setup_bucket_counts": {
+        "reversal": 11,
+        "pullback": 4,
+        "other": 6
+      },
+      "chased_bucket_counts": {
+        "reversal": 9,
+        "pullback": 3,
+        "other": 6
+      },
+      "chased_count": 18,
+      "chased_pct": 85.71428571428571,
+      "median_chased_distance_to_entry_pct": 10.479542882814663,
+      "p75_chased_distance_to_entry_pct": 17.34247925134582
+    },
+    {
+      "report_date": "2026-03-11",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 21
+      },
+      "entry_state_counts": {
+        "chased": 13,
+        "late": 4,
+        "early": 4
+      },
+      "setup_bucket_counts": {
+        "reversal": 11,
+        "pullback": 9,
+        "other": 1
+      },
+      "chased_bucket_counts": {
+        "reversal": 9,
+        "pullback": 3,
+        "other": 1
+      },
+      "chased_count": 13,
+      "chased_pct": 61.904761904761905,
+      "median_chased_distance_to_entry_pct": 12.256684615772784,
+      "p75_chased_distance_to_entry_pct": 27.08093939344325
+    },
+    {
+      "report_date": "2026-03-12",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 21
+      },
+      "entry_state_counts": {
+        "chased": 16,
+        "late": 4,
+        "early": 1
+      },
+      "setup_bucket_counts": {
+        "reversal": 11,
+        "pullback": 6,
+        "other": 4
+      },
+      "chased_bucket_counts": {
+        "reversal": 9,
+        "pullback": 4,
+        "other": 3
+      },
+      "chased_count": 16,
+      "chased_pct": 76.19047619047619,
+      "median_chased_distance_to_entry_pct": 11.67066923059722,
+      "p75_chased_distance_to_entry_pct": 14.330105491351048
+    },
+    {
+      "report_date": "2026-03-13",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 16,
+        "WAIT": 5
+      },
+      "entry_state_counts": {
+        "chased": 18,
+        "late": 3
+      },
+      "setup_bucket_counts": {
+        "breakout": 2,
+        "reversal": 9,
+        "pullback": 1,
+        "other": 9
+      },
+      "chased_bucket_counts": {
+        "breakout": 2,
+        "reversal": 7,
+        "pullback": 1,
+        "other": 8
+      },
+      "chased_count": 18,
+      "chased_pct": 85.71428571428571,
+      "median_chased_distance_to_entry_pct": 6.810373565777206,
+      "p75_chased_distance_to_entry_pct": 11.940544413476806
+    },
+    {
+      "report_date": "2026-03-14",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 13,
+        "ENTER": 1,
+        "WAIT": 7
+      },
+      "entry_state_counts": {
+        "chased": 18,
+        "early": 3
+      },
+      "setup_bucket_counts": {
+        "breakout": 3,
+        "other": 4,
+        "reversal": 9,
+        "pullback": 5
+      },
+      "chased_bucket_counts": {
+        "breakout": 3,
+        "other": 4,
+        "reversal": 7,
+        "pullback": 4
+      },
+      "chased_count": 18,
+      "chased_pct": 85.71428571428571,
+      "median_chased_distance_to_entry_pct": 9.18284636099862,
+      "p75_chased_distance_to_entry_pct": 15.815411398116032
+    },
+    {
+      "report_date": "2026-03-15",
+      "candidate_count": 21,
+      "decision_counts": {
+        "NO_TRADE": 14,
+        "WAIT": 7
+      },
+      "entry_state_counts": {
+        "chased": 17,
+        "early": 3,
+        "late": 1
+      },
+      "setup_bucket_counts": {
+        "breakout": 2,
+        "pullback": 8,
+        "reversal": 8,
+        "other": 3
+      },
+      "chased_bucket_counts": {
+        "breakout": 2,
+        "pullback": 5,
+        "reversal": 7,
+        "other": 3
+      },
+      "chased_count": 17,
+      "chased_pct": 80.95238095238095,
+      "median_chased_distance_to_entry_pct": 12.010018275823885,
+      "p75_chased_distance_to_entry_pct": 14.574214196427636
+    }
+  ],
+  "setup_breakdown": [
+    {
+      "setup_id": "breakout_immediate_1_5d",
+      "setup_bucket": "breakout",
+      "candidate_count": 2,
+      "entry_state_counts": {
+        "chased": 2
+      },
+      "chased_count": 2,
+      "chased_pct": 100.0,
+      "median_distance_to_entry_pct": 9.52270520346653,
+      "p75_distance_to_entry_pct": 10.047726405705276
+    },
+    {
+      "setup_id": "breakout_retest_1_5d",
+      "setup_bucket": "breakout",
+      "candidate_count": 5,
+      "entry_state_counts": {
+        "chased": 5
+      },
+      "chased_count": 5,
+      "chased_pct": 100.0,
+      "median_distance_to_entry_pct": 19.85770260282127,
+      "p75_distance_to_entry_pct": 21.699263284710767
+    },
+    {
+      "setup_id": null,
+      "setup_bucket": "other",
+      "candidate_count": 29,
+      "entry_state_counts": {
+        "chased": 27,
+        "late": 2
+      },
+      "chased_count": 27,
+      "chased_pct": 93.10344827586206,
+      "median_distance_to_entry_pct": 7.272606045513874,
+      "p75_distance_to_entry_pct": 14.574214196427636
+    },
+    {
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "candidate_count": 41,
+      "entry_state_counts": {
+        "chased": 24,
+        "late": 8,
+        "early": 9
+      },
+      "chased_count": 24,
+      "chased_pct": 58.536585365853654,
+      "median_distance_to_entry_pct": 5.172452025947405,
+      "p75_distance_to_entry_pct": 13.56115684469752
+    },
+    {
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "candidate_count": 70,
+      "entry_state_counts": {
+        "chased": 58,
+        "late": 8,
+        "early": 4
+      },
+      "chased_count": 58,
+      "chased_pct": 82.85714285714286,
+      "median_distance_to_entry_pct": 9.143273473432101,
+      "p75_distance_to_entry_pct": 16.050420382010074
+    }
+  ],
+  "setup_bucket_summaries": {
+    "pullback": {
+      "label": "pullback",
+      "candidate_count": 41,
+      "decision_counts": {
+        "NO_TRADE": 33,
+        "WAIT": 8
+      },
+      "entry_state_counts": {
+        "chased": 24,
+        "late": 8,
+        "early": 9
+      },
+      "reason_counts": {
+        "tradeability_marginal": 37,
+        "risk_reward_unattractive": 33,
+        "entry_chased": 24,
+        "btc_regime_caution": 12,
+        "entry_too_early": 9,
+        "entry_late": 8,
+        "entry_not_confirmed": 6,
+        "rebound_not_confirmed": 6
+      },
+      "per_run": [
+        {
+          "report_date": "2026-03-09",
+          "candidate_count": 8,
+          "decision_counts": {
+            "NO_TRADE": 8
+          },
+          "entry_state_counts": {
+            "chased": 4,
+            "late": 3,
+            "early": 1
+          },
+          "chased_count": 4,
+          "chased_pct": 50.0,
+          "median_chased_distance_to_entry_pct": 10.979047830126653,
+          "p75_chased_distance_to_entry_pct": 17.4331286134481
+        },
+        {
+          "report_date": "2026-03-10",
+          "candidate_count": 4,
+          "decision_counts": {
+            "NO_TRADE": 4
+          },
+          "entry_state_counts": {
+            "chased": 3,
+            "late": 1
+          },
+          "chased_count": 3,
+          "chased_pct": 75.0,
+          "median_chased_distance_to_entry_pct": 8.503983397539884,
+          "p75_chased_distance_to_entry_pct": 22.908788365755452
+        },
+        {
+          "report_date": "2026-03-11",
+          "candidate_count": 9,
+          "decision_counts": {
+            "NO_TRADE": 9
+          },
+          "entry_state_counts": {
+            "chased": 3,
+            "early": 4,
+            "late": 2
+          },
+          "chased_count": 3,
+          "chased_pct": 33.33333333333333,
+          "median_chased_distance_to_entry_pct": 26.505478989404253,
+          "p75_chased_distance_to_entry_pct": 41.63349655283272
+        },
+        {
+          "report_date": "2026-03-12",
+          "candidate_count": 6,
+          "decision_counts": {
+            "NO_TRADE": 6
+          },
+          "entry_state_counts": {
+            "chased": 4,
+            "late": 2
+          },
+          "chased_count": 4,
+          "chased_pct": 66.66666666666666,
+          "median_chased_distance_to_entry_pct": 9.902600518226878,
+          "p75_chased_distance_to_entry_pct": 12.697321103298691
+        },
+        {
+          "report_date": "2026-03-13",
+          "candidate_count": 1,
+          "decision_counts": {
+            "WAIT": 1
+          },
+          "entry_state_counts": {
+            "chased": 1
+          },
+          "chased_count": 1,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 4.478581627680489,
+          "p75_chased_distance_to_entry_pct": 4.478581627680489
+        },
+        {
+          "report_date": "2026-03-14",
+          "candidate_count": 5,
+          "decision_counts": {
+            "WAIT": 3,
+            "NO_TRADE": 2
+          },
+          "entry_state_counts": {
+            "chased": 4,
+            "early": 1
+          },
+          "chased_count": 4,
+          "chased_pct": 80.0,
+          "median_chased_distance_to_entry_pct": 18.32519579291543,
+          "p75_chased_distance_to_entry_pct": 20.881832384687144
+        },
+        {
+          "report_date": "2026-03-15",
+          "candidate_count": 8,
+          "decision_counts": {
+            "WAIT": 4,
+            "NO_TRADE": 4
+          },
+          "entry_state_counts": {
+            "chased": 5,
+            "early": 3
+          },
+          "chased_count": 5,
+          "chased_pct": 62.5,
+          "median_chased_distance_to_entry_pct": 13.530606588080541,
+          "p75_chased_distance_to_entry_pct": 15.014195524860208
+        }
+      ],
+      "sample_chased_candidates": [
+        {
+          "report_date": "2026-03-09",
+          "symbol": "RESOLVUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 28.35804936707227,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[6]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "DEXEUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 13.791488362240045,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[13]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "SIGNUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 8.166607298013261,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[14]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "COWUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 4.245003937807756,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[17]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "ARIAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 37.31359333397102,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[10]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "GRASSUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 8.503983397539884,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[18]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "PIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.104038202957328,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[19]"
+        },
+        {
+          "report_date": "2026-03-11",
+          "symbol": "PIXELUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 56.76151411626118,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[3]"
+        },
+        {
+          "report_date": "2026-03-11",
+          "symbol": "ARIAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 26.505478989404253,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[12]"
+        },
+        {
+          "report_date": "2026-03-11",
+          "symbol": "GRASSUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 8.60264271312776,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[9]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "PIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 13.56115684469752,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[12]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "QUBICUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 12.409375856165749,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[8]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "HYPEUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 7.395825180288007,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[11]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "GRASSUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.405755241929833,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[7]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "STABLEUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 4.478581627680489,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[2]"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "BANANAS31USDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 22.936009651117793,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[7]"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "RIVERUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 20.19710662921026,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[4]"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "NAORISUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 16.453284956620596,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[15]"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "TAOUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 6.916332154411009,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[6]"
+        },
+        {
+          "report_date": "2026-03-15",
+          "symbol": "CUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "pullback",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 37.15595786931984,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[0]"
+        }
+      ]
+    },
+    "reversal": {
+      "label": "reversal",
+      "candidate_count": 70,
+      "decision_counts": {
+        "NO_TRADE": 64,
+        "WAIT": 6
+      },
+      "entry_state_counts": {
+        "chased": 58,
+        "late": 8,
+        "early": 4
+      },
+      "reason_counts": {
+        "risk_reward_unattractive": 62,
+        "tradeability_marginal": 58,
+        "entry_chased": 54,
+        "entry_not_confirmed": 27,
+        "retest_not_reclaimed": 27,
+        "btc_regime_caution": 25,
+        "entry_late": 8,
+        "entry_too_early": 4,
+        "price_past_target_1": 2
+      },
+      "per_run": [
+        {
+          "report_date": "2026-03-09",
+          "candidate_count": 11,
+          "decision_counts": {
+            "NO_TRADE": 11
+          },
+          "entry_state_counts": {
+            "chased": 10,
+            "late": 1
+          },
+          "chased_count": 10,
+          "chased_pct": 90.9090909090909,
+          "median_chased_distance_to_entry_pct": 17.271690612211884,
+          "p75_chased_distance_to_entry_pct": 25.023318322141677
+        },
+        {
+          "report_date": "2026-03-10",
+          "candidate_count": 11,
+          "decision_counts": {
+            "NO_TRADE": 11
+          },
+          "entry_state_counts": {
+            "chased": 9,
+            "late": 1,
+            "early": 1
+          },
+          "chased_count": 9,
+          "chased_pct": 81.81818181818183,
+          "median_chased_distance_to_entry_pct": 12.455102368089443,
+          "p75_chased_distance_to_entry_pct": 17.34247925134582
+        },
+        {
+          "report_date": "2026-03-11",
+          "candidate_count": 11,
+          "decision_counts": {
+            "NO_TRADE": 11
+          },
+          "entry_state_counts": {
+            "chased": 9,
+            "late": 2
+          },
+          "chased_count": 9,
+          "chased_pct": 81.81818181818183,
+          "median_chased_distance_to_entry_pct": 12.256684615772784,
+          "p75_chased_distance_to_entry_pct": 27.08093939344325
+        },
+        {
+          "report_date": "2026-03-12",
+          "candidate_count": 11,
+          "decision_counts": {
+            "NO_TRADE": 11
+          },
+          "entry_state_counts": {
+            "chased": 9,
+            "late": 1,
+            "early": 1
+          },
+          "chased_count": 9,
+          "chased_pct": 81.81818181818183,
+          "median_chased_distance_to_entry_pct": 11.879863447860073,
+          "p75_chased_distance_to_entry_pct": 16.001166366533013
+        },
+        {
+          "report_date": "2026-03-13",
+          "candidate_count": 9,
+          "decision_counts": {
+            "WAIT": 2,
+            "NO_TRADE": 7
+          },
+          "entry_state_counts": {
+            "chased": 7,
+            "late": 2
+          },
+          "chased_count": 7,
+          "chased_pct": 77.77777777777779,
+          "median_chased_distance_to_entry_pct": 11.069727574864219,
+          "p75_chased_distance_to_entry_pct": 15.620114190190769
+        },
+        {
+          "report_date": "2026-03-14",
+          "candidate_count": 9,
+          "decision_counts": {
+            "WAIT": 3,
+            "NO_TRADE": 6
+          },
+          "entry_state_counts": {
+            "early": 2,
+            "chased": 7
+          },
+          "chased_count": 7,
+          "chased_pct": 77.77777777777779,
+          "median_chased_distance_to_entry_pct": 5.390923828098915,
+          "p75_chased_distance_to_entry_pct": 8.35883747134556
+        },
+        {
+          "report_date": "2026-03-15",
+          "candidate_count": 8,
+          "decision_counts": {
+            "WAIT": 1,
+            "NO_TRADE": 7
+          },
+          "entry_state_counts": {
+            "chased": 7,
+            "late": 1
+          },
+          "chased_count": 7,
+          "chased_pct": 87.5,
+          "median_chased_distance_to_entry_pct": 12.010018275823885,
+          "p75_chased_distance_to_entry_pct": 14.210105041915
+        }
+      ],
+      "sample_chased_candidates": [
+        {
+          "report_date": "2026-03-09",
+          "symbol": "QUBICUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 37.39743112803768,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[1]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "BABYUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 26.599308489675554,
+          "current_price": null,
+          "planned_entry_price": 0.012464523059608094,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive"
+          ],
+          "source_path": "$"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "BABYUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 26.599308489675554,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[0]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "CVXUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 20.295347819540034,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[11]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "PLUMEUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 19.00123413629182,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[4]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "OKBUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 15.542147088131951,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[16]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "HYPEUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 15.484739464389218,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[3]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "ZROUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 11.842713588703301,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[7]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "ETHFIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 10.231198829434462,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[10]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "HUMAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 6.800394880609284,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[2]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "FLOWUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 67.4909611341047,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[3]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "BABYUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 17.34247925134582,
+          "current_price": null,
+          "planned_entry_price": 0.012774572427340355,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive"
+          ],
+          "source_path": "$"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "BABYUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 17.34247925134582,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[0]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "ZROUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 16.137685656302647,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[2]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "HUMAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 12.455102368089443,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[6]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "AVAXUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 7.539770272078816,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[7]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "HSKUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 7.482363013178639,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[9]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "MNTUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.645651677576624,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[1]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "PLUMEUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 4.536535010412823,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[4]"
+        },
+        {
+          "report_date": "2026-03-11",
+          "symbol": "FLOWUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "reversal",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 46.52120424493012,
+          "current_price": null,
+          "planned_entry_price": 0.0432633626830114,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution"
+          ],
+          "source_path": "$"
+        }
+      ]
+    },
+    "breakout": {
+      "label": "breakout",
+      "candidate_count": 7,
+      "decision_counts": {
+        "NO_TRADE": 7
+      },
+      "entry_state_counts": {
+        "chased": 7
+      },
+      "reason_counts": {
+        "risk_reward_unattractive": 7,
+        "entry_chased": 4,
+        "tradeability_marginal": 3
+      },
+      "per_run": [
+        {
+          "report_date": "2026-03-13",
+          "candidate_count": 2,
+          "decision_counts": {
+            "NO_TRADE": 2
+          },
+          "entry_state_counts": {
+            "chased": 2
+          },
+          "chased_count": 2,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 16.96503998886255,
+          "p75_chased_distance_to_entry_pct": 19.33215163678666
+        },
+        {
+          "report_date": "2026-03-14",
+          "candidate_count": 3,
+          "decision_counts": {
+            "NO_TRADE": 3
+          },
+          "entry_state_counts": {
+            "chased": 3
+          },
+          "chased_count": 3,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 10.572747607944022,
+          "p75_chased_distance_to_entry_pct": 15.215225105382647
+        },
+        {
+          "report_date": "2026-03-15",
+          "candidate_count": 2,
+          "decision_counts": {
+            "NO_TRADE": 2
+          },
+          "entry_state_counts": {
+            "chased": 2
+          },
+          "chased_count": 2,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 22.81431033415444,
+          "p75_chased_distance_to_entry_pct": 29.985134101737138
+        }
+      ],
+      "sample_chased_candidates": [
+        {
+          "report_date": "2026-03-13",
+          "symbol": "TAOUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_retest_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 21.699263284710767,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[5]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "TAOUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_retest_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 12.230816693014335,
+          "current_price": null,
+          "planned_entry_price": 189.13015065795926,
+          "decision_reasons": [
+            "risk_reward_unattractive"
+          ],
+          "source_path": "$"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "FETUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_retest_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 19.85770260282127,
+          "current_price": null,
+          "planned_entry_price": 0.15953298060880117,
+          "decision_reasons": [
+            "risk_reward_unattractive"
+          ],
+          "source_path": "$"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "FETUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_immediate_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 10.572747607944022,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[8]"
+        },
+        {
+          "report_date": "2026-03-14",
+          "symbol": "JSTUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_retest_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 4.277538320177476,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[19]"
+        },
+        {
+          "report_date": "2026-03-15",
+          "symbol": "SPKUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_retest_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 37.15595786931984,
+          "current_price": null,
+          "planned_entry_price": 0.021314125977384486,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive"
+          ],
+          "source_path": "$"
+        },
+        {
+          "report_date": "2026-03-15",
+          "symbol": "SPKUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": "breakout_immediate_1_5d",
+          "setup_bucket": "breakout",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 8.472662798989038,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[7]"
+        }
+      ]
+    },
+    "other": {
+      "label": "other",
+      "candidate_count": 29,
+      "decision_counts": {
+        "NO_TRADE": 23,
+        "WAIT": 5,
+        "ENTER": 1
+      },
+      "entry_state_counts": {
+        "chased": 27,
+        "late": 2
+      },
+      "reason_counts": {
+        "entry_chased": 27,
+        "tradeability_marginal": 24,
+        "risk_reward_unattractive": 23,
+        "entry_not_confirmed": 13,
+        "retest_not_reclaimed": 12,
+        "btc_regime_caution": 9,
+        "entry_late": 2,
+        "rebound_not_confirmed": 1
+      },
+      "per_run": [
+        {
+          "report_date": "2026-03-09",
+          "candidate_count": 2,
+          "decision_counts": {
+            "NO_TRADE": 2
+          },
+          "entry_state_counts": {
+            "chased": 2
+          },
+          "chased_count": 2,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 25.853840840788656,
+          "p75_chased_distance_to_entry_pct": 29.96483785406978
+        },
+        {
+          "report_date": "2026-03-10",
+          "candidate_count": 6,
+          "decision_counts": {
+            "NO_TRADE": 6
+          },
+          "entry_state_counts": {
+            "chased": 6
+          },
+          "chased_count": 6,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 10.986725990027802,
+          "p75_chased_distance_to_entry_pct": 18.231521363612934
+        },
+        {
+          "report_date": "2026-03-11",
+          "candidate_count": 1,
+          "decision_counts": {
+            "NO_TRADE": 1
+          },
+          "entry_state_counts": {
+            "chased": 1
+          },
+          "chased_count": 1,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 5.768123871323172,
+          "p75_chased_distance_to_entry_pct": 5.768123871323172
+        },
+        {
+          "report_date": "2026-03-12",
+          "candidate_count": 4,
+          "decision_counts": {
+            "NO_TRADE": 4
+          },
+          "entry_state_counts": {
+            "late": 1,
+            "chased": 3
+          },
+          "chased_count": 3,
+          "chased_pct": 75.0,
+          "median_chased_distance_to_entry_pct": 11.461475013334365,
+          "p75_chased_distance_to_entry_pct": 18.446004476487275
+        },
+        {
+          "report_date": "2026-03-13",
+          "candidate_count": 9,
+          "decision_counts": {
+            "WAIT": 2,
+            "NO_TRADE": 7
+          },
+          "entry_state_counts": {
+            "chased": 8,
+            "late": 1
+          },
+          "chased_count": 8,
+          "chased_pct": 88.88888888888889,
+          "median_chased_distance_to_entry_pct": 5.777619729507089,
+          "p75_chased_distance_to_entry_pct": 6.5868369559237525
+        },
+        {
+          "report_date": "2026-03-14",
+          "candidate_count": 4,
+          "decision_counts": {
+            "ENTER": 1,
+            "WAIT": 1,
+            "NO_TRADE": 2
+          },
+          "entry_state_counts": {
+            "chased": 4
+          },
+          "chased_count": 4,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 11.549973097305744,
+          "p75_chased_distance_to_entry_pct": 15.390768692657069
+        },
+        {
+          "report_date": "2026-03-15",
+          "candidate_count": 3,
+          "decision_counts": {
+            "WAIT": 2,
+            "NO_TRADE": 1
+          },
+          "entry_state_counts": {
+            "chased": 3
+          },
+          "chased_count": 3,
+          "chased_pct": 100.0,
+          "median_chased_distance_to_entry_pct": 5.587081137978744,
+          "p75_chased_distance_to_entry_pct": 10.080647667203191
+        }
+      ],
+      "sample_chased_candidates": [
+        {
+          "report_date": "2026-03-09",
+          "symbol": "NAORISUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 34.075834867350906,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[19]"
+        },
+        {
+          "report_date": "2026-03-09",
+          "symbol": "KAVAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 17.631846814226403,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[18]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "PIXELUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 56.0639152633581,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[16]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "KERNELUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 19.297636527183414,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[17]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "ETHFIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 15.033175872901495,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[11]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "JSTUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 6.940276107154109,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[14]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "SUIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 4.396625942432397,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[15]"
+        },
+        {
+          "report_date": "2026-03-10",
+          "symbol": "UNIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 3.01374999235704,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[13]"
+        },
+        {
+          "report_date": "2026-03-11",
+          "symbol": "PIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.768123871323172,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_not_confirmed",
+            "rebound_not_confirmed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[18]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "FLOWUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 25.43053393964019,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[18]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "FORMUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 11.461475013334365,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[17]"
+        },
+        {
+          "report_date": "2026-03-12",
+          "symbol": "ETHFIUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 9.312729786408447,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[19]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "MOODENGUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 8.458839136144803,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[16]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "BBUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 7.272606045513874,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[13]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "ALGOUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 6.358247259393712,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[3]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "TIAUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.800734353928738,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[17]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "PENGUUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.754505105085439,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "btc_regime_caution",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[18]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "POPCATUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 5.147609185604041,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[15]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "BNBUSDT",
+          "decision": "WAIT",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 3.177545244256552,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "entry_not_confirmed",
+            "retest_not_reclaimed",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[4]"
+        },
+        {
+          "report_date": "2026-03-13",
+          "symbol": "LUNCUSDT",
+          "decision": "NO_TRADE",
+          "setup_id": null,
+          "setup_bucket": "other",
+          "entry_state": "chased",
+          "distance_to_entry_pct": 3.1431150488852477,
+          "current_price": null,
+          "planned_entry_price": null,
+          "decision_reasons": [
+            "tradeability_marginal",
+            "risk_reward_unattractive",
+            "entry_chased"
+          ],
+          "source_path": "$.trade_candidates[14]"
+        }
+      ]
+    }
+  },
+  "top_chased_examples": [
+    {
+      "report_date": "2026-03-09",
+      "symbol": "QUBICUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 37.39743112803768,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[1]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "NAORISUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 34.075834867350906,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[19]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "RESOLVUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 28.35804936707227,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[6]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "BABYUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 26.599308489675554,
+      "current_price": null,
+      "planned_entry_price": 0.012464523059608094,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive"
+      ],
+      "source_path": "$"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "BABYUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 26.599308489675554,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[0]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "CVXUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 20.295347819540034,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[11]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "PLUMEUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 19.00123413629182,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[4]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "KAVAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 17.631846814226403,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[18]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "OKBUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 15.542147088131951,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[16]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "HYPEUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 15.484739464389218,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[3]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "DEXEUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 13.791488362240045,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[13]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "ZROUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 11.842713588703301,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[7]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "ETHFIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 10.231198829434462,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[10]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "SIGNUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 8.166607298013261,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[14]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "HUMAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 6.800394880609284,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[2]"
+    },
+    {
+      "report_date": "2026-03-09",
+      "symbol": "COWUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 4.245003937807756,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[17]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "FLOWUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 67.4909611341047,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[3]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "PIXELUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 56.0639152633581,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[16]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "ARIAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 37.31359333397102,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[10]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "KERNELUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 19.297636527183414,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[17]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "BABYUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 17.34247925134582,
+      "current_price": null,
+      "planned_entry_price": 0.012774572427340355,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive"
+      ],
+      "source_path": "$"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "BABYUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 17.34247925134582,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[0]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "ZROUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 16.137685656302647,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[2]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "ETHFIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 15.033175872901495,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[11]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "HUMAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 12.455102368089443,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[6]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "GRASSUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 8.503983397539884,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[18]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "AVAXUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 7.539770272078816,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[7]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "HSKUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 7.482363013178639,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[9]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "JSTUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 6.940276107154109,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[14]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "MNTUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 5.645651677576624,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[1]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "PIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 5.104038202957328,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[19]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "PLUMEUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 4.536535010412823,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[4]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "SUIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 4.396625942432397,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[15]"
+    },
+    {
+      "report_date": "2026-03-10",
+      "symbol": "UNIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 3.01374999235704,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[13]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "PIXELUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 56.76151411626118,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[3]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "FLOWUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 46.52120424493012,
+      "current_price": null,
+      "planned_entry_price": 0.0432633626830114,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution"
+      ],
+      "source_path": "$"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "FLOWUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 46.52120424493012,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[0]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "HUMAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 27.08093939344325,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[1]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "ARIAUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 26.505478989404253,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[12]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "BABYUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 23.998912511696236,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[5]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "ETHFIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 12.256684615772784,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[8]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "HYPEUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 12.14787660849841,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[7]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "GRASSUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "pullback",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 8.60264271312776,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[9]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "BSVUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 7.244886361899017,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[2]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "PIUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 5.768123871323172,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_not_confirmed",
+        "rebound_not_confirmed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[18]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "VTHOUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 5.422069226743997,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[17]"
+    },
+    {
+      "report_date": "2026-03-11",
+      "symbol": "HSKUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 5.2455610577315515,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "btc_regime_caution",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[6]"
+    },
+    {
+      "report_date": "2026-03-12",
+      "symbol": "FLOWUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "other",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 25.43053393964019,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_not_confirmed",
+        "retest_not_reclaimed",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[18]"
+    },
+    {
+      "report_date": "2026-03-12",
+      "symbol": "DEEPUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 21.351689672224495,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "tradeability_marginal",
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[1]"
+    },
+    {
+      "report_date": "2026-03-12",
+      "symbol": "TAOUSDT",
+      "decision": "NO_TRADE",
+      "setup_id": null,
+      "setup_bucket": "reversal",
+      "entry_state": "chased",
+      "distance_to_entry_pct": 16.066838387169092,
+      "current_price": null,
+      "planned_entry_price": null,
+      "decision_reasons": [
+        "risk_reward_unattractive",
+        "entry_chased"
+      ],
+      "source_path": "$.trade_candidates[13]"
+    }
+  ]
+}
