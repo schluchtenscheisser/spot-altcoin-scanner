@@ -1,46 +1,34 @@
-# Scope — What the Spot Altcoin Scanner Does (and does not) (Canonical)
+# Scope — Independence-Release Bootstrap Scope (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
 id: CANON_SCOPE
 status: canonical
-tool_name: spot-altcoin-scanner
-market_focus:
-  exchange: MEXC
-  market: spot
-  quote_asset: USDT
-segment_focus_default:
-  market_cap_usd: {min: 100_000_000, max: 10_000_000_000}
-non_goals:
-  - automated_execution
-  - financial_advice
-  - ML_prediction
-  - sentiment_or_news_dependency
-determinism_contract:
-  closed_candle_only: true
-  no_lookahead: true
-  no_randomness: true
+primary_architecture: independence_release
+bootstrap_ticket: 2026-03-23__P0__bootstrap_independence_release_repo_cleanup-2
 ```
 
-## What it does
-- Deterministic scanner that identifies and ranks short-term spot-altcoin trading setups.
-- Produces structured outputs (JSON/Markdown/Excel) containing:
-  - setup_id
-  - component scores and final score
-  - gating/flag diagnostics
-  - liquidity diagnostics (slippage/spread/grade) for top candidates
-  - reproducibility manifest (commit/config/as-of)
+## Fachliche Grundlage
+The fachliche Grundlage for the Independence-Release target architecture are the **7 Abschnittsdateien** together with the authoritative Independence-Release Gesamtkonzept referenced by the bootstrap ticket. Legacy repository documentation is not binding for the target architecture when it conflicts with those authority sources.
 
-## What it does not do
-- No automated trading/execution (not a bot).
-- No predictive ML model.
-- No guarantees of profitability.
-- No implicit use of sentiment/news/on-chain data unless explicitly specified in canonical docs.
+## Legacy authority rule
+Documentation under `docs/legacy/` is historical context only. Supporting files under `docs/` that predate this bootstrap may remain for compatibility, but canonical truth for the target architecture lives under `docs/canonical/`.
 
-## Current canonical setups
-- Breakout Trend 1–5d (Immediate + Retest): `SCORING/SCORE_BREAKOUT_TREND_1_5D.md`
+## Leitprinzipien (bootstrap restatement)
+- Independence-Release is the new primary target architecture for this repository.
+- Legacy scanner material is retained only as reference and migration input, not as the active design center.
+- Canonical documentation must define the structure first; implementation follows in later tickets.
+- Reusable technical infrastructure should be preserved where it can support later Independence-Release work.
+- Deferred business logic must remain explicitly deferred rather than guessed or silently imported from the legacy scanner.
+- Repository structure, storage paths, and documentation paths must be deterministic and visible in version control.
 
-## Determinism contract (high-level)
-- Closed-candle-only: never use an in-progress candle for computations.
-- No-lookahead: never use future candles.
-- Identical inputs + identical config => identical outputs.
+## In scope for this bootstrap
+- Canonical documentation skeleton for the Independence-Release architecture.
+- Repository-level target directories for reports, snapshots, evaluation, artifacts, and legacy isolation.
+- Scanner module skeleton for the target architecture.
+- Repository messaging that makes the target/legacy separation explicit.
+
+## Out of scope for this bootstrap
+- Implementation of runtime business logic for axes, phase, state, entry, runners, SQLite schema, or execution behavior.
+- Re-definition of deferred thresholds, scoring curves, or other unsettled business rules.
+- Treating legacy scoring/ranking/decision docs as implied authority for the new architecture.
