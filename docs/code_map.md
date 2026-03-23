@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-03-23 20:09 UTC  
+**Last Updated:** 2026-03-23 22:12 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 47
+- **Total Modules:** 52
 - **Total Classes:** 19
-- **Total Functions:** 426
+- **Total Functions:** 438
 
 ---
 
@@ -96,11 +96,29 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _expect_integer_number, _expect_number, _parse, _parse_integer_budget_value, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_integer_budget_value, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, configured_primary, d, decision_cfg` _(+28 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, configured, configured_primary, d` _(+31 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
+
+---
+
+### 📄 `scanner/data/__init__.py`
+
+**Functions:** —
+
+**Imports:** `bar_clock`
+
+---
+
+### 📄 `scanner/data/bar_clock.py`
+
+**Functions:** `_coerce_utc_datetime, _floor_to_4h_boundary, daily_bar_id, delta_closed_4h_bars, intraday_bar_id`
+
+**Module Variables:** `UTC, boundary, closed_bar_date, current_boundaries, current_dt, current_epoch, dt, floored_seconds, normalized, numeric` _(+4 more)_
+
+**Imports:** `__future__, datetime, math, typing`
 
 ---
 
@@ -402,6 +420,34 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ---
 
+### 📄 `scanner/storage/__init__.py`
+
+**Functions:** —
+
+**Imports:** `schema, sqlite`
+
+---
+
+### 📄 `scanner/storage/schema.py`
+
+**Functions:** `apply_schema, get_schema_version`
+
+**Module Variables:** `current_version, row`
+
+**Imports:** `__future__, sqlite3, typing`
+
+---
+
+### 📄 `scanner/storage/sqlite.py`
+
+**Functions:** `connect_sqlite, init_db`
+
+**Module Variables:** `connection, path`
+
+**Imports:** `__future__, pathlib, schema, sqlite3`
+
+---
+
 ### 📄 `scanner/tools/backfill_btc_regime.py`
 
 **Classes:** `BackfillStats`
@@ -573,8 +619,10 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `_budget_mapping` | — | `get` |
+| `_deep_merge_dicts` | `_deep_merge_dicts` | `items` |
 | `_expect_integer_number` | `_expect_number` | `append`, `is_integer` |
 | `_expect_number` | — | `append`, `isfinite` |
+| `_normalize_independence_release_config` | `_deep_merge_dicts` | `ValueError`, `get`, `items` |
 | `_parse` | — | `ValueError`, `isfinite` |
 | `_parse_integer_budget_value` | — | `ValueError`, `is_integer` |
 | `btc_regime_enabled` | — | `get` |
@@ -593,7 +641,8 @@ _This section shows which functions call which other functions, helping identify
 | `exclude_leveraged` | — | `get` |
 | `exclude_stablecoins` | — | `get` |
 | `exclude_wrapped` | — | `get` |
-| `load_config` | — | `FileNotFoundError`, `Path`, `ScannerConfig`, `exists`, `safe_load` |
+| `independence_release` | `_normalize_independence_release_config` | `get` |
+| `load_config` | `_normalize_independence_release_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
 | `log_file` | — | `get` |
 | `log_level` | — | `get` |
 | `log_to_file` | — | `get` |
@@ -633,6 +682,16 @@ _This section shows which functions call which other functions, helping identify
 | `tradeability_notional_chunk_usdt` | — | `get` |
 | `tradeability_notional_total_usdt` | — | `get` |
 | `validate_config` | `_expect_integer_number`, `_expect_number` | `append`, `get` |
+
+### 📄 scanner/data/bar_clock.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_coerce_utc_datetime` | — | `TypeError`, `ValueError`, `astimezone`, `endswith`, `fromisoformat`, `fromtimestamp`, `isfinite`, `replace`, `strip` |
+| `_floor_to_4h_boundary` | — | `replace`, `timedelta` |
+| `daily_bar_id` | `_coerce_utc_datetime` | `date`, `isoformat`, `replace`, `timedelta` |
+| `delta_closed_4h_bars` | `_coerce_utc_datetime` | `floor`, `timestamp` |
+| `intraday_bar_id` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `timestamp` |
 
 ### 📄 scanner/main.py
 
@@ -987,6 +1046,20 @@ _This section shows which functions call which other functions, helping identify
 | `load_snapshot` | — | `FileNotFoundError`, `exists`, `info`, `load` |
 | `resolve_history_dir` | — | `Path`, `get` |
 
+### 📄 scanner/storage/schema.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `apply_schema` | `get_schema_version` | `ValueError`, `execute` |
+| `get_schema_version` | — | `execute`, `fetchone` |
+
+### 📄 scanner/storage/sqlite.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `connect_sqlite` | — | `Path`, `connect`, `execute`, `mkdir` |
+| `init_db` | `connect_sqlite` | `apply_schema`, `close` |
+
 ### 📄 scanner/tools/backfill_btc_regime.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -1124,7 +1197,7 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/config.py` | 13 | 74 | 87 | 🔴 High |
+| `scanner/config.py` | 17 | 80 | 97 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
@@ -1148,6 +1221,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
+| `scanner/data/bar_clock.py` | 4 | 18 | 22 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -1161,8 +1235,10 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
+| `scanner/storage/sqlite.py` | 1 | 6 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
+| `scanner/storage/schema.py` | 1 | 4 | 5 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
 
 **Interpretation:**
@@ -1182,4 +1258,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-03-23 20:09 UTC_
+_Generated by GitHub Actions • 2026-03-23 22:12 UTC_
