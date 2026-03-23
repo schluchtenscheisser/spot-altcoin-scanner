@@ -6,7 +6,7 @@ id: CANON_ARCHITECTURE
 status: canonical
 primary_architecture: independence_release
 legacy_runtime_status: separate_repo_reference_only
-bootstrap_level: structure_only
+bootstrap_level: structure_plus_foundation
 ```
 
 ## Primary target statement
@@ -36,7 +36,16 @@ scanner/
 Owns the target-architecture universe definition and symbol population preparation that feeds the Independence-Release scans. Detailed selection logic is deferred to later tickets.
 
 ### `scanner/data/`
-Owns provider-facing data access, loading contracts, and the normalization boundary between external market data and internal processing stages. Concrete provider logic remains deferred.
+Owns provider-facing data access, loading contracts, and the normalization boundary between external market data and internal processing stages. The canonical Independence-Release `bar_clock.py` lives here because daily and 4h bar identifiers are infrastructure, not optional helpers.
+
+#### `scanner/data/bar_clock.py`
+This module is the canonical UTC bar clock for Independence-Release. It defines:
+- `daily_bar_id(t)` as the `YYYY-MM-DD` identifier of the most recently closed daily bar,
+- `intraday_bar_id(t)` as the UTC epoch-millisecond close time of the most recently closed 4h bar,
+- `delta_closed_4h_bars(t_previous, t_current)` as the count of newly closed 4h bars in `(t_previous, t_current]`,
+- `DAILY_SCAN_DELTA_BARS = 6` as the fixed daily-to-4h mapping.
+
+All behavior is closed-bar-only, UTC-only, and deterministic at exact close boundaries.
 
 ### `scanner/features/`
 Owns reusable feature computation for the target architecture. This bootstrap does not define feature formulas; it only reserves the module boundary for later implementation.
@@ -60,7 +69,13 @@ Owns execution-adjacent abstractions for downstream decision consumption. The bo
 Owns decision bucketing and trade/no-trade style outputs in the Independence-Release architecture. Concrete rules are deferred to later canonical tickets.
 
 ### `scanner/storage/`
-Owns persistence boundaries, especially the future SQLite foundation and storage coordination with snapshot/history material. Schema details are intentionally deferred.
+Owns persistence boundaries for Independence-Release. The initial foundation is SQLite infrastructure only: opening/creating the database, enabling WAL mode, tracking schema version via `PRAGMA user_version`, and creating the technical `run_metadata` table. Business tables such as `symbol_state`, `cycle_state`, and `cache_meta` are deferred to later tickets.
+
+#### `scanner/storage/sqlite.py`
+Provides connection/bootstrap helpers that create the database if required, enable WAL mode, and initialize the canonical schema idempotently.
+
+#### `scanner/storage/schema.py`
+Provides the schema-version contract and idempotent migration entrypoint for the infrastructure foundation. This ticket defines schema version tracking plus exactly one table, `run_metadata`.
 
 ### `scanner/output/`
 Owns report and export generation for the target architecture, aligned with the canonical reports/output documents. File-level output contracts remain to be implemented later.
