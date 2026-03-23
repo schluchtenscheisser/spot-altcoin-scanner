@@ -1,73 +1,25 @@
-# Spot Altcoin Scanner (MEXC Spot)
+# Spot Altcoin Scanner — Independence-Release Bootstrap Repo
 
-Deterministic scanner for short-term **spot altcoin** trading setups on **MEXC (USDT-quoted pairs)**.
+This repository is now the **bootstrap repository for the Independence-Release architecture**. It preserves reusable technical infrastructure from the older scanner while making the new target structure explicit.
 
 **Canonical documentation (source of truth):** `docs/canonical/INDEX.md`
 
----
+## Repository status
+- **Primary target path:** Independence-Release structure under `docs/canonical/` and the new `scanner/*` module skeleton.
+- **Legacy/reference only:** the existing legacy scanner pipeline that remains in this repository for reference and technical reuse.
+- **Out of scope in this bootstrap:** implementing the new business logic, SQLite schema, runners, axes, phase/state logic, or automated execution.
 
-## What it does
-- Builds an eligible universe (market cap + exchange availability + hard gates)
-- Computes deterministic features (closed candles only)
-- Scores and ranks setups
-- Optionally applies liquidity re-rank using orderbook-based slippage
-- Exports machine- and human-readable outputs (JSON/Markdown/Excel)
+## What this bootstrap changes
+- Establishes the target directory structure for reports, snapshots, evaluation, artifacts, and legacy isolation.
+- Establishes the target `scanner/` module skeleton for future Independence-Release implementation.
+- Keeps legacy technical code available instead of destructively deleting it.
 
-What it does **not** do:
-- No automated execution / no trading bot
-- No ML prediction model
-- No “lookahead” (uses closed candles only)
-
----
-
-## Documentation map
+## Where to start
 - Canonical index: `docs/canonical/INDEX.md`
-- Configuration defaults/limits: `docs/canonical/CONFIGURATION.md`
-- Output schema: `docs/canonical/OUTPUT_SCHEMA.md`
-- Setup scoring (Breakout Trend 1–5d): `docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md`
-- Verification fixtures: `docs/canonical/VERIFICATION_FOR_AI.md`
-- Codex ticket workflow: `docs/canonical/WORKFLOW_CODEX.md`
+- Target architecture skeleton: `docs/canonical/ARCHITECTURE.md`
+- Runtime model bootstrap: `docs/canonical/RUNTIME_AND_OPERATIONS.md`
+- Migration view: `docs/canonical/MIGRATION_NOTES.md`
+- Codex workflow: `docs/canonical/WORKFLOW_CODEX.md`
 
----
-
-## Quickstart (local)
-
-### 1) Install
-```bash
-pip install -r requirements.txt
-```
-
-### 2) Configure API keys (required for standard/fast)
-`run_mode=standard` and `run_mode=fast` require a CoinMarketCap key (see canonical data source policy).
-
-```bash
-export CMC_API_KEY="your_key_here"
-```
-
-### 3) Run
-```bash
-# fast mode (may use cache depending on implementation)
-python -m scanner.main --mode fast
-
-# standard mode (fresh provider calls)
-python -m scanner.main --mode standard
-```
-
----
-
-## Outputs
-Outputs and fields are defined canonically here:
-- `docs/canonical/OUTPUT_SCHEMA.md`
-- `docs/canonical/OUTPUTS/RUNTIME_MARKET_META_EXPORT.md`
-
----
-
-## Determinism contract (high level)
-- Closed-candle-only (`closeTime_ms <= asof_ts_ms`)
-- Stable ordering / explicit tie-breakers
-- Same inputs + same config => same outputs
-
----
-
-## Disclaimer
-This is a research tool, not financial advice. Use at your own risk.
+## Legacy note
+The old scanner runtime continues separately in the old repository. Inside this repository, legacy modules and documents remain only as migration/reference material until replaced by future Independence-Release implementation tickets.

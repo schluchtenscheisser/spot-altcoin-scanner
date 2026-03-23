@@ -1,156 +1,44 @@
-# Glossary (Canonical)
+# Glossary — Independence-Release Bootstrap Terms (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
 id: CANON_GLOSSARY
 status: canonical
-language: en
-audience:
-  - developer
-  - ai_models
+primary_architecture: independence_release
+mode: bootstrap_reference
 ```
 
----
+## Usage note
+This bootstrap glossary only defines terms that can be stated safely without inventing deferred business logic. Where the authoritative Independence-Release Abschnittsdateien were referenced by the ticket but are not checked into this repository, the entry deliberately stays at reference level instead of creating speculative semantics.
 
-## 1. Purpose
+## Terms
 
-This glossary defines the key terms used across:
-- spec
-- docs
-- code
-- backtests
-- snapshots
-- research context
+### `daily_bar_id`
+Canonical identifier for the closed daily bar used by the daily discovery scan context. The exact formatting and persistence representation are to follow the authoritative Independence-Release Abschnittsdateien.
 
-It ensures consistent meaning and eliminates ambiguity for future development.
+### `intraday_bar_id`
+Canonical identifier for the closed intraday bar used by the intraday promotion scan context. The exact formatting and persistence representation are to follow the authoritative Independence-Release Abschnittsdateien.
 
----
+### `setup_cycle_id`
+Identifier that ties together the lifecycle of a setup across the target architecture. The bootstrap reserves the term; the strict construction rule remains defined by the authoritative Independence-Release planning documents.
 
-## 2. Core Trading Concepts
+### `market_phase`
+Phase label produced by the future `scanner/phase/` module for target-architecture decisions. Bootstrap meaning: a canonical phase concept exists, but the specific domain and transitions are deferred.
 
-**Breakout**  
-Price exceeds prior resistance level (e.g. 20–30D high) with volume confirmation.
+### `state_machine_state`
+Lifecycle state emitted by the future `scanner/state/` module. This bootstrap defines the term as an explicit state-machine concept without freezing the unresolved state domain.
 
-**Pullback**  
-Retracement inside an existing uptrend, followed by continuation.
+### `decision_bucket`
+Bucket-level decision outcome produced by the future `scanner/decision/` module. The term is reserved canonically; exact values are deferred until the corresponding decision ticket.
 
-**Reversal**  
-Downtrend → base → reclaim, indicating structural trend transition.
+### `structural_break`
+Structure-derived break condition referenced by the Independence-Release concept. This bootstrap acknowledges the term as architecture-relevant while leaving the exact trigger semantics to the authoritative source set.
 
-**Trend**  
-Directional price behavior measured by HH/HL and moving averages.
+### `bars_since_*`
+Family of counters measured in the canonical **4h-bar unit** when used in the Independence-Release architecture. Individual members of the family must be defined by later canonical tickets before implementation.
 
-**Reclaim**  
-Close retakes level/EMA previously lost, often with momentum and/or volume.
+### `daily_discovery_scan`
+The daily scheduled scan that discovers candidates using the closed daily context and writes target-architecture outputs/persistence artifacts. Its runtime sequence is summarized in `RUNTIME_AND_OPERATIONS.md`.
 
-**Base**  
-Lateral consolidation after drawdown, typically low volatility and volume compression.
-
-**Overextension**  
-Price trades significantly above EMAs; fragility and late-stage characteristics.
-
-**Drawdown**  
-Decline from ATH to current level, expressed in percent.
-
----
-
-## 3. Feature Terms
-
-**r_kd**  
-k-day return.
-
-**EMA (Exponential Moving Average)**  
-Volatility-weighted moving average with higher responsiveness.
-
-**ATR (Average True Range)**  
-Volatility measure normalized as percent for comparability.
-
-**Volume SMA**  
-Simple moving average of volume.
-
-**Volume Spike**  
-Volume relative to SMA; used as conviction proxy.
-
----
-
-## 4. Scoring Terms
-
-**Setup**  
-Trading archetype (breakout / pullback / reversal) with unique logic.
-
-**Score**  
-Normalized value [0–100] for candidate ranking.
-
-**Penalty**  
-Multiplicative reduction based on contextual flags (e.g. liquidity).
-
-**Flag**  
-Boolean marker explaining context/penalties (e.g. late_stage, low_liquidity).
-
-**Components**  
-Weighted internal score subparts.
-
----
-
-## 5. Pipeline Terms
-
-**Cheap Filter**  
-Low-cost reduction early in pipeline (e.g. liquidity, market cap).
-
-**Expensive Filter**  
-Costly operations (e.g. OHLCV + Features + Scoring) on shortlist only.
-
-**Snapshot**  
-Immutable runtime record used for backtests + reproducibility.
-
-**Backtest**  
-Forward-return evaluation based on historical snapshots.
-
-**Shortlist**  
-Intermediate asset set after filtering but before scoring.
-
----
-
-## 6. Market Structure Terms
-
-**ATH (All-Time High)**  
-Highest historical price.
-
-**MidCaps**  
-Market cap range (100M – 10B) in context of this scanner.
-
-**Liquidity**  
-Depth + turnover, proxied by quote-volume in this spec.
-
-**Regime**  
-Macro environment affecting behavior of setups (BTC-led).
-
----
-
-## 7. Data Terms
-
-**OHLCV**  
-Open / High / Low / Close / Volume time-series.
-
-**Market Cap**  
-Circulating supply × price (CMC source).
-
-**Mapping**  
-Binding between exchange symbols and market cap assets.
-
----
-
-## 8. GPT Collaboration Terms
-
-**Spec**  
-Authoritative description of logic + architecture.
-
-**Code Map**  
-Structural view of codebase.
-
-**Snapshot (GPT)**  
-State handoff capsule for work continuity.
-
----
-
-## End of glossary.
+### `intraday_promotion_scan`
+The intraday scheduled scan that revisits previously discovered candidates and promotes or reclassifies them using closed intraday context. Its runtime sequence is summarized in `RUNTIME_AND_OPERATIONS.md`.
