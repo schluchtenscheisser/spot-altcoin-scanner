@@ -20,6 +20,51 @@ _BUDGET_DEFAULTS = {
 }
 
 
+_INDEPENDENCE_RELEASE_SECTION_DEFAULTS = {
+    "runtime": {},
+    "bar_clock": {},
+    "universe": {},
+    "market_data_budget": {},
+    "phase": {},
+    "state": {},
+    "invalidation": {},
+    "entry": {},
+    "execution": {},
+    "reports": {},
+    "snapshots": {},
+    "retention": {},
+}
+
+
+def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {key: value for key, value in base.items()}
+    for key, value in override.items():
+        if key in merged and isinstance(merged[key], Mapping) and isinstance(value, Mapping):
+            merged[key] = _deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _normalize_independence_release_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    configured = raw.get("independence_release")
+    if configured is None:
+        configured = {}
+    elif not isinstance(configured, Mapping):
+        raise ValueError(
+            f"independence_release must be an object, got {configured!r}"
+        )
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_RELEASE_SECTION_DEFAULTS, configured)
+
+    for key, value in merged.items():
+        if not isinstance(value, Mapping):
+            raise ValueError(f"independence_release.{key} must be an object, got {value!r}")
+        merged[key] = dict(value)
+
+    return merged
+
+
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
     """Resolve RR threshold with canonical-key precedence and legacy alias fallback."""
     cfg = risk_cfg if isinstance(risk_cfg, Mapping) else {}
@@ -84,6 +129,11 @@ class ScannerConfig:
     """
 
     raw: Dict[str, Any]
+
+    @property
+    def independence_release(self) -> Dict[str, Any]:
+        value = self.raw.get("independence_release", {})
+        return dict(value) if isinstance(value, dict) else _normalize_independence_release_config(self.raw)
 
     # Version
     @property
@@ -378,6 +428,14 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     with open(cfg_path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"config root must be a mapping, got {raw!r}")
+
+    raw = dict(raw)
+    raw["independence_release"] = _normalize_independence_release_config(raw)
+
     return ScannerConfig(raw=raw)
 
 
@@ -610,6 +668,15 @@ def validate_config(config: ScannerConfig) -> List[str]:
     if mode != "threshold_modifier":
         errors.append("btc_regime.mode must be 'threshold_modifier'")
     _expect_number(errors, btc_cfg.get("risk_off_enter_boost", 15), "btc_regime.risk_off_enter_boost")
+
+    independence_release_cfg = config.raw.get("independence_release", {})
+    if not isinstance(independence_release_cfg, dict):
+        errors.append("independence_release must be an object")
+    else:
+        for key in _INDEPENDENCE_RELEASE_SECTION_DEFAULTS:
+            value = independence_release_cfg.get(key, {})
+            if not isinstance(value, dict):
+                errors.append(f"independence_release.{key} must be an object")
 
     # Shadow mode / parallel run block
     shadow_cfg = config.raw.get("shadow")

@@ -27,6 +27,20 @@ limits:
   outputs:
     global_top_n_default: 20
 
+independence_release:
+  runtime: {}
+  bar_clock: {}
+  universe: {}
+  market_data_budget: {}
+  phase: {}
+  state: {}
+  invalidation: {}
+  entry: {}
+  execution: {}
+  reports: {}
+  snapshots: {}
+  retention: {}
+
 liquidity:
   orderbook_top_k_default: 200
   slippage_notional_usdt_default: 20_000
@@ -61,7 +75,6 @@ history_minimums_default:
   breakout: { "1d": 30, "4h": 50 }
   pullback: { "1d": 60, "4h": 80 }
   reversal: { "1d": 120, "4h": 80 }
-  # alias (doc-level): breakout_trend_1_5d setups use breakout thresholds
   breakout_trend_1_5d_uses: breakout
 
 features:
@@ -122,7 +135,7 @@ risk:
   max_stop_distance_pct_default: 12.0
   max_stop_distance_pct_setup_overrides_optional: [reversal, pullback, breakout]
   max_stop_distance_pct_mapping_requires_default: true
-  min_rr_to_target_1_default: 1.3  # applied to rr_to_target_2 acceptance checkpoint
+  min_rr_to_target_1_default: 1.3
 
 decision:
   enabled_default: true
@@ -143,24 +156,54 @@ shadow:
   mode_values: [legacy_only, new_only, parallel]
   primary_path_default_parallel: legacy
   primary_path_values: [legacy, new]
-
 ```
 
-## 2) Units & conventions
+## 2) Independence-Release scaffold semantics
+The `independence_release` namespace is mandatory. It reserves the top-level target-architecture sections so later tickets extend a stable config shape instead of adding ad hoc keys.
+
+### Merge semantics
+- Partial overrides are merged field-by-field with central defaults.
+- Missing sub-keys are not treated as invalid.
+- Missing sections fall back to the documented defaults above.
+- Invalid values raise `ValueError` with the full key name and the invalid value.
+
+Example:
+```yaml
+independence_release:
+  bar_clock: {}
+  reports:
+    output_root: reports/runs
+```
+This is valid. All unspecified `independence_release.*` sections still exist after merge.
+
+## 3) Units & conventions
 - Cross-sectional `percent_rank` values are in `[0..100]` (percent scale).
 - Rolling time-series ranks (e.g., `*_rank_120_*`) remain in `[0..1]` and use explicit rank01-style field names/units.
 - Scores are in `[0..100]`.
-- `*_pct` is percent (e.g., 7.5 means 7.5%)
-- `*_bps` is basis points (1% = 100 bps)
+- `*_pct` is percent (e.g., 7.5 means 7.5%).
+- `*_bps` is basis points (1% = 100 bps).
 - All timestamps in canonical docs are milliseconds unless explicitly stated.
+- Bar-clock timestamps are interpreted in UTC only.
 
-## 3) Canonical → runtime config key mapping (config/config.yml)
+## 4) Canonical → runtime config key mapping (config/config.yml)
 Canonical rule:
 - If a runtime key exists, it must match this mapping.
 - If a runtime key does **not** exist, the canonical default applies (still deterministic) and the manifest must report that the runtime key was absent.
 
 | Canonical key | Runtime key in `config/config.yml` |
 |---|---|
+| independence_release.runtime | independence_release.runtime |
+| independence_release.bar_clock | independence_release.bar_clock |
+| independence_release.universe | independence_release.universe |
+| independence_release.market_data_budget | independence_release.market_data_budget |
+| independence_release.phase | independence_release.phase |
+| independence_release.state | independence_release.state |
+| independence_release.invalidation | independence_release.invalidation |
+| independence_release.entry | independence_release.entry |
+| independence_release.execution | independence_release.execution |
+| independence_release.reports | independence_release.reports |
+| independence_release.snapshots | independence_release.snapshots |
+| independence_release.retention | independence_release.retention |
 | limits.universe.market_cap_usd_default.min | universe_filters.market_cap.min_usd |
 | limits.universe.market_cap_usd_default.max | universe_filters.market_cap.max_usd |
 | limits.universe.volume_gates_default.min_turnover_24h | universe_filters.volume.min_turnover_24h |
@@ -223,53 +266,17 @@ Canonical rule:
 | risk.max_stop_distance_pct_setup_overrides_optional.pullback | risk.max_stop_distance_pct.pullback |
 | risk.max_stop_distance_pct_setup_overrides_optional.breakout | risk.max_stop_distance_pct.breakout |
 | risk.min_rr_to_target_1_default | risk.min_rr_to_target_1 |
-
-### 3.1 Risk max-stop resolution semantics (deterministic)
-- `risk.max_stop_distance_pct` accepts either:
-  - scalar numeric value, or
-  - object with required key `default` and optional setup keys `{reversal, pullback, breakout}`.
-- Missing top-level `risk.max_stop_distance_pct` resolves to canonical default `12.0`.
-- If object form is used, missing setup key resolves to `risk.max_stop_distance_pct.default`.
-- Object form without `default` is invalid and must fail config validation.
-
 | decision.enabled_default | decision.enabled |
 | decision.min_score_for_enter_default | decision.min_score_for_enter |
 | decision.min_score_for_wait_default | decision.min_score_for_wait |
 | decision.require_tradeability_for_enter_default | decision.require_tradeability_for_enter |
 | decision.require_risk_acceptable_for_enter_default | decision.require_risk_acceptable_for_enter |
 | decision.min_effective_rr_to_target_2_for_enter_default | decision.min_effective_rr_to_target_2_for_enter |
-| btc_regime.enabled_default | btc_regime.enabled |
-| btc_regime.mode_default | btc_regime.mode |
-| btc_regime.risk_off_enter_boost_default | btc_regime.risk_off_enter_boost |
 
-Notes:
-- `general.shortlist_size` is a *prefetch/workload budget* and is not the same as output top-n.
-- Legacy alias for backward compatibility:
-  - `universe_filters.volume.min_quote_volume_24h` aliases to `universe_filters.volume.min_mexc_quote_volume_24h_usdt`.
-  - If both keys are present, `min_mexc_quote_volume_24h_usdt` wins.
-  - `risk.min_rr_to_tp10` aliases to canonical `risk.min_rr_to_target_1` for one migration phase.
-  - In this phase, the configured threshold is applied to `rr_to_target_2` (2R checkpoint) while key naming remains backward-compatible.
-  - If both risk keys are present, `risk.min_rr_to_target_1` wins; if canonical key is present but invalid, validation fails.
-- Legacy soft-prior keys for backward compatibility:
-  - `universe_filters.market_cap.*` and `universe_filters.volume.*` remain readable and should be marked `legacy_soft_prior: true` in runtime config.
-
-### Volume-gate semantics (deterministic)
-- `min_turnover_24h` unit: ratio in `[0, +inf)`; default `0.03`.
-- `min_mexc_quote_volume_24h_usdt` unit: USDT in `[0, +inf)`; default `5_000_000`.
-- `min_mexc_share_24h` unit: ratio in `[0, 1]`; default `0.01`.
-- Missing key => canonical default applies.
-- Invalid value (NaN, non-castable, negative, out-of-range for share) => config validation error (fail-fast).
-
-
-## 4) Setup-specific runtime keys (scoring.breakout_trend_1_5d)
-- `risk_off_min_quote_volume_24h` default: `15_000_000`
-- `trigger_4h_lookback_bars` default: `30`
-
-
-## 5) Scoring volume source
-- `scoring.volume_source` steuert die 24h-Volumenquelle für Setup-Scoring (`volume_map`).
-- Defaults/Values:
-  - `mexc` (default): nutze `quote_volume_24h` (MEXC)
-  - `global_fallback_mexc`: nutze `global_volume_24h_usd`, fallback auf `quote_volume_24h` falls global fehlt
-- Missing key => default `mexc`.
-- Invalid value => Config-Validation-Error.
+### 4.1 Risk max-stop resolution semantics (deterministic)
+- `risk.max_stop_distance_pct` accepts either:
+  - scalar numeric value, or
+  - object with required key `default` and optional setup keys `{reversal, pullback, breakout}`.
+- Missing top-level `risk.max_stop_distance_pct` resolves to canonical default `12.0`.
+- If object form is used, missing setup key resolves to `risk.max_stop_distance_pct.default`.
+- Object form without `default` is invalid and must fail config validation.
