@@ -17,8 +17,9 @@ def _coerce_utc_datetime(value: object, field_name: str = "timestamp") -> dateti
         raise TypeError(f"{field_name} must not be None")
 
     if isinstance(value, datetime):
-        dt = value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
-        return dt
+        if value.tzinfo is None:
+            raise TypeError(f"{field_name} must be timezone-aware, got naive datetime")
+        return value.astimezone(UTC)
 
     if isinstance(value, str):
         normalized = value.strip()
@@ -39,7 +40,7 @@ def _coerce_utc_datetime(value: object, field_name: str = "timestamp") -> dateti
         numeric = float(value)
         if not math.isfinite(numeric):
             raise ValueError(f"{field_name} must be finite, got {value!r}")
-        return datetime.fromtimestamp(numeric, tz=UTC)
+        return datetime.fromtimestamp(numeric / 1000.0, tz=UTC)
 
     raise TypeError(
         f"{field_name} must be a datetime, ISO-8601 string, or Unix timestamp, got {type(value).__name__}"

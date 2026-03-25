@@ -14,10 +14,10 @@ This bootstrap glossary only defines terms that can be stated safely without inv
 ## Terms
 
 ### `daily_bar_id`
-Canonical identifier for the closed daily bar used by the daily discovery scan context. The exact formatting and persistence representation are to follow the authoritative Independence-Release Abschnittsdateien.
+Canonical identifier for the closed daily bar used by the daily discovery scan context. In the bootstrap contract this is a `YYYY-MM-DD` string for the most recently closed daily bar.
 
 ### `intraday_bar_id`
-Canonical identifier for the closed intraday bar used by the intraday promotion scan context. The exact formatting and persistence representation are to follow the authoritative Independence-Release Abschnittsdateien.
+Canonical identifier for the closed intraday bar used by the intraday promotion scan context. In the bootstrap contract this is the UTC epoch-millisecond close timestamp of the most recently closed 4h bar.
 
 ### `setup_cycle_id`
 Identifier that ties together the lifecycle of a setup across the target architecture. The bootstrap reserves the term; the strict construction rule remains defined by the authoritative Independence-Release planning documents.
