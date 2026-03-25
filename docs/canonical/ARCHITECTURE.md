@@ -46,6 +46,7 @@ This module is the canonical UTC bar clock for Independence-Release. It defines:
 - `DAILY_SCAN_DELTA_BARS = 6` as the fixed daily-to-4h mapping.
 
 All behavior is closed-bar-only, UTC-only, and deterministic at exact close boundaries.
+Public input contract: raw numeric timestamps are interpreted as Unix epoch milliseconds, timezone-aware datetimes are accepted (normalized to UTC), and naive datetimes are rejected.
 
 ### `scanner/features/`
 Owns reusable feature computation for the target architecture. This bootstrap does not define feature formulas; it only reserves the module boundary for later implementation.

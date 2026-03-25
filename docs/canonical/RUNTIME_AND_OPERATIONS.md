@@ -17,6 +17,14 @@ SQLite is the persistence foundation for the Independence-Release operating mode
 ## Canonical UTC bar semantics
 All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exact close boundaries are inclusive: if `t` equals a daily or 4h close timestamp exactly, the bar that closes at `t` is treated as closed.
 
+### Bar-clock public input contract
+- Accepted input forms for `daily_bar_id`, `intraday_bar_id`, and `delta_closed_4h_bars`:
+  - timezone-aware `datetime` (any offset; normalized by instant to UTC),
+  - ISO-8601 strings,
+  - raw numeric Unix timestamps interpreted as **epoch milliseconds**.
+- Raw numeric seconds are not a canonical input form.
+- Naive `datetime` values are rejected (no silent timezone relabeling).
+
 ### Daily bar schedule
 - Exchange: MEXC
 - Daily close: `00:00:00.000 UTC`
@@ -59,6 +67,7 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 ### Invalid timestamp handling
 - `None` is invalid and raises `TypeError`
 - `NaN`, `inf`, and `-inf` are invalid numeric timestamps and raise `ValueError`
+- Naive `datetime` values are invalid and raise `TypeError`
 - Unsupported types raise `TypeError`
 
 ## Daily Discovery Scan (Gesamtkonzept §10, steps 1–14)
