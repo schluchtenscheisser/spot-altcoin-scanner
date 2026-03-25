@@ -4,6 +4,8 @@
 ```yaml
 id: CANON_PIPELINE
 status: canonical
+role: legacy_reference_only
+superseded_by: docs/canonical/ARCHITECTURE.md + docs/canonical/RUNTIME_AND_OPERATIONS.md
 phase: 1
 stages:
   - universe_fetch
@@ -29,6 +31,11 @@ shadow_mode:
   default_mode: parallel
   allowed_modes: [legacy_only, new_only, parallel]
 ```
+
+## Document role
+- Classification: `legacy_reference_only`
+- This document is retained for legacy scanner compatibility/migration context and is not an active Independence-Release requirement.
+
 
 ## Purpose
 Define the Phase-1 execution order and stop rules so downstream PRs implement one consistent pipeline contract.

@@ -26,8 +26,8 @@ primary_architecture: independence_release
 - [GLOSSARY](GLOSSARY.md)
 - [WORKFLOW_CODEX](WORKFLOW_CODEX.md)
 
-## Existing canonical contracts retained for legacy-track compatibility
-The files below remain in the repository as legacy-track canonical material from the pre-bootstrap scanner line. They are not the primary architectural source for Independence-Release, but they remain useful reference until superseded by future Independence-Release documents.
+## Legacy-track compatibility references (`legacy_reference_only`)
+The files below remain inside `docs/canonical/` for migration continuity, but they are explicitly classified as `legacy_reference_only` and are **not** active Independence-Release requirements. Use them only as reference unless a future ticket promotes/replaces them explicitly.
 
 - [PIPELINE](PIPELINE.md)
 - [DATA_SOURCES](DATA_SOURCES.md)
