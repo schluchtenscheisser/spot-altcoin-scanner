@@ -4,6 +4,8 @@
 ```yaml
 id: CANON_DECISION_LAYER
 status: canonical
+role: legacy_reference_only
+superseded_by: docs/canonical/ARCHITECTURE.md + future Independence-Release decision contracts
 decision_domain:
   - ENTER
   - WAIT
@@ -11,6 +13,11 @@ decision_domain:
 requires_fully_evaluated_for_wait: true
 unknown_reaches_decision_layer: false
 ```
+
+## Document role
+- Classification: `legacy_reference_only`
+- This document is retained for legacy scanner compatibility/migration context and is not an active Independence-Release requirement.
+
 
 ## Decision domain
 `decision ∈ {ENTER, WAIT, NO_TRADE}` only.

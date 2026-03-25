@@ -4,6 +4,8 @@
 ```yaml
 id: CANON_OUTPUT_SCHEMA
 status: canonical
+role: legacy_reference_only
+superseded_by: docs/canonical/DATA_MODEL.md + future Independence-Release output contracts
 schema_version: v1.18
 canonical_schema_version_ref: docs/canonical/CHANGELOG.md
 outputs:
@@ -12,6 +14,11 @@ outputs:
   - excel
 source_of_truth_entity: trade_candidates
 ```
+
+## Document role
+- Classification: `legacy_reference_only`
+- This document is retained for legacy scanner compatibility/migration context and is not an active Independence-Release requirement.
+
 
 ## Core contract
 - `trade_candidates` is the canonical output Source of Truth (SoT) for candidate-level decision data.

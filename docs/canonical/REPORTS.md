@@ -4,8 +4,14 @@
 ```yaml
 id: CANON_REPORTS
 status: canonical
+role: active_independence_release
 report_root: reports
 ```
+
+## Document role
+- Classification: `active_independence_release`
+- This document defines the active Independence-Release reports architecture.
+
 
 ## Directory structure
 ```text
