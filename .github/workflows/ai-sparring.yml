@@ -43,12 +43,16 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run AI sparring dry-run
+        env:
+          AI_SPARRING_PROMPT: ${{ github.event.inputs.prompt }}
+          AI_SPARRING_MODE: ${{ github.event.inputs.mode }}
+          AI_SPARRING_ROUNDS: ${{ github.event.inputs.rounds }}
         run: |
           python -m tools.ai_sparring.cli \
-            --prompt "${{ github.event.inputs.prompt }}" \
+            --prompt "$AI_SPARRING_PROMPT" \
             --provider fake \
-            --mode "${{ github.event.inputs.mode }}" \
-            --rounds "${{ github.event.inputs.rounds }}" \
+            --mode "$AI_SPARRING_MODE" \
+            --rounds "$AI_SPARRING_ROUNDS" \
             --output-dir artifacts/ai-sparring
 
       - name: Upload artifacts
