@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] AI Sparring Foundation: isolated scaffold, canonical roadmap path, and artifact-only dry-run workflow
 
