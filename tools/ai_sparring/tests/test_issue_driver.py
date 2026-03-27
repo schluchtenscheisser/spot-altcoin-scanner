@@ -34,6 +34,35 @@ def _event(comment: str) -> IssueRuntimeEvent:
     )
 
 
+def _event_with_rounds(comment: str, rounds: int) -> IssueRuntimeEvent:
+    return IssueRuntimeEvent(
+        issue_number=9,
+        issue_body=f"""## Prompt
+Improve it
+
+## Mode
+ticket_review
+
+## Rounds
+{rounds}
+
+## Drafter Provider
+
+## Drafter Model
+
+## Reviewer Provider
+
+## Reviewer Model
+
+## Extra Context Paths
+""",
+        comment_body=comment,
+        is_pull_request=False,
+        repository="o/r",
+        run_id=55,
+    )
+
+
 def test_invalid_command_for_state_posts_error_without_artifact(tmp_path: Path) -> None:
     api = _ApiStub(comments=[])
     result = handle_issue_event(event=_event("/continue"), repo_root=Path(__file__).resolve().parents[3], api=api, output_dir=tmp_path)
@@ -77,3 +106,65 @@ def test_artifact_names_are_step_scoped_and_concurrency_group_is_issue_scoped() 
     assert "group: ai-sparring-issue-${{ github.event.issue.number }}" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "actions: read" in workflow
+
+
+def test_start_executes_only_one_round_even_when_issue_requests_multiple(monkeypatch, tmp_path: Path) -> None:
+    captured = {}
+
+    def _fake_run_session(*, config, repo_root):
+        captured["rounds"] = config.rounds
+        return {
+            "status": "completed",
+            "rounds_completed": 1,
+            "rounds_requested": config.rounds,
+            "rounds": [{"draft": {"text": "d"}, "review": {"text": "r"}, "revision": {"text": "v"}, "delta_summary": "ok"}],
+        }
+
+    monkeypatch.setattr("tools.ai_sparring.issue_driver.run_session", _fake_run_session)
+    api = _ApiStub(comments=[])
+    result = handle_issue_event(
+        event=_event_with_rounds("/sparring start", rounds=3),
+        repo_root=Path(__file__).resolve().parents[3],
+        api=api,
+        output_dir=tmp_path,
+    )
+    assert captured["rounds"] == 1
+    assert result["status"] == "awaiting_continue"
+    assert "Round: 1/3" in api.posted[-1]
+    assert "Status: awaiting_continue" in api.posted[-1]
+
+
+def test_continue_executes_exactly_one_additional_round(monkeypatch, tmp_path: Path) -> None:
+    captured = {}
+
+    def _fake_run_session(*, config, repo_root):
+        captured["rounds"] = config.rounds
+        return {
+            "status": "completed",
+            "rounds_completed": 1,
+            "rounds_requested": config.rounds,
+            "rounds": [{"draft": {"text": "d"}, "review": {"text": "r"}, "revision": {"text": "v"}, "delta_summary": "ok"}],
+        }
+
+    monkeypatch.setattr("tools.ai_sparring.issue_driver.run_session", _fake_run_session)
+    pointer = PointerState(
+        state_version=1,
+        session_id="issue-9",
+        issue_number=9,
+        status="awaiting_continue",
+        rounds_requested=3,
+        rounds_completed=1,
+        current_focus="x",
+        latest_run_id=55,
+        latest_artifact_name="ai-sparring-issue-9-r1",
+    )
+    api = _ApiStub(comments=[{"id": 1, "body": encode_pointer(pointer)}], artifacts=[{"name": "ai-sparring-issue-9-r1"}])
+    result = handle_issue_event(
+        event=_event_with_rounds("/continue", rounds=3),
+        repo_root=Path(__file__).resolve().parents[3],
+        api=api,
+        output_dir=tmp_path,
+    )
+    assert captured["rounds"] == 1
+    assert result["status"] == "awaiting_continue"
+    assert "Round: 2/3" in api.posted[-1]

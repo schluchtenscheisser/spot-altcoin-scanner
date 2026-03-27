@@ -57,6 +57,12 @@ def _error_for_state(command: CommandType, state: PointerState | None) -> str | 
         return "Session already active. Allowed commands: `/continue`, `/focus <text>`, `/stop`."
     if state.status in TERMINAL_STATUSES:
         return f"Session is terminal (`{state.status}`). Start a new issue for a new session."
+    if (
+        command == CommandType.CONTINUE
+        and state.status == ACTIVE_STATUS
+        and state.rounds_completed >= state.rounds_requested
+    ):
+        return "Session already reached the requested rounds and is terminal (`completed`). Start a new issue for a new session."
     if command in {CommandType.CONTINUE, CommandType.FOCUS, CommandType.STOP} and state.status != ACTIVE_STATUS:
         return "No active session. Allowed command: `/sparring start`."
     return None
@@ -102,12 +108,14 @@ def handle_issue_event(*, event: IssueRuntimeEvent, repo_root: Path, api, output
     config = _build_config_from_issue(sections, output_dir)
     if parsed_command.type == CommandType.CONTINUE and pointer is not None:
         _resolve_prior_artifact_ref(api=api, pointer=pointer)
-        config = SessionConfig(**{**config.__dict__, "rounds": pointer.rounds_completed + 1})
+    requested_rounds = pointer.rounds_requested if pointer is not None else config.rounds
+    config = SessionConfig(**{**config.__dict__, "rounds": 1})
     payload = run_session(config=config, repo_root=repo_root)
 
     status = payload["status"]
-    rounds_completed = payload["rounds_completed"]
-    rounds_requested = payload["rounds_requested"]
+    rounds_completed_before = pointer.rounds_completed if pointer is not None else 0
+    rounds_completed = rounds_completed_before + payload["rounds_completed"]
+    rounds_requested = requested_rounds
     if status == "completed" and rounds_completed < rounds_requested:
         status = ACTIVE_STATUS
 
