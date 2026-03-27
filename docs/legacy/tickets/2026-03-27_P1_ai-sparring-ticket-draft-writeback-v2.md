@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] AI Sparring Ticket Drafts: generate `ticket_draft.md` and optional safe repo writeback via branch + PR
 

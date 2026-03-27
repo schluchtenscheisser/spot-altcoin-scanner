@@ -102,6 +102,11 @@ The repository includes a deterministic multi-round AI sparring runtime under `t
 - For each `mode`, the runtime resolves deterministic built-in prompt identifiers per role and persists them in `session.json`.
 - Final summary generation is local-only from structured session state (no extra provider call).
 - The runtime is operational tooling only and is explicitly decoupled from `scanner/` runtime logic.
+- On `session.json.status == "completed"`, runtime executes exactly one additional ticket-drafter call and persists `ticket_draft.md` as an artifact.
+- The runtime appends `## Generated Ticket Draft` to `final_summary.md`; failures are recorded as `Not generated: <reason>` without changing session completion state.
+- `session.json` includes an additive top-level `ticket_draft` metadata block with deterministic generation/writeback fields.
+- Repository mutation is isolated to a downstream writeback step/job; session execution itself remains artifact-focused.
+- Writeback must create a branch + PR targeting `main` and never pushes directly to `main`.
 
 ### AI Sparring Issue UI (additive control plane)
 

@@ -51,6 +51,14 @@ on:
         description: Optional newline-separated repo-relative context file paths
         required: false
         type: string
+      writeback:
+        description: Open a PR with generated docs/tickets/drafts file
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: read
@@ -110,3 +118,40 @@ jobs:
           name: ai-sparring-artifacts
           path: artifacts/ai-sparring/
           if-no-files-found: error
+
+  writeback:
+    if: ${{ github.event.inputs.writeback == 'true' }}
+    needs: runtime
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+          pip install -r tools/ai_sparring/requirements.txt
+
+      - name: Download runtime artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: ai-sparring-artifacts
+          path: artifacts/ai-sparring
+
+      - name: Write back generated ticket draft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python -m tools.ai_sparring.cli writeback-artifact \
+            --repo "${{ github.repository }}" \
+            --output-dir artifacts/ai-sparring \
+            --writeback
