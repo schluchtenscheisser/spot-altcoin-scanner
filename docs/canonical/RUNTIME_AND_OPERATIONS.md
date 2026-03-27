@@ -166,3 +166,21 @@ A single explicit retry wrapper is used for real providers:
 - delay before attempt 3: 15s,
 - retries only on connection/timeouts/HTTP 429/HTTP 5xx,
 - no retries for validation/auth/configuration/provider-selection failures.
+
+## AI Sparring Issue Operations Contract
+
+Issue UI is additive and does not replace `workflow_dispatch`.
+
+- Workflow: `.github/workflows/ai-sparring-issue.yml`
+- Event: `issue_comment` with `types: [created]`
+- Permissions are limited to:
+  - `contents: read`
+  - `issues: write`
+  - `actions: read`
+- Concurrency is serialized per issue number with `cancel-in-progress: false`.
+- Non-command comments are no-op (no state mutation, no artifact upload).
+- Terminal states are: `completed`, `stopped`, `failed_runtime`, `failed_partial`.
+- Only `awaiting_continue` is active/resumable.
+- `/continue` resume resolution uses pointer `latest_run_id` and pointer `latest_artifact_name` against the Actions artifacts REST endpoints.
+- `/focus <text>` updates `current_focus` only and preserves `latest_run_id` + `latest_artifact_name`.
+- `/stop` sets pointer status to `stopped`, preserves prior artifact pointer references, and does not upload a new artifact.
