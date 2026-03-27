@@ -104,3 +104,30 @@ def test_existing_branch_with_open_pr_is_idempotent_success(monkeypatch, tmp_pat
     wb = result["ticket_draft"]["writeback"]
     assert wb["status"] == "existing_pr"
     assert wb["pull_request_number"] == 7
+
+
+def test_artifact_directory_inside_repo_is_excluded_from_clean_tree_check(monkeypatch, tmp_path) -> None:
+    work, _ = _init_repo(tmp_path)
+    artifacts = _write_artifacts(work)
+
+    class _Api:
+        def __init__(self, *args, **kwargs):
+            self.repo = "owner/repo"
+
+        def _request(self, method, path, payload=None):
+            return [{"number": 11, "html_url": "https://example/pr/11"}]
+
+    monkeypatch.setattr("tools.ai_sparring.writeback.GitHubApi", _Api)
+    monkeypatch.setattr("tools.ai_sparring.writeback._remote_branch_exists", lambda *a, **k: True)
+
+    result = perform_writeback(
+        repo_root=work,
+        output_dir=artifacts,
+        github_repo="owner/repo",
+        github_token="x",
+        writeback_enabled=True,
+    )
+
+    wb = result["ticket_draft"]["writeback"]
+    assert wb["status"] == "existing_pr"
+    assert wb["pull_request_number"] == 11

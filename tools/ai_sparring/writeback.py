@@ -35,8 +35,31 @@ def _git(repo_root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def _is_clean_tree(repo_root: Path) -> bool:
-    return _git(repo_root, "status", "--porcelain") == ""
+def _repo_relative_path(repo_root: Path, target: Path) -> str | None:
+    try:
+        rel = target.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return None
+    return rel.as_posix()
+
+
+def _is_clean_tree(repo_root: Path, *, excluded_paths: tuple[str, ...] = ()) -> bool:
+    status = _git(repo_root, "status", "--porcelain", "--untracked-files=all")
+    if not status:
+        return True
+
+    excluded = tuple(path.rstrip("/") for path in excluded_paths if path)
+    for line in status.splitlines():
+        if len(line) < 4:
+            return False
+        path_part = line[3:]
+        if " -> " in path_part:
+            path_part = path_part.split(" -> ", 1)[1]
+        path_part = path_part.strip().strip('"')
+        if any(path_part == base or path_part.startswith(f"{base}/") for base in excluded):
+            continue
+        return False
+    return True
 
 
 def _remote_branch_exists(repo_root: Path, branch: str) -> bool:
@@ -90,7 +113,12 @@ def perform_writeback(
         return finalize("preflight_failed", "session status must be completed")
     if base_branch != "main":
         return finalize("preflight_failed", "base branch must be main")
-    if not _is_clean_tree(repo_root):
+    excluded_for_clean_check: tuple[str, ...] = ()
+    output_dir_rel = _repo_relative_path(repo_root, output_dir)
+    if output_dir_rel:
+        excluded_for_clean_check = (output_dir_rel,)
+
+    if not _is_clean_tree(repo_root, excluded_paths=excluded_for_clean_check):
         return finalize("preflight_failed", "working tree must be clean")
 
     plan = compute_writeback_plan(payload=payload, utc_now=utc_now)
