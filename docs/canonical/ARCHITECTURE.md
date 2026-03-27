@@ -96,6 +96,9 @@ The repository includes a deterministic multi-round AI sparring runtime under `t
 
 - Roles are fixed to exactly two participants: `drafter` and `reviewer`.
 - Supported providers are `fake`, `openai`, and `anthropic` behind one normalized provider interface.
+- OpenAI integration uses the Chat Completions API for plain text generation only.
+- Anthropic integration uses the Messages API for plain text generation.
 - Round protocol is fixed as `draft_r -> review_r -> revision_r`.
+- For each `mode`, the runtime resolves deterministic built-in prompt identifiers per role and persists them in `session.json`.
 - Final summary generation is local-only from structured session state (no extra provider call).
 - The runtime is operational tooling only and is explicitly decoupled from `scanner/` runtime logic.

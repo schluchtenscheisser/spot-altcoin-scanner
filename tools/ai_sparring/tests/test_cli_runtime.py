@@ -69,3 +69,10 @@ def test_invalid_context_path_fails_preflight(tmp_path) -> None:
     assert result.returncode != 0
     assert "Invalid context path" in result.stderr
     assert list(tmp_path.iterdir()) == []
+
+
+def test_tool_dependencies_are_declared_in_tool_local_requirements() -> None:
+    req_path = REPO_ROOT / "tools" / "ai_sparring" / "requirements.txt"
+    content = req_path.read_text(encoding="utf-8")
+    assert "openai" in content
+    assert "anthropic" in content

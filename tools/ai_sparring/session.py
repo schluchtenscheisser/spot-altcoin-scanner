@@ -10,6 +10,34 @@ from tools.ai_sparring.output_writer import write_session_artifacts
 from tools.ai_sparring.providers import PROVIDER_NAMES, build_provider
 
 ALLOWED_MODES = {"ticket_review", "implementation_planning", "roadmap_review"}
+PROMPT_IDS = {
+    "ticket_review": {"drafter": "drafter.ticket_review", "reviewer": "reviewer.ticket_review"},
+    "implementation_planning": {
+        "drafter": "drafter.implementation_planning",
+        "reviewer": "reviewer.implementation_planning",
+    },
+    "roadmap_review": {"drafter": "drafter.roadmap_review", "reviewer": "reviewer.roadmap_review"},
+}
+DEFAULT_PROMPTS = {
+    "drafter.ticket_review": (
+        "You are the drafter. Produce a concrete improved draft/spec/ticket from the user prompt and visible context."
+    ),
+    "reviewer.ticket_review": (
+        "You are the reviewer. Critically review the draft for ambiguity, missing defaults, edge cases, and weak acceptance criteria."
+    ),
+    "drafter.implementation_planning": (
+        "You are the drafter. Produce a concrete implementation plan with steps, boundaries, risks, and test considerations."
+    ),
+    "reviewer.implementation_planning": (
+        "You are the reviewer. Critically review sequencing gaps, hidden assumptions, rollback/safety constraints, and testability."
+    ),
+    "drafter.roadmap_review": (
+        "You are the drafter. Produce a structured roadmap analysis with priorities, dependencies, and recommended next steps."
+    ),
+    "reviewer.roadmap_review": (
+        "You are the reviewer. Critically review prioritization mistakes, missing dependencies, scope expansion, and vague outcomes."
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -61,6 +89,7 @@ def _build_input(
     stage: str,
     draft_text: str | None = None,
     review_text: str | None = None,
+    previous_review_text: str | None = None,
     previous_revision_text: str | None = None,
 ) -> str:
     lines = [
@@ -72,6 +101,8 @@ def _build_input(
         "context:",
     ]
     lines.extend(f"- {item['path']} ({item['bytes']} bytes)" for item in contexts)
+    if previous_review_text:
+        lines.extend(["previous_review:", previous_review_text])
     if previous_revision_text:
         lines.extend(["previous_revision:", previous_revision_text])
     if draft_text:
@@ -81,8 +112,21 @@ def _build_input(
     return "\n".join(lines)
 
 
+def _with_system_prompt(*, role_prompt_id: str, protocol_input: str) -> str:
+    return "\n".join(
+        [
+            f"system_prompt_id={role_prompt_id}",
+            "system_prompt:",
+            DEFAULT_PROMPTS[role_prompt_id],
+            "",
+            protocol_input,
+        ]
+    )
+
+
 def run_session(config: SessionConfig, repo_root: Path) -> dict:
     contexts = _validate_preflight(config=config, repo_root=repo_root)
+    resolved_prompts = PROMPT_IDS[config.mode]
 
     drafter = build_provider(
         config.drafter_provider,
@@ -106,12 +150,17 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
             "drafter": {"provider": config.drafter_provider, "model": config.drafter_model if config.drafter_provider != "fake" else None},
             "reviewer": {"provider": config.reviewer_provider, "model": config.reviewer_model if config.reviewer_provider != "fake" else None},
         },
+        "resolved_prompts": {
+            "drafter": resolved_prompts["drafter"],
+            "reviewer": resolved_prompts["reviewer"],
+        },
         "context_sources": [{"path": item["path"], "bytes": item["bytes"]} for item in contexts],
         "rounds": [],
         "error": None,
     }
 
     previous_revision = None
+    previous_review = None
     try:
         for round_idx in range(1, config.rounds + 1):
             round_data = {"index": round_idx}
@@ -122,9 +171,15 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
                 contexts=contexts,
                 round_idx=round_idx,
                 stage="draft",
+                previous_review_text=previous_review,
                 previous_revision_text=previous_revision,
             )
-            draft = drafter.generate(input_text=draft_input)
+            draft = drafter.generate(
+                input_text=_with_system_prompt(
+                    role_prompt_id=resolved_prompts["drafter"],
+                    protocol_input=draft_input,
+                )
+            )
             round_data["draft"] = draft.__dict__
 
             review_input = _build_input(
@@ -135,7 +190,12 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
                 stage="review",
                 draft_text=draft.text,
             )
-            review = reviewer.generate(input_text=review_input)
+            review = reviewer.generate(
+                input_text=_with_system_prompt(
+                    role_prompt_id=resolved_prompts["reviewer"],
+                    protocol_input=review_input,
+                )
+            )
             round_data["review"] = review.__dict__
 
             revision_input = _build_input(
@@ -147,7 +207,12 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
                 draft_text=draft.text,
                 review_text=review.text,
             )
-            revision = drafter.generate(input_text=revision_input)
+            revision = drafter.generate(
+                input_text=_with_system_prompt(
+                    role_prompt_id=resolved_prompts["drafter"],
+                    protocol_input=revision_input,
+                )
+            )
             round_data["revision"] = revision.__dict__
 
             round_data["delta_summary"] = (
@@ -157,6 +222,7 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
             payload["rounds"].append(round_data)
             payload["rounds_completed"] = round_idx
             previous_revision = revision.text
+            previous_review = review.text
 
     except (FatalProviderError, TransientProviderError) as exc:
         payload["error"] = str(exc)

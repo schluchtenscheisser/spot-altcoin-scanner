@@ -11,7 +11,7 @@ from tools.ai_sparring.providers.openai_provider import OpenAIProvider
 class _TransientThenOkClient:
     def __init__(self) -> None:
         self.calls = 0
-        self.responses = self
+        self.chat = types.SimpleNamespace(completions=self)
 
     def create(self, **kwargs):
         self.calls += 1
@@ -19,7 +19,10 @@ class _TransientThenOkClient:
             err = Exception("rate limited")
             err.status_code = 429
             raise err
-        return types.SimpleNamespace(output_text="ok", id="req-1")
+        return types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="ok"))],
+            id="req-1",
+        )
 
 
 def test_retry_retries_only_transient_failures(monkeypatch) -> None:
@@ -31,7 +34,15 @@ def test_retry_retries_only_transient_failures(monkeypatch) -> None:
 
 def test_provider_contract_normalizes_request_id_and_attempts() -> None:
     client = types.SimpleNamespace(
-        responses=types.SimpleNamespace(create=lambda **kwargs: types.SimpleNamespace(output_text="hello", id=None, request_id=None))
+        chat=types.SimpleNamespace(
+            completions=types.SimpleNamespace(
+                create=lambda **kwargs: types.SimpleNamespace(
+                    choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="hello"))],
+                    id=None,
+                    request_id=None,
+                )
+            )
+        )
     )
     provider = OpenAIProvider(model="gpt-test", api_key="k", client=client)
     result = provider.generate(input_text="hello")
