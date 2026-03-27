@@ -53,6 +53,8 @@ def _normalize_provider_exception(exc: Exception) -> Exception:
     status = getattr(exc, "status_code", None)
     if status in {429, 500, 502, 503, 504}:
         return TransientProviderError(str(exc))
+    if status in {400, 401, 403, 404, 422}:
+        return FatalProviderError(str(exc))
     if isinstance(exc, TimeoutError):
         return TransientProviderError(str(exc))
     name = exc.__class__.__name__.lower()

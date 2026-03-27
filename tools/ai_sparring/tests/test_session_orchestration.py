@@ -60,6 +60,45 @@ def test_round_protocol_is_draft_review_revision(monkeypatch, tmp_path) -> None:
     payload = run_session(_config(tmp_path), repo_root=Path(__file__).resolve().parents[3])
     assert payload["status"] == "completed"
     assert all(set(r.keys()) >= {"draft", "review", "revision", "delta_summary"} for r in payload["rounds"])
+    assert payload["resolved_prompts"] == {
+        "drafter": "drafter.ticket_review",
+        "reviewer": "reviewer.ticket_review",
+    }
+
+
+def test_draft_round_two_sees_prior_review_and_revision(monkeypatch, tmp_path) -> None:
+    captured_inputs: list[str] = []
+
+    class _CapturingProvider(_ScriptedProvider):
+        def generate(self, *, input_text: str):
+            captured_inputs.append(input_text)
+            return super().generate(input_text=input_text)
+
+    drafter = _CapturingProvider(
+        [
+            _Result("fake", None, "draft-1"),
+            _Result("fake", None, "revision-1"),
+            _Result("fake", None, "draft-2"),
+            _Result("fake", None, "revision-2"),
+        ]
+    )
+    reviewer = _CapturingProvider(
+        [
+            _Result("fake", None, "review-1"),
+            _Result("fake", None, "review-2"),
+        ]
+    )
+    calls = {"n": 0}
+
+    def builder(name, *, model, api_key):
+        calls["n"] += 1
+        return drafter if calls["n"] == 1 else reviewer
+
+    monkeypatch.setattr("tools.ai_sparring.session.build_provider", builder)
+    run_session(_config(tmp_path), repo_root=Path(__file__).resolve().parents[3])
+    draft_2_input = captured_inputs[3]
+    assert "previous_review:\nreview-1" in draft_2_input
+    assert "previous_revision:\nrevision-1" in draft_2_input
 
 
 def test_failed_runtime_vs_failed_partial_statuses(monkeypatch, tmp_path) -> None:

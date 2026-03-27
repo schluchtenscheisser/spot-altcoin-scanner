@@ -19,12 +19,17 @@ class OpenAIProvider(SparringProvider):
     def generate(self, *, input_text: str) -> ProviderResult:
         def _call():
             try:
-                response = self.client.responses.create(model=self.model, input=input_text)
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": input_text}],
+                )
             except Exception as exc:  # normalized below
                 raise _normalize_provider_exception(exc) from exc
-            text = getattr(response, "output_text", None) or ""
+            choices = getattr(response, "choices", None) or []
+            message = choices[0].message if choices else None
+            text = getattr(message, "content", None) or ""
             if not text:
-                raise FatalProviderError("OpenAI response did not include output_text")
+                raise FatalProviderError("OpenAI response did not include message content")
             return ProviderResult(
                 provider=self.provider_name,
                 model=self.model,
@@ -47,6 +52,8 @@ def _normalize_provider_exception(exc: Exception) -> Exception:
     status = getattr(exc, "status_code", None)
     if status in {429, 500, 502, 503, 504}:
         return TransientProviderError(str(exc))
+    if status in {400, 401, 403, 404, 422}:
+        return FatalProviderError(str(exc))
     if isinstance(exc, TimeoutError):
         return TransientProviderError(str(exc))
     name = exc.__class__.__name__.lower()

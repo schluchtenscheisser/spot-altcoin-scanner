@@ -33,7 +33,10 @@ For `tools/ai_sparring/`, canonical tests must cover:
 - provider contract normalization (`provider`, `model`, `text`, `attempts_used`, `request_id`),
 - retry behavior (only transient failures retried with fixed budget),
 - deterministic round protocol shape (`draft/review/revision` per round),
+- deterministic mode-to-prompt-id resolution (`resolved_prompts` for drafter/reviewer),
+- round input visibility contract (`draft_(r+1)` sees only prior `review_r` and `revision_r` from round `r`),
 - runtime failure status separation (`failed_runtime` vs `failed_partial`),
+- workflow/tool dependency coverage for real-provider runtime execution,
 - fake-provider compatibility.
 
 No tests in this slice may depend on live network calls.

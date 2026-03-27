@@ -122,6 +122,30 @@ Default context sources are always loaded first in this order:
 
 Optional `--context-path` entries are normalized to repo-relative POSIX paths, sorted lexicographically, deduplicated, and appended after defaults.
 
+### Mode and prompt resolution contract
+`mode` changes only role-specific resolved default system prompts. It does not change context loading, artifact filenames, session schema version, or round structure.
+
+For each supported mode, the runtime resolves and persists deterministic prompt identifiers:
+- `resolved_prompts.drafter`
+- `resolved_prompts.reviewer`
+
+Required `(role, mode)` prompt identity matrix:
+- `drafter.ticket_review`
+- `reviewer.ticket_review`
+- `drafter.implementation_planning`
+- `reviewer.implementation_planning`
+- `drafter.roadmap_review`
+- `reviewer.roadmap_review`
+
+### Round input visibility contract
+For round `r`:
+- `draft_1` sees prompt, mode, and loaded context sources.
+- `review_r` sees prompt, mode, loaded context sources, and `draft_r`.
+- `revision_r` sees prompt, mode, loaded context sources, `draft_r`, and `review_r`.
+- `draft_(r+1)` sees prompt, mode, loaded context sources, and exactly prior round `review_r` plus `revision_r`.
+
+Full session-history replay to each provider call is not part of this contract.
+
 ### Runtime persistence semantics
 Session artifacts are:
 - `session.json`
