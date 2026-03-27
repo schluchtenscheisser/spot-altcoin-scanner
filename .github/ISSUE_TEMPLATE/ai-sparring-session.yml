@@ -1,0 +1,36 @@
+name: AI Sparring Session
+about: Start an AI sparring session controlled by issue comments.
+title: "[AI Sparring] "
+labels:
+  - ai-sparring
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill all required fields in the template body below. Session starts only after comment `/sparring start`.
+  - type: textarea
+    id: spec
+    attributes:
+      label: Session Specification
+      value: |
+        ## Prompt
+        Describe what you want the sparring session to do.
+
+        ## Mode
+        ticket_review
+
+        ## Rounds
+        1
+
+        ## Drafter Provider
+
+        ## Drafter Model
+
+        ## Reviewer Provider
+
+        ## Reviewer Model
+
+        ## Extra Context Paths
+      description: Keep headings unchanged; parser requires exact heading names.
+    validations:
+      required: true

@@ -102,3 +102,19 @@ The repository includes a deterministic multi-round AI sparring runtime under `t
 - For each `mode`, the runtime resolves deterministic built-in prompt identifiers per role and persists them in `session.json`.
 - Final summary generation is local-only from structured session state (no extra provider call).
 - The runtime is operational tooling only and is explicitly decoupled from `scanner/` runtime logic.
+
+### AI Sparring Issue UI (additive control plane)
+
+The runtime also supports an issue-thread UI via `.github/workflows/ai-sparring-issue.yml`.
+
+- Trigger source is `issue_comment` (`created`) and pull-request comments are ignored.
+- Supported command grammar is exact and first-token based:
+  - `/sparring start`
+  - `/continue`
+  - `/focus <text>`
+  - `/stop`
+- One issue maps to one deterministic session id: `issue-<issue_number>`.
+- Persisted runtime content (`session.json`, `session.md`, `final_summary.md`) remains artifact-backed.
+- Issue comment control-state is carried by one hidden pointer payload line:
+  `<!-- ai-sparring-state:v1:<base64-encoded-json> -->`.
+- Pointer control-state and artifact runtime-state are intentionally split; `/focus` and `/stop` update pointer-state without creating a new artifact.

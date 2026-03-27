@@ -40,3 +40,14 @@ For `tools/ai_sparring/`, canonical tests must cover:
 - fake-provider compatibility.
 
 No tests in this slice may depend on live network calls.
+
+### AI Sparring issue UI tests
+
+Issue-session tests must additionally cover:
+- exact issue-template heading coverage (`## Prompt`, `## Mode`, `## Rounds`, provider/model headings, and context heading),
+- first-token slash command parsing and strict grammar validation,
+- pointer payload roundtrip (`ai-sparring-state:v1` base64 JSON),
+- deterministic latest-pointer selection from issue comments,
+- invalid command/state transitions posting clear errors without artifact mutation,
+- active-state `/focus` and `/stop` behavior with zero new artifacts,
+- issue workflow contract checks (event type, permissions, and issue-scoped concurrency).
