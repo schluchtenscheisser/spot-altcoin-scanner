@@ -16,29 +16,41 @@ def write_session_artifacts(output_dir: Path, payload: dict) -> None:
         encoding="utf-8",
     )
 
-    markdown_lines = [
+    lines = [
         "# AI Sparring Session",
         "",
-        f"- Provider: `{payload['provider']}`",
+        f"- Status: `{payload['status']}`",
         f"- Mode: `{payload['mode']}`",
-        f"- Rounds: `{payload['rounds']}`",
+        f"- Rounds requested: `{payload['rounds_requested']}`",
+        f"- Rounds completed: `{payload['rounds_completed']}`",
         "",
-        "## Prompt",
-        payload["prompt"],
+        "## Participants",
+        f"- Drafter: `{payload['participants']['drafter']['provider']}` / `{payload['participants']['drafter']['model']}`",
+        f"- Reviewer: `{payload['participants']['reviewer']['provider']}` / `{payload['participants']['reviewer']['model']}`",
         "",
         "## Context Sources",
     ]
-    markdown_lines.extend(f"- `{path}`" for path in payload["context_sources"])
-    markdown_lines.extend(["", "## Messages"])
-    for message in payload["messages"]:
-        markdown_lines.append(f"- **{message['role']}**: {message['content']}")
-    session_md.write_text("\n".join(markdown_lines) + "\n", encoding="utf-8")
+    for source in payload["context_sources"]:
+        lines.append(f"- `{source['path']}` ({source['bytes']} bytes)")
+
+    lines.extend(["", "## Rounds"])
+    for round_item in payload["rounds"]:
+        lines.append(f"### Round {round_item['index']}")
+        for key in ("draft", "review", "revision"):
+            if key in round_item:
+                lines.append(f"- **{key}** ({round_item[key]['provider']}/{round_item[key]['model']}): {round_item[key]['text'][:120]}")
+        lines.append(f"- Delta summary: {round_item.get('delta_summary', 'n/a')}")
+
+    if payload.get("error"):
+        lines.extend(["", "## Error", f"- `{payload['error']}`"])
+
+    session_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     summary_lines = [
         "# Final Summary",
         "",
-        f"Mode `{payload['mode']}` with provider `{payload['provider']}` completed successfully.",
-        f"Processed {len(payload['context_sources'])} fixed context sources across {payload['rounds']} round(s).",
-        f"Status: `{payload['status']}`.",
+        f"Session status: `{payload['status']}`.",
+        f"Requested rounds: {payload['rounds_requested']}; completed rounds: {payload['rounds_completed']}.",
+        f"Recorded round entries: {len(payload['rounds'])}.",
     ]
     final_summary.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")

@@ -24,3 +24,16 @@ Future Independence-Release work must validate:
 
 ## Bootstrap validation in this ticket
 This ticket validates the existence of required canonical files and target directories without implementing Independence-Release business logic.
+
+## AI Sparring runtime test strategy
+
+For `tools/ai_sparring/`, canonical tests must cover:
+- preflight validation atomicity (no partial writes on preflight failure),
+- deterministic context ordering and deduplication,
+- provider contract normalization (`provider`, `model`, `text`, `attempts_used`, `request_id`),
+- retry behavior (only transient failures retried with fixed budget),
+- deterministic round protocol shape (`draft/review/revision` per round),
+- runtime failure status separation (`failed_runtime` vs `failed_partial`),
+- fake-provider compatibility.
+
+No tests in this slice may depend on live network calls.

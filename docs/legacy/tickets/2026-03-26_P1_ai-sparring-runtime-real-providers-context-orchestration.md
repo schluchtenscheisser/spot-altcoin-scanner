@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P1] AI Sparring Runtime: real providers, repo context loading, and deterministic multi-round session orchestration
 
