@@ -11,7 +11,7 @@ def _state(status: str = "awaiting_continue") -> PointerState:
         rounds_completed=1,
         current_focus="",
         latest_run_id=77,
-        latest_artifact_name="ai-sparring-issue-12-r1",
+        latest_artifact_name="ai-sparring-issue-12-77",
     )
 
 

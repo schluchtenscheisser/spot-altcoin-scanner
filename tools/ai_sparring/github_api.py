@@ -50,3 +50,12 @@ def extract_session_json(zip_bytes: bytes) -> dict:
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         with zf.open("session.json") as fh:
             return json.loads(fh.read().decode("utf-8"))
+
+
+def extract_text_file(zip_bytes: bytes, path: str) -> str | None:
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        try:
+            with zf.open(path) as fh:
+                return fh.read().decode("utf-8")
+        except KeyError:
+            return None

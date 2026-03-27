@@ -83,8 +83,8 @@ def latest_valid_pointer_comment(comments: list[dict]) -> PointerState | None:
     return selected
 
 
-def artifact_name(issue_number: int, rounds_completed: int) -> str:
-    return f"ai-sparring-issue-{issue_number}-r{rounds_completed}"
+def artifact_name(issue_number: int, run_id: int) -> str:
+    return f"ai-sparring-issue-{issue_number}-{run_id}"
 
 
 def truncate_visible(text: str) -> str:

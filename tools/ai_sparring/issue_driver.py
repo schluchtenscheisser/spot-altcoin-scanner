@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.ai_sparring.github_api import extract_text_file
 from tools.ai_sparring.issue_parser import CommandType, parse_comment_command, parse_issue_body
 from tools.ai_sparring.issue_state import (
     ACTIVE_STATUS,
@@ -95,11 +96,9 @@ def handle_issue_event(*, event: IssueRuntimeEvent, repo_root: Path, api, output
 
     if parsed_command.type == CommandType.STOP:
         assert pointer is not None
-        _resolve_prior_artifact_ref(api=api, pointer=pointer)
+        artifact = _resolve_prior_artifact_ref(api=api, pointer=pointer)
         stopped = PointerState(**{**pointer.to_dict(), "status": "stopped"})
-        final_summary = "No final_summary.md available."
-        if (output_dir / "final_summary.md").exists():
-            final_summary = (output_dir / "final_summary.md").read_text(encoding="utf-8")
+        final_summary = _read_final_summary_from_artifact(api=api, artifact=artifact)
         api.post_issue_comment(event.issue_number, render_stop_comment(state=stopped, final_summary=final_summary))
         return {"action": "stopped"}
 
@@ -128,7 +127,7 @@ def handle_issue_event(*, event: IssueRuntimeEvent, repo_root: Path, api, output
         rounds_completed=rounds_completed,
         current_focus=(pointer.current_focus if pointer else ""),
         latest_run_id=event.run_id,
-        latest_artifact_name=artifact_name(event.issue_number, rounds_completed),
+        latest_artifact_name=artifact_name(event.issue_number, event.run_id),
     )
 
     round_data = payload["rounds"][-1] if payload["rounds"] else {}
@@ -151,3 +150,14 @@ def _resolve_prior_artifact_ref(*, api, pointer: PointerState) -> dict:
     raise IssueRuntimeError(
         f"Unable to resolve artifact '{pointer.latest_artifact_name}' for run {pointer.latest_run_id}"
     )
+
+
+def _read_final_summary_from_artifact(*, api, artifact: dict) -> str:
+    artifact_id = artifact.get("id")
+    if not artifact_id:
+        return "No final_summary.md available."
+    zip_bytes = api.download_artifact_zip(int(artifact_id))
+    summary = extract_text_file(zip_bytes, "final_summary.md")
+    if summary is None:
+        return "No final_summary.md available."
+    return summary
