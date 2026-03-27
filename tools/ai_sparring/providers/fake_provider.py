@@ -1,40 +1,22 @@
 from __future__ import annotations
 
-from tools.ai_sparring.providers.base import SparringProvider
+from tools.ai_sparring.providers.base import ProviderResult, SparringProvider
 
 
 class FakeProvider(SparringProvider):
     """Deterministic synthetic provider for dry-runs."""
 
-    def run(
-        self,
-        *,
-        prompt: str,
-        mode: str,
-        rounds: int,
-        contexts: list[dict[str, str | int]],
-    ) -> list[dict[str, str]]:
-        prompt_norm = " ".join(prompt.split())
-        context_summary = ", ".join(
-            f"{item['path']}({item['chars']})" for item in contexts
+    provider_name = "fake"
+
+    def __init__(self, model: str | None = None) -> None:
+        self.model = model
+
+    def generate(self, *, input_text: str) -> ProviderResult:
+        compact = " ".join(input_text.split())
+        return ProviderResult(
+            provider=self.provider_name,
+            model=None,
+            text=f"FAKE_PROVIDER_SYNTHETIC_OUTPUT | {compact[:160]}",
+            attempts_used=1,
+            request_id=None,
         )
-        messages: list[dict[str, str]] = [
-            {
-                "role": "system",
-                "content": (
-                    "FAKE_PROVIDER_SYNTHETIC_OUTPUT | "
-                    f"mode={mode} | rounds={rounds} | contexts={context_summary}"
-                ),
-            }
-        ]
-        for round_idx in range(1, rounds + 1):
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": (
-                        "FAKE_PROVIDER_SYNTHETIC_OUTPUT | "
-                        f"round={round_idx} | prompt={prompt_norm}"
-                    ),
-                }
-            )
-        return messages

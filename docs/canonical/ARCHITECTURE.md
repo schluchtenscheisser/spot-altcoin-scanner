@@ -89,3 +89,13 @@ Owns replay, calibration, and evaluation workflows that consume target-architect
 
 ## Legacy isolation note
 Existing legacy modules such as `scanner/pipeline/`, `scanner/clients/`, and `scanner/utils/` may remain present for reference and technical reuse, but they are not the primary Independence-Release target path.
+
+## AI Sparring Runtime (`tools/ai_sparring/`)
+
+The repository includes a deterministic multi-round AI sparring runtime under `tools/ai_sparring/`.
+
+- Roles are fixed to exactly two participants: `drafter` and `reviewer`.
+- Supported providers are `fake`, `openai`, and `anthropic` behind one normalized provider interface.
+- Round protocol is fixed as `draft_r -> review_r -> revision_r`.
+- Final summary generation is local-only from structured session state (no extra provider call).
+- The runtime is operational tooling only and is explicitly decoupled from `scanner/` runtime logic.

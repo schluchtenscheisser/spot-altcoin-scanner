@@ -1,4 +1,4 @@
-name: AI Sparring Dry Run
+name: AI Sparring Runtime
 
 on:
   workflow_dispatch:
@@ -21,12 +21,42 @@ on:
         required: false
         default: "1"
         type: string
+      drafter_provider:
+        description: Drafter provider
+        required: false
+        default: fake
+        type: choice
+        options:
+          - fake
+          - openai
+          - anthropic
+      drafter_model:
+        description: Drafter model id (required for real providers)
+        required: false
+        type: string
+      reviewer_provider:
+        description: Reviewer provider
+        required: false
+        default: fake
+        type: choice
+        options:
+          - fake
+          - openai
+          - anthropic
+      reviewer_model:
+        description: Reviewer model id (required for real providers)
+        required: false
+        type: string
+      context_paths:
+        description: Optional newline-separated repo-relative context file paths
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  dry-run:
+  runtime:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,17 +72,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Run AI sparring dry-run
+      - name: Run AI sparring runtime
         env:
           AI_SPARRING_PROMPT: ${{ github.event.inputs.prompt }}
           AI_SPARRING_MODE: ${{ github.event.inputs.mode }}
           AI_SPARRING_ROUNDS: ${{ github.event.inputs.rounds }}
+          AI_SPARRING_DRAFTER_PROVIDER: ${{ github.event.inputs.drafter_provider }}
+          AI_SPARRING_DRAFTER_MODEL: ${{ github.event.inputs.drafter_model }}
+          AI_SPARRING_REVIEWER_PROVIDER: ${{ github.event.inputs.reviewer_provider }}
+          AI_SPARRING_REVIEWER_MODEL: ${{ github.event.inputs.reviewer_model }}
+          AI_SPARRING_CONTEXT_PATHS: ${{ github.event.inputs.context_paths }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
+          mkdir -p artifacts/ai-sparring
+          EXTRA_ARGS=()
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            EXTRA_ARGS+=(--context-path "$line")
+          done <<< "$AI_SPARRING_CONTEXT_PATHS"
+
           python -m tools.ai_sparring.cli \
             --prompt "$AI_SPARRING_PROMPT" \
-            --provider fake \
             --mode "$AI_SPARRING_MODE" \
             --rounds "$AI_SPARRING_ROUNDS" \
+            --drafter-provider "$AI_SPARRING_DRAFTER_PROVIDER" \
+            --reviewer-provider "$AI_SPARRING_REVIEWER_PROVIDER" \
+            ${AI_SPARRING_DRAFTER_MODEL:+--drafter-model "$AI_SPARRING_DRAFTER_MODEL"} \
+            ${AI_SPARRING_REVIEWER_MODEL:+--reviewer-model "$AI_SPARRING_REVIEWER_MODEL"} \
+            ${EXTRA_ARGS[@]} \
             --output-dir artifacts/ai-sparring
 
       - name: Upload artifacts

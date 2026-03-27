@@ -99,3 +99,46 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - This bootstrap does not introduce live trading or automated order execution.
 - Runtime logic for phase/state/entry remains deferred even though the operating model reserves those stages.
 - All future implementations must preserve the documented separation between daily discovery and intraday promotion scans.
+
+## AI Sparring Runtime Operations Contract
+
+`tools/ai_sparring/` provides a manual/operator-triggered runtime (local CLI and `workflow_dispatch`) for design/code review sparring.
+
+### Preflight (atomic)
+Before the first provider call, preflight must validate:
+- prompt, mode, rounds,
+- provider names and required model ids,
+- required API keys for selected real providers,
+- required default context files,
+- optional repo-relative context-path validity (inside repo, regular file, UTF-8, <= 153600 bytes).
+
+If preflight fails, zero output files are written.
+
+### Deterministic context loading
+Default context sources are always loaded first in this order:
+1. `docs/AGENTS.md`
+2. `docs/code_map.md`
+3. `docs/canonical/ROADMAP.md`
+
+Optional `--context-path` entries are normalized to repo-relative POSIX paths, sorted lexicographically, deduplicated, and appended after defaults.
+
+### Runtime persistence semantics
+Session artifacts are:
+- `session.json`
+- `session.md`
+- `final_summary.md`
+
+`session.json` uses `session_version: 2` and statuses:
+- `completed`
+- `failed_runtime` (no protocol step succeeded)
+- `failed_partial` (at least one protocol step succeeded)
+
+When provider/runtime failure happens after successful preflight, completed protocol steps are preserved and artifacts are still written.
+
+### Retry policy
+A single explicit retry wrapper is used for real providers:
+- 3 attempts total,
+- delay before attempt 2: 5s,
+- delay before attempt 3: 15s,
+- retries only on connection/timeouts/HTTP 429/HTTP 5xx,
+- no retries for validation/auth/configuration/provider-selection failures.
