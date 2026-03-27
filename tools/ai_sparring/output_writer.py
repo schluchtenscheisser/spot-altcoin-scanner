@@ -4,7 +4,18 @@ import json
 from pathlib import Path
 
 
-def write_session_artifacts(output_dir: Path, payload: dict) -> None:
+def _build_final_summary(payload: dict) -> str:
+    summary_lines = [
+        "# Final Summary",
+        "",
+        f"Session status: `{payload['status']}`.",
+        f"Requested rounds: {payload['rounds_requested']}; completed rounds: {payload['rounds_completed']}.",
+        f"Recorded round entries: {len(payload['rounds'])}.",
+    ]
+    return "\n".join(summary_lines) + "\n"
+
+
+def write_session_artifacts(output_dir: Path, payload: dict, *, ticket_draft_text: str | None = None, ticket_draft_reason: str | None = None) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     session_json = output_dir / "session.json"
@@ -46,11 +57,12 @@ def write_session_artifacts(output_dir: Path, payload: dict) -> None:
 
     session_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    summary_lines = [
-        "# Final Summary",
-        "",
-        f"Session status: `{payload['status']}`.",
-        f"Requested rounds: {payload['rounds_requested']}; completed rounds: {payload['rounds_completed']}.",
-        f"Recorded round entries: {len(payload['rounds'])}.",
-    ]
+    summary_text = _build_final_summary(payload)
+    summary_lines = [summary_text.rstrip("\n"), "", "## Generated Ticket Draft", ""]
+    if ticket_draft_text:
+        summary_lines.append(ticket_draft_text.rstrip("\n"))
+        (output_dir / "ticket_draft.md").write_text(ticket_draft_text, encoding="utf-8")
+    else:
+        summary_lines.append(f"Not generated: {ticket_draft_reason or 'unknown reason'}")
+
     final_summary.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")

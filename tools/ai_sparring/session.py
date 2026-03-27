@@ -7,6 +7,7 @@ from pathlib import Path
 from tools.ai_sparring.context_loader import load_context
 from tools.ai_sparring.errors import FatalProviderError, PreflightValidationError, TransientProviderError
 from tools.ai_sparring.output_writer import write_session_artifacts
+from tools.ai_sparring.ticket_draft import generate_ticket_draft
 from tools.ai_sparring.providers import PROVIDER_NAMES, build_provider
 
 ALLOWED_MODES = {"ticket_review", "implementation_planning", "roadmap_review"}
@@ -51,6 +52,7 @@ class SessionConfig:
     reviewer_model: str | None
     context_paths: tuple[str, ...]
     output_dir: Path
+    writeback: bool = False
 
 
 def _validate_preflight(config: SessionConfig, repo_root: Path) -> list[dict[str, str | int]]:
@@ -228,5 +230,32 @@ def run_session(config: SessionConfig, repo_root: Path) -> dict:
         payload["error"] = str(exc)
         payload["status"] = "failed_partial" if payload["rounds"] else "failed_runtime"
 
-    write_session_artifacts(config.output_dir, payload)
+    summary_text = "\n".join([
+        "# Final Summary",
+        "",
+        f"Session status: `{payload['status']}`.",
+        f"Requested rounds: {payload['rounds_requested']}; completed rounds: {payload['rounds_completed']}.",
+        f"Recorded round entries: {len(payload['rounds'])}.",
+    ]) + "\n"
+
+    ticket_block, ticket_text, ticket_reason = generate_ticket_draft(
+        repo_root=repo_root,
+        provider=drafter,
+        payload=payload,
+        final_summary_text=summary_text,
+        mode=config.mode,
+    )
+    ticket_block["writeback"]["requested"] = bool(config.writeback)
+    if config.writeback:
+        ticket_block["writeback"]["status"] = "skipped_no_draft" if ticket_block["status"] != "generated" else "failed_before_push"
+        if ticket_block["status"] == "generated":
+            ticket_block["writeback"]["error"] = "writeback requested; run dedicated writeback step"
+    payload["ticket_draft"] = ticket_block
+
+    write_session_artifacts(
+        config.output_dir,
+        payload,
+        ticket_draft_text=ticket_text,
+        ticket_draft_reason=ticket_reason,
+    )
     return payload
