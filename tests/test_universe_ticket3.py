@@ -44,7 +44,12 @@ def test_activity_gate_not_evaluable_for_invalid_inputs_over_tolerance():
     bars["2026-04-03"] = {"quote_volume": float("nan")}
     bars["2026-04-04"] = {"quote_volume": None}
     bars["2026-04-05"] = {"quote_volume": float("inf")}
-    result = evaluate_activity_gate(daily_bar_id="2026-04-14", bars_by_date=bars, cfg=_cfg())
+    result = evaluate_activity_gate(
+        daily_bar_id="2026-04-14",
+        bars_by_date=bars,
+        total_history_bar_count=14,
+        cfg=_cfg(),
+    )
     assert result["activity_gate_status"] == "not_evaluable"
 
 
@@ -90,3 +95,45 @@ def test_bypass_and_cap_deterministic_tie_break():
 def test_config_invalid_close_position_range_raises():
     with pytest.raises(ValueError, match="close_position_in_range_10bars_1d_min_inclusive"):
         evaluate_pre_4h_candidate_filter({}, _cfg({"market_data_budget": {"pre_4h_candidate_filter": {"rule_c": {"close_position_in_range_10bars_1d_min_inclusive": 1.5}}}}))
+
+
+def test_activity_gate_missing_dates_in_window_count_as_inactive_not_insufficient_history():
+    bars = {f"2026-04-{d:02d}": {"quote_volume": 30000} for d in range(1, 12)}
+    result = evaluate_activity_gate(
+        daily_bar_id="2026-04-14",
+        bars_by_date=bars,
+        total_history_bar_count=100,
+        cfg=_cfg(),
+    )
+    assert result["activity_gate_status"] == "failed"
+    assert result["activity_gate_reason"] == "ACTIVITY_GATE_INSUFFICIENT_ACTIVE_DAYS"
+
+
+def test_activity_gate_uses_insufficient_history_only_for_true_history_shortage():
+    bars = {f"2026-04-{d:02d}": {"quote_volume": 30000} for d in range(1, 11)}
+    result = evaluate_activity_gate(
+        daily_bar_id="2026-04-14",
+        bars_by_date=bars,
+        total_history_bar_count=10,
+        cfg=_cfg(),
+    )
+    assert result["activity_gate_status"] == "not_evaluable"
+    assert result["activity_gate_reason"] == "ACTIVITY_GATE_INSUFFICIENT_HISTORY"
+
+
+def test_config_invalid_rule_b_threshold_raises_before_runtime_cast():
+    with pytest.raises(ValueError, match="volume_1d_current_vs_median10_min_inclusive"):
+        evaluate_pre_4h_candidate_filter(
+            {},
+            _cfg(
+                {
+                    "market_data_budget": {
+                        "pre_4h_candidate_filter": {
+                            "rule_b": {
+                                "volume_1d_current_vs_median10_min_inclusive": 0,
+                            }
+                        }
+                    }
+                }
+            ),
+        )

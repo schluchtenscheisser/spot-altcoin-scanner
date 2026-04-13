@@ -11,7 +11,13 @@ def _finite(value: Any) -> bool:
     return value is not None and not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value))
 
 
-def evaluate_activity_gate(*, daily_bar_id: str, bars_by_date: Mapping[str, Mapping[str, Any]], cfg: Mapping[str, Any]) -> dict[str, Any]:
+def evaluate_activity_gate(
+    *,
+    daily_bar_id: str,
+    bars_by_date: Mapping[str, Mapping[str, Any]],
+    total_history_bar_count: int,
+    cfg: Mapping[str, Any],
+) -> dict[str, Any]:
     budget = resolve_independence_market_data_budget_config(cfg)
     gate = budget["activity_gate"]
 
@@ -20,7 +26,7 @@ def evaluate_activity_gate(*, daily_bar_id: str, bars_by_date: Mapping[str, Mapp
     floor = float(gate["daily_quote_volume_active_floor"])
     min_active = int(gate["min_active_days"])
 
-    if len(bars_by_date) < window_days:
+    if total_history_bar_count < window_days:
         return {"activity_gate_status": "not_evaluable", "active_days_last_14": None, "activity_gate_reason": "ACTIVITY_GATE_INSUFFICIENT_HISTORY"}
 
     window_dates = [(end_day - timedelta(days=offset)).isoformat() for offset in range(window_days - 1, -1, -1)]

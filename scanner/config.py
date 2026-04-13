@@ -132,9 +132,75 @@ def resolve_independence_market_data_budget_config(raw: Mapping[str, Any]) -> Di
         _raise_invalid("independence_release.market_data_budget.monitoring_bypass.min_phase_confidence", conf, "must be in [0,100]")
     merged["monitoring_bypass"]["min_phase_confidence"] = float(conf)
 
-    rc = merged["pre_4h_candidate_filter"]["rule_c"]["close_position_in_range_10bars_1d_min_inclusive"]
-    if isinstance(rc, bool) or not isinstance(rc, (int,float)) or not math.isfinite(float(rc)) or not (0 <= float(rc) <= 1):
-        _raise_invalid("independence_release.market_data_budget.pre_4h_candidate_filter.rule_c.close_position_in_range_10bars_1d_min_inclusive", rc, "must be in [0,1]")
+    pre_filter = merged.get("pre_4h_candidate_filter")
+    if not isinstance(pre_filter, Mapping):
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter",
+            pre_filter,
+            "must be an object",
+        )
+
+    rule_a = pre_filter.get("rule_a")
+    if not isinstance(rule_a, Mapping):
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_a",
+            rule_a,
+            "must be an object",
+        )
+    for key in [
+        "close_vs_ema50_1d_pct_min_exclusive",
+        "ema20_vs_ema50_1d_pct_min_inclusive",
+        "ema20_slope_1d_pct_per_bar_min_exclusive",
+    ]:
+        value = rule_a.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(
+                f"independence_release.market_data_budget.pre_4h_candidate_filter.rule_a.{key}",
+                value,
+                "must be finite number",
+            )
+        rule_a[key] = float(value)
+
+    rule_b = pre_filter.get("rule_b")
+    if not isinstance(rule_b, Mapping):
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_b",
+            rule_b,
+            "must be an object",
+        )
+    value_b = rule_b.get("volume_1d_current_vs_median10_min_inclusive")
+    if isinstance(value_b, bool) or not isinstance(value_b, (int, float)) or not math.isfinite(float(value_b)) or float(value_b) <= 0:
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_b.volume_1d_current_vs_median10_min_inclusive",
+            value_b,
+            "must be finite number > 0",
+        )
+    rule_b["volume_1d_current_vs_median10_min_inclusive"] = float(value_b)
+
+    rule_c = pre_filter.get("rule_c")
+    if not isinstance(rule_c, Mapping):
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_c",
+            rule_c,
+            "must be an object",
+        )
+    width = rule_c.get("range_width_10bars_1d_pct_max_inclusive")
+    if isinstance(width, bool) or not isinstance(width, (int, float)) or not math.isfinite(float(width)) or float(width) <= 0:
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_c.range_width_10bars_1d_pct_max_inclusive",
+            width,
+            "must be finite number > 0",
+        )
+    rule_c["range_width_10bars_1d_pct_max_inclusive"] = float(width)
+
+    rc = rule_c.get("close_position_in_range_10bars_1d_min_inclusive")
+    if isinstance(rc, bool) or not isinstance(rc, (int, float)) or not math.isfinite(float(rc)) or not (0 <= float(rc) <= 1):
+        _raise_invalid(
+            "independence_release.market_data_budget.pre_4h_candidate_filter.rule_c.close_position_in_range_10bars_1d_min_inclusive",
+            rc,
+            "must be in [0,1]",
+        )
+    rule_c["close_position_in_range_10bars_1d_min_inclusive"] = float(rc)
 
     return merged
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
