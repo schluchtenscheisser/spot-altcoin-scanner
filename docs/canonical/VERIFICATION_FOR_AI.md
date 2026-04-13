@@ -164,3 +164,10 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `buy_volume_share`, `sell_volume_share`, and `imbalance_ratio` accept finite numbers or `null`; non-finite/invalid types are invalid input.
 - `lookback_bars` accepts positive integer or `null`; zero/negative/non-integer/bool values are invalid input.
 - Presence/absence of preparatory Directional Volume fields must not change Phase-1 score/decision outputs for identical otherwise-valid inputs.
+
+
+## Ticket 3 verification boundaries
+- pre-1d eligibility uses only MEXC metadata/ticker, persisted listing metadata, and CMC cap (no pre-1d OHLCV requirement).
+- `listing_age_status` and `market_cap_status` domains are `{known_pass, known_fail, unknown_pass}`; unknown states are explicit and non-coerced.
+- post-1d activity gate window is fixed calendar window ending at `daily_bar_id`; missing bars count inactive; >2 invalid-volume bars => `not_evaluable`.
+- filter reason priority is deterministic: `COMPRESSION > TREND > VOLUME`; cap tie-break is `quote_volume_24h desc` then `symbol asc`.

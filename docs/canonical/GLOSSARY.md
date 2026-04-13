@@ -42,3 +42,12 @@ The daily scheduled scan that discovers candidates using the closed daily contex
 
 ### `intraday_promotion_scan`
 The intraday scheduled scan that revisits previously discovered candidates and promotes or reclassifies them using closed intraday context. Its runtime sequence is summarized in `RUNTIME_AND_OPERATIONS.md`.
+
+### `post_1d_activity_gate`
+Hard gate after 1d fetch: evaluates last 14 closed daily bars (calendar window, missing bars count inactive) and blocks symbols with `failed` or `not_evaluable` from bypass/filter stages.
+
+### `monitoring_bypass`
+Deterministic 4h-fetch bypass for monitored symbols (`state_machine_state`, `decision_bucket`, or phase confidence). Bypass is applied before non-bypass cap and can exceed nominal cap.
+
+### `pre_4h_candidate_filter`
+Cheap 1d-only operational budget filter with exactly three OR-rules (`COMPRESSION`, `TREND`, `VOLUME`). No 4h-derived signals are allowed.

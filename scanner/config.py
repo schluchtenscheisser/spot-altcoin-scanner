@@ -36,6 +36,107 @@ _INDEPENDENCE_RELEASE_SECTION_DEFAULTS = {
 }
 
 
+
+
+_INDEPENDENCE_UNIVERSE_DEFAULTS = {
+    "quote_asset_allowed": ["USDT"],
+    "listing_age_days_min": 45,
+    "quote_volume_24h_min": 500000,
+    "market_cap_usd_min": 10000000,
+    "mexc_tradeable_status_values": ["1"],
+}
+
+_INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
+    "activity_gate": {
+        "daily_quote_volume_active_floor": 25000,
+        "min_active_days": 12,
+        "window_days": 14,
+    },
+    "monitoring_bypass": {
+        "min_phase_confidence": 55,
+    },
+    "pre_4h_candidate_filter": {
+        "rule_a": {
+            "close_vs_ema50_1d_pct_min_exclusive": 0.0,
+            "ema20_vs_ema50_1d_pct_min_inclusive": 0.0,
+            "ema20_slope_1d_pct_per_bar_min_exclusive": 0.0,
+        },
+        "rule_b": {
+            "volume_1d_current_vs_median10_min_inclusive": 2.0,
+        },
+        "rule_c": {
+            "range_width_10bars_1d_pct_max_inclusive": 10.0,
+            "close_position_in_range_10bars_1d_min_inclusive": 0.70,
+        },
+    },
+    "max_4h_fetch_count": 100,
+}
+
+
+def _raise_invalid(key: str, value: Any, msg: str) -> None:
+    raise ValueError(f"{key} invalid value {value!r}: {msg}")
+
+
+def _read_nested(cfg: Mapping[str, Any], *keys: str) -> Mapping[str, Any]:
+    cur: Any = cfg
+    for k in keys:
+        cur = cur.get(k, {}) if isinstance(cur, Mapping) else {}
+    if not isinstance(cur, Mapping):
+        return {}
+    return cur
+
+
+def resolve_independence_universe_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section = _read_nested(raw, "independence_release", "universe")
+    merged = _deep_merge_dicts(_INDEPENDENCE_UNIVERSE_DEFAULTS, section)
+
+    list_keys = ["quote_asset_allowed", "mexc_tradeable_status_values"]
+    for key in list_keys:
+        value = merged.get(key)
+        if not isinstance(value, list) or not value or any(not isinstance(x, str) or not x for x in value):
+            _raise_invalid(f"independence_release.universe.{key}", value, "must be non-empty list[str]")
+
+    for key in ["listing_age_days_min", "quote_volume_24h_min", "market_cap_usd_min"]:
+        value = merged.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or float(value) < 0:
+            _raise_invalid(f"independence_release.universe.{key}", value, "must be finite number >= 0")
+
+    merged["listing_age_days_min"] = int(float(merged["listing_age_days_min"]))
+    merged["quote_volume_24h_min"] = float(merged["quote_volume_24h_min"])
+    merged["market_cap_usd_min"] = float(merged["market_cap_usd_min"])
+    return merged
+
+
+def resolve_independence_market_data_budget_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section = _read_nested(raw, "independence_release", "market_data_budget")
+    merged = _deep_merge_dicts(_INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS, section)
+
+    max_4h = merged.get("max_4h_fetch_count")
+    if isinstance(max_4h, bool) or not isinstance(max_4h, (int, float)) or int(max_4h) < 0:
+        _raise_invalid("independence_release.market_data_budget.max_4h_fetch_count", max_4h, "must be integer >= 0")
+    merged["max_4h_fetch_count"] = int(max_4h)
+
+    gate = merged["activity_gate"]
+    for key in ["daily_quote_volume_active_floor", "min_active_days", "window_days"]:
+        value = gate.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(f"independence_release.market_data_budget.activity_gate.{key}", value, "must be finite number")
+    gate["daily_quote_volume_active_floor"] = float(gate["daily_quote_volume_active_floor"])
+    gate["min_active_days"] = int(gate["min_active_days"])
+    gate["window_days"] = int(gate["window_days"])
+    if gate["window_days"] < 1 or gate["min_active_days"] < 0 or gate["window_days"] < gate["min_active_days"]:
+        _raise_invalid("independence_release.market_data_budget.activity_gate.window_days", gate["window_days"], "must be >=1 and >= min_active_days")
+
+    conf = merged["monitoring_bypass"].get("min_phase_confidence")
+    if isinstance(conf, bool) or not isinstance(conf, (int, float)) or not math.isfinite(float(conf)) or float(conf) < 0 or float(conf) > 100:
+        _raise_invalid("independence_release.market_data_budget.monitoring_bypass.min_phase_confidence", conf, "must be in [0,100]")
+    merged["monitoring_bypass"]["min_phase_confidence"] = float(conf)
+
+    rc = merged["pre_4h_candidate_filter"]["rule_c"]["close_position_in_range_10bars_1d_min_inclusive"]
+    if isinstance(rc, bool) or not isinstance(rc, (int,float)) or not math.isfinite(float(rc)) or not (0 <= float(rc) <= 1):
+        _raise_invalid("independence_release.market_data_budget.pre_4h_candidate_filter.rule_c.close_position_in_range_10bars_1d_min_inclusive", rc, "must be in [0,1]")
+
+    return merged
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():

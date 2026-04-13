@@ -77,3 +77,10 @@ Reserved for the authoritative Field Group C defined by Abschnitt 6 §4. This do
 
 ### Group D
 Reserved for the authoritative Field Group D defined by Abschnitt 6 §4. This document does not restate or extend the unresolved field list.
+
+### Ticket 3 additive schema
+`run_metadata` includes additive counters: `eligible_pre_1d_count`, `activity_gate_passed_count`, `monitoring_bypass_count`, `selected_for_4h_count`.
+
+`symbol_metadata(symbol PK, mexc_first_tradable_date, updated_at_utc)` persists listing-age bootstrap state.
+
+`symbol_run_decisions(run_id, symbol PK)` persists per-symbol decision diagnostics including gate/filter/bypass/cap outcomes and matched filter rules.
