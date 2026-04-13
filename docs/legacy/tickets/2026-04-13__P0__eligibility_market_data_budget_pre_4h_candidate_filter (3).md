@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Implement eligibility, staged market-data budget, post_1d_activity_gate, and pre_4h_candidate_filter
 

@@ -123,3 +123,6 @@ The runtime also supports an issue-thread UI via `.github/workflows/ai-sparring-
 - Issue comment control-state is carried by one hidden pointer payload line:
   `<!-- ai-sparring-state:v1:<base64-encoded-json> -->`.
 - Pointer control-state and artifact runtime-state are intentionally split; `/focus` and `/stop` update pointer-state without creating a new artifact.
+
+### `scanner/universe/` (Ticket 3 update)
+The module now owns the deterministic chain: pre-1d eligibility -> post-1d activity gate -> monitoring bypass -> pre-4h candidate filter -> non-bypass cap ranking.

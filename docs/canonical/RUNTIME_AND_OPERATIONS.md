@@ -184,3 +184,14 @@ Issue UI is additive and does not replace `workflow_dispatch`.
 - `/continue` resume resolution uses pointer `latest_run_id` and pointer `latest_artifact_name` against the Actions artifacts REST endpoints.
 - `/focus <text>` updates `current_focus` only and preserves `latest_run_id` + `latest_artifact_name`.
 - `/stop` sets pointer status to `stopped`, preserves prior artifact pointer references, and does not upload a new artifact.
+
+### Daily Discovery Scan — universe-admission chain (Ticket 3)
+1. discover symbols
+2. pre-1d eligibility
+3. 1d fetch
+4. 1d raw derivation
+5. post_1d_activity_gate
+6. monitoring bypass
+7. pre_4h_candidate_filter (non-bypass only)
+8. non-bypass cap selection
+9. 4h fetch for selected symbols
