@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-13 18:16 UTC  
+**Last Updated:** 2026-04-13 19:33 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 52
-- **Total Classes:** 19
-- **Total Functions:** 438
+- **Total Modules:** 56
+- **Total Classes:** 20
+- **Total Functions:** 455
 
 ---
 
@@ -96,9 +96,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_integer_budget_value, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_independence_market_data_budget_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, configured, configured_primary, d` _(+31 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+44 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -424,7 +424,17 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** —
 
-**Imports:** `schema, sqlite`
+**Imports:** `repositories, schema, sqlite`
+
+---
+
+### 📄 `scanner/storage/repositories.py`
+
+**Functions:** `insert_symbol_run_decision, upsert_symbol_metadata`
+
+**Module Variables:** `columns, placeholders, values`
+
+**Imports:** `__future__, sqlite3, typing`
 
 ---
 
@@ -432,7 +442,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `apply_schema, get_schema_version`
 
-**Module Variables:** `current_version, row`
+**Module Variables:** `cols, current_version, row`
 
 **Imports:** `__future__, sqlite3, typing`
 
@@ -499,6 +509,36 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `comps, data, pm, report_path, results, section_key, setup_path, val`
 
 **Imports:** `json, os, sys, typing`
+
+---
+
+### 📄 `scanner/universe/__init__.py`
+
+**Functions:** —
+
+**Imports:** `eligibility, market_data_budget`
+
+---
+
+### 📄 `scanner/universe/eligibility.py`
+
+**Classes:** `EligibilityInput`
+
+**Functions:** `_days_since_iso_date, _is_finite_number, evaluate_pre_1d_eligibility`
+
+**Module Variables:** `ALLOWED_LISTING_AGE_STATUS, ALLOWED_MARKET_CAP_STATUS, listing_age_days, listing_age_status, market_cap_status, market_cap_usd, parsed, quote_asset_status, quote_volume_24h, result` _(+2 more)_
+
+**Imports:** `__future__, dataclasses, datetime, math, scanner.config, typing`
+
+---
+
+### 📄 `scanner/universe/market_data_budget.py`
+
+**Functions:** `_finite, cap_non_bypass_candidates, evaluate_activity_gate, evaluate_monitoring_bypass, evaluate_pre_4h_candidate_filter, rule_a, rule_b, rule_c`
+
+**Module Variables:** `a, active, b, bar, budget, c, capped, end_day, filt, floor` _(+16 more)_
+
+**Imports:** `__future__, datetime, math, scanner.config, typing`
 
 ---
 
@@ -625,6 +665,8 @@ _This section shows which functions call which other functions, helping identify
 | `_normalize_independence_release_config` | `_deep_merge_dicts` | `ValueError`, `get`, `items` |
 | `_parse` | — | `ValueError`, `isfinite` |
 | `_parse_integer_budget_value` | — | `ValueError`, `is_integer` |
+| `_raise_invalid` | — | `ValueError` |
+| `_read_nested` | — | `get` |
 | `btc_regime_enabled` | — | `get` |
 | `btc_regime_mode` | — | `get` |
 | `btc_regime_risk_off_enter_boost` | — | `get` |
@@ -656,6 +698,8 @@ _This section shows which functions call which other functions, helping identify
 | `min_mexc_share_24h` | — | `get` |
 | `min_turnover_24h` | — | `get` |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
+| `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
+| `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_risk_max_stop_distance_pct` | `_parse` | `ValueError`, `get` |
 | `resolve_risk_min_rr_to_target_1` | — | `ValueError`, `get`, `isfinite` |
 | `risk_atr_multiple` | — | `get` |
@@ -1046,11 +1090,18 @@ _This section shows which functions call which other functions, helping identify
 | `load_snapshot` | — | `FileNotFoundError`, `exists`, `info`, `load` |
 | `resolve_history_dir` | — | `Path`, `get` |
 
+### 📄 scanner/storage/repositories.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `insert_symbol_run_decision` | — | `execute`, `get`, `join` |
+| `upsert_symbol_metadata` | — | `execute` |
+
 ### 📄 scanner/storage/schema.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `apply_schema` | `get_schema_version` | `ValueError`, `execute` |
+| `apply_schema` | `get_schema_version` | `ValueError`, `execute`, `fetchall` |
 | `get_schema_version` | — | `execute`, `fetchone` |
 
 ### 📄 scanner/storage/sqlite.py
@@ -1140,6 +1191,27 @@ _This section shows which functions call which other functions, helping identify
 | `_emit` | — | `dumps` |
 | `validate_features` | `_emit`, `_error`, `_is_number` | `append`, `exists`, `get`, `items`, `load` |
 
+### 📄 scanner/universe/eligibility.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_days_since_iso_date` | — | `date`, `fromisoformat` |
+| `_is_finite_number` | — | `isfinite` |
+| `evaluate_pre_1d_eligibility` | `_days_since_iso_date`, `_is_finite_number` | `append`, `resolve_independence_universe_config` |
+
+### 📄 scanner/universe/market_data_budget.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_finite` | — | `isfinite` |
+| `cap_non_bypass_candidates` | — | `get` |
+| `evaluate_activity_gate` | `_finite` | `fromisoformat`, `get`, `isoformat`, `resolve_independence_market_data_budget_config`, `timedelta` |
+| `evaluate_monitoring_bypass` | `_finite` | `resolve_independence_market_data_budget_config` |
+| `evaluate_pre_4h_candidate_filter` | `rule_a`, `rule_b`, `rule_c` | `resolve_independence_market_data_budget_config` |
+| `rule_a` | `_finite` | `get` |
+| `rule_b` | `_finite` | `get` |
+| `rule_c` | `_finite` | `get` |
+
 ### 📄 scanner/utils/io_utils.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -1197,7 +1269,7 @@ _Modules with high external call counts may benefit from refactoring._
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/config.py` | 17 | 80 | 97 | 🔴 High |
+| `scanner/config.py` | 23 | 86 | 109 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
@@ -1222,6 +1294,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
 | `scanner/data/bar_clock.py` | 4 | 18 | 22 | 🔴 High |
+| `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -1236,9 +1309,11 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/storage/sqlite.py` | 1 | 6 | 7 | 🔴 High |
+| `scanner/universe/eligibility.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
+| `scanner/storage/schema.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
-| `scanner/storage/schema.py` | 1 | 4 | 5 | 🔴 High |
+| `scanner/storage/repositories.py` | 0 | 4 | 4 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
 
 **Interpretation:**
@@ -1258,4 +1333,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-13 18:16 UTC_
+_Generated by GitHub Actions • 2026-04-13 19:33 UTC_
