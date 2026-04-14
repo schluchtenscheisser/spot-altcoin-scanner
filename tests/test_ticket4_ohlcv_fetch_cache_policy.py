@@ -68,3 +68,157 @@ def test_fetch_input_contract_errors(temp_db):
         fetch_closed_bars("BTCUSDT", "1h", datetime.now(tz=timezone.utc))
     with pytest.raises(TypeError):
         fetch_closed_bars("BTCUSDT", "1d", None)
+
+
+def test_full_fetch_uses_exact_lookback_count_for_4h(monkeypatch, temp_db):
+    from scanner.clients.mexc_client import MEXCClient
+
+    duration = 4 * 60 * 60 * 1000
+    cutoff = 1713081600000  # 2024-04-14T08:00:00Z
+
+    lookback = 120
+
+    def _fake_get_klines(self, symbol, interval="1d", limit=120, use_cache=True):
+        rows = []
+        for i in range(lookback + 1):  # includes one extra older bar
+            close_time = cutoff - ((lookback - i) * duration)
+            open_time = close_time - duration
+            rows.append([open_time, "1", "2", "0.5", "1.5", "100", close_time, "150"])
+        return rows
+
+    monkeypatch.setattr(MEXCClient, "get_klines", _fake_get_klines)
+    result = fetch_closed_bars("FOOUSDT", "4h", datetime(2024, 4, 14, 9, 30, tzinfo=timezone.utc), lookback_bars=lookback)
+    assert len(result.bars) == lookback
+    assert result.bars[0].close_time_utc_ms == cutoff - ((lookback - 1) * duration)
+    assert result.bars[-1].close_time_utc_ms == cutoff
+
+
+def test_full_fetch_uses_exact_lookback_count_for_1d(monkeypatch, temp_db):
+    from scanner.clients.mexc_client import MEXCClient
+
+    duration = 24 * 60 * 60 * 1000
+    cutoff = 1713052800000  # 2024-04-14T00:00:00Z
+
+    lookback = 120
+
+    def _fake_get_klines(self, symbol, interval="1d", limit=120, use_cache=True):
+        rows = []
+        for i in range(lookback + 1):  # includes one extra older bar
+            close_time = cutoff - ((lookback - i) * duration)
+            open_time = close_time - duration
+            rows.append([open_time, "1", "2", "0.5", "1.5", "100", close_time, "150"])
+        return rows
+
+    monkeypatch.setattr(MEXCClient, "get_klines", _fake_get_klines)
+    result = fetch_closed_bars("FOOUSDT", "1d", datetime(2024, 4, 14, 12, 0, tzinfo=timezone.utc), lookback_bars=lookback)
+    assert len(result.bars) == lookback
+    assert result.bars[0].close_time_utc_ms == cutoff - ((lookback - 1) * duration)
+    assert result.bars[-1].close_time_utc_ms == cutoff
+
+
+def test_incremental_persist_skips_overlap_and_older_bars(monkeypatch, temp_db):
+    from scanner.clients.mexc_client import MEXCClient
+
+    conn = init_db(temp_db)
+    conn.execute(
+        """
+        INSERT INTO ohlcv_bars(symbol, timeframe, open_time_utc_ms, close_time_utc_ms, open, high, low, close, base_volume, quote_volume)
+        VALUES ('FOOUSDT', '4h', ?, ?, 1, 2, 0.5, 1.5, 100, 150)
+        """,
+        (1713038400000, 1713052800000),  # 2024-04-14 00:00
+    )
+    conn.execute(
+        """
+        INSERT INTO ohlcv_cache_meta(symbol, timeframe, cached_close_time_utc_ms, last_fetch_at_utc, last_fetch_status, last_error_code)
+        VALUES ('FOOUSDT', '4h', 1713052800000, '2024-04-14T00:00:00.000Z', 'ok', NULL)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    def _fake_get_klines(self, symbol, interval="1d", limit=120, use_cache=True):
+        # overlap (00:00) + new (04:00)
+        return [
+            [1713038400000, "1", "2", "0.5", "1.5", "100", 1713052800000, "150"],
+            [1713052800000, "1", "2", "0.5", "1.6", "100", 1713067200000, "150"],
+        ]
+
+    monkeypatch.setattr(MEXCClient, "get_klines", _fake_get_klines)
+    now = datetime(2024, 4, 14, 5, 0, tzinfo=timezone.utc)
+    assert get_fetch_decision("FOOUSDT", "4h", now) == "fetch_incremental"
+    result = fetch_and_persist("FOOUSDT", "4h", now, lookback_bars=120)
+
+    assert result.rows_inserted == 1
+    assert result.rows_noop_identical == 0
+
+    conn = init_db(temp_db)
+    bars = conn.execute(
+        "SELECT close_time_utc_ms FROM ohlcv_bars WHERE symbol='FOOUSDT' AND timeframe='4h' ORDER BY close_time_utc_ms ASC"
+    ).fetchall()
+    conn.close()
+    assert [row[0] for row in bars] == [1713052800000, 1713067200000]
+
+
+def test_incremental_ignores_conflicting_overlap_bar(monkeypatch, temp_db):
+    from scanner.clients.mexc_client import MEXCClient
+
+    conn = init_db(temp_db)
+    conn.execute(
+        """
+        INSERT INTO ohlcv_bars(symbol, timeframe, open_time_utc_ms, close_time_utc_ms, open, high, low, close, base_volume, quote_volume)
+        VALUES ('FOOUSDT', '4h', ?, ?, 1, 2, 0.5, 1.5, 100, 150)
+        """,
+        (1713038400000, 1713052800000),
+    )
+    conn.execute(
+        """
+        INSERT INTO ohlcv_cache_meta(symbol, timeframe, cached_close_time_utc_ms, last_fetch_at_utc, last_fetch_status, last_error_code)
+        VALUES ('FOOUSDT', '4h', 1713052800000, '2024-04-14T00:00:00.000Z', 'ok', NULL)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    def _fake_get_klines(self, symbol, interval="1d", limit=120, use_cache=True):
+        # older overlap row conflicts with existing history but must not be persisted in incremental mode
+        return [
+            [1713038400000, "9", "9", "9", "9", "9", 1713052800000, "9"],
+            [1713052800000, "1", "2", "0.5", "1.6", "100", 1713067200000, "150"],
+        ]
+
+    monkeypatch.setattr(MEXCClient, "get_klines", _fake_get_klines)
+    result = fetch_and_persist("FOOUSDT", "4h", datetime(2024, 4, 14, 5, 0, tzinfo=timezone.utc), lookback_bars=120)
+    assert result.rows_inserted == 1
+
+
+def test_persist_ok_noop_bars_advances_cached_close_from_null(monkeypatch, temp_db):
+    from scanner.clients.mexc_client import MEXCClient
+
+    conn = init_db(temp_db)
+    conn.execute(
+        """
+        INSERT INTO ohlcv_bars(symbol, timeframe, open_time_utc_ms, close_time_utc_ms, open, high, low, close, base_volume, quote_volume)
+        VALUES ('FOOUSDT', '4h', ?, ?, 1, 2, 0.5, 1.5, 100, 150)
+        """,
+        (1713052800000, 1713067200000),
+    )
+    conn.execute(
+        """
+        INSERT INTO ohlcv_cache_meta(symbol, timeframe, cached_close_time_utc_ms, last_fetch_at_utc, last_fetch_status, last_error_code)
+        VALUES ('FOOUSDT', '4h', NULL, '2024-04-14T00:00:00.000Z', 'ok', NULL)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    def _fake_get_klines(self, symbol, interval="1d", limit=120, use_cache=True):
+        return [[1713052800000, "1", "2", "0.5", "1.5", "100", 1713067200000, "150"]]
+
+    monkeypatch.setattr(MEXCClient, "get_klines", _fake_get_klines)
+    now = datetime(2024, 4, 14, 4, 0, tzinfo=timezone.utc)
+    result = fetch_and_persist("FOOUSDT", "4h", now, lookback_bars=120)
+
+    assert result.rows_inserted == 0
+    assert result.rows_noop_identical == 1
+    assert result.cached_close_time_utc_ms == 1713067200000
+    assert get_cache_status("FOOUSDT", "4h", now) == "fresh"

@@ -15,7 +15,11 @@ from scanner.data.bar_clock import (
     most_recent_closed_bar_close_time_utc_ms,
     timeframe_to_duration_ms,
 )
-from scanner.data.cache_policy import get_fetch_decision, _validate_symbol, _validate_timeframe
+from scanner.data.cache_policy import (
+    _validate_symbol,
+    _validate_timeframe,
+    get_fetch_decision,
+)
 from scanner.storage import (
     OhlcvBarRecord,
     get_ohlcv_cache_meta,
@@ -117,7 +121,7 @@ def fetch_closed_bars(symbol: str, timeframe: str, now: int | datetime, lookback
     conn.close()
     lookback = _resolve_lookback(timeframe, lookback_bars, cfg)
     duration = timeframe_to_duration_ms(timeframe)
-    start_time = cutoff - ((lookback + 1) * duration)
+    start_time = cutoff - (lookback * duration)
 
     client = MEXCClient(timeout=int(cfg.independence_ohlcv_fetch["per_call_timeout_s"]), max_retries=int(cfg.independence_ohlcv_fetch["max_retries"]))
 
@@ -198,7 +202,7 @@ def persist_fetch(symbol: str, timeframe: str, fetch_result: FetchResult, now: i
                 inserted, noop = write_ohlcv_bars_conflict_strict(conn, symbol, timeframe, records)
 
             cached_close = meta.cached_close_time_utc_ms if meta else None
-            if fetch_result.last_fetch_status == "ok" and inserted > 0 and fetch_result.bars:
+            if fetch_result.last_fetch_status == "ok" and fetch_result.bars:
                 cached_close = fetch_result.bars[-1].close_time_utc_ms
 
             upsert_ohlcv_cache_meta(
@@ -228,4 +232,34 @@ def fetch_and_persist(symbol: str, timeframe: str, now: int | datetime, lookback
             conn.close()
 
     fetched = fetch_closed_bars(symbol, timeframe, now, lookback_bars)
+
+    if decision == "fetch_incremental":
+        normalized_symbol = _validate_symbol(symbol)
+        normalized_timeframe = _validate_timeframe(timeframe)
+        conn, _ = _get_connection_and_cfg()
+        try:
+            meta = get_ohlcv_cache_meta(conn, normalized_symbol, normalized_timeframe)
+        finally:
+            conn.close()
+
+        if meta is None or meta.cached_close_time_utc_ms is None:
+            filtered_bars = fetched.bars
+        else:
+            cached_close = int(meta.cached_close_time_utc_ms)
+            filtered_bars = [bar for bar in fetched.bars if int(bar.close_time_utc_ms) > cached_close]
+
+        fetched = FetchResult(
+            symbol=fetched.symbol,
+            timeframe=fetched.timeframe,
+            requested_at_utc_ms=fetched.requested_at_utc_ms,
+            canonical_close_cutoff_utc_ms=fetched.canonical_close_cutoff_utc_ms,
+            bars=filtered_bars,
+            partial_bars_dropped=fetched.partial_bars_dropped,
+            invalid_bars_rejected=fetched.invalid_bars_rejected,
+            duplicate_bars_deduplicated=fetched.duplicate_bars_deduplicated,
+            misaligned_bars_rejected=fetched.misaligned_bars_rejected,
+            last_fetch_status=fetched.last_fetch_status,
+            last_error_code=fetched.last_error_code,
+        )
+
     return persist_fetch(symbol, timeframe, fetched, now)
