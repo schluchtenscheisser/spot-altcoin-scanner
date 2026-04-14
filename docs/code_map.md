@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-14 18:38 UTC  
+**Last Updated:** 2026-04-14 19:12 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 56
-- **Total Classes:** 20
-- **Total Functions:** 455
+- **Total Modules:** 58
+- **Total Classes:** 25
+- **Total Functions:** 480
 
 ---
 
@@ -96,9 +96,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_independence_market_data_budget_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+44 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+49 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -114,11 +114,33 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/data/bar_clock.py`
 
-**Functions:** `_coerce_utc_datetime, _floor_to_4h_boundary, daily_bar_id, delta_closed_4h_bars, intraday_bar_id`
+**Functions:** `_coerce_utc_datetime, _floor_to_4h_boundary, daily_bar_id, delta_closed_4h_bars, intraday_bar_id, is_close_time_on_grid, most_recent_closed_bar_close_time_utc_ms, timeframe_to_duration_ms`
 
-**Module Variables:** `UTC, boundary, closed_bar_date, current_boundaries, current_dt, current_epoch, dt, floored_seconds, normalized, numeric` _(+4 more)_
+**Module Variables:** `UTC, boundary, closed_bar_date, current_boundaries, current_dt, current_epoch, dt, duration, floored_seconds, normalized` _(+5 more)_
 
 **Imports:** `__future__, datetime, math, typing`
+
+---
+
+### 📄 `scanner/data/cache_policy.py`
+
+**Functions:** `_get_connection_and_cfg, _validate_symbol, _validate_timeframe, bars_missing_since_cached, get_cache_status, get_fetch_decision`
+
+**Module Variables:** `cfg, cutoff, db_path, meta, missing, normalized, status, step, symbol, threshold` _(+1 more)_
+
+**Imports:** `__future__, datetime, os, scanner.config, scanner.data.bar_clock, scanner.storage`
+
+---
+
+### 📄 `scanner/data/ohlcv_fetch.py`
+
+**Classes:** `Bar, FetchResult, PersistResult`
+
+**Functions:** `_get_connection_and_cfg, _iso_now, _resolve_lookback, _utc_now_ms, _validate_now, fetch_and_persist, fetch_closed_bars, persist_fetch`
+
+**Module Variables:** `bar, bars, c, cached, cached_close, cfg, client, close_time, cutoff, db_path` _(+31 more)_
+
+**Imports:** `__future__, dataclasses, datetime, math, os, requests, scanner.clients.mexc_client, scanner.config` _(+4 more)_
 
 ---
 
@@ -430,11 +452,13 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/storage/repositories.py`
 
-**Functions:** `insert_symbol_run_decision, upsert_symbol_metadata`
+**Classes:** `OhlcvBarRecord, OhlcvCacheMetaRecord`
 
-**Module Variables:** `columns, placeholders, values`
+**Functions:** `get_ohlcv_cache_meta, insert_symbol_run_decision, ohlcv_bar_exists, read_recent_ohlcv_bars, upsert_ohlcv_cache_meta, upsert_symbol_metadata, write_ohlcv_bars_conflict_strict`
 
-**Imports:** `__future__, sqlite3, typing`
+**Module Variables:** `bars, columns, existing, inserted, noop_identical, placeholders, row, rows, same, values`
+
+**Imports:** `__future__, dataclasses, sqlite3, typing`
 
 ---
 
@@ -664,6 +688,7 @@ _This section shows which functions call which other functions, helping identify
 | `_expect_number` | — | `append`, `isfinite` |
 | `_normalize_independence_release_config` | `_deep_merge_dicts` | `ValueError`, `get`, `items` |
 | `_parse` | — | `ValueError`, `isfinite` |
+| `_parse_int` | `_raise_invalid` | `get` |
 | `_parse_integer_budget_value` | — | `ValueError`, `is_integer` |
 | `_raise_invalid` | — | `ValueError` |
 | `_read_nested` | — | `get` |
@@ -683,8 +708,9 @@ _This section shows which functions call which other functions, helping identify
 | `exclude_leveraged` | — | `get` |
 | `exclude_stablecoins` | — | `get` |
 | `exclude_wrapped` | — | `get` |
+| `independence_ohlcv_fetch` | `resolve_independence_ohlcv_fetch_config` | — |
 | `independence_release` | `_normalize_independence_release_config` | `get` |
-| `load_config` | `_normalize_independence_release_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
+| `load_config` | `_normalize_independence_release_config`, `resolve_independence_ohlcv_fetch_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
 | `log_file` | — | `get` |
 | `log_level` | — | `get` |
 | `log_to_file` | — | `get` |
@@ -699,6 +725,7 @@ _This section shows which functions call which other functions, helping identify
 | `min_turnover_24h` | — | `get` |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
+| `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
 | `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_risk_max_stop_distance_pct` | `_parse` | `ValueError`, `get` |
 | `resolve_risk_min_rr_to_target_1` | — | `ValueError`, `get`, `isfinite` |
@@ -736,6 +763,33 @@ _This section shows which functions call which other functions, helping identify
 | `daily_bar_id` | `_coerce_utc_datetime` | `date`, `isoformat`, `replace`, `timedelta` |
 | `delta_closed_4h_bars` | `_coerce_utc_datetime` | `floor`, `timestamp` |
 | `intraday_bar_id` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `timestamp` |
+| `is_close_time_on_grid` | `timeframe_to_duration_ms` | — |
+| `most_recent_closed_bar_close_time_utc_ms` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `ValueError`, `replace`, `timestamp` |
+| `timeframe_to_duration_ms` | — | `ValueError` |
+
+### 📄 scanner/data/cache_policy.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_get_connection_and_cfg` | — | `getenv`, `init_db`, `load_config` |
+| `_validate_symbol` | — | `TypeError`, `ValueError`, `strip`, `upper` |
+| `_validate_timeframe` | — | `ValueError` |
+| `bars_missing_since_cached` | `_get_connection_and_cfg`, `_validate_symbol`, `_validate_timeframe`, `get_cache_status` | `close`, `get_ohlcv_cache_meta`, `most_recent_closed_bar_close_time_utc_ms`, `timeframe_to_duration_ms` |
+| `get_cache_status` | `_get_connection_and_cfg`, `_validate_symbol`, `_validate_timeframe` | `close`, `get_ohlcv_cache_meta`, `most_recent_closed_bar_close_time_utc_ms`, `ohlcv_bar_exists` |
+| `get_fetch_decision` | `_get_connection_and_cfg`, `bars_missing_since_cached`, `get_cache_status` | `close` |
+
+### 📄 scanner/data/ohlcv_fetch.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_get_connection_and_cfg` | — | `getenv`, `init_db`, `load_config` |
+| `_iso_now` | — | `isoformat`, `now`, `replace` |
+| `_resolve_lookback` | — | `ValueError` |
+| `_utc_now_ms` | — | `now`, `timestamp` |
+| `_validate_now` | — | `TypeError`, `ValueError`, `astimezone`, `isfinite`, `timestamp` |
+| `fetch_and_persist` | `_get_connection_and_cfg`, `fetch_closed_bars`, `persist_fetch` | `FetchResult`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_fetch_decision`, `get_ohlcv_cache_meta` |
+| `fetch_closed_bars` | `_get_connection_and_cfg`, `_resolve_lookback`, `_utc_now_ms`, `_validate_now` | `Bar`, `FetchResult`, `MEXCClient`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_klines`, `is_close_time_on_grid`, `isfinite`, `keys`, `most_recent_closed_bar_close_time_utc_ms`, `timeframe_to_duration_ms` |
+| `persist_fetch` | `_get_connection_and_cfg`, `_iso_now`, `_validate_now` | `OhlcvBarRecord`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_ohlcv_cache_meta`, `upsert_ohlcv_cache_meta`, `write_ohlcv_bars_conflict_strict` |
 
 ### 📄 scanner/main.py
 
@@ -1094,8 +1148,13 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `get_ohlcv_cache_meta` | — | `OhlcvCacheMetaRecord`, `execute`, `fetchone` |
 | `insert_symbol_run_decision` | — | `execute`, `get`, `join` |
+| `ohlcv_bar_exists` | — | `execute`, `fetchone` |
+| `read_recent_ohlcv_bars` | — | `OhlcvBarRecord`, `execute`, `fetchall`, `reverse` |
+| `upsert_ohlcv_cache_meta` | — | `execute` |
 | `upsert_symbol_metadata` | — | `execute` |
+| `write_ohlcv_bars_conflict_strict` | — | `ValueError`, `execute`, `fetchone` |
 
 ### 📄 scanner/storage/schema.py
 
@@ -1268,12 +1327,13 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
+| `scanner/config.py` | 30 | 87 | 117 | 🔴 High |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/config.py` | 23 | 86 | 109 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
+| `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
@@ -1288,14 +1348,16 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
+| `scanner/data/bar_clock.py` | 7 | 22 | 29 | 🔴 High |
+| `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
-| `scanner/data/bar_clock.py` | 4 | 18 | 22 | 🔴 High |
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
+| `scanner/storage/repositories.py` | 0 | 17 | 17 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
@@ -1313,7 +1375,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/storage/schema.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
-| `scanner/storage/repositories.py` | 0 | 4 | 4 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
 
 **Interpretation:**
@@ -1333,4 +1394,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-14 18:38 UTC_
+_Generated by GitHub Actions • 2026-04-14 19:12 UTC_
