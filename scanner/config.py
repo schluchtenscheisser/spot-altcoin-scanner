@@ -33,6 +33,8 @@ _INDEPENDENCE_RELEASE_SECTION_DEFAULTS = {
     "reports": {},
     "snapshots": {},
     "retention": {},
+    "ohlcv_fetch": {},
+    "cache_policy": {},
 }
 
 
@@ -44,6 +46,17 @@ _INDEPENDENCE_UNIVERSE_DEFAULTS = {
     "quote_volume_24h_min": 500000,
     "market_cap_usd_min": 10000000,
     "mexc_tradeable_status_values": ["1"],
+}
+
+
+_INDEPENDENCE_OHLCV_FETCH_DEFAULTS = {
+    "lookback_bars_1d": 250,
+    "lookback_bars_4h": 250,
+    "incremental_max_bars": 50,
+    "per_call_timeout_s": 30,
+    "max_retries": 0,
+    "min_lookback_bars_1d": 120,
+    "min_lookback_bars_4h": 120,
 }
 
 _INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
@@ -203,6 +216,43 @@ def resolve_independence_market_data_budget_config(raw: Mapping[str, Any]) -> Di
     rule_c["close_position_in_range_10bars_1d_min_inclusive"] = float(rc)
 
     return merged
+
+
+def resolve_independence_ohlcv_fetch_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section = _read_nested(raw, "independence_release", "ohlcv_fetch")
+    if section and not isinstance(section, Mapping):
+        _raise_invalid("independence_release.ohlcv_fetch", section, "must be an object")
+    merged = _deep_merge_dicts(_INDEPENDENCE_OHLCV_FETCH_DEFAULTS, section)
+
+    def _parse_int(key: str, minimum: int, maximum: int) -> int:
+        value = merged.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != float(value):
+            _raise_invalid(f"independence_release.ohlcv_fetch.{key}", value, "must be an integer")
+        ivalue = int(value)
+        if ivalue < minimum or ivalue > maximum:
+            _raise_invalid(
+                f"independence_release.ohlcv_fetch.{key}",
+                value,
+                f"must be in [{minimum}, {maximum}]",
+            )
+        merged[key] = ivalue
+        return ivalue
+
+    lookback_1d = _parse_int("lookback_bars_1d", 120, 1000)
+    lookback_4h = _parse_int("lookback_bars_4h", 120, 1000)
+    _parse_int("incremental_max_bars", 1, 500)
+    _parse_int("per_call_timeout_s", 5, 300)
+    _parse_int("max_retries", 0, 3)
+    min_1d = _parse_int("min_lookback_bars_1d", 1, lookback_1d)
+    min_4h = _parse_int("min_lookback_bars_4h", 1, lookback_4h)
+
+    if lookback_1d < min_1d:
+        _raise_invalid("independence_release.ohlcv_fetch.lookback_bars_1d", lookback_1d, "must be >= min_lookback_bars_1d")
+    if lookback_4h < min_4h:
+        _raise_invalid("independence_release.ohlcv_fetch.lookback_bars_4h", lookback_4h, "must be >= min_lookback_bars_4h")
+
+    return merged
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -303,6 +353,10 @@ class ScannerConfig:
         return dict(value) if isinstance(value, dict) else _normalize_independence_release_config(self.raw)
 
     # Version
+    @property
+    def independence_ohlcv_fetch(self) -> Dict[str, Any]:
+        return resolve_independence_ohlcv_fetch_config(self.raw)
+
     @property
     def spec_version(self) -> str:
         return self.raw.get("version", {}).get("spec", "1.0")
@@ -602,6 +656,7 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
 
     raw = dict(raw)
     raw["independence_release"] = _normalize_independence_release_config(raw)
+    resolve_independence_ohlcv_fetch_config(raw)
 
     return ScannerConfig(raw=raw)
 

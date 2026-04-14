@@ -1,7 +1,32 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Mapping
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
+
+
+@dataclass(frozen=True)
+class OhlcvBarRecord:
+    symbol: str
+    timeframe: str
+    open_time_utc_ms: int
+    close_time_utc_ms: int
+    open: float
+    high: float
+    low: float
+    close: float
+    base_volume: float
+    quote_volume: float
+
+
+@dataclass(frozen=True)
+class OhlcvCacheMetaRecord:
+    symbol: str
+    timeframe: str
+    cached_close_time_utc_ms: int | None
+    last_fetch_at_utc: str | None
+    last_fetch_status: str
+    last_error_code: str | None
 
 
 def upsert_symbol_metadata(connection: sqlite3.Connection, symbol: str, mexc_first_tradable_date: str | None) -> None:
@@ -31,3 +56,163 @@ def insert_symbol_run_decision(connection: sqlite3.Connection, row: Mapping[str,
             f"INSERT INTO symbol_run_decisions ({','.join(columns)}) VALUES ({placeholders})",
             values,
         )
+
+
+def get_ohlcv_cache_meta(connection: sqlite3.Connection, symbol: str, timeframe: str) -> OhlcvCacheMetaRecord | None:
+    row = connection.execute(
+        """
+        SELECT symbol, timeframe, cached_close_time_utc_ms, last_fetch_at_utc, last_fetch_status, last_error_code
+        FROM ohlcv_cache_meta
+        WHERE symbol = ? AND timeframe = ?
+        """,
+        (symbol, timeframe),
+    ).fetchone()
+    if row is None:
+        return None
+    return OhlcvCacheMetaRecord(
+        symbol=row["symbol"],
+        timeframe=row["timeframe"],
+        cached_close_time_utc_ms=row["cached_close_time_utc_ms"],
+        last_fetch_at_utc=row["last_fetch_at_utc"],
+        last_fetch_status=row["last_fetch_status"],
+        last_error_code=row["last_error_code"],
+    )
+
+
+def ohlcv_bar_exists(connection: sqlite3.Connection, symbol: str, timeframe: str, close_time_utc_ms: int) -> bool:
+    row = connection.execute(
+        """
+        SELECT 1 FROM ohlcv_bars
+        WHERE symbol = ? AND timeframe = ? AND close_time_utc_ms = ?
+        LIMIT 1
+        """,
+        (symbol, timeframe, int(close_time_utc_ms)),
+    ).fetchone()
+    return row is not None
+
+
+def write_ohlcv_bars_conflict_strict(
+    connection: sqlite3.Connection,
+    symbol: str,
+    timeframe: str,
+    bars: Sequence[OhlcvBarRecord],
+) -> tuple[int, int]:
+    inserted = 0
+    noop_identical = 0
+    for bar in bars:
+        existing = connection.execute(
+            """
+            SELECT open_time_utc_ms, open, high, low, close, base_volume, quote_volume
+            FROM ohlcv_bars
+            WHERE symbol=? AND timeframe=? AND close_time_utc_ms=?
+            """,
+            (symbol, timeframe, int(bar.close_time_utc_ms)),
+        ).fetchone()
+        if existing is None:
+            connection.execute(
+                """
+                INSERT INTO ohlcv_bars (
+                    symbol, timeframe, open_time_utc_ms, close_time_utc_ms,
+                    open, high, low, close, base_volume, quote_volume
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    symbol,
+                    timeframe,
+                    int(bar.open_time_utc_ms),
+                    int(bar.close_time_utc_ms),
+                    float(bar.open),
+                    float(bar.high),
+                    float(bar.low),
+                    float(bar.close),
+                    float(bar.base_volume),
+                    float(bar.quote_volume),
+                ),
+            )
+            inserted += 1
+            continue
+
+        same = (
+            int(existing["open_time_utc_ms"]) == int(bar.open_time_utc_ms)
+            and float(existing["open"]) == float(bar.open)
+            and float(existing["high"]) == float(bar.high)
+            and float(existing["low"]) == float(bar.low)
+            and float(existing["close"]) == float(bar.close)
+            and float(existing["base_volume"]) == float(bar.base_volume)
+            and float(existing["quote_volume"]) == float(bar.quote_volume)
+        )
+        if same:
+            noop_identical += 1
+            continue
+        raise ValueError(
+            f"ohlcv bar conflict for {(symbol, timeframe, int(bar.close_time_utc_ms))}: existing row differs"
+        )
+
+    return inserted, noop_identical
+
+
+def upsert_ohlcv_cache_meta(
+    connection: sqlite3.Connection,
+    *,
+    symbol: str,
+    timeframe: str,
+    cached_close_time_utc_ms: int | None,
+    last_fetch_at_utc: str | None,
+    last_fetch_status: str,
+    last_error_code: str | None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO ohlcv_cache_meta (
+            symbol, timeframe, cached_close_time_utc_ms, last_fetch_at_utc, last_fetch_status, last_error_code
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(symbol, timeframe) DO UPDATE SET
+            cached_close_time_utc_ms = excluded.cached_close_time_utc_ms,
+            last_fetch_at_utc = excluded.last_fetch_at_utc,
+            last_fetch_status = excluded.last_fetch_status,
+            last_error_code = excluded.last_error_code
+        """,
+        (
+            symbol,
+            timeframe,
+            cached_close_time_utc_ms,
+            last_fetch_at_utc,
+            last_fetch_status,
+            last_error_code,
+        ),
+    )
+
+
+def read_recent_ohlcv_bars(
+    connection: sqlite3.Connection,
+    symbol: str,
+    timeframe: str,
+    limit: int,
+) -> list[OhlcvBarRecord]:
+    rows = connection.execute(
+        """
+        SELECT symbol, timeframe, open_time_utc_ms, close_time_utc_ms, open, high, low, close, base_volume, quote_volume
+        FROM ohlcv_bars
+        WHERE symbol=? AND timeframe=?
+        ORDER BY close_time_utc_ms DESC
+        LIMIT ?
+        """,
+        (symbol, timeframe, int(limit)),
+    ).fetchall()
+    bars = [
+        OhlcvBarRecord(
+            symbol=row["symbol"],
+            timeframe=row["timeframe"],
+            open_time_utc_ms=int(row["open_time_utc_ms"]),
+            close_time_utc_ms=int(row["close_time_utc_ms"]),
+            open=float(row["open"]),
+            high=float(row["high"]),
+            low=float(row["low"]),
+            close=float(row["close"]),
+            base_volume=float(row["base_volume"]),
+            quote_volume=float(row["quote_volume"]),
+        )
+        for row in rows
+    ]
+    bars.reverse()
+    return bars

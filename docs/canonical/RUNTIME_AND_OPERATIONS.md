@@ -195,3 +195,14 @@ Issue UI is additive and does not replace `workflow_dispatch`.
 7. pre_4h_candidate_filter (non-bypass only)
 8. non-bypass cap selection
 9. 4h fetch for selected symbols
+
+## Ticket 4 runtime contract: cache policy + fetch windows
+
+- `cache_status`: `fresh | stale | missing | broken`.
+- `fetch_decision`: `skip | fetch_full | fetch_incremental`.
+- Closed-bar-only: only bars with `close_time_utc_ms <= most_recent_closed_bar_close_time_utc_ms(timeframe, now)` are eligible for persistence.
+- Full fetch accepted window: last `lookback_bars_<tf>` closed bars ending at current cutoff.
+- Incremental fetch accepted window: `cached_close_time_utc_ms < close_time_utc_ms <= cutoff`.
+- No-backfill/no-interpolation: missing bars remain absent.
+- Rejections are bar-level and counted (`partial`, `invalid`, `misaligned`, `duplicates`).
+- `fetch_and_persist` flow: decision → skip(no API/no writes) OR fetch_closed_bars → persist_fetch (atomic bars+meta write).

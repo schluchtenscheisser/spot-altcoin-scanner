@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Implement OHLCV fetch, cache policy, and transitional SQLite OHLCV persistence for 1d and 4h
 
