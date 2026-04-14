@@ -9,6 +9,7 @@ from typing import Final
 UTC = timezone.utc
 FOUR_HOURS_SECONDS: Final[int] = 4 * 60 * 60
 FOUR_HOURS_MS: Final[int] = FOUR_HOURS_SECONDS * 1000
+ONE_DAY_MS: Final[int] = 86_400_000
 DAILY_SCAN_DELTA_BARS: Final[int] = 6
 
 
@@ -51,6 +52,30 @@ def _floor_to_4h_boundary(dt: datetime) -> datetime:
     seconds_since_midnight = dt.hour * 3600 + dt.minute * 60 + dt.second
     floored_seconds = (seconds_since_midnight // FOUR_HOURS_SECONDS) * FOUR_HOURS_SECONDS
     return dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(seconds=floored_seconds)
+
+
+def timeframe_to_duration_ms(timeframe: str) -> int:
+    if timeframe == "1d":
+        return ONE_DAY_MS
+    if timeframe == "4h":
+        return FOUR_HOURS_MS
+    raise ValueError(f"timeframe invalid value {timeframe!r}: must be one of ('1d', '4h')")
+
+
+def most_recent_closed_bar_close_time_utc_ms(timeframe: str, now: object) -> int:
+    dt = _coerce_utc_datetime(now, "now")
+    if timeframe == "4h":
+        boundary = _floor_to_4h_boundary(dt)
+        return int(boundary.timestamp() * 1000)
+    if timeframe == "1d":
+        boundary = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        return int(boundary.timestamp() * 1000)
+    raise ValueError(f"timeframe invalid value {timeframe!r}: must be one of ('1d', '4h')")
+
+
+def is_close_time_on_grid(timeframe: str, close_time_utc_ms: int) -> bool:
+    duration = timeframe_to_duration_ms(timeframe)
+    return close_time_utc_ms % duration == 0
 
 
 def daily_bar_id(timestamp: object) -> str:

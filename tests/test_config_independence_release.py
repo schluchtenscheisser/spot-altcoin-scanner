@@ -63,6 +63,8 @@ def test_load_config_adds_independence_release_defaults(tmp_path) -> None:
         "reports": {},
         "snapshots": {},
         "retention": {},
+        "ohlcv_fetch": {},
+        "cache_policy": {},
     }
     assert validate_config(config) == []
 
@@ -95,4 +97,34 @@ independence_release:
     )
 
     with pytest.raises(ValueError, match=r"independence_release\.bar_clock must be an object, got 'invalid'"):
+        load_config(config_path)
+
+
+
+def test_resolve_independence_ohlcv_fetch_defaults(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(config_path)
+
+    config = load_config(config_path)
+    resolved = config.independence_ohlcv_fetch
+
+    assert resolved["lookback_bars_1d"] == 250
+    assert resolved["lookback_bars_4h"] == 250
+    assert resolved["min_lookback_bars_1d"] == 120
+    assert resolved["min_lookback_bars_4h"] == 120
+
+
+def test_resolve_independence_ohlcv_fetch_rejects_invalid(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  ohlcv_fetch:
+    lookback_bars_4h: 100
+    min_lookback_bars_4h: 120
+""",
+    )
+
+    with pytest.raises(ValueError, match=r"independence_release\.ohlcv_fetch\.lookback_bars_4h"):
         load_config(config_path)

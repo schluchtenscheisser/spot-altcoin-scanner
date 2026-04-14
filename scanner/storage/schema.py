@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Final
 
-SCHEMA_VERSION: Final[int] = 2
+SCHEMA_VERSION: Final[int] = 3
 RUN_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id          TEXT PRIMARY KEY,
@@ -22,9 +22,6 @@ CREATE TABLE IF NOT EXISTS run_metadata (
     selected_for_4h_count INTEGER NOT NULL DEFAULT 0
 );
 """.strip()
-
-
-
 
 SYMBOL_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS symbol_metadata (
@@ -53,6 +50,43 @@ CREATE TABLE IF NOT EXISTS symbol_run_decisions (
     FOREIGN KEY (run_id) REFERENCES run_metadata(run_id) ON DELETE CASCADE
 );
 """.strip()
+
+OHLCV_BARS_TABLE_SQL: Final[str] = """
+CREATE TABLE IF NOT EXISTS ohlcv_bars (
+    symbol              TEXT    NOT NULL,
+    timeframe           TEXT    NOT NULL,
+    open_time_utc_ms    INTEGER NOT NULL,
+    close_time_utc_ms   INTEGER NOT NULL,
+    open                REAL    NOT NULL,
+    high                REAL    NOT NULL,
+    low                 REAL    NOT NULL,
+    close               REAL    NOT NULL,
+    base_volume         REAL    NOT NULL,
+    quote_volume        REAL    NOT NULL,
+    PRIMARY KEY (symbol, timeframe, close_time_utc_ms),
+    CHECK (timeframe IN ('1d', '4h'))
+);
+""".strip()
+
+OHLCV_BARS_INDEX_SQL: Final[str] = """
+CREATE INDEX IF NOT EXISTS idx_ohlcv_bars_symbol_tf_close_desc
+ON ohlcv_bars (symbol, timeframe, close_time_utc_ms DESC);
+""".strip()
+
+OHLCV_CACHE_META_TABLE_SQL: Final[str] = """
+CREATE TABLE IF NOT EXISTS ohlcv_cache_meta (
+    symbol                    TEXT    NOT NULL,
+    timeframe                 TEXT    NOT NULL,
+    cached_close_time_utc_ms  INTEGER,
+    last_fetch_at_utc         TEXT,
+    last_fetch_status         TEXT    NOT NULL CHECK (last_fetch_status IN ('ok', 'empty', 'error_transport', 'error_invalid')),
+    last_error_code           TEXT,
+    PRIMARY KEY (symbol, timeframe),
+    CHECK (timeframe IN ('1d', '4h'))
+);
+""".strip()
+
+
 def get_schema_version(connection: sqlite3.Connection) -> int:
     row = connection.execute("PRAGMA user_version;").fetchone()
     return int(row[0]) if row else 0
@@ -78,6 +112,9 @@ def apply_schema(connection: sqlite3.Connection) -> int:
                 connection.execute(ddl)
         connection.execute(SYMBOL_METADATA_TABLE_SQL)
         connection.execute(SYMBOL_RUN_DECISIONS_TABLE_SQL)
+        connection.execute(OHLCV_BARS_TABLE_SQL)
+        connection.execute(OHLCV_BARS_INDEX_SQL)
+        connection.execute(OHLCV_CACHE_META_TABLE_SQL)
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
 
     return SCHEMA_VERSION

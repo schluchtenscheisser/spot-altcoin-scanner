@@ -126,3 +126,7 @@ The runtime also supports an issue-thread UI via `.github/workflows/ai-sparring-
 
 ### `scanner/universe/` (Ticket 3 update)
 The module now owns the deterministic chain: pre-1d eligibility -> post-1d activity gate -> monitoring bypass -> pre-4h candidate filter -> non-bypass cap ranking.
+
+## Ticket 4 OHLCV Fetch + Cache (transitional SQLite)
+
+Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` as deterministic primitives for `(symbol, timeframe, now)` cache decisions and closed-bar-only persistence for `1d`/`4h` OHLCV. The persistence authority for this ticket scope is SQLite (`ohlcv_bars`, `ohlcv_cache_meta`) with atomic writes and conflict-strict history immutability. This is explicitly transitional for OHLCV history; Ticket 14 defines the migration path toward the long-term history target. 

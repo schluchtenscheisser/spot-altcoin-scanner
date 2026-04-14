@@ -51,3 +51,13 @@ Deterministic 4h-fetch bypass for monitored symbols (`state_machine_state`, `dec
 
 ### `pre_4h_candidate_filter`
 Cheap 1d-only operational budget filter with exactly three OR-rules (`COMPRESSION`, `TREND`, `VOLUME`). No 4h-derived signals are allowed.
+
+## Ticket 4 terms
+
+- **cache_status**: one of `fresh`, `stale`, `missing`, `broken` for a `(symbol,timeframe,now)` cache state.
+- **fetch_decision**: one of `skip`, `fetch_full`, `fetch_incremental` derived from cache status and missing-bar count.
+- **cached_close_time_utc_ms**: cached latest closed-bar close timestamp for a symbol/timeframe.
+- **closed-bar-only**: persistence constraint rejecting any bar beyond current canonical closed cutoff.
+- **full fetch**: accepted window over last configured lookback closed bars ending at cutoff.
+- **incremental fetch**: accepted window strictly newer than cached close and up to cutoff.
+- **broken cache**: cache meta row exists but is unusable (non-`ok` status, null cached close, or bar/meta inconsistency).

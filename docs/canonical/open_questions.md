@@ -19,3 +19,7 @@ Until the authoritative question set is available in-repo, no later ticket may s
 ## Resolved by Ticket 2026-04-13__P0__eligibility_market_data_budget_pre_4h_candidate_filter (3)
 - §21 Question 1 resolved: monitored symbols receive deterministic 4h monitoring bypass before non-bypass cap.
 - §21 Question 2 resolved: pre-4h filter is a cheap 1d-only, 3-rule OR gate with deterministic reason priority and cap tie-break.
+
+## Ticket 4 follow-up
+
+- Ticket 14 must define and implement the long-term OHLCV history-storage migration path beyond Ticket-4 transitional SQLite OHLCV persistence.

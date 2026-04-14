@@ -171,3 +171,18 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `listing_age_status` and `market_cap_status` domains are `{known_pass, known_fail, unknown_pass}`; unknown states are explicit and non-coerced.
 - post-1d activity gate window is fixed calendar window ending at `daily_bar_id`; missing bars count inactive; >2 invalid-volume bars => `not_evaluable`.
 - filter reason priority is deterministic: `COMPRESSION > TREND > VOLUME`; cap tie-break is `quote_volume_24h desc` then `symbol asc`.
+
+## Ticket 4 verification boundaries (OHLCV cache/fetch)
+
+- `cache_status` decision table: `fresh|stale|missing|broken` must be deterministic and closed.
+- `fetch_decision` table: `fresh->skip`, `missing/broken->fetch_full`, `stale -> incremental/full` via `incremental_max_bars` threshold.
+- Defaults and bounds:
+  - `lookback_bars_1d=250` (`120..1000`), `lookback_bars_4h=250` (`120..1000`)
+  - `min_lookback_bars_1d=120`, `min_lookback_bars_4h=120`
+  - `incremental_max_bars=50` (`1..500`)
+- Accepted-window verification:
+  - full fetch persists only last `lookback_bars_<tf>` closed bars ending at cutoff
+  - incremental persists only `cached_close < close <= cutoff`
+- Conflict-strict upsert verification:
+  - same PK + identical values => no-op
+  - same PK + differing values => hard conflict/rollback

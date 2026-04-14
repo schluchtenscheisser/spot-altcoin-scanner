@@ -84,3 +84,18 @@ Reserved for the authoritative Field Group D defined by Abschnitt 6 §4. This do
 `symbol_metadata(symbol PK, mexc_first_tradable_date, updated_at_utc)` persists listing-age bootstrap state.
 
 `symbol_run_decisions(run_id, symbol PK)` persists per-symbol decision diagnostics including gate/filter/bypass/cap outcomes and matched filter rules.
+
+## Ticket 4 OHLCV cache data model (transitional)
+
+`ohlcv_bars`
+- PK: `(symbol, timeframe, close_time_utc_ms)`
+- `timeframe` closed enum: `{'1d','4h'}`
+- historical bars are conflict-strict immutable: same PK + differing values is an error (no replace).
+
+`ohlcv_cache_meta`
+- PK: `(symbol, timeframe)`
+- `cached_close_time_utc_ms`, `last_fetch_at_utc`, `last_error_code` are nullable and must round-trip as `None`.
+- `last_fetch_status` closed enum: `{'ok','empty','error_transport','error_invalid'}`.
+- absence of a row is the only bootstrap missing-cache state.
+
+Terminology mapping note: `cached_close_time_utc_ms` is the OHLCV-cache representation aligned with the same close-bar semantics later represented by `daily_cache_bar_id` / `intraday_cache_bar_id` in state-oriented persistence layers.
