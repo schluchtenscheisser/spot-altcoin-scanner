@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-18 08:05 UTC  
+**Last Updated:** 2026-04-18 08:50 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 58
-- **Total Classes:** 25
-- **Total Functions:** 480
+- **Total Modules:** 64
+- **Total Classes:** 29
+- **Total Functions:** 509
 
 ---
 
@@ -96,9 +96,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+49 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+53 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -141,6 +141,66 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `bar, bars, c, cached, cached_close, cfg, client, close_time, cutoff, db_path` _(+31 more)_
 
 **Imports:** `__future__, dataclasses, datetime, math, os, requests, scanner.clients.mexc_client, scanner.config` _(+4 more)_
+
+---
+
+### 📄 `scanner/features/__init__.py`
+
+**Functions:** —
+
+**Imports:** `scanner.features.bundle, scanner.features.models, scanner.features.raw_1d, scanner.features.raw_4h, scanner.features.shared`
+
+---
+
+### 📄 `scanner/features/bundle.py`
+
+**Functions:** `_extract_ctx_int, build_feature_bundle`
+
+**Module Variables:** `daily_bar_id, daily_close, intraday_bar_id, intraday_close, raw_1d, raw_4h, raw_shared, v`
+
+**Imports:** `__future__, scanner.features.models, scanner.features.raw_1d, scanner.features.raw_4h, scanner.features.shared, typing`
+
+---
+
+### 📄 `scanner/features/models.py`
+
+**Classes:** `FeatureBundle, RawFeatures1D, RawFeatures4H, RawFeaturesShared`
+
+**Functions:** —
+
+**Module Variables:** `FeatureStatus`
+
+**Imports:** `__future__, dataclasses, typing`
+
+---
+
+### 📄 `scanner/features/raw_1d.py`
+
+**Functions:** `_atr_wilder, _bars_to_series, _default_raw_1d, _ema_sma_bootstrap, _has_gap_in_last_window, _rolling_rank, _validate_context, _validate_symbol, compute_raw_1d, pct, ratio, st, streak_above`
+
+**Module Variables:** `a, alpha, atr, atr_pct, atr_pct_hist, atr_pct_rank, atr_series, bars_above20, bars_above50, bars_since_low` _(+72 more)_
+
+**Imports:** `__future__, math, scanner.features.models, statistics, typing`
+
+---
+
+### 📄 `scanner/features/raw_4h.py`
+
+**Functions:** `_bars_to_series, _default_raw_4h, _validate_symbol, apct, compute_raw_4h, pct, ratio, st, streak_above`
+
+**Module Variables:** `anchor, atr, atr_hist, atr_last, atr_pct, atr_rank, bars20, bars50, bars_high20, bars_since_break` _(+71 more)_
+
+**Imports:** `__future__, math, scanner.features.models, scanner.features.raw_1d, statistics, typing`
+
+---
+
+### 📄 `scanner/features/shared.py`
+
+**Functions:** `_validate_bar_clock_context, _validate_symbol, compute_raw_shared`
+
+**Module Variables:** `atr_1d, normalized, range_width`
+
+**Imports:** `__future__, math, scanner.features.models, typing`
 
 ---
 
@@ -708,6 +768,7 @@ _This section shows which functions call which other functions, helping identify
 | `exclude_leveraged` | — | `get` |
 | `exclude_stablecoins` | — | `get` |
 | `exclude_wrapped` | — | `get` |
+| `feature_layer_config` | `resolve_feature_layer_config` | — |
 | `independence_ohlcv_fetch` | `resolve_independence_ohlcv_fetch_config` | — |
 | `independence_release` | `_normalize_independence_release_config` | `get` |
 | `load_config` | `_normalize_independence_release_config`, `resolve_independence_ohlcv_fetch_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
@@ -724,6 +785,7 @@ _This section shows which functions call which other functions, helping identify
 | `min_mexc_share_24h` | — | `get` |
 | `min_turnover_24h` | — | `get` |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
+| `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
 | `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
@@ -790,6 +852,47 @@ _This section shows which functions call which other functions, helping identify
 | `fetch_and_persist` | `_get_connection_and_cfg`, `fetch_closed_bars`, `persist_fetch` | `FetchResult`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_fetch_decision`, `get_ohlcv_cache_meta` |
 | `fetch_closed_bars` | `_get_connection_and_cfg`, `_resolve_lookback`, `_utc_now_ms`, `_validate_now` | `Bar`, `FetchResult`, `MEXCClient`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_klines`, `is_close_time_on_grid`, `isfinite`, `keys`, `most_recent_closed_bar_close_time_utc_ms`, `timeframe_to_duration_ms` |
 | `persist_fetch` | `_get_connection_and_cfg`, `_iso_now`, `_validate_now` | `OhlcvBarRecord`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_ohlcv_cache_meta`, `upsert_ohlcv_cache_meta`, `write_ohlcv_bars_conflict_strict` |
+
+### 📄 scanner/features/bundle.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_extract_ctx_int` | — | `get` |
+| `build_feature_bundle` | `_extract_ctx_int` | `FeatureBundle`, `ValueError`, `compute_raw_1d`, `compute_raw_4h`, `compute_raw_shared` |
+
+### 📄 scanner/features/raw_1d.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_atr_wilder` | — | `append` |
+| `_bars_to_series` | — | `TypeError`, `ValueError`, `append`, `isfinite` |
+| `_default_raw_1d` | — | `RawFeatures1D`, `append`, `endswith`, `keys` |
+| `_rolling_rank` | — | `isfinite` |
+| `_validate_context` | — | `TypeError` |
+| `_validate_symbol` | — | `TypeError`, `ValueError`, `strip`, `upper` |
+| `compute_raw_1d` | `_atr_wilder`, `_bars_to_series`, `_default_raw_1d`, `_ema_sma_bootstrap`, `_has_gap_in_last_window`, `_rolling_rank`, `_validate_context`, `_validate_symbol`, `pct`, `ratio`, `st`, `streak_above` | `RawFeatures1D`, `append`, `get`, `isfinite`, `median`, `sqrt` |
+| `pct` | — | `isfinite` |
+| `ratio` | — | `isfinite` |
+
+### 📄 scanner/features/raw_4h.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_bars_to_series` | — | `TypeError`, `ValueError`, `append` |
+| `_default_raw_4h` | — | `RawFeatures4H`, `endswith`, `keys` |
+| `_validate_symbol` | — | `TypeError`, `ValueError`, `strip`, `upper` |
+| `apct` | `pct` | — |
+| `compute_raw_4h` | `_bars_to_series`, `_validate_symbol`, `apct`, `pct`, `ratio`, `st`, `streak_above` | `RawFeatures4H`, `TypeError`, `_atr_wilder`, `_ema_sma_bootstrap`, `_rolling_rank`, `append`, `get`, `isfinite`, `median`, `sqrt` |
+| `pct` | — | `isfinite` |
+| `ratio` | — | `isfinite` |
+
+### 📄 scanner/features/shared.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_validate_bar_clock_context` | — | `TypeError` |
+| `_validate_symbol` | — | `TypeError`, `ValueError`, `strip`, `upper` |
+| `compute_raw_shared` | `_validate_bar_clock_context`, `_validate_symbol` | `RawFeaturesShared`, `TypeError`, `isfinite` |
 
 ### 📄 scanner/main.py
 
@@ -1327,7 +1430,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 30 | 87 | 117 | 🔴 High |
+| `scanner/config.py` | 33 | 89 | 122 | 🔴 High |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -1346,7 +1449,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
+| `scanner/features/raw_1d.py` | 12 | 23 | 35 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/features/raw_4h.py` | 8 | 22 | 30 | 🔴 High |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/data/bar_clock.py` | 7 | 22 | 29 | 🔴 High |
 | `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
@@ -1364,10 +1469,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
+| `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
+| `scanner/features/bundle.py` | 1 | 6 | 7 | 🔴 High |
 | `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/storage/sqlite.py` | 1 | 6 | 7 | 🔴 High |
@@ -1394,4 +1501,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-18 08:05 UTC_
+_Generated by GitHub Actions • 2026-04-18 08:50 UTC_
