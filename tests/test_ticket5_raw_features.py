@@ -237,6 +237,30 @@ def test_bars_since_last_volume_shift_skips_upstream_null_bars() -> None:
     assert raw.bars_since_last_volume_shift_4h_status == "ok"
 
 
+def test_bars_since_last_volume_shift_null_bars_do_not_poison_no_event_result() -> None:
+    cfg = ScannerConfig(raw={"features": {"volume_shift_lookback_4h": 12, "persistence_spike_threshold": 9.0}})
+    bars = _bars(40, 14_400_000)
+    for i in range(3):
+        idx = len(bars) - 1 - i
+        bars[idx] = Bar(**{**bars[idx].__dict__, "quote_volume": 0.0})
+    raw = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, bars, cfg)
+    assert raw is not None
+    assert raw.bars_since_last_volume_shift_4h == 12
+    assert raw.bars_since_last_volume_shift_4h_status == "ok"
+
+
+def test_bars_since_last_volume_shift_upstream_dependency_null_when_all_window_bars_non_evaluable() -> None:
+    cfg = ScannerConfig(raw={"features": {"volume_shift_lookback_4h": 12}})
+    bars = _bars(40, 14_400_000)
+    for i in range(22):
+        idx = len(bars) - 1 - i
+        bars[idx] = Bar(**{**bars[idx].__dict__, "quote_volume": 0.0})
+    raw = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, bars, cfg)
+    assert raw is not None
+    assert raw.bars_since_last_volume_shift_4h is None
+    assert raw.bars_since_last_volume_shift_4h_status == "upstream_dependency_null"
+
+
 def test_distance_to_range_high_standard_and_configured_window() -> None:
     cfg = ScannerConfig(raw={"features": {"range_high_lookback_4h": 10}})
     bars = _bars(30, 14_400_000)

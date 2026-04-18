@@ -219,32 +219,30 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
     bars_since_last_volume_shift = None
     bars_since_last_volume_shift_status = "insufficient_history"
     if len(closes) >= shift_lookback:
-        saw_upstream_null = False
+        saw_evaluable_spike = False
         for k in range(shift_lookback):
             idx = len(closes) - 1 - k
             ref_window = quote_vols[idx - 10:idx]
             cur_qv = quote_vols[idx]
             if len(ref_window) != 10:
-                saw_upstream_null = True
                 continue
             if any(not math.isfinite(v) for v in ref_window) or not math.isfinite(cur_qv):
-                saw_upstream_null = True
                 continue
             ref = sum(ref_window) / 10.0
             if ref == 0:
-                saw_upstream_null = True
                 continue
+            saw_evaluable_spike = True
             spike = cur_qv / ref
             if spike >= persistence_thresh:
                 bars_since_last_volume_shift = k
                 bars_since_last_volume_shift_status = "ok"
                 break
         if bars_since_last_volume_shift_status != "ok":
-            if saw_upstream_null:
-                bars_since_last_volume_shift_status = "upstream_dependency_null"
-            else:
+            if saw_evaluable_spike:
                 bars_since_last_volume_shift = shift_lookback
                 bars_since_last_volume_shift_status = "ok"
+            else:
+                bars_since_last_volume_shift_status = "upstream_dependency_null"
 
     range_high_lookback = int(getattr(cfg, "feature_layer_config", {}).get("range_high_lookback_4h", 20))
     distance_to_range_high = None
