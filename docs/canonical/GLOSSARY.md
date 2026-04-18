@@ -61,3 +61,12 @@ Cheap 1d-only operational budget filter with exactly three OR-rules (`COMPRESSIO
 - **full fetch**: accepted window over last configured lookback closed bars ending at cutoff.
 - **incremental fetch**: accepted window strictly newer than cached close and up to cutoff.
 - **broken cache**: cache meta row exists but is unusable (non-`ok` status, null cached close, or bar/meta inconsistency).
+
+### `feature_bundle`
+Ticket-5 in-memory container that binds bar-clock references with `raw_1d`, optional `raw_4h`, and `raw_shared`.
+
+### `companion_status_field`
+Per-field status value named `{field_name}_status`, using closed enum: `ok`, `insufficient_history`, `gap_in_required_window`, `upstream_dependency_null`, `invalid_upstream_value`.
+
+### `raw_shared`
+Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and optional `RawFeatures4H` (without direct OHLCV access).

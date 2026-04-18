@@ -99,3 +99,25 @@ Reserved for the authoritative Field Group D defined by Abschnitt 6 §4. This do
 - absence of a row is the only bootstrap missing-cache state.
 
 Terminology mapping note: `cached_close_time_utc_ms` is the OHLCV-cache representation aligned with the same close-bar semantics later represented by `daily_cache_bar_id` / `intraday_cache_bar_id` in state-oriented persistence layers.
+
+## Ticket 5 additive in-memory feature model
+
+Ticket 5 introduces an in-memory feature contract (no persistence table):
+- `RawFeatures1D`
+- `RawFeatures4H`
+- `RawFeaturesShared`
+- `FeatureBundle`
+
+`FeatureBundle` fields:
+- `symbol`
+- `daily_bar_id`
+- `intraday_bar_id | None`
+- `daily_close_time_utc_ms`
+- `intraday_close_time_utc_ms | None`
+- `data_4h_available`
+- `raw_1d`
+- `raw_4h | None`
+- `raw_shared`
+
+Companion status rule: each derived field has `{field}_status` with closed enum:
+`ok | insufficient_history | gap_in_required_window | upstream_dependency_null | invalid_upstream_value`.

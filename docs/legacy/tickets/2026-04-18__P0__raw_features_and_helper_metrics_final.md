@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Implement raw feature derivation and deterministic helper metrics for 1d / 4h OHLCV
 

@@ -130,3 +130,16 @@ The module now owns the deterministic chain: pre-1d eligibility -> post-1d activ
 ## Ticket 4 OHLCV Fetch + Cache (transitional SQLite)
 
 Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` as deterministic primitives for `(symbol, timeframe, now)` cache decisions and closed-bar-only persistence for `1d`/`4h` OHLCV. The persistence authority for this ticket scope is SQLite (`ohlcv_bars`, `ohlcv_cache_meta`) with atomic writes and conflict-strict history immutability. This is explicitly transitional for OHLCV history; Ticket 14 defines the migration path toward the long-term history target. 
+
+## Ticket 5 additive architecture contract (raw features layer)
+
+`scanner/features/` now owns the deterministic raw feature layer with these modules:
+- `scanner/features/raw_1d.py`
+- `scanner/features/raw_4h.py`
+- `scanner/features/shared.py`
+- `scanner/features/models.py`
+- `scanner/features/bundle.py`
+
+Fixed build order in `build_feature_bundle(...)` is `compute_raw_1d -> compute_raw_4h -> compute_raw_shared -> FeatureBundle`.
+
+Ticket-5 scope remains below axes/phase/state and excludes normalization utilities.

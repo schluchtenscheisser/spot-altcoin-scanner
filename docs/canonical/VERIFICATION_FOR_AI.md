@@ -186,3 +186,20 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Conflict-strict upsert verification:
   - same PK + identical values => no-op
   - same PK + differing values => hard conflict/rollback
+
+## Ticket 5 verification boundaries (raw features)
+
+- Mandatory public functions: `compute_raw_1d`, `compute_raw_4h`, `compute_raw_shared`, `build_feature_bundle`.
+- Bundle order must be deterministic: `1d -> 4h -> shared`.
+- Companion status fields are mandatory per derived metric.
+- Missing/Gap/Fallback rules:
+  - insufficient lookback => `insufficient_history`
+  - required upstream null => `upstream_dependency_null`
+  - invalid denominator / non-finite upstream => `invalid_upstream_value`
+  - no shortened-window fallback unless spec defines an alternate path
+- EMA warm-up rule: SMA bootstrap + `2 x period` bars minimum.
+- Rank formula: `((count_strictly_less + 0.5 * count_equal) / n) * 100` on the full canonical window.
+- Config split:
+  - fixed/non-configurable: field-name-encoded windows (e.g., EMA20/50, median10, rank120)
+  - configurable class-2: segmentation windows, `persistence_spike_threshold`, `features.structural_break.min_bars_below_before_break`
+  - missing keys use defaults; invalid values fail validation.
