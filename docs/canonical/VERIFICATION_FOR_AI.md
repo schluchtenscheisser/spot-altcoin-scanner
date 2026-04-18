@@ -197,6 +197,8 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - required upstream null => `upstream_dependency_null`
   - invalid denominator / non-finite upstream => `invalid_upstream_value`
   - no shortened-window fallback unless spec defines an alternate path
+- `volume_spike_persistence_4h` uses fixed `N=4` and requires full canonical history for all four checks (including each 10-bar baseline); otherwise `null + insufficient_history`.
+- 1d required windows must detect missing-day gaps by canonical daily cadence and return `gap_in_required_window` at field level (no whole-pass crash).
 - EMA warm-up rule: SMA bootstrap + `2 x period` bars minimum.
 - Rank formula: `((count_strictly_less + 0.5 * count_equal) / n) * 100` on the full canonical window.
 - Config split:

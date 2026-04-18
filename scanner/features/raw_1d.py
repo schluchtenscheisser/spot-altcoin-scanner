@@ -14,6 +14,7 @@ _VALID_STATUSES = {
     "upstream_dependency_null",
     "invalid_upstream_value",
 }
+_ONE_DAY_MS = 86_400_000
 
 
 def _validate_symbol(symbol: str) -> str:
@@ -68,6 +69,16 @@ def _bars_to_series(ohlcv_1d: list[Any]) -> tuple[list[int], list[float], list[f
         prev_ct = ct
         close_times.append(ct)
     return close_times, closes, highs, lows, base_vols, quote_vols
+
+
+def _has_gap_in_last_window(close_times: list[int], window: int) -> bool:
+    if window <= 1 or len(close_times) < window:
+        return False
+    segment = close_times[-window:]
+    for i in range(1, len(segment)):
+        if segment[i] - segment[i - 1] != _ONE_DAY_MS:
+            return True
+    return False
 
 
 def _ema_sma_bootstrap(values: list[float], period: int) -> list[float]:
@@ -150,21 +161,25 @@ def compute_raw_1d(symbol: str, bar_clock_context: Any, ohlcv_1d: list[Any], cfg
     e20 = ema20[-1] if enough_ema20 else float("nan")
     e50 = ema50[-1] if enough_ema50 else float("nan")
 
-    close_vs_ema20 = pct(c, e20)
-    close_vs_ema50 = pct(c, e50)
-    ema20_vs_ema50 = pct(e20, e50)
-    ema20_slope = pct(e20, ema20[-2]) if enough_ema20 else None
+    gap_ema20 = _has_gap_in_last_window(close_times, 40)
+    gap_ema50 = _has_gap_in_last_window(close_times, 100)
+    close_vs_ema20 = None if gap_ema20 else pct(c, e20)
+    close_vs_ema50 = None if gap_ema50 else pct(c, e50)
+    ema20_vs_ema50 = None if (gap_ema20 or gap_ema50) else pct(e20, e50)
+    ema20_slope = None if gap_ema20 else (pct(e20, ema20[-2]) if enough_ema20 else None)
 
-    med10 = median(base_vols[-10:]) if len(base_vols) >= 10 else None
+    gap10 = _has_gap_in_last_window(close_times, 10)
+    med10 = median(base_vols[-10:]) if len(base_vols) >= 10 and not gap10 else None
     vol_vs_med10 = ratio(base_vols[-1], med10) if med10 is not None else None
-    q_ref = (sum(quote_vols[-11:-1]) / 10.0) if len(quote_vols) >= 11 else None
+    gap11 = _has_gap_in_last_window(close_times, 11)
+    q_ref = (sum(quote_vols[-11:-1]) / 10.0) if len(quote_vols) >= 11 and not gap11 else None
     q_spike = ratio(quote_vols[-1], q_ref) if q_ref is not None else None
 
     rw10 = None
     cp10 = None
     mid10 = None
     crh5 = None
-    if len(closes) >= 10:
+    if len(closes) >= 10 and not gap10:
         r_high = max(highs[-10:])
         r_low = min(lows[-10:])
         rw10 = pct(r_high, r_low)
@@ -175,14 +190,17 @@ def compute_raw_1d(symbol: str, bar_clock_context: Any, ohlcv_1d: list[Any], cfg
             cp10 = (c - r_low) / (r_high - r_low)
             mid = (r_high + r_low) / 2.0
             mid10 = (c - mid) / (r_high - r_low)
-    if len(closes) >= 5:
+    gap5 = _has_gap_in_last_window(close_times, 5)
+    if len(closes) >= 5 and not gap5:
         crh5 = pct(c, max(highs[-5:]))
 
-    atr = atr_series[-1] if len(atr_series) and math.isfinite(atr_series[-1]) else None
+    gap14 = _has_gap_in_last_window(close_times, 14)
+    atr = atr_series[-1] if len(atr_series) and math.isfinite(atr_series[-1]) and not gap14 else None
     atr_pct = pct(atr or float("nan"), c) if atr is not None else None
 
     atr_pct_rank = None
-    if len(closes) >= 120:
+    gap120 = _has_gap_in_last_window(close_times, 120)
+    if len(closes) >= 120 and not gap120:
         atr_pct_hist = []
         for i in range(len(closes) - 120, len(closes)):
             a = atr_series[i]
@@ -192,13 +210,14 @@ def compute_raw_1d(symbol: str, bar_clock_context: Any, ohlcv_1d: list[Any], cfg
 
     bb_width = None
     bb_rank = None
-    if len(closes) >= 20:
+    gap20 = _has_gap_in_last_window(close_times, 20)
+    if len(closes) >= 20 and not gap20:
         window = closes[-20:]
         mu = sum(window) / 20.0
         var = sum((x - mu) ** 2 for x in window) / 20.0
         sigma = math.sqrt(var)
         bb_width = None if mu == 0 else ((4.0 * sigma) / mu) * 100.0
-        if len(closes) >= 120:
+        if len(closes) >= 120 and not gap120:
             hist: list[float] = []
             for i in range(len(closes) - 120, len(closes)):
                 if i < 19:
@@ -224,17 +243,18 @@ def compute_raw_1d(symbol: str, bar_clock_context: Any, ohlcv_1d: list[Any], cfg
                 break
         return s
 
-    bars_above20 = streak_above(closes, e20 if math.isfinite(e20) else None)
-    bars_above50 = streak_above(closes, e50 if math.isfinite(e50) else None)
+    bars_above20 = None if gap_ema20 else streak_above(closes, e20 if math.isfinite(e20) else None)
+    bars_above50 = None if gap_ema50 else streak_above(closes, e50 if math.isfinite(e50) else None)
 
     bars_since_low = None
-    if len(lows) >= 2:
+    if len(lows) >= 2 and not _has_gap_in_last_window(close_times, len(lows)):
         lo = min(lows)
         last_idx = max(i for i, x in enumerate(lows) if x == lo)
         bars_since_low = len(lows) - 1 - last_idx
 
     seg_window = int(getattr(cfg, "feature_layer_config", {}).get("segmentation_window_1d", 15))
-    if len(closes) >= seg_window:
+    gap_seg = _has_gap_in_last_window(close_times, seg_window)
+    if len(closes) >= seg_window and not gap_seg:
         seg_closes = closes[-seg_window:]
         seg_lows = lows[-seg_window:]
         seg_vols = base_vols[-seg_window:]
@@ -248,33 +268,37 @@ def compute_raw_1d(symbol: str, bar_clock_context: Any, ohlcv_1d: list[Any], cfg
     else:
         imp_start = imp_high = pb_low = cur_pb = pullback_depth = pb_vol_ratio = low_vs_ema = None
 
-    def st(v: Any) -> str:
-        return "ok" if v is not None else "insufficient_history"
+    def st(v: Any, has_gap: bool = False) -> str:
+        if v is not None:
+            return "ok"
+        if has_gap:
+            return "gap_in_required_window"
+        return "insufficient_history"
 
     return RawFeatures1D(
-        close_vs_ema20, st(close_vs_ema20),
-        close_vs_ema50, st(close_vs_ema50),
-        ema20_vs_ema50, st(ema20_vs_ema50),
-        ema20_slope, st(ema20_slope),
-        vol_vs_med10, st(vol_vs_med10),
-        q_spike, st(q_spike),
-        rw10, st(rw10),
-        cp10, "invalid_upstream_value" if len(closes) >= 10 and cp10 is None and max(highs[-10:]) == min(lows[-10:]) else st(cp10),
-        mid10, "invalid_upstream_value" if len(closes) >= 10 and mid10 is None and max(highs[-10:]) == min(lows[-10:]) else st(mid10),
-        crh5, st(crh5),
-        atr_pct, st(atr_pct),
-        atr_pct_rank, st(atr_pct_rank),
-        bb_width, st(bb_width),
-        bb_rank, st(bb_rank),
-        bars_above20, st(bars_above20),
-        bars_above50, st(bars_above50),
-        bars_since_low, st(bars_since_low),
-        pullback_depth, st(pullback_depth),
-        pb_vol_ratio, st(pb_vol_ratio),
-        low_vs_ema, st(low_vs_ema),
-        imp_start, st(imp_start),
-        imp_high, st(imp_high),
-        pb_low, st(pb_low),
-        cur_pb, st(cur_pb),
-        atr, st(atr),
+        close_vs_ema20, st(close_vs_ema20, gap_ema20),
+        close_vs_ema50, st(close_vs_ema50, gap_ema50),
+        ema20_vs_ema50, st(ema20_vs_ema50, gap_ema20 or gap_ema50),
+        ema20_slope, st(ema20_slope, gap_ema20),
+        vol_vs_med10, st(vol_vs_med10, gap10),
+        q_spike, st(q_spike, gap11),
+        rw10, st(rw10, gap10),
+        cp10, "invalid_upstream_value" if len(closes) >= 10 and (not gap10) and cp10 is None and max(highs[-10:]) == min(lows[-10:]) else st(cp10, gap10),
+        mid10, "invalid_upstream_value" if len(closes) >= 10 and (not gap10) and mid10 is None and max(highs[-10:]) == min(lows[-10:]) else st(mid10, gap10),
+        crh5, st(crh5, gap5),
+        atr_pct, st(atr_pct, gap14),
+        atr_pct_rank, st(atr_pct_rank, gap120),
+        bb_width, st(bb_width, gap20),
+        bb_rank, st(bb_rank, gap120),
+        bars_above20, st(bars_above20, gap_ema20),
+        bars_above50, st(bars_above50, gap_ema50),
+        bars_since_low, st(bars_since_low, _has_gap_in_last_window(close_times, len(lows))),
+        pullback_depth, st(pullback_depth, gap_seg),
+        pb_vol_ratio, st(pb_vol_ratio, gap_seg),
+        low_vs_ema, st(low_vs_ema, gap_seg),
+        imp_start, st(imp_start, gap_seg),
+        imp_high, st(imp_high, gap_seg),
+        pb_low, st(pb_low, gap_seg),
+        cur_pb, st(cur_pb, gap_seg),
+        atr, st(atr, gap14),
     )

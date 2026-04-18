@@ -264,9 +264,13 @@ def resolve_independence_ohlcv_fetch_config(raw: Mapping[str, Any]) -> Dict[str,
 
 
 def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
-    section = _read_nested(raw, "features")
-    if section and not isinstance(section, Mapping):
-        _raise_invalid("features", section, "must be an object")
+    section_raw = raw.get("features")
+    if section_raw is None:
+        section: Mapping[str, Any] = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("features", section_raw, "must be an object")
+    else:
+        section = section_raw
 
     merged = _deep_merge_dicts(_FEATURE_LAYER_DEFAULTS, section)
 

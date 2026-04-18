@@ -96,13 +96,32 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
 
     persistence_thresh = float(getattr(cfg, "feature_layer_config", {}).get("persistence_spike_threshold", 1.2))
     persistence = None
-    if len(quote_vols) >= 4 and quote_ref is not None and quote_ref != 0:
+    persistence_status = "insufficient_history"
+    # Canonical full lookback requirement:
+    # N=4 checks, each check needs its own full 10-bar baseline excluding current => minimum 14 bars.
+    if len(quote_vols) >= 14:
         spikes = 0
+        invalid_upstream = False
         for i in range(4):
-            ref = sum(quote_vols[-(11+i):-(1+i)]) / 10.0 if len(quote_vols) >= 11 + i else None
-            if ref and ref != 0 and (quote_vols[-(1+i)] / ref) >= persistence_thresh:
+            cur_val = quote_vols[-(1 + i)]
+            ref_window = quote_vols[-(11 + i) : -(1 + i)]
+            if len(ref_window) != 10:
+                invalid_upstream = True
+                break
+            if any(not math.isfinite(v) for v in ref_window) or not math.isfinite(cur_val):
+                invalid_upstream = True
+                break
+            ref = sum(ref_window) / 10.0
+            if ref == 0:
+                invalid_upstream = True
+                break
+            if (cur_val / ref) >= persistence_thresh:
                 spikes += 1
-        persistence = spikes / 4.0
+        if invalid_upstream:
+            persistence_status = "invalid_upstream_value"
+        else:
+            persistence = spikes / 4.0
+            persistence_status = "ok"
 
     rw12 = cp12 = mid12 = None
     if len(closes) >= 12:
@@ -221,7 +240,7 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
         close_vs_ema20, st(close_vs_ema20), close_vs_ema50, st(close_vs_ema50),
         ema20_vs_ema50, st(ema20_vs_ema50), ema20_slope, st(ema20_slope),
         vol_vs_med10, st(vol_vs_med10), quote_spike, st(quote_spike),
-        persistence, st(persistence), rw12, st(rw12),
+        persistence, persistence_status, rw12, st(rw12),
         cp12, "invalid_upstream_value" if invalid_flat12 and cp12 is None else st(cp12),
         mid12, "invalid_upstream_value" if invalid_flat12 and mid12 is None else st(mid12),
         cvrh5, st(cvrh5), atr_pct, st(atr_pct), atr_rank, st(atr_rank),

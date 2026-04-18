@@ -91,3 +91,75 @@ def test_config_defaults_and_invalid() -> None:
 
     with pytest.raises(ValueError):
         ScannerConfig(raw={"features": {"segmentation_window_4h": 1}}).feature_layer_config
+
+
+def test_volume_spike_persistence_4h_requires_full_lookback() -> None:
+    cfg = ScannerConfig(raw={"features": {"persistence_spike_threshold": 1.2}})
+    partial = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, _bars(13, 14_400_000), cfg)
+    assert partial is not None
+    assert partial.volume_spike_persistence_4h is None
+    assert partial.volume_spike_persistence_4h_status == "insufficient_history"
+
+    boosted = _bars(14, 14_400_000)
+    boosted = [
+        Bar(
+            close_time_utc_ms=b.close_time_utc_ms,
+            close=b.close,
+            high=b.high,
+            low=b.low,
+            base_volume=b.base_volume,
+            quote_volume=(b.quote_volume * 3.0) if i >= 10 else b.quote_volume,
+        )
+        for i, b in enumerate(boosted)
+    ]
+    full = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, boosted, cfg)
+    assert full is not None
+    assert full.volume_spike_persistence_4h_status == "ok"
+    assert full.volume_spike_persistence_4h == pytest.approx(1.0)
+
+
+def test_1d_gap_in_required_window_sets_gap_status_field_local() -> None:
+    cfg = ScannerConfig(raw={})
+    bars = _bars(20, 86_400_000)
+    # inject one missing daily bar inside the last-10 required window by shifting newer bars +1 day
+    gapped = []
+    for i, b in enumerate(bars):
+        if i >= 12:
+            gapped.append(
+                Bar(
+                    close_time_utc_ms=b.close_time_utc_ms + 86_400_000,
+                    close=b.close,
+                    high=b.high,
+                    low=b.low,
+                    base_volume=b.base_volume,
+                    quote_volume=b.quote_volume,
+                )
+            )
+        else:
+            gapped.append(b)
+
+    raw = compute_raw_1d("BTCUSDT", {"daily_bar_id": 1}, gapped, cfg)
+    assert raw.range_width_10bars_1d_pct is None
+    assert raw.range_width_10bars_1d_pct_status == "gap_in_required_window"
+    # field-local behavior: unrelated short-window field still computes
+    assert raw.close_vs_rolling_high_5_1d_pct_status == "ok"
+
+
+def test_1d_contiguous_sequence_still_computes_normally() -> None:
+    cfg = ScannerConfig(raw={})
+    raw = compute_raw_1d("BTCUSDT", {"daily_bar_id": 1}, _bars(20, 86_400_000), cfg)
+    assert raw.range_width_10bars_1d_pct_status == "ok"
+    assert raw.range_width_10bars_1d_pct is not None
+
+
+def test_features_config_type_validation_and_partial_merge() -> None:
+    assert ScannerConfig(raw={}).feature_layer_config["segmentation_window_1d"] == 15
+
+    with pytest.raises(ValueError):
+        ScannerConfig(raw={"features": 123}).feature_layer_config
+    with pytest.raises(ValueError):
+        ScannerConfig(raw={"features": ["bad"]}).feature_layer_config
+
+    merged = ScannerConfig(raw={"features": {"segmentation_window_1d": 21}}).feature_layer_config
+    assert merged["segmentation_window_1d"] == 21
+    assert merged["segmentation_window_4h"] == 20
