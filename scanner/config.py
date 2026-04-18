@@ -85,6 +85,15 @@ _INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
     "max_4h_fetch_count": 100,
 }
 
+_FEATURE_LAYER_DEFAULTS = {
+    "segmentation_window_4h": 20,
+    "segmentation_window_1d": 15,
+    "persistence_spike_threshold": 1.2,
+    "structural_break": {
+        "min_bars_below_before_break": 3,
+    },
+}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -253,6 +262,42 @@ def resolve_independence_ohlcv_fetch_config(raw: Mapping[str, Any]) -> Dict[str,
 
     return merged
 
+
+def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("features")
+    if section_raw is None:
+        section: Mapping[str, Any] = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("features", section_raw, "must be an object")
+    else:
+        section = section_raw
+
+    merged = _deep_merge_dicts(_FEATURE_LAYER_DEFAULTS, section)
+
+    for key in ["segmentation_window_4h", "segmentation_window_1d"]:
+        value = merged.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != float(value) or int(value) < 2:
+            _raise_invalid(f"features.{key}", value, "must be integer >= 2")
+        merged[key] = int(value)
+
+    pst = merged.get("persistence_spike_threshold")
+    if isinstance(pst, bool) or not isinstance(pst, (int, float)) or not math.isfinite(float(pst)) or float(pst) <= 0:
+        _raise_invalid("features.persistence_spike_threshold", pst, "must be finite > 0")
+    merged["persistence_spike_threshold"] = float(pst)
+
+    sb = merged.get("structural_break")
+    if not isinstance(sb, Mapping):
+        _raise_invalid("features.structural_break", sb, "must be an object")
+    mbb = sb.get("min_bars_below_before_break", 3)
+    if isinstance(mbb, bool) or not isinstance(mbb, (int, float)) or int(mbb) != float(mbb) or int(mbb) < 1:
+        _raise_invalid(
+            "features.structural_break.min_bars_below_before_break",
+            mbb,
+            "must be integer >= 1",
+        )
+    merged["structural_break"] = {"min_bars_below_before_break": int(mbb)}
+    return merged
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -356,6 +401,10 @@ class ScannerConfig:
     @property
     def independence_ohlcv_fetch(self) -> Dict[str, Any]:
         return resolve_independence_ohlcv_fetch_config(self.raw)
+
+    @property
+    def feature_layer_config(self) -> Dict[str, Any]:
+        return resolve_feature_layer_config(self.raw)
 
     @property
     def spec_version(self) -> str:

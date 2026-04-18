@@ -206,3 +206,19 @@ Issue UI is additive and does not replace `workflow_dispatch`.
 - No-backfill/no-interpolation: missing bars remain absent.
 - Rejections are bar-level and counted (`partial`, `invalid`, `misaligned`, `duplicates`).
 - `fetch_and_persist` flow: decision → skip(no API/no writes) OR fetch_closed_bars → persist_fetch (atomic bars+meta write).
+
+## Ticket 5 runtime contract (feature derivation)
+
+Public ticket-5 functions accept pre-loaded closed OHLCV sequences and bar-clock context. They must not access repositories, SQLite, Parquet, or cache metadata directly.
+
+Input preconditions at function entry:
+- wrong type => `TypeError`
+- invalid content/preconditions => `ValueError`
+- `ohlcv_1d=[]` invalid
+- `ohlcv_4h=[]` invalid (use `None` for unavailable 4h)
+
+Determinism/semantics:
+- closed-bar-only inputs
+- no shortened-window fallback
+- field-local failure nulls only affected field + companion status
+- EMA warm-up uses SMA bootstrap and requires at least `2 x period` bars for `ok` status.

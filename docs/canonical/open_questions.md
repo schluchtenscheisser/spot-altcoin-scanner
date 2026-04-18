@@ -23,3 +23,14 @@ Until the authoritative question set is available in-repo, no later ticket may s
 ## Ticket 4 follow-up
 
 - Ticket 14 must define and implement the long-term OHLCV history-storage migration path beyond Ticket-4 transitional SQLite OHLCV persistence.
+
+## Ticket 5 unresolved-field carry-forward
+
+The following fields remain unresolved and are intentionally not implemented in Ticket 5:
+- `bars_since_last_volume_shift_event`
+- `dist_to_base_mid_pct`
+- `distance_to_range_high_pct_abs`
+
+Consequence note:
+
+> Two of four inputs for `freshness_distance_structural` currently lack authoritative definitions (`distance_to_range_high_pct_abs`, `bars_since_last_volume_shift_event`). Until resolved, the axis operates at minimum viable input coverage using the two defined inputs under the Missing-Data rules from Abschnitt 1.
