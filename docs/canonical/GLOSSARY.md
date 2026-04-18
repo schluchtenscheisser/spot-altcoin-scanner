@@ -37,6 +37,12 @@ Structure-derived break condition referenced by the Independence-Release concept
 ### `bars_since_*`
 Family of counters measured in the canonical **4h-bar unit** when used in the Independence-Release architecture. Individual members of the family must be defined by later canonical tickets before implementation.
 
+### `bars_since_last_volume_shift_event` → `bars_since_last_volume_shift_4h`
+Spec-to-implementation mapping: Abschnitt 1 §7.2 input `bars_since_last_volume_shift_event` is implemented in `RawFeatures4H` as `bars_since_last_volume_shift_4h`.
+
+### `bars_since_last_structural_break_event` → `bars_since_last_structural_break_4h`
+Spec-to-implementation mapping: Abschnitt 1 §7.2 input `bars_since_last_structural_break_event` is implemented in `RawFeatures4H` as `bars_since_last_structural_break_4h`.
+
 ### `daily_discovery_scan`
 The daily scheduled scan that discovers candidates using the closed daily context and writes target-architecture outputs/persistence artifacts. Its runtime sequence is summarized in `RUNTIME_AND_OPERATIONS.md`.
 

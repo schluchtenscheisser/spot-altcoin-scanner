@@ -110,8 +110,6 @@ class RawFeatures4H:
     bars_since_last_new_low_4h_status: FeatureStatus
     fixed_structural_break_anchor_4h: float | None
     fixed_structural_break_anchor_4h_status: FeatureStatus
-    fixed_high20_break_anchor_4h: float | None
-    fixed_high20_break_anchor_4h_status: FeatureStatus
     break_close_4h: float | None
     break_close_4h_status: FeatureStatus
     move_from_last_structural_break_pct: float | None
@@ -120,6 +118,10 @@ class RawFeatures4H:
     bars_since_last_structural_break_4h_status: FeatureStatus
     distance_to_last_structural_anchor_pct_abs: float | None
     distance_to_last_structural_anchor_pct_abs_status: FeatureStatus
+    bars_since_last_volume_shift_4h: int | None
+    bars_since_last_volume_shift_4h_status: FeatureStatus
+    distance_to_range_high_pct_abs: float | None
+    distance_to_range_high_pct_abs_status: FeatureStatus
     dist_to_ema20_4h_pct_abs: float | None
     dist_to_ema20_4h_pct_abs_status: FeatureStatus
     pullback_depth_vs_last_impulse_pct_4h: float | None

@@ -89,6 +89,8 @@ _FEATURE_LAYER_DEFAULTS = {
     "segmentation_window_4h": 20,
     "segmentation_window_1d": 15,
     "persistence_spike_threshold": 1.2,
+    "volume_shift_lookback_4h": 120,
+    "range_high_lookback_4h": 20,
     "structural_break": {
         "min_bars_below_before_break": 3,
     },
@@ -278,6 +280,12 @@ def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
         value = merged.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != float(value) or int(value) < 2:
             _raise_invalid(f"features.{key}", value, "must be integer >= 2")
+        merged[key] = int(value)
+
+    for key in ["volume_shift_lookback_4h", "range_high_lookback_4h"]:
+        value = merged.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != float(value) or int(value) < 1:
+            _raise_invalid(f"features.{key}", value, "must be integer >= 1")
         merged[key] = int(value)
 
     pst = merged.get("persistence_spike_threshold")
