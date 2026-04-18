@@ -201,7 +201,7 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
     since_low = len(lows) - 1 - last_low_idx
 
     min_below = int(getattr(cfg, "feature_layer_config", {}).get("structural_break", {}).get("min_bars_below_before_break", 3))
-    anchor = high20_anchor = break_close = None
+    anchor = break_close = None
     bars_since_break = None
     if len(closes) >= 21:
         for i in range(20, len(closes)):
@@ -209,12 +209,64 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
             below_before = sum(1 for x in closes[max(0, i-min_below):i] if x <= prev_high20)
             if closes[i] > prev_high20 and below_before >= min_below:
                 anchor = prev_high20
-                high20_anchor = prev_high20
                 break_close = closes[i]
                 bars_since_break = len(closes) - 1 - i
         
     move_from_break = pct(c, break_close) if break_close is not None else None
     dist_anchor_abs = apct(c, anchor) if anchor is not None else None
+
+    shift_lookback = int(getattr(cfg, "feature_layer_config", {}).get("volume_shift_lookback_4h", 120))
+    bars_since_last_volume_shift = None
+    bars_since_last_volume_shift_status = "insufficient_history"
+    if len(closes) >= shift_lookback:
+        saw_evaluable_spike = False
+        for k in range(shift_lookback):
+            idx = len(closes) - 1 - k
+            ref_window = quote_vols[idx - 10:idx]
+            cur_qv = quote_vols[idx]
+            if len(ref_window) != 10:
+                continue
+            if any(not math.isfinite(v) for v in ref_window) or not math.isfinite(cur_qv):
+                continue
+            ref = sum(ref_window) / 10.0
+            if ref == 0:
+                continue
+            saw_evaluable_spike = True
+            spike = cur_qv / ref
+            if spike >= persistence_thresh:
+                bars_since_last_volume_shift = k
+                bars_since_last_volume_shift_status = "ok"
+                break
+        if bars_since_last_volume_shift_status != "ok":
+            if saw_evaluable_spike:
+                bars_since_last_volume_shift = shift_lookback
+                bars_since_last_volume_shift_status = "ok"
+            else:
+                bars_since_last_volume_shift_status = "upstream_dependency_null"
+
+    range_high_lookback = int(getattr(cfg, "feature_layer_config", {}).get("range_high_lookback_4h", 20))
+    distance_to_range_high = None
+    distance_to_range_high_status = "insufficient_history"
+    if len(closes) >= range_high_lookback:
+        window_highs = highs[-range_high_lookback:]
+        window_closes = closes[-range_high_lookback:]
+        window_lows = lows[-range_high_lookback:]
+        window_base_vols = base_vols[-range_high_lookback:]
+        window_quote_vols = quote_vols[-range_high_lookback:]
+        if any(
+            not math.isfinite(v)
+            for values in [window_highs, window_closes, window_lows, window_base_vols, window_quote_vols]
+            for v in values
+        ):
+            distance_to_range_high_status = "invalid_upstream_value"
+        else:
+            rolling_high = max(window_highs)
+            if rolling_high == 0:
+                distance_to_range_high_status = "invalid_upstream_value"
+            else:
+                distance_to_range_high = abs((rolling_high - c) / rolling_high) * 100.0
+                distance_to_range_high_status = "ok"
+
     dist_ema20_abs = apct(c, e20) if math.isfinite(e20) else None
 
     seg_window = int(getattr(cfg, "feature_layer_config", {}).get("segmentation_window_4h", 20))
@@ -246,9 +298,11 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
         cvrh5, st(cvrh5), atr_pct, st(atr_pct), atr_rank, st(atr_rank),
         bb_width, st(bb_width), bb_rank, st(bb_rank), std_rank, st(std_rank),
         bars20, st(bars20), bars50, st(bars50), bars_high20, st(bars_high20),
-        since_low, st(since_low), anchor, st(anchor), high20_anchor, st(high20_anchor),
+        since_low, st(since_low), anchor, st(anchor),
         break_close, st(break_close), move_from_break, st(move_from_break),
         bars_since_break, st(bars_since_break), dist_anchor_abs, st(dist_anchor_abs),
+        bars_since_last_volume_shift, bars_since_last_volume_shift_status,
+        distance_to_range_high, distance_to_range_high_status,
         dist_ema20_abs, st(dist_ema20_abs), pb_depth, st(pb_depth), pb_vol, st(pb_vol),
         low_vs_ema, st(low_vs_ema), imp_start, st(imp_start), imp_high, st(imp_high),
         pb_low, st(pb_low), cur_pb, st(cur_pb),

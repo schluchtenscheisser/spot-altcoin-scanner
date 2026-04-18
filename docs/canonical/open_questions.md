@@ -26,11 +26,14 @@ Until the authoritative question set is available in-repo, no later ticket may s
 
 ## Ticket 5 unresolved-field carry-forward
 
+Resolved by Ticket `2026-04-18__P0__feature_bundle_gap_fill_t5_1`:
+- `bars_since_last_volume_shift_event` resolved as `bars_since_last_volume_shift_4h` in `RawFeatures4H`.
+- `distance_to_range_high_pct_abs` resolved as `distance_to_range_high_pct_abs` in `RawFeatures4H` (rolling high window uses configurable 4h lookback and high as denominator).
+- `freshness_distance_structural` input coverage is now 4/4 via `FeatureBundle`.
+
 The following fields remain unresolved and are intentionally not implemented in Ticket 5:
-- `bars_since_last_volume_shift_event`
 - `dist_to_base_mid_pct`
-- `distance_to_range_high_pct_abs`
 
 Consequence note:
 
-> Two of four inputs for `freshness_distance_structural` currently lack authoritative definitions (`distance_to_range_high_pct_abs`, `bars_since_last_volume_shift_event`). Until resolved, the axis operates at minimum viable input coverage using the two defined inputs under the Missing-Data rules from Abschnitt 1.
+> `dist_to_base_mid_pct` remains without authoritative formula. The related `expansion_progress_structural` subscore stays absent and the axis uses weight-dropout re-normalization with `expansion_progress_structural_reduced_resolution = true`.

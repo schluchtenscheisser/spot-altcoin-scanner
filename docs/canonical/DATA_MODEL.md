@@ -121,3 +121,10 @@ Ticket 5 introduces an in-memory feature contract (no persistence table):
 
 Companion status rule: each derived field has `{field}_status` with closed enum:
 `ok | insufficient_history | gap_in_required_window | upstream_dependency_null | invalid_upstream_value`.
+
+## Ticket 5.1 additive in-memory feature adjustments
+
+- Canonical anchor field name is `fixed_structural_break_anchor_4h` (deprecated alias `fixed_high20_break_anchor_4h` removed from public contract).
+- Added freshness helper fields in `RawFeatures4H`:
+  - `bars_since_last_volume_shift_4h` + companion status
+  - `distance_to_range_high_pct_abs` + companion status
