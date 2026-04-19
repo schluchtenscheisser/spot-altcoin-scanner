@@ -51,6 +51,20 @@ def _default_raw_4h(status: str = "insufficient_history") -> RawFeatures4H:
     return RawFeatures4H(*vals)
 
 
+def _close_vs_high20_4h_pct(
+    close_4h: float,
+    fixed_structural_break_anchor_4h: float | None,
+    fixed_structural_break_anchor_4h_status: str,
+) -> tuple[float | None, str]:
+    if fixed_structural_break_anchor_4h is None or fixed_structural_break_anchor_4h_status != "ok":
+        return None, "upstream_dependency_null"
+    if not math.isfinite(fixed_structural_break_anchor_4h) or fixed_structural_break_anchor_4h == 0:
+        return None, "invalid_upstream_value"
+    if not math.isfinite(close_4h):
+        return None, "invalid_upstream_value"
+    return ((close_4h / fixed_structural_break_anchor_4h) - 1.0) * 100.0, "ok"
+
+
 def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | None, cfg: Any) -> RawFeatures4H | None:
     _validate_symbol(symbol)
     if bar_clock_context is None:
@@ -214,6 +228,8 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
         
     move_from_break = pct(c, break_close) if break_close is not None else None
     dist_anchor_abs = apct(c, anchor) if anchor is not None else None
+    anchor_status = "ok" if anchor is not None else "insufficient_history"
+    close_vs_high20_4h_pct, close_vs_high20_4h_pct_status = _close_vs_high20_4h_pct(c, anchor, anchor_status)
 
     shift_lookback = int(getattr(cfg, "feature_layer_config", {}).get("volume_shift_lookback_4h", 120))
     bars_since_last_volume_shift = None
@@ -299,6 +315,7 @@ def compute_raw_4h(symbol: str, bar_clock_context: Any, ohlcv_4h: list[Any] | No
         bb_width, st(bb_width), bb_rank, st(bb_rank), std_rank, st(std_rank),
         bars20, st(bars20), bars50, st(bars50), bars_high20, st(bars_high20),
         since_low, st(since_low), anchor, st(anchor),
+        close_vs_high20_4h_pct, close_vs_high20_4h_pct_status,
         break_close, st(break_close), move_from_break, st(move_from_break),
         bars_since_break, st(bars_since_break), dist_anchor_abs, st(dist_anchor_abs),
         bars_since_last_volume_shift, bars_since_last_volume_shift_status,

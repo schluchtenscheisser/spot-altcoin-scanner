@@ -110,6 +110,8 @@ class RawFeatures4H:
     bars_since_last_new_low_4h_status: FeatureStatus
     fixed_structural_break_anchor_4h: float | None
     fixed_structural_break_anchor_4h_status: FeatureStatus
+    close_vs_high20_4h_pct: float | None
+    close_vs_high20_4h_pct_status: FeatureStatus
     break_close_4h: float | None
     break_close_4h_status: FeatureStatus
     move_from_last_structural_break_pct: float | None
