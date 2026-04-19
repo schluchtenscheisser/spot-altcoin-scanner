@@ -42,3 +42,8 @@ Consequence note:
 
 - `dist_to_base_mid_pct` remains unresolved.
 - Consequence: `expansion_progress_structural` uses reduced resolution with weight-dropout as long as this input is unresolved.
+
+## Ticket 7 follow-up boundary
+
+- Ticket 7 resolved Tier-2-Simplified axis computation and typed `Tier2AxisBundle` output.
+- Ticket 8 remains responsible for phase interpretation and any cross-axis weighting policy (including Tier-1/Tier-2 interaction), which is intentionally out of scope for Ticket 7.

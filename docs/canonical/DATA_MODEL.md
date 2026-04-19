@@ -143,3 +143,26 @@ Nullability contract:
 - `<axis> = null` means not-evaluable only (no coercion to sentinel values).
 - `not_evaluable=true => axis is null`.
 - `effective_weight_ratio = null` when axis not evaluable.
+
+## Ticket 7 additive in-memory axis model
+
+Ticket 7 introduces `Tier2AxisBundle` as typed in-memory output for Tier-2-Simplified axes:
+- `base_integrity_simplified`
+- `pullback_quality_simplified`
+- `reacceleration_strength_simplified`
+
+Per-axis companion fields are mandatory:
+- `<axis>_not_evaluable`
+- `<axis>_reduced_resolution`
+- `<axis>_effective_weight_ratio`
+
+Two-path semantics are part of this contract:
+- `data_4h_available=true` selects only the 4h path;
+- `data_4h_available=false` selects only the 1d fallback path;
+- successful 1d fallback always implies `<axis>_reduced_resolution=true`.
+
+Nullability contract is strict:
+- `<axis> = null` means not evaluable only (no sentinel coercion).
+- `<axis>_not_evaluable=true => <axis> is null`.
+- `<axis>_effective_weight_ratio = null` when `<axis>_not_evaluable=true`.
+- `<axis>_reduced_resolution=false` when `<axis>_not_evaluable=true`.

@@ -152,3 +152,20 @@ Ticket-5 scope remains below axes/phase/state and excludes normalization utiliti
 - `scanner/axes/tier1.py` (`compute_tier1_axes(feature_bundle, cfg)`).
 
 Scope boundary: Tier-1 consumes only `FeatureBundle` + `cfg.axes` and remains storage-free.
+
+## Ticket 7 additive architecture contract (Tier-2-Simplified axes)
+
+`scanner/axes/` now additionally owns Ticket-7 deterministic Tier-2-Simplified computation:
+- `scanner/axes/tier2.py` (`compute_tier2_axes(feature_bundle, cfg)`)
+- `scanner/axes/models.py` (`Tier2AxisBundle` typed in-memory contract).
+
+Tier-2-Simplified scope is exactly three axes:
+- `base_integrity_simplified`
+- `pullback_quality_simplified`
+- `reacceleration_strength_simplified`
+
+Execution contract:
+- input boundary is strictly `FeatureBundle` + `cfg.axes` (no `Tier1AxisBundle`, no OHLCV, no storage);
+- all three axes use deterministic two-path selection (`data_4h_available=true -> 4h path only`, otherwise 1d fallback);
+- no automatic 4h-to-1d fallthrough when 4h path has partial dropout;
+- `pullback_quality_simplified` enforces segmentation validity (`impulse_high_price_tf > impulse_start_price_tf`) as a pre-gate before scoring.
