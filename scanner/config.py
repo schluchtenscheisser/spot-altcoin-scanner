@@ -85,6 +85,17 @@ _INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
     "max_4h_fetch_count": 100,
 }
 
+
+_AXES_DEFAULTS = {
+    "min_effective_weight_ratio": 0.60,
+    "trend_strength": {},
+    "reclaim_progress": {},
+    "compression_strength": {},
+    "expansion_progress_structural": {},
+    "volume_regime_shift": {},
+    "freshness_distance_structural": {},
+}
+
 _FEATURE_LAYER_DEFAULTS = {
     "segmentation_window_4h": 20,
     "segmentation_window_1d": 15,
@@ -265,6 +276,71 @@ def resolve_independence_ohlcv_fetch_config(raw: Mapping[str, Any]) -> Dict[str,
     return merged
 
 
+
+
+def resolve_axes_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("axes")
+    if section_raw is None:
+        section: Mapping[str, Any] = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("axes", section_raw, "must be an object")
+    else:
+        section = section_raw
+
+    merged = _deep_merge_dicts(_AXES_DEFAULTS, section)
+
+    ratio = merged.get("min_effective_weight_ratio", 0.60)
+    if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(float(ratio)):
+        _raise_invalid("axes.min_effective_weight_ratio", ratio, "must be finite number")
+    ratio_f = float(ratio)
+    if ratio_f <= 0 or ratio_f > 1.0:
+        _raise_invalid("axes.min_effective_weight_ratio", ratio, "must satisfy 0 < value <= 1.0")
+    merged["min_effective_weight_ratio"] = ratio_f
+
+    for key in [
+        "trend_strength",
+        "reclaim_progress",
+        "compression_strength",
+        "expansion_progress_structural",
+        "volume_regime_shift",
+        "freshness_distance_structural",
+    ]:
+        block = merged.get(key, {})
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"axes.{key}", block, "must be an object")
+        merged[key] = dict(block)
+
+    for axis_key, block in merged.items():
+        if axis_key == "min_effective_weight_ratio" or not isinstance(block, Mapping):
+            continue
+        for param_key, value in block.items():
+            if param_key.endswith("_points"):
+                if not isinstance(value, list) or len(value) < 2:
+                    _raise_invalid(f"axes.{axis_key}.{param_key}", value, "must be list with >=2 points")
+                last_x = None
+                for point in value:
+                    if (
+                        not isinstance(point, (list, tuple))
+                        or len(point) != 2
+                        or isinstance(point[0], bool)
+                        or isinstance(point[1], bool)
+                        or not isinstance(point[0], (int, float))
+                        or not isinstance(point[1], (int, float))
+                    ):
+                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "points must be (x, y) numeric pairs")
+                    x, y = float(point[0]), float(point[1])
+                    if not math.isfinite(x) or not math.isfinite(y):
+                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "point values must be finite")
+                    if y < 0 or y > 100:
+                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "y must be in [0,100]")
+                    if last_x is not None and x <= last_x:
+                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "x-values must be strictly ascending")
+                    last_x = x
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                if not math.isfinite(float(value)):
+                    _raise_invalid(f"axes.{axis_key}.{param_key}", value, "must be finite")
+
+    return merged
 def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     section_raw = raw.get("features")
     if section_raw is None:
@@ -413,6 +489,11 @@ class ScannerConfig:
     @property
     def feature_layer_config(self) -> Dict[str, Any]:
         return resolve_feature_layer_config(self.raw)
+
+
+    @property
+    def axes(self) -> Dict[str, Any]:
+        return resolve_axes_config(self.raw)
 
     @property
     def spec_version(self) -> str:
@@ -714,6 +795,7 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     raw = dict(raw)
     raw["independence_release"] = _normalize_independence_release_config(raw)
     resolve_independence_ohlcv_fetch_config(raw)
+    resolve_axes_config(raw)
 
     return ScannerConfig(raw=raw)
 
@@ -947,6 +1029,11 @@ def validate_config(config: ScannerConfig) -> List[str]:
     if mode != "threshold_modifier":
         errors.append("btc_regime.mode must be 'threshold_modifier'")
     _expect_number(errors, btc_cfg.get("risk_off_enter_boost", 15), "btc_regime.risk_off_enter_boost")
+
+    try:
+        resolve_axes_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
 
     independence_release_cfg = config.raw.get("independence_release", {})
     if not isinstance(independence_release_cfg, dict):

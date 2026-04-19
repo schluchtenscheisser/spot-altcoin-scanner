@@ -143,3 +143,12 @@ Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` a
 Fixed build order in `build_feature_bundle(...)` is `compute_raw_1d -> compute_raw_4h -> compute_raw_shared -> FeatureBundle`.
 
 Ticket-5 scope remains below axes/phase/state and excludes normalization utilities.
+
+## Ticket 6 additive architecture contract (Tier-1 axes)
+
+`scanner/axes/` now owns Ticket-6 deterministic Tier-1 computation:
+- `scanner/axes/normalization.py` (pure normalization helpers)
+- `scanner/axes/models.py` (`Tier1AxisBundle` typed in-memory contract)
+- `scanner/axes/tier1.py` (`compute_tier1_axes(feature_bundle, cfg)`).
+
+Scope boundary: Tier-1 consumes only `FeatureBundle` + `cfg.axes` and remains storage-free.

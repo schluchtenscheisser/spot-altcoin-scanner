@@ -37,3 +37,8 @@ The following fields remain unresolved and are intentionally not implemented in 
 Consequence note:
 
 > `dist_to_base_mid_pct` remains without authoritative formula. The related `expansion_progress_structural` subscore stays absent and the axis uses weight-dropout re-normalization with `expansion_progress_structural_reduced_resolution = true`.
+
+## Ticket 6 unresolved carry-forward
+
+- `dist_to_base_mid_pct` remains unresolved.
+- Consequence: `expansion_progress_structural` uses reduced resolution with weight-dropout as long as this input is unresolved.
