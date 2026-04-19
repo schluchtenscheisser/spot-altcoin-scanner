@@ -76,3 +76,9 @@ Per-field status value named `{field_name}_status`, using closed enum: `ok`, `in
 
 ### `raw_shared`
 Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and optional `RawFeatures4H` (without direct OHLCV access).
+
+## Ticket 6 terms
+
+- **Tier1AxisBundle**: typed in-memory container for six Tier-1 axes plus per-axis evaluability/coverage metadata.
+- **effective_weight_ratio**: retained pre-renormalization weight sum divided by original weight sum after missing-input dropout.
+- **reduced_resolution**: axis computed after at least one required sub-input drops out.

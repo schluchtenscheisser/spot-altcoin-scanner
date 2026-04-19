@@ -128,3 +128,18 @@ Companion status rule: each derived field has `{field}_status` with closed enum:
 - Added freshness helper fields in `RawFeatures4H`:
   - `bars_since_last_volume_shift_4h` + companion status
   - `distance_to_range_high_pct_abs` + companion status
+
+## Ticket 6 additive in-memory axis model
+
+Ticket 6 introduces in-memory axis output model `Tier1AxisBundle` with exactly six Tier-1 axes:
+`trend_strength`, `reclaim_progress`, `compression_strength`, `expansion_progress_structural`, `volume_regime_shift`, `freshness_distance_structural`.
+
+Per-axis companion fields are mandatory:
+- `<axis>_not_evaluable`
+- `<axis>_reduced_resolution`
+- `<axis>_effective_weight_ratio`
+
+Nullability contract:
+- `<axis> = null` means not-evaluable only (no coercion to sentinel values).
+- `not_evaluable=true => axis is null`.
+- `effective_weight_ratio = null` when axis not evaluable.

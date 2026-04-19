@@ -211,3 +211,17 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - `close_vs_high20_4h_pct` status contract: missing/non-`ok` anchor -> `upstream_dependency_null`; zero/non-finite anchor or non-finite close -> `invalid_upstream_value`; otherwise `ok`.
   - `bars_since_last_volume_shift_4h` uses configurable lookback and threshold `>= persistence_spike_threshold`; full window with no event returns lookback cap with status `ok`.
   - `distance_to_range_high_pct_abs` uses configurable 4h rolling high window and computes `abs((rolling_high-close)/rolling_high)*100`; zero or non-finite required window values yield `invalid_upstream_value`.
+
+## Ticket 6 verification boundaries (Tier-1 axes)
+
+- Tier-1 domain is exactly six axes: `trend_strength`, `reclaim_progress`, `compression_strength`, `expansion_progress_structural`, `volume_regime_shift`, `freshness_distance_structural`.
+- Input availability rule: a feature is usable iff `value != null` and companion status is exactly `ok`.
+- Normalization utility set is fixed: `norm_linear_clamped`, `norm_linear_clamped_inv`, `norm_piecewise_linear`, `weighted_mean`.
+- Per-axis calibration values (anchors/points/weights) are sourced from `cfg.axes.<axis>`; defaults are canonical Ticket-6 values and partial overrides merge field-by-field.
+- `weighted_mean` drops `null` scores and renormalizes retained weights; caller computes and persists `effective_weight_ratio`.
+- Generic floor rule: `effective_weight_ratio < cfg.axes.min_effective_weight_ratio => axis not evaluable`.
+- `reclaim_progress` must use two-level aggregation: per-anchor score first, then cross-anchor weighted aggregation.
+- `compression_strength` pre-gate: at least one valid 4h compression input is required.
+- `expansion_progress_structural` pre-gate: `data_4h_available=false => not_evaluable`; unresolved `dist_to_base_mid_pct` implies reduced-resolution path.
+- `volume_regime_shift` pre-gate: `data_4h_available=false => not_evaluable`.
+- `freshness_distance_structural` minimum-input rule: `<2` valid inputs => not evaluable; `2-3` => reduced resolution; `4` => full resolution.

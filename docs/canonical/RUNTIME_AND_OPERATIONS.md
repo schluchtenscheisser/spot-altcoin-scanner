@@ -222,3 +222,11 @@ Determinism/semantics:
 - no shortened-window fallback
 - field-local failure nulls only affected field + companion status
 - EMA warm-up uses SMA bootstrap and requires at least `2 x period` bars for `ok` status.
+
+## Ticket 6 runtime boundary (Tier-1 axes)
+
+`compute_tier1_axes(...)` is deterministic and closed-input:
+- reads only `FeatureBundle` and `cfg.axes`
+- no direct OHLCV access
+- no repository/cache/SQLite/Parquet IO
+- no raw `now`/timestamp side effects.
