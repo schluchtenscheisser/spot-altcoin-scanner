@@ -82,3 +82,10 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **Tier1AxisBundle**: typed in-memory container for six Tier-1 axes plus per-axis evaluability/coverage metadata.
 - **effective_weight_ratio**: retained pre-renormalization weight sum divided by original weight sum after missing-input dropout.
 - **reduced_resolution**: axis computed after at least one required sub-input drops out.
+
+## Ticket 7 terms
+
+- **Tier2AxisBundle**: typed in-memory container for exactly three Tier-2-Simplified axes plus per-axis evaluability/coverage metadata.
+- **two-path axis evaluation**: deterministic path selection rule where `data_4h_available=true` forces 4h-only evaluation and `data_4h_available=false` forces 1d fallback evaluation.
+- **segmentation validity pre-gate**: `pullback_quality_simplified` gate requiring `impulse_high_price_tf > impulse_start_price_tf` on the selected timeframe before any weighted scoring begins.
+- **_simplified suffix**: denotes the reduced Tier-2 axis family defined for Independence-Release Ticket 7, distinct from Tier-1 axes and from later phase/state interpretation layers.

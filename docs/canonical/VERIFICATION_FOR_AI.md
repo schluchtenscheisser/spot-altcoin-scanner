@@ -225,3 +225,28 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - `expansion_progress_structural` pre-gate: `data_4h_available=false => not_evaluable`; unresolved `dist_to_base_mid_pct` implies reduced-resolution path.
 - `volume_regime_shift` pre-gate: `data_4h_available=false => not_evaluable`.
 - `freshness_distance_structural` minimum-input rule: `<2` valid inputs => not evaluable; `2-3` => reduced resolution; `4` => full resolution.
+
+## Ticket 7 verification boundaries (Tier-2-Simplified axes)
+
+- Tier-2-Simplified domain is exactly three axes: `base_integrity_simplified`, `pullback_quality_simplified`, `reacceleration_strength_simplified`.
+- Public entrypoint is exactly `compute_tier2_axes(feature_bundle, cfg)`.
+- Input availability rule is strict: feature input is usable iff `value != null` and companion status is exactly `ok`.
+- Two-path selection is deterministic and exclusive:
+  - `data_4h_available=true` => 4h path only;
+  - `data_4h_available=false` => 1d fallback path only;
+  - no automatic fallthrough from 4h to 1d when 4h has dropout.
+- Generic floor rule: `effective_weight_ratio < cfg.axes.min_effective_weight_ratio => axis not evaluable`.
+- Reduced-resolution rule:
+  - successful 1d fallback always yields `<axis>_reduced_resolution=true`;
+  - successful 4h path with dropout yields `<axis>_reduced_resolution=true`;
+  - full 4h path with all sub-inputs yields `<axis>_reduced_resolution=false`.
+- `pullback_quality_simplified` requires segmentation validity pre-gate on selected path:
+  - valid iff `impulse_high_price_tf > impulse_start_price_tf`;
+  - invalid/missing/non-`ok` gate inputs => immediate not-evaluable (no dropout scoring).
+- Pullback depth curve is intentionally non-monotone:
+  - points `[(0,70),(20,100),(40,75),(60,40),(100,0)]`;
+  - verification sample includes `x=10 -> 85`.
+- Nullability contract:
+  - `not_evaluable=true => axis is null`;
+  - `effective_weight_ratio=null` when axis not evaluable;
+  - axis null must never be coerced to 0/false/sentinel.

@@ -133,6 +133,36 @@ _AXES_DEFAULTS = {
         "bars_since_last_volume_shift_4h": {"points": [(0.0, 0.0), (1.0, 20.0), (2.0, 40.0), (4.0, 70.0), (6.0, 100.0)], "weight": 0.20},
         "bars_since_last_structural_break_4h": {"points": [(0.0, 0.0), (1.0, 20.0), (2.0, 40.0), (4.0, 70.0), (6.0, 100.0)], "weight": 0.20},
     },
+    "base_integrity_simplified": {
+        "bars_since_last_new_low_4h": {"points": [(0.0, 0.0), (2.0, 25.0), (4.0, 50.0), (8.0, 80.0), (12.0, 100.0)]},
+        "range_width_12bars_4h_pct": {"low_good": 4.0, "mid": 9.0, "high_bad": 18.0},
+        "close_position_in_range_12bars_4h": {"points": [(0.0, 0.0), (0.25, 20.0), (0.50, 50.0), (0.75, 80.0), (1.00, 100.0)]},
+        "close_above_range_mid_ratio_12bars_4h": {"points": [(0.0, 0.0), (0.25, 25.0), (0.50, 50.0), (0.75, 80.0), (1.00, 100.0)]},
+        "bars_since_last_new_low_1d": {"points": [(0.0, 0.0), (2.0, 35.0), (4.0, 60.0), (7.0, 85.0), (10.0, 100.0)]},
+        "range_width_10bars_1d_pct": {"low_good": 8.0, "mid": 15.0, "high_bad": 30.0},
+        "close_position_in_range_10bars_1d": {"points": [(0.0, 0.0), (0.25, 20.0), (0.50, 50.0), (0.75, 80.0), (1.00, 100.0)]},
+        "close_above_range_mid_ratio_10bars_1d": {"points": [(0.0, 0.0), (0.25, 25.0), (0.50, 50.0), (0.75, 80.0), (1.00, 100.0)]},
+    },
+    "pullback_quality_simplified": {
+        "pullback_depth_vs_last_impulse_pct_4h": {"points": [(0.0, 70.0), (20.0, 100.0), (40.0, 75.0), (60.0, 40.0), (100.0, 0.0)]},
+        "pullback_volume_ratio_4h": {"points": [(0.3, 100.0), (0.6, 85.0), (1.0, 50.0), (1.3, 20.0), (1.8, 0.0)]},
+        "close_vs_ema20_4h_pct": {"low": -8.0, "mid": 0.0, "high": 8.0},
+        "lowest_low_vs_ema20_4h_pct": {"low": -10.0, "mid": -2.0, "high": 4.0},
+        "pullback_depth_vs_last_impulse_pct_1d": {"points": [(0.0, 70.0), (20.0, 100.0), (40.0, 75.0), (60.0, 40.0), (100.0, 0.0)]},
+        "pullback_volume_ratio_1d": {"points": [(0.3, 100.0), (0.6, 85.0), (1.0, 50.0), (1.3, 20.0), (1.8, 0.0)]},
+        "close_vs_ema20_1d_pct": {"low": -8.0, "mid": 0.0, "high": 8.0},
+        "lowest_low_vs_ema20_1d_pct": {"low": -10.0, "mid": -2.0, "high": 4.0},
+    },
+    "reacceleration_strength_simplified": {
+        "close_vs_rolling_high_5_4h_pct": {"low": -4.0, "mid": 0.0, "high": 4.0},
+        "volume_4h_current_vs_median10": {"points": [(0.8, 10.0), (1.0, 40.0), (1.2, 65.0), (1.5, 85.0), (2.0, 100.0)]},
+        "ema20_slope_4h_pct_per_bar": {"low": -1.0, "mid": 0.0, "high": 1.0},
+        "close_vs_ema20_4h_pct": {"low": -6.0, "mid": 0.0, "high": 6.0},
+        "close_vs_rolling_high_5_1d_pct": {"low": -4.0, "mid": 0.0, "high": 4.0},
+        "volume_1d_current_vs_median10": {"points": [(0.8, 10.0), (1.0, 40.0), (1.2, 65.0), (1.5, 85.0), (2.0, 100.0)]},
+        "ema20_slope_1d_pct_per_bar": {"low": -1.0, "mid": 0.0, "high": 1.0},
+        "close_vs_ema20_1d_pct": {"low": -6.0, "mid": 0.0, "high": 6.0},
+    },
 }
 
 
@@ -466,6 +496,53 @@ def resolve_axes_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
         vals["weight"] = _validate_weight(f"axes.volume_regime_shift.{field}.weight", item.get("weight"))
         volume[field] = vals
     merged["volume_regime_shift"] = dict(volume)
+
+    for axis_key, fields in {
+        "base_integrity_simplified": [
+            ("bars_since_last_new_low_4h", "points"),
+            ("range_width_12bars_4h_pct", "inv"),
+            ("close_position_in_range_12bars_4h", "points"),
+            ("close_above_range_mid_ratio_12bars_4h", "points"),
+            ("bars_since_last_new_low_1d", "points"),
+            ("range_width_10bars_1d_pct", "inv"),
+            ("close_position_in_range_10bars_1d", "points"),
+            ("close_above_range_mid_ratio_10bars_1d", "points"),
+        ],
+        "pullback_quality_simplified": [
+            ("pullback_depth_vs_last_impulse_pct_4h", "points"),
+            ("pullback_volume_ratio_4h", "points"),
+            ("close_vs_ema20_4h_pct", "lin"),
+            ("lowest_low_vs_ema20_4h_pct", "lin"),
+            ("pullback_depth_vs_last_impulse_pct_1d", "points"),
+            ("pullback_volume_ratio_1d", "points"),
+            ("close_vs_ema20_1d_pct", "lin"),
+            ("lowest_low_vs_ema20_1d_pct", "lin"),
+        ],
+        "reacceleration_strength_simplified": [
+            ("close_vs_rolling_high_5_4h_pct", "lin"),
+            ("volume_4h_current_vs_median10", "points"),
+            ("ema20_slope_4h_pct_per_bar", "lin"),
+            ("close_vs_ema20_4h_pct", "lin"),
+            ("close_vs_rolling_high_5_1d_pct", "lin"),
+            ("volume_1d_current_vs_median10", "points"),
+            ("ema20_slope_1d_pct_per_bar", "lin"),
+            ("close_vs_ema20_1d_pct", "lin"),
+        ],
+    }.items():
+        block = merged.get(axis_key)
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"axes.{axis_key}", block, "must be an object")
+        for field, kind in fields:
+            item = block.get(field)
+            if not isinstance(item, Mapping):
+                _raise_invalid(f"axes.{axis_key}.{field}", item, "must be an object")
+            if kind == "points":
+                block[field] = {"points": _validate_points(f"axes.{axis_key}.{field}.points", item.get("points"))}
+            elif kind == "inv":
+                block[field] = _validate_linear(f"axes.{axis_key}.{field}", item, "low_good", "mid", "high_bad")
+            else:
+                block[field] = _validate_linear(f"axes.{axis_key}.{field}", item, "low", "mid", "high")
+        merged[axis_key] = dict(block)
 
     return merged
 

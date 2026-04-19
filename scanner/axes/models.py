@@ -39,3 +39,26 @@ class Tier1AxisBundle:
     freshness_distance_structural_not_evaluable: bool
     freshness_distance_structural_reduced_resolution: bool
     freshness_distance_structural_effective_weight_ratio: float | None
+
+
+@dataclass(frozen=True)
+class Tier2AxisBundle:
+    symbol: str
+    daily_bar_id: int
+    intraday_bar_id: int | None
+    data_4h_available: bool
+
+    base_integrity_simplified: float | None
+    base_integrity_simplified_not_evaluable: bool
+    base_integrity_simplified_reduced_resolution: bool
+    base_integrity_simplified_effective_weight_ratio: float | None
+
+    pullback_quality_simplified: float | None
+    pullback_quality_simplified_not_evaluable: bool
+    pullback_quality_simplified_reduced_resolution: bool
+    pullback_quality_simplified_effective_weight_ratio: float | None
+
+    reacceleration_strength_simplified: float | None
+    reacceleration_strength_simplified_not_evaluable: bool
+    reacceleration_strength_simplified_reduced_resolution: bool
+    reacceleration_strength_simplified_effective_weight_ratio: float | None
