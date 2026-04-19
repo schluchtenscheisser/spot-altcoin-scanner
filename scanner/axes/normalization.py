@@ -95,8 +95,8 @@ def weighted_mean(scores_and_weights: list[tuple[Optional[float], float]]) -> Op
         if score is None:
             continue
         sf = float(score)
-        if sf < 0 or sf > 100:
-            raise ValueError("scores must be in [0, 100]")
+        if not math.isfinite(sf) or sf < 0 or sf > 100:
+            raise ValueError("scores must be finite and in [0, 100]")
         retained.append((sf, float(weight)))
 
     if not retained:

@@ -88,13 +88,53 @@ _INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
-    "trend_strength": {},
-    "reclaim_progress": {},
-    "compression_strength": {},
-    "expansion_progress_structural": {},
-    "volume_regime_shift": {},
-    "freshness_distance_structural": {},
+    "trend_strength": {
+        "close_vs_ema20_1d_pct": {"low": -10.0, "mid": 0.0, "high": 10.0, "weight": 0.20},
+        "close_vs_ema50_1d_pct": {"low": -10.0, "mid": 0.0, "high": 10.0, "weight": 0.15},
+        "close_vs_ema20_4h_pct": {"low": -10.0, "mid": 0.0, "high": 10.0, "weight": 0.15},
+        "close_vs_ema50_4h_pct": {"low": -10.0, "mid": 0.0, "high": 10.0, "weight": 0.10},
+        "ema20_slope_1d_pct_per_bar": {"low": -1.5, "mid": 0.0, "high": 1.5, "weight": 0.10},
+        "ema20_slope_4h_pct_per_bar": {"low": -1.5, "mid": 0.0, "high": 1.5, "weight": 0.10},
+        "ema20_vs_ema50_1d_pct": {"low": -8.0, "mid": 0.0, "high": 8.0, "weight": 0.10},
+        "ema20_vs_ema50_4h_pct": {"low": -8.0, "mid": 0.0, "high": 8.0, "weight": 0.10},
+    },
+    "reclaim_progress": {
+        "distance": {"low": -3.0, "mid": 0.0, "high": 3.0},
+        "hold_points": [(0.0, 0.0), (1.0, 40.0), (2.0, 70.0), (3.0, 100.0)],
+        "anchors": {
+            "ema20_4h": {"weight": 0.25},
+            "ema50_4h": {"weight": 0.20},
+            "ema20_1d": {"weight": 0.20},
+            "ema50_1d": {"weight": 0.15},
+            "fixed_structural_4h": {"weight": 0.20},
+        },
+    },
+    "compression_strength": {
+        "bb_width_rank_120_4h": {"low_good": 10.0, "mid": 50.0, "high_bad": 100.0, "weight": 0.35},
+        "atr_pct_rank_120_1d": {"low_good": 10.0, "mid": 50.0, "high_bad": 100.0, "weight": 0.25},
+        "range_width_12bars_4h_vs_atr1d_pct": {"low_good": 50.0, "mid": 100.0, "high_bad": 200.0, "weight": 0.25},
+        "std_return_rank_12bars_4h_pct": {"low_good": 10.0, "mid": 50.0, "high_bad": 100.0, "weight": 0.15},
+    },
+    "expansion_progress_structural": {
+        "move_from_last_structural_break_pct": {"points": [(0.0, 0.0), (3.0, 30.0), (6.0, 60.0), (10.0, 100.0)], "weight": 0.40},
+        "bars_since_last_structural_break_4h": {"points": [(0.0, 0.0), (1.0, 20.0), (2.0, 40.0), (4.0, 70.0), (6.0, 100.0)], "weight": 0.20},
+        "dist_to_base_mid_pct": {"points": [(0.0, 0.0), (3.0, 35.0), (6.0, 65.0), (10.0, 100.0)], "weight": 0.20},
+        "dist_to_ema20_4h_pct_abs": {"points": [(0.0, 0.0), (2.0, 30.0), (5.0, 65.0), (8.0, 100.0)], "weight": 0.20},
+    },
+    "volume_regime_shift": {
+        "volume_quote_spike_1d": {"low": 0.9, "mid": 1.2, "high": 2.0, "weight": 0.25},
+        "volume_quote_spike_4h": {"low": 0.9, "mid": 1.2, "high": 2.0, "weight": 0.35},
+        "volume_spike_persistence_4h": {"points": [(0.00, 0.0), (0.25, 30.0), (0.50, 60.0), (0.75, 85.0), (1.00, 100.0)], "weight": 0.20},
+        "volume_4h_current_vs_median10": {"points": [(0.8, 0.0), (1.0, 40.0), (1.3, 70.0), (1.8, 100.0)], "weight": 0.20},
+    },
+    "freshness_distance_structural": {
+        "distance_to_last_structural_anchor_pct_abs": {"points": [(0.0, 0.0), (1.0, 25.0), (2.0, 50.0), (3.0, 75.0), (5.0, 100.0)], "weight": 0.35},
+        "distance_to_range_high_pct_abs": {"points": [(0.0, 0.0), (1.0, 30.0), (2.0, 55.0), (4.0, 100.0)], "weight": 0.25},
+        "bars_since_last_volume_shift_4h": {"points": [(0.0, 0.0), (1.0, 20.0), (2.0, 40.0), (4.0, 70.0), (6.0, 100.0)], "weight": 0.20},
+        "bars_since_last_structural_break_4h": {"points": [(0.0, 0.0), (1.0, 20.0), (2.0, 40.0), (4.0, 70.0), (6.0, 100.0)], "weight": 0.20},
+    },
 }
+
 
 _FEATURE_LAYER_DEFAULTS = {
     "segmentation_window_4h": 20,
@@ -278,6 +318,51 @@ def resolve_independence_ohlcv_fetch_config(raw: Mapping[str, Any]) -> Dict[str,
 
 
 
+def _validate_points(path: str, value: Any) -> list[tuple[float, float]]:
+    if not isinstance(value, list) or len(value) < 2:
+        _raise_invalid(path, value, "must be list with >=2 points")
+    out: list[tuple[float, float]] = []
+    last_x: float | None = None
+    for point in value:
+        if (
+            not isinstance(point, (list, tuple))
+            or len(point) != 2
+            or isinstance(point[0], bool)
+            or isinstance(point[1], bool)
+            or not isinstance(point[0], (int, float))
+            or not isinstance(point[1], (int, float))
+        ):
+            _raise_invalid(path, value, "points must be (x, y) numeric pairs")
+        x, y = float(point[0]), float(point[1])
+        if not math.isfinite(x) or not math.isfinite(y):
+            _raise_invalid(path, value, "point values must be finite")
+        if y < 0 or y > 100:
+            _raise_invalid(path, value, "y must be in [0,100]")
+        if last_x is not None and x <= last_x:
+            _raise_invalid(path, value, "x-values must be strictly ascending")
+        out.append((x, y))
+        last_x = x
+    return out
+
+
+def _validate_weight(path: str, value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or float(value) <= 0:
+        _raise_invalid(path, value, "must be finite number > 0")
+    return float(value)
+
+
+def _validate_linear(path: str, block: Mapping[str, Any], low_key: str, mid_key: str, high_key: str) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for key in [low_key, mid_key, high_key]:
+        val = block.get(key)
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(float(val)):
+            _raise_invalid(f"{path}.{key}", val, "must be finite number")
+        out[key] = float(val)
+    if not out[low_key] < out[mid_key] < out[high_key]:
+        _raise_invalid(path, block, f"must satisfy {low_key} < {mid_key} < {high_key}")
+    return out
+
+
 def resolve_axes_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     section_raw = raw.get("axes")
     if section_raw is None:
@@ -297,50 +382,94 @@ def resolve_axes_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
         _raise_invalid("axes.min_effective_weight_ratio", ratio, "must satisfy 0 < value <= 1.0")
     merged["min_effective_weight_ratio"] = ratio_f
 
-    for key in [
-        "trend_strength",
-        "reclaim_progress",
-        "compression_strength",
-        "expansion_progress_structural",
-        "volume_regime_shift",
-        "freshness_distance_structural",
+    for field in [
+        "close_vs_ema20_1d_pct", "close_vs_ema50_1d_pct", "close_vs_ema20_4h_pct", "close_vs_ema50_4h_pct",
+        "ema20_slope_1d_pct_per_bar", "ema20_slope_4h_pct_per_bar", "ema20_vs_ema50_1d_pct", "ema20_vs_ema50_4h_pct",
     ]:
-        block = merged.get(key, {})
+        block = merged["trend_strength"].get(field)
         if not isinstance(block, Mapping):
-            _raise_invalid(f"axes.{key}", block, "must be an object")
-        merged[key] = dict(block)
+            _raise_invalid(f"axes.trend_strength.{field}", block, "must be an object")
+        vals = _validate_linear(f"axes.trend_strength.{field}", block, "low", "mid", "high")
+        vals["weight"] = _validate_weight(f"axes.trend_strength.{field}.weight", block.get("weight"))
+        merged["trend_strength"][field] = vals
 
-    for axis_key, block in merged.items():
-        if axis_key == "min_effective_weight_ratio" or not isinstance(block, Mapping):
-            continue
-        for param_key, value in block.items():
-            if param_key.endswith("_points"):
-                if not isinstance(value, list) or len(value) < 2:
-                    _raise_invalid(f"axes.{axis_key}.{param_key}", value, "must be list with >=2 points")
-                last_x = None
-                for point in value:
-                    if (
-                        not isinstance(point, (list, tuple))
-                        or len(point) != 2
-                        or isinstance(point[0], bool)
-                        or isinstance(point[1], bool)
-                        or not isinstance(point[0], (int, float))
-                        or not isinstance(point[1], (int, float))
-                    ):
-                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "points must be (x, y) numeric pairs")
-                    x, y = float(point[0]), float(point[1])
-                    if not math.isfinite(x) or not math.isfinite(y):
-                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "point values must be finite")
-                    if y < 0 or y > 100:
-                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "y must be in [0,100]")
-                    if last_x is not None and x <= last_x:
-                        _raise_invalid(f"axes.{axis_key}.{param_key}", value, "x-values must be strictly ascending")
-                    last_x = x
-            elif isinstance(value, (int, float)) and not isinstance(value, bool):
-                if not math.isfinite(float(value)):
-                    _raise_invalid(f"axes.{axis_key}.{param_key}", value, "must be finite")
+    reclaim = merged["reclaim_progress"]
+    if not isinstance(reclaim, Mapping):
+        _raise_invalid("axes.reclaim_progress", reclaim, "must be an object")
+    dist = reclaim.get("distance")
+    if not isinstance(dist, Mapping):
+        _raise_invalid("axes.reclaim_progress.distance", dist, "must be an object")
+    reclaim["distance"] = _validate_linear("axes.reclaim_progress.distance", dist, "low", "mid", "high")
+    reclaim["hold_points"] = _validate_points("axes.reclaim_progress.hold_points", reclaim.get("hold_points"))
+    anchors = reclaim.get("anchors")
+    if not isinstance(anchors, Mapping):
+        _raise_invalid("axes.reclaim_progress.anchors", anchors, "must be an object")
+    for key in ["ema20_4h", "ema50_4h", "ema20_1d", "ema50_1d", "fixed_structural_4h"]:
+        anchor = anchors.get(key)
+        if not isinstance(anchor, Mapping):
+            _raise_invalid(f"axes.reclaim_progress.anchors.{key}", anchor, "must be an object")
+        anchors[key] = {"weight": _validate_weight(f"axes.reclaim_progress.anchors.{key}.weight", anchor.get("weight"))}
+    reclaim["anchors"] = dict(anchors)
+    merged["reclaim_progress"] = dict(reclaim)
+
+    for axis_key, fields in {
+        "compression_strength": [
+            ("bb_width_rank_120_4h", "low_good", "mid", "high_bad"),
+            ("atr_pct_rank_120_1d", "low_good", "mid", "high_bad"),
+            ("range_width_12bars_4h_vs_atr1d_pct", "low_good", "mid", "high_bad"),
+            ("std_return_rank_12bars_4h_pct", "low_good", "mid", "high_bad"),
+        ],
+    }.items():
+        block = merged.get(axis_key)
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"axes.{axis_key}", block, "must be an object")
+        for field, low, mid, high in fields:
+            item = block.get(field)
+            if not isinstance(item, Mapping):
+                _raise_invalid(f"axes.{axis_key}.{field}", item, "must be an object")
+            vals = _validate_linear(f"axes.{axis_key}.{field}", item, low, mid, high)
+            vals["weight"] = _validate_weight(f"axes.{axis_key}.{field}.weight", item.get("weight"))
+            block[field] = vals
+        merged[axis_key] = dict(block)
+
+    for axis_key, fields in {
+        "expansion_progress_structural": [
+            "move_from_last_structural_break_pct", "bars_since_last_structural_break_4h", "dist_to_base_mid_pct", "dist_to_ema20_4h_pct_abs",
+        ],
+        "volume_regime_shift": ["volume_spike_persistence_4h", "volume_4h_current_vs_median10"],
+        "freshness_distance_structural": [
+            "distance_to_last_structural_anchor_pct_abs", "distance_to_range_high_pct_abs", "bars_since_last_volume_shift_4h", "bars_since_last_structural_break_4h",
+        ],
+    }.items():
+        block = merged.get(axis_key)
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"axes.{axis_key}", block, "must be an object")
+        for field in fields:
+            item = block.get(field)
+            if not isinstance(item, Mapping):
+                _raise_invalid(f"axes.{axis_key}.{field}", item, "must be an object")
+            item_vals = {
+                "points": _validate_points(f"axes.{axis_key}.{field}.points", item.get("points")),
+                "weight": _validate_weight(f"axes.{axis_key}.{field}.weight", item.get("weight")),
+            }
+            block[field] = item_vals
+        merged[axis_key] = dict(block)
+
+    volume = merged.get("volume_regime_shift")
+    if not isinstance(volume, Mapping):
+        _raise_invalid("axes.volume_regime_shift", volume, "must be an object")
+    for field in ["volume_quote_spike_1d", "volume_quote_spike_4h"]:
+        item = volume.get(field)
+        if not isinstance(item, Mapping):
+            _raise_invalid(f"axes.volume_regime_shift.{field}", item, "must be an object")
+        vals = _validate_linear(f"axes.volume_regime_shift.{field}", item, "low", "mid", "high")
+        vals["weight"] = _validate_weight(f"axes.volume_regime_shift.{field}.weight", item.get("weight"))
+        volume[field] = vals
+    merged["volume_regime_shift"] = dict(volume)
 
     return merged
+
+
 def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     section_raw = raw.get("features")
     if section_raw is None:

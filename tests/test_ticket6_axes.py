@@ -232,6 +232,81 @@ def test_output_contract_and_determinism():
         assert not (not_eval and axis_value is not None)
 
 
+
+
+def test_weighted_mean_rejects_non_finite_scores_but_keeps_none_dropout():
+    with pytest.raises(ValueError):
+        weighted_mean([(float("nan"), 1.0), (50.0, 1.0)])
+    with pytest.raises(ValueError):
+        weighted_mean([(float("inf"), 1.0)])
+    assert weighted_mean([(None, 1.0), (50.0, 1.0)]) == 50.0
+    assert weighted_mean([(20.0, 1.0), (50.0, 1.0)]) == 35.0
+
+
+def test_cfg_axes_override_changes_trend_strength_output():
+    fb = _bundle(
+        raw1={
+            "close_vs_ema20_1d_pct": 1.0, "close_vs_ema20_1d_pct_status": "ok",
+            "close_vs_ema50_1d_pct": 1.0, "close_vs_ema50_1d_pct_status": "ok",
+            "ema20_slope_1d_pct_per_bar": 0.5, "ema20_slope_1d_pct_per_bar_status": "ok",
+            "ema20_vs_ema50_1d_pct": 1.0, "ema20_vs_ema50_1d_pct_status": "ok",
+        },
+        raw4={
+            "close_vs_ema20_4h_pct": 1.0, "close_vs_ema20_4h_pct_status": "ok",
+            "close_vs_ema50_4h_pct": 1.0, "close_vs_ema50_4h_pct_status": "ok",
+            "ema20_slope_4h_pct_per_bar": 0.5, "ema20_slope_4h_pct_per_bar_status": "ok",
+            "ema20_vs_ema50_4h_pct": 1.0, "ema20_vs_ema50_4h_pct_status": "ok",
+        },
+    )
+    base = compute_tier1_axes(fb, _cfg()).trend_strength
+    custom_cfg = _cfg({"axes": {"trend_strength": {"close_vs_ema20_1d_pct": {"high": 5.0}}}})
+    overridden = compute_tier1_axes(fb, custom_cfg).trend_strength
+    assert base is not None and overridden is not None
+    assert overridden != base
+
+
+def test_cfg_axes_override_changes_piecewise_axis_output():
+    fb = _bundle(
+        raw4={
+            "distance_to_last_structural_anchor_pct_abs": 1.0,
+            "distance_to_last_structural_anchor_pct_abs_status": "ok",
+            "distance_to_range_high_pct_abs": 2.0,
+            "distance_to_range_high_pct_abs_status": "ok",
+            "bars_since_last_volume_shift_4h": 2,
+            "bars_since_last_volume_shift_4h_status": "ok",
+            "bars_since_last_structural_break_4h": 2,
+            "bars_since_last_structural_break_4h_status": "ok",
+        }
+    )
+    base = compute_tier1_axes(fb, _cfg()).freshness_distance_structural
+    custom_cfg = _cfg({
+        "axes": {
+            "freshness_distance_structural": {
+                "distance_to_range_high_pct_abs": {
+                    "points": [[0.0, 0.0], [1.0, 60.0], [2.0, 100.0], [4.0, 100.0]]
+                }
+            }
+        }
+    })
+    overridden = compute_tier1_axes(fb, custom_cfg).freshness_distance_structural
+    assert base is not None and overridden is not None
+    assert overridden != base
+
+
+def test_cfg_axes_missing_nested_subkey_uses_default_weight():
+    cfg = _cfg({"axes": {"trend_strength": {"close_vs_ema20_1d_pct": {"high": 11.0}}}})
+    assert cfg.axes["trend_strength"]["close_vs_ema20_1d_pct"]["weight"] == pytest.approx(0.20)
+
+
+def test_cfg_axes_invalid_weight_and_anchor_order_raise_value_error():
+    with pytest.raises(ValueError):
+        _cfg({"axes": {"trend_strength": {"close_vs_ema20_1d_pct": {"weight": 0}}}}).axes
+
+    with pytest.raises(ValueError):
+        _cfg({"axes": {"trend_strength": {"close_vs_ema20_1d_pct": {"low": 1, "mid": 0, "high": 2}}}}).axes
+
+    with pytest.raises(ValueError):
+        _cfg({"axes": {"volume_regime_shift": {"volume_spike_persistence_4h": {"points": [[0, 0], [0, 10]]}}}}).axes
 def test_axes_config_defaults_and_validation():
     cfg = _cfg()
     assert math.isclose(cfg.axes["min_effective_weight_ratio"], 0.60)
@@ -245,4 +320,4 @@ def test_axes_config_defaults_and_validation():
     assert cfg2.axes["min_effective_weight_ratio"] == 0.60
 
     with pytest.raises(ValueError):
-        _cfg({"axes": {"trend_strength": {"foo_points": [[0, 10], [0, 20]]}}}).axes
+        _cfg({"axes": {"volume_regime_shift": {"volume_spike_persistence_4h": {"points": [[0, 10], [0, 20]]}}}}).axes

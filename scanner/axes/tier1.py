@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from scanner.axes.models import Tier1AxisBundle
 from scanner.axes.normalization import (
@@ -54,44 +54,62 @@ def _aggregate(scores_and_weights: list[tuple[float | None, float]], min_ratio: 
     return score, False, reduced, ratio
 
 
+def _lin_score(raw: float | int | None, block: Mapping[str, Any]) -> float | None:
+    if raw is None:
+        return None
+    return norm_linear_clamped(float(raw), float(block["low"]), float(block["mid"]), float(block["high"]))
+
+
+def _lin_inv_score(raw: float | int | None, block: Mapping[str, Any]) -> float | None:
+    if raw is None:
+        return None
+    return norm_linear_clamped_inv(float(raw), float(block["low_good"]), float(block["mid"]), float(block["high_bad"]))
+
+
+def _pw_score(raw: float | int | None, block: Mapping[str, Any]) -> float | None:
+    if raw is None:
+        return None
+    points = [(float(x), float(y)) for x, y in block["points"]]
+    return norm_piecewise_linear(float(raw), points)
+
+
 def compute_tier1_axes(feature_bundle: FeatureBundle, cfg: Any) -> Tier1AxisBundle:
     axes_cfg = _resolve_axes_cfg(cfg)
     min_ratio = float(axes_cfg.get("min_effective_weight_ratio", 0.60))
 
-    # Axis 1: trend_strength
-    trend_specs = [
-        ("close_vs_ema20_1d_pct", lambda x: norm_linear_clamped(x, -10, 0, 10), 0.20),
-        ("close_vs_ema50_1d_pct", lambda x: norm_linear_clamped(x, -10, 0, 10), 0.15),
-        ("close_vs_ema20_4h_pct", lambda x: norm_linear_clamped(x, -10, 0, 10), 0.15),
-        ("close_vs_ema50_4h_pct", lambda x: norm_linear_clamped(x, -10, 0, 10), 0.10),
-        ("ema20_slope_1d_pct_per_bar", lambda x: norm_linear_clamped(x, -1.5, 0, 1.5), 0.10),
-        ("ema20_slope_4h_pct_per_bar", lambda x: norm_linear_clamped(x, -1.5, 0, 1.5), 0.10),
-        ("ema20_vs_ema50_1d_pct", lambda x: norm_linear_clamped(x, -8, 0, 8), 0.10),
-        ("ema20_vs_ema50_4h_pct", lambda x: norm_linear_clamped(x, -8, 0, 8), 0.10),
+    trend_cfg = axes_cfg["trend_strength"]
+    trend_fields = [
+        "close_vs_ema20_1d_pct",
+        "close_vs_ema50_1d_pct",
+        "close_vs_ema20_4h_pct",
+        "close_vs_ema50_4h_pct",
+        "ema20_slope_1d_pct_per_bar",
+        "ema20_slope_4h_pct_per_bar",
+        "ema20_vs_ema50_1d_pct",
+        "ema20_vs_ema50_4h_pct",
     ]
-    trend_scores = []
-    for field, fn, weight in trend_specs:
-        raw = _extract_input(feature_bundle, field)
-        trend_scores.append((fn(float(raw)) if raw is not None else None, weight))
+    trend_scores = [(_lin_score(_extract_input(feature_bundle, field), trend_cfg[field]), float(trend_cfg[field]["weight"])) for field in trend_fields]
     trend, trend_ne, trend_rr, trend_ratio = _aggregate(trend_scores, min_ratio)
 
-    # Axis 2: reclaim_progress (two-level)
-    hold_points = [(0, 0), (1, 40), (2, 70), (3, 100)]
-    anchor_specs = [
-        ("close_vs_ema20_4h_pct", "bars_above_ema20_4h", 0.25),
-        ("close_vs_ema50_4h_pct", "bars_above_ema50_4h", 0.20),
-        ("close_vs_ema20_1d_pct", "bars_above_ema20_1d", 0.20),
-        ("close_vs_ema50_1d_pct", "bars_above_ema50_1d", 0.15),
-        ("close_vs_high20_4h_pct", "bars_above_high20_4h", 0.20),
+    reclaim_cfg = axes_cfg["reclaim_progress"]
+    reclaim_dist = reclaim_cfg["distance"]
+    hold_points = [(float(x), float(y)) for x, y in reclaim_cfg["hold_points"]]
+    anchor_map = [
+        ("ema20_4h", "close_vs_ema20_4h_pct", "bars_above_ema20_4h"),
+        ("ema50_4h", "close_vs_ema50_4h_pct", "bars_above_ema50_4h"),
+        ("ema20_1d", "close_vs_ema20_1d_pct", "bars_above_ema20_1d"),
+        ("ema50_1d", "close_vs_ema50_1d_pct", "bars_above_ema50_1d"),
+        ("fixed_structural_4h", "close_vs_high20_4h_pct", "bars_above_high20_4h"),
     ]
     reclaim_scores = []
-    for dist_field, hold_field, weight in anchor_specs:
+    for anchor_key, dist_field, hold_field in anchor_map:
         dist = _extract_input(feature_bundle, dist_field)
         hold = _extract_input(feature_bundle, hold_field)
+        weight = float(reclaim_cfg["anchors"][anchor_key]["weight"])
         if dist is None or hold is None:
             reclaim_scores.append((None, weight))
             continue
-        dist_score = norm_linear_clamped(float(dist), -3, 0, 3)
+        dist_score = norm_linear_clamped(float(dist), float(reclaim_dist["low"]), float(reclaim_dist["mid"]), float(reclaim_dist["high"]))
         hold_score = norm_piecewise_linear(float(hold), hold_points)
         if dist_score is None or hold_score is None:
             reclaim_scores.append((None, weight))
@@ -99,69 +117,62 @@ def compute_tier1_axes(feature_bundle: FeatureBundle, cfg: Any) -> Tier1AxisBund
         reclaim_scores.append((0.70 * dist_score + 0.30 * hold_score, weight))
     reclaim, reclaim_ne, reclaim_rr, reclaim_ratio = _aggregate(reclaim_scores, min_ratio)
 
-    # Axis 3: compression_strength
+    comp_cfg = axes_cfg["compression_strength"]
     if not feature_bundle.data_4h_available:
         comp, comp_ne, comp_rr, comp_ratio = None, True, False, None
     else:
-        comp_specs = [
-            ("bb_width_rank_120_4h", lambda x: norm_linear_clamped_inv(x, 10, 50, 100), 0.35),
-            ("atr_pct_rank_120_1d", lambda x: norm_linear_clamped_inv(x, 10, 50, 100), 0.25),
-            ("range_width_12bars_4h_vs_atr1d_pct", lambda x: norm_linear_clamped_inv(x, 50, 100, 200), 0.25),
-            ("std_return_rank_12bars_4h_pct", lambda x: norm_linear_clamped_inv(x, 10, 50, 100), 0.15),
+        comp_fields = [
+            "bb_width_rank_120_4h",
+            "atr_pct_rank_120_1d",
+            "range_width_12bars_4h_vs_atr1d_pct",
+            "std_return_rank_12bars_4h_pct",
         ]
-        comp_scores = []
-        for field, fn, weight in comp_specs:
-            raw = _extract_input(feature_bundle, field)
-            comp_scores.append((fn(float(raw)) if raw is not None else None, weight))
+        comp_scores = [(_lin_inv_score(_extract_input(feature_bundle, field), comp_cfg[field]), float(comp_cfg[field]["weight"])) for field in comp_fields]
         has_any_4h = any(comp_scores[idx][0] is not None for idx in (0, 2, 3))
         if not has_any_4h:
             comp, comp_ne, comp_rr, comp_ratio = None, True, False, None
         else:
             comp, comp_ne, comp_rr, comp_ratio = _aggregate(comp_scores, min_ratio)
 
-    # Axis 4: expansion_progress_structural
+    exp_cfg = axes_cfg["expansion_progress_structural"]
     if not feature_bundle.data_4h_available:
         exp, exp_ne, exp_rr, exp_ratio = None, True, False, None
     else:
-        exp_specs = [
-            ("move_from_last_structural_break_pct", lambda x: norm_piecewise_linear(x, [(0, 0), (3, 30), (6, 60), (10, 100)]), 0.40),
-            ("bars_since_last_structural_break_4h", lambda x: norm_piecewise_linear(x, [(0, 0), (1, 20), (2, 40), (4, 70), (6, 100)]), 0.20),
-            ("dist_to_base_mid_pct", lambda x: norm_piecewise_linear(x, [(0, 0), (3, 35), (6, 65), (10, 100)]), 0.20),
-            ("dist_to_ema20_4h_pct_abs", lambda x: norm_piecewise_linear(x, [(0, 0), (2, 30), (5, 65), (8, 100)]), 0.20),
+        exp_fields = [
+            "move_from_last_structural_break_pct",
+            "bars_since_last_structural_break_4h",
+            "dist_to_base_mid_pct",
+            "dist_to_ema20_4h_pct_abs",
         ]
         exp_scores = []
-        for field, fn, weight in exp_specs:
+        for field in exp_fields:
             raw = _extract_input(feature_bundle, field) if field != "dist_to_base_mid_pct" else None
-            exp_scores.append((fn(float(raw)) if raw is not None else None, weight))
+            exp_scores.append((_pw_score(raw, exp_cfg[field]), float(exp_cfg[field]["weight"])))
         exp, exp_ne, exp_rr, exp_ratio = _aggregate(exp_scores, min_ratio)
 
-    # Axis 5: volume_regime_shift
+    vol_cfg = axes_cfg["volume_regime_shift"]
     if not feature_bundle.data_4h_available:
         vol, vol_ne, vol_rr, vol_ratio = None, True, False, None
     else:
         vol_specs = [
-            ("volume_quote_spike_1d", lambda x: norm_linear_clamped(x, 0.9, 1.2, 2.0), 0.25),
-            ("volume_quote_spike_4h", lambda x: norm_linear_clamped(x, 0.9, 1.2, 2.0), 0.35),
-            ("volume_spike_persistence_4h", lambda x: norm_piecewise_linear(x, [(0.00, 0), (0.25, 30), (0.50, 60), (0.75, 85), (1.00, 100)]), 0.20),
-            ("volume_4h_current_vs_median10", lambda x: norm_piecewise_linear(x, [(0.8, 0), (1.0, 40), (1.3, 70), (1.8, 100)]), 0.20),
+            ("volume_quote_spike_1d", _lin_score),
+            ("volume_quote_spike_4h", _lin_score),
+            ("volume_spike_persistence_4h", _pw_score),
+            ("volume_4h_current_vs_median10", _pw_score),
         ]
         vol_scores = []
-        for field, fn, weight in vol_specs:
-            raw = _extract_input(feature_bundle, field)
-            vol_scores.append((fn(float(raw)) if raw is not None else None, weight))
+        for field, scorer in vol_specs:
+            vol_scores.append((scorer(_extract_input(feature_bundle, field), vol_cfg[field]), float(vol_cfg[field]["weight"])))
         vol, vol_ne, vol_rr, vol_ratio = _aggregate(vol_scores, min_ratio)
 
-    # Axis 6: freshness_distance_structural
-    fresh_specs = [
-        ("distance_to_last_structural_anchor_pct_abs", lambda x: norm_piecewise_linear(x, [(0, 0), (1, 25), (2, 50), (3, 75), (5, 100)]), 0.35),
-        ("distance_to_range_high_pct_abs", lambda x: norm_piecewise_linear(x, [(0, 0), (1, 30), (2, 55), (4, 100)]), 0.25),
-        ("bars_since_last_volume_shift_4h", lambda x: norm_piecewise_linear(x, [(0, 0), (1, 20), (2, 40), (4, 70), (6, 100)]), 0.20),
-        ("bars_since_last_structural_break_4h", lambda x: norm_piecewise_linear(x, [(0, 0), (1, 20), (2, 40), (4, 70), (6, 100)]), 0.20),
+    fresh_cfg = axes_cfg["freshness_distance_structural"]
+    fresh_fields = [
+        "distance_to_last_structural_anchor_pct_abs",
+        "distance_to_range_high_pct_abs",
+        "bars_since_last_volume_shift_4h",
+        "bars_since_last_structural_break_4h",
     ]
-    fresh_scores = []
-    for field, fn, weight in fresh_specs:
-        raw = _extract_input(feature_bundle, field)
-        fresh_scores.append((fn(float(raw)) if raw is not None else None, weight))
+    fresh_scores = [(_pw_score(_extract_input(feature_bundle, field), fresh_cfg[field]), float(fresh_cfg[field]["weight"])) for field in fresh_fields]
     valid_count = sum(1 for score, _ in fresh_scores if score is not None)
     if valid_count < 2:
         fresh, fresh_ne, fresh_rr, fresh_ratio = None, True, False, None

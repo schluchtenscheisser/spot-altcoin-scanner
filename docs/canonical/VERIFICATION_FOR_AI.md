@@ -217,6 +217,7 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Tier-1 domain is exactly six axes: `trend_strength`, `reclaim_progress`, `compression_strength`, `expansion_progress_structural`, `volume_regime_shift`, `freshness_distance_structural`.
 - Input availability rule: a feature is usable iff `value != null` and companion status is exactly `ok`.
 - Normalization utility set is fixed: `norm_linear_clamped`, `norm_linear_clamped_inv`, `norm_piecewise_linear`, `weighted_mean`.
+- Per-axis calibration values (anchors/points/weights) are sourced from `cfg.axes.<axis>`; defaults are canonical Ticket-6 values and partial overrides merge field-by-field.
 - `weighted_mean` drops `null` scores and renormalizes retained weights; caller computes and persists `effective_weight_ratio`.
 - Generic floor rule: `effective_weight_ratio < cfg.axes.min_effective_weight_ratio => axis not evaluable`.
 - `reclaim_progress` must use two-level aggregation: per-anchor score first, then cross-anchor weighted aggregation.
