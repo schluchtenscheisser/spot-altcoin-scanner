@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-19 10:39 UTC  
+**Last Updated:** 2026-04-19 15:48 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 64
-- **Total Classes:** 29
-- **Total Functions:** 510
+- **Total Modules:** 68
+- **Total Classes:** 30
+- **Total Functions:** 528
 
 ---
 
@@ -29,6 +29,44 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 ### 📄 `scanner/__init__.py`
 
 **Functions:** —
+
+---
+
+### 📄 `scanner/axes/__init__.py`
+
+**Functions:** —
+
+**Imports:** `scanner.axes.models, scanner.axes.tier1`
+
+---
+
+### 📄 `scanner/axes/models.py`
+
+**Classes:** `Tier1AxisBundle`
+
+**Functions:** —
+
+**Imports:** `__future__, dataclasses`
+
+---
+
+### 📄 `scanner/axes/normalization.py`
+
+**Functions:** `_is_finite_number, norm_linear_clamped, norm_linear_clamped_inv, norm_piecewise_linear, weighted_mean`
+
+**Module Variables:** `ratio, sf, total_weight, xf, xs, ys`
+
+**Imports:** `__future__, math, typing`
+
+---
+
+### 📄 `scanner/axes/tier1.py`
+
+**Functions:** `_aggregate, _extract_input, _is_ok, _lin_inv_score, _lin_score, _pw_score, _resolve_axes_cfg, compute_tier1_axes`
+
+**Module Variables:** `anchor_map, axes, axes_cfg, comp_cfg, comp_fields, comp_scores, dist, dist_score, exp_cfg, exp_fields` _(+30 more)_
+
+**Imports:** `__future__, scanner.axes.models, scanner.axes.normalization, scanner.features.models, typing`
 
 ---
 
@@ -96,9 +134,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_axes_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds, conf, configured, configured_primary` _(+53 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, block, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds` _(+66 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -687,6 +725,28 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 _This section shows which functions call which other functions, helping identify coupling and refactoring opportunities._
 
+### 📄 scanner/axes/normalization.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_is_finite_number` | — | `isfinite` |
+| `norm_linear_clamped` | `_is_finite_number` | `ValueError` |
+| `norm_linear_clamped_inv` | `_is_finite_number` | `ValueError` |
+| `norm_piecewise_linear` | `_is_finite_number` | `RuntimeError`, `ValueError` |
+| `weighted_mean` | `_is_finite_number` | `ValueError`, `append`, `isfinite` |
+
+### 📄 scanner/axes/tier1.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_aggregate` | — | `weighted_mean` |
+| `_extract_input` | `_is_ok` | — |
+| `_lin_inv_score` | — | `norm_linear_clamped_inv` |
+| `_lin_score` | — | `norm_linear_clamped` |
+| `_pw_score` | — | `norm_piecewise_linear` |
+| `_resolve_axes_cfg` | — | `get` |
+| `compute_tier1_axes` | `_aggregate`, `_extract_input`, `_lin_inv_score`, `_lin_score`, `_pw_score`, `_resolve_axes_cfg` | `Tier1AxisBundle`, `append`, `get`, `norm_linear_clamped`, `norm_piecewise_linear`, `scorer` |
+
 ### 📄 scanner/backtest/e2_model.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -752,6 +812,10 @@ _This section shows which functions call which other functions, helping identify
 | `_parse_integer_budget_value` | — | `ValueError`, `is_integer` |
 | `_raise_invalid` | — | `ValueError` |
 | `_read_nested` | — | `get` |
+| `_validate_linear` | `_raise_invalid` | `get`, `isfinite` |
+| `_validate_points` | `_raise_invalid` | `append`, `isfinite` |
+| `_validate_weight` | `_raise_invalid` | `isfinite` |
+| `axes` | `resolve_axes_config` | — |
 | `btc_regime_enabled` | — | `get` |
 | `btc_regime_mode` | — | `get` |
 | `btc_regime_risk_off_enter_boost` | — | `get` |
@@ -771,7 +835,7 @@ _This section shows which functions call which other functions, helping identify
 | `feature_layer_config` | `resolve_feature_layer_config` | — |
 | `independence_ohlcv_fetch` | `resolve_independence_ohlcv_fetch_config` | — |
 | `independence_release` | `_normalize_independence_release_config` | `get` |
-| `load_config` | `_normalize_independence_release_config`, `resolve_independence_ohlcv_fetch_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
+| `load_config` | `_normalize_independence_release_config`, `resolve_axes_config`, `resolve_independence_ohlcv_fetch_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
 | `log_file` | — | `get` |
 | `log_level` | — | `get` |
 | `log_to_file` | — | `get` |
@@ -785,6 +849,7 @@ _This section shows which functions call which other functions, helping identify
 | `min_mexc_share_24h` | — | `get` |
 | `min_turnover_24h` | — | `get` |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
+| `resolve_axes_config` | `_deep_merge_dicts`, `_raise_invalid`, `_validate_linear`, `_validate_points`, `_validate_weight` | `get`, `isfinite`, `items` |
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
@@ -814,7 +879,7 @@ _This section shows which functions call which other functions, helping identify
 | `tradeability_min_depth_1pct_usd` | — | `get` |
 | `tradeability_notional_chunk_usdt` | — | `get` |
 | `tradeability_notional_total_usdt` | — | `get` |
-| `validate_config` | `_expect_integer_number`, `_expect_number` | `append`, `get` |
+| `validate_config` | `_expect_integer_number`, `_expect_number`, `resolve_axes_config` | `append`, `get` |
 
 ### 📄 scanner/data/bar_clock.py
 
@@ -1431,7 +1496,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 33 | 89 | 122 | 🔴 High |
+| `scanner/config.py` | 44 | 97 | 141 | 🔴 High |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -1463,12 +1528,14 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
+| `scanner/axes/tier1.py` | 7 | 11 | 18 | 🔴 High |
 | `scanner/storage/repositories.py` | 0 | 17 | 17 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/axes/normalization.py` | 4 | 8 | 12 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
@@ -1502,4 +1569,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-19 10:39 UTC_
+_Generated by GitHub Actions • 2026-04-19 15:48 UTC_
