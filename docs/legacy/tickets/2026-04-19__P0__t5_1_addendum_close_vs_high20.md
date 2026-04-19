@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] T5.1 addendum: add `close_vs_high20_4h_pct` to RawFeatures4H
 

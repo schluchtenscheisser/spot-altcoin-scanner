@@ -207,5 +207,7 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - missing keys use defaults; invalid values fail validation.
 - Ticket 5.1 contract deltas:
   - `RawFeatures4H` canonical anchor naming is `fixed_structural_break_anchor_4h` only (no public alias field).
+  - `close_vs_high20_4h_pct` is mandatory in `RawFeatures4H` and computed as `((close_4h / fixed_structural_break_anchor_4h) - 1) * 100`.
+  - `close_vs_high20_4h_pct` status contract: missing/non-`ok` anchor -> `upstream_dependency_null`; zero/non-finite anchor or non-finite close -> `invalid_upstream_value`; otherwise `ok`.
   - `bars_since_last_volume_shift_4h` uses configurable lookback and threshold `>= persistence_spike_threshold`; full window with no event returns lookback cap with status `ok`.
   - `distance_to_range_high_pct_abs` uses configurable 4h rolling high window and computes `abs((rolling_high-close)/rolling_high)*100`; zero or non-finite required window values yield `invalid_upstream_value`.

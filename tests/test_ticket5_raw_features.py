@@ -8,6 +8,7 @@ import pytest
 from scanner.config import ScannerConfig
 from scanner.features import build_feature_bundle, compute_raw_1d, compute_raw_4h, compute_raw_shared
 from scanner.features.models import RawFeatures4H
+from scanner.features.raw_4h import _close_vs_high20_4h_pct
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,35 @@ def _bars(n: int, step_ms: int, start: int = 0) -> list[Bar]:
             )
         )
     return out
+
+
+def _bars_with_structural_break(anchor: float, break_close: float, last_close: float, n: int = 30) -> list[Bar]:
+    bars: list[Bar] = []
+    for i in range(n):
+        close_time = (i + 1) * 14_400_000
+        if i < 25:
+            close = anchor
+            high = anchor
+            low = anchor * 0.99 if anchor != 0 else -1.0
+        elif i == 25:
+            close = break_close
+            high = break_close
+            low = min(anchor, break_close) * 0.99
+        else:
+            close = last_close
+            high = max(last_close, anchor) + 0.01
+            low = min(last_close, anchor) - 0.01
+        bars.append(
+            Bar(
+                close_time_utc_ms=close_time,
+                close=close,
+                high=high,
+                low=low,
+                base_volume=1000 + i,
+                quote_volume=(1000 + i) * (close if close == close else 1.0),
+            )
+        )
+    return bars
 
 
 def test_compute_raw_1d_core_fields_ok() -> None:
@@ -335,3 +365,66 @@ def test_new_fields_present_in_bundle_and_raw_4h_none_when_missing() -> None:
 
     raw4h_none = compute_raw_4h("XRPUSDT", {"daily_bar_id": 1}, None, cfg)
     assert raw4h_none is None
+
+
+def test_close_vs_high20_4h_pct_standard_case() -> None:
+    cfg = ScannerConfig(raw={})
+    bars = _bars_with_structural_break(anchor=1.0, break_close=1.2, last_close=1.05)
+    raw = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, bars, cfg)
+    assert raw is not None
+    assert raw.close_vs_high20_4h_pct == pytest.approx(5.0)
+    assert raw.close_vs_high20_4h_pct_status == "ok"
+
+
+def test_close_vs_high20_4h_pct_negative_result() -> None:
+    cfg = ScannerConfig(raw={})
+    bars = _bars_with_structural_break(anchor=1.0, break_close=1.2, last_close=0.95)
+    raw = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, bars, cfg)
+    assert raw is not None
+    assert raw.close_vs_high20_4h_pct == pytest.approx(-5.0)
+    assert raw.close_vs_high20_4h_pct_status == "ok"
+
+
+def test_close_vs_high20_4h_pct_anchor_unavailable() -> None:
+    cfg = ScannerConfig(raw={})
+    raw = compute_raw_4h("BTCUSDT", {"daily_bar_id": 1}, _bars(20, 14_400_000), cfg)
+    assert raw is not None
+    assert raw.fixed_structural_break_anchor_4h is None
+    assert raw.close_vs_high20_4h_pct is None
+    assert raw.close_vs_high20_4h_pct_status == "upstream_dependency_null"
+
+
+def test_close_vs_high20_4h_pct_anchor_zero() -> None:
+    value, status = _close_vs_high20_4h_pct(close_4h=1.05, fixed_structural_break_anchor_4h=0.0, fixed_structural_break_anchor_4h_status="ok")
+    assert value is None
+    assert status == "invalid_upstream_value"
+
+
+def test_close_vs_high20_4h_pct_non_finite_anchor() -> None:
+    value, status = _close_vs_high20_4h_pct(close_4h=1.05, fixed_structural_break_anchor_4h=float("inf"), fixed_structural_break_anchor_4h_status="ok")
+    assert value is None
+    assert status == "invalid_upstream_value"
+
+
+def test_close_vs_high20_4h_pct_non_finite_close() -> None:
+    value, status = _close_vs_high20_4h_pct(close_4h=float("nan"), fixed_structural_break_anchor_4h=1.0, fixed_structural_break_anchor_4h_status="ok")
+    assert value is None
+    assert status == "invalid_upstream_value"
+
+
+def test_close_vs_high20_4h_pct_fields_present_in_raw4h_and_bundle() -> None:
+    fields = RawFeatures4H.__dataclass_fields__
+    assert "close_vs_high20_4h_pct" in fields
+    assert "close_vs_high20_4h_pct_status" in fields
+
+    cfg = ScannerConfig(raw={})
+    bundle = build_feature_bundle(
+        "XRPUSDT",
+        {"daily_bar_id": 1, "daily_close_time_utc_ms": 1},
+        _bars(180, 86_400_000),
+        _bars_with_structural_break(anchor=1.0, break_close=1.2, last_close=1.05, n=220),
+        cfg,
+    )
+    assert bundle.raw_4h is not None
+    assert hasattr(bundle.raw_4h, "close_vs_high20_4h_pct")
+    assert hasattr(bundle.raw_4h, "close_vs_high20_4h_pct_status")
