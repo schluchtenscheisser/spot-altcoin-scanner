@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-20 15:06 UTC  
+**Last Updated:** 2026-04-20 18:31 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 69
-- **Total Classes:** 31
-- **Total Functions:** 537
+- **Total Modules:** 72
+- **Total Classes:** 34
+- **Total Functions:** 554
 
 ---
 
@@ -144,7 +144,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_int, _parse_integer_budget_value, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, pre_shortlist_market_cap_floor_usd, resolve_axes_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, resolve_axes_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_phase_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
 **Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, block, btc_cfg, budget_cfg, cfg, cfg_path, class_thresholds` _(+66 more)_
 
@@ -259,6 +259,36 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `args, cfg, parser`
 
 **Imports:** `__future__, argparse, config, pipeline, sys`
+
+---
+
+### 📄 `scanner/phase/__init__.py`
+
+**Functions:** —
+
+**Imports:** `scanner.phase.interpreter, scanner.phase.models`
+
+---
+
+### 📄 `scanner/phase/interpreter.py`
+
+**Classes:** `_Axis, _PhaseResult`
+
+**Functions:** `_axis_from_bundle, _evaluate_pressure_build, _evaluate_transition_reclaim, _evaluate_trend_resume, _is_finite_0_100, _phase_cfg, _rank_phases, _require_matching_identity, _validate_axis, _validate_effective_weight_ratio, _weighted_score, compute_phase_interpretation, margin_value`
+
+**Module Variables:** `axes, effective_ratio, floor_margin, floors_ok, fresh, margin, market_phase, market_phase_blended, market_phase_confidence, market_phase_gap` _(+15 more)_
+
+**Imports:** `__future__, dataclasses, math, scanner.axes.models, scanner.config, scanner.phase.models, typing`
+
+---
+
+### 📄 `scanner/phase/models.py`
+
+**Classes:** `PhaseInterpretationBundle`
+
+**Functions:** —
+
+**Imports:** `__future__, dataclasses`
 
 ---
 
@@ -831,8 +861,10 @@ _This section shows which functions call which other functions, helping identify
 | `_expect_number` | — | `append`, `isfinite` |
 | `_normalize_independence_release_config` | `_deep_merge_dicts` | `ValueError`, `get`, `items` |
 | `_parse` | — | `ValueError`, `isfinite` |
+| `_parse_0_100` | `_raise_invalid` | `isfinite` |
 | `_parse_int` | `_raise_invalid` | `get` |
 | `_parse_integer_budget_value` | — | `ValueError`, `is_integer` |
+| `_parse_ratio` | `_raise_invalid` | `isfinite` |
 | `_raise_invalid` | — | `ValueError` |
 | `_read_nested` | — | `get` |
 | `_validate_linear` | `_raise_invalid` | `get`, `isfinite` |
@@ -871,12 +903,14 @@ _This section shows which functions call which other functions, helping identify
 | `min_mexc_quote_volume_24h_usdt` | — | `get` |
 | `min_mexc_share_24h` | — | `get` |
 | `min_turnover_24h` | — | `get` |
+| `phase` | `resolve_phase_config` | — |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
 | `resolve_axes_config` | `_deep_merge_dicts`, `_raise_invalid`, `_validate_linear`, `_validate_points`, `_validate_weight` | `get`, `isfinite`, `items` |
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
 | `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
+| `resolve_phase_config` | `_deep_merge_dicts`, `_parse_0_100`, `_parse_ratio`, `_raise_invalid` | `get`, `items` |
 | `resolve_risk_max_stop_distance_pct` | `_parse` | `ValueError`, `get` |
 | `resolve_risk_min_rr_to_target_1` | — | `ValueError`, `get`, `isfinite` |
 | `risk_atr_multiple` | — | `get` |
@@ -989,6 +1023,21 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `main` | `parse_args` | `load_config`, `run_pipeline`, `setdefault` |
 | `parse_args` | `parse_args` | `ArgumentParser`, `add_argument` |
+
+### 📄 scanner/phase/interpreter.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_axis_from_bundle` | — | `_Axis` |
+| `_evaluate_pressure_build` | `_weighted_score` | `_Axis`, `_PhaseResult` |
+| `_evaluate_transition_reclaim` | `_weighted_score` | `_Axis`, `_PhaseResult` |
+| `_evaluate_trend_resume` | `_weighted_score` | `_PhaseResult` |
+| `_is_finite_0_100` | — | `isfinite` |
+| `_rank_phases` | `margin_value` | `index` |
+| `_require_matching_identity` | — | `ValueError` |
+| `_validate_axis` | `_is_finite_0_100`, `_validate_effective_weight_ratio` | `ValueError` |
+| `_validate_effective_weight_ratio` | — | `ValueError`, `isfinite` |
+| `compute_phase_interpretation` | `_axis_from_bundle`, `_evaluate_pressure_build`, `_evaluate_transition_reclaim`, `_evaluate_trend_resume`, `_phase_cfg`, `_rank_phases`, `_require_matching_identity`, `_validate_axis` | `PhaseInterpretationBundle`, `TypeError`, `items`, `update` |
 
 ### 📄 scanner/pipeline/__init__.py
 
@@ -1519,7 +1568,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 44 | 97 | 141 | 🔴 High |
+| `scanner/config.py` | 51 | 101 | 152 | 🔴 High |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -1541,6 +1590,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/features/raw_1d.py` | 12 | 23 | 35 | 🔴 High |
 | `scanner/features/raw_4h.py` | 9 | 23 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/phase/interpreter.py` | 14 | 16 | 30 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/data/bar_clock.py` | 7 | 22 | 29 | 🔴 High |
 | `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
@@ -1593,4 +1643,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-20 15:06 UTC_
+_Generated by GitHub Actions • 2026-04-20 18:31 UTC_
