@@ -31,12 +31,35 @@ def _is_finite_0_100(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)) and 0.0 <= float(value) <= 100.0
 
 
+def _validate_effective_weight_ratio(field_name: str, value: Any, not_evaluable: bool) -> None:
+    if not_evaluable:
+        if value is not None:
+            raise ValueError(f"{field_name} invalid: must be None when not_evaluable=True")
+        return
+
+    if value is None:
+        raise ValueError(f"{field_name} invalid: must not be None when not_evaluable=False")
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} invalid: bool is not allowed")
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} invalid: must be int|float in [0,1]")
+
+    numeric_value = float(value)
+    if not math.isfinite(numeric_value):
+        raise ValueError(f"{field_name} invalid: must be finite in [0,1]")
+    if numeric_value < 0.0 or numeric_value > 1.0:
+        raise ValueError(f"{field_name} invalid: must be in [0,1]")
+
+
 def _validate_axis(name: str, axis: _Axis) -> None:
     if axis.not_evaluable:
         if axis.value is not None:
             raise ValueError(f"{name} invalid: value must be None when not_evaluable=True")
-        if axis.effective_weight_ratio is not None:
-            raise ValueError(f"{name} invalid: effective_weight_ratio must be None when not_evaluable=True")
+        _validate_effective_weight_ratio(
+            f"{name}_effective_weight_ratio",
+            axis.effective_weight_ratio,
+            axis.not_evaluable,
+        )
         if axis.reduced_resolution:
             raise ValueError(f"{name} invalid: reduced_resolution must be False when not_evaluable=True")
         return
@@ -45,12 +68,11 @@ def _validate_axis(name: str, axis: _Axis) -> None:
         raise ValueError(f"{name} invalid: value must not be None when not_evaluable=False")
     if not _is_finite_0_100(axis.value):
         raise ValueError(f"{name} invalid: value {axis.value!r} must be finite in [0,100]")
-    if axis.effective_weight_ratio is None:
-        raise ValueError(f"{name} invalid: effective_weight_ratio must not be None when evaluable")
-    if not _is_finite_0_100(float(axis.effective_weight_ratio) * 100.0):
-        raise ValueError(
-            f"{name} invalid: effective_weight_ratio {axis.effective_weight_ratio!r} must be finite in [0,1]"
-        )
+    _validate_effective_weight_ratio(
+        f"{name}_effective_weight_ratio",
+        axis.effective_weight_ratio,
+        axis.not_evaluable,
+    )
 
 
 def _axis_from_bundle(bundle: Any, name: str) -> _Axis:

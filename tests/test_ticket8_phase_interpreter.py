@@ -98,6 +98,25 @@ def test_axis_validation_rejects_non_finite_and_inconsistent_nullability():
         compute_phase_interpretation(_tier1(), t2, _cfg())
 
 
+@pytest.mark.parametrize(
+    ("ratio_value", "field_name"),
+    [
+        (True, "trend_strength_effective_weight_ratio"),
+        (False, "trend_strength_effective_weight_ratio"),
+        ("0.75", "trend_strength_effective_weight_ratio"),
+        ("1", "trend_strength_effective_weight_ratio"),
+        (float("nan"), "trend_strength_effective_weight_ratio"),
+        (float("inf"), "trend_strength_effective_weight_ratio"),
+        (-0.1, "trend_strength_effective_weight_ratio"),
+        (1.1, "trend_strength_effective_weight_ratio"),
+    ],
+)
+def test_effective_weight_ratio_rejects_malformed_or_out_of_range_values(ratio_value, field_name):
+    t1 = _tier1(trend_strength_effective_weight_ratio=ratio_value)
+    with pytest.raises(ValueError, match=field_name):
+        compute_phase_interpretation(t1, _tier2(), _cfg())
+
+
 def test_minimum_basis_failures():
     out_pb = compute_phase_interpretation(
         _tier1(compression_strength=None, compression_strength_not_evaluable=True, compression_strength_effective_weight_ratio=None),
