@@ -250,3 +250,32 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - `not_evaluable=true => axis is null`;
   - `effective_weight_ratio=null` when axis not evaluable;
   - axis null must never be coerced to 0/false/sentinel.
+
+## Ticket 8 verification boundaries (phase interpreter)
+
+- Domain and output:
+  - positive phases are exactly `{pressure_build, trend_resume, transition_reclaim}` plus `none`.
+  - `market_phase_runner_up` is always one positive phase and is deterministic.
+- Input contract:
+  - accepts exactly `Tier1AxisBundle`, `Tier2AxisBundle`, and `cfg`.
+  - rejects type mismatches (`TypeError`) and bundle metadata mismatches (`ValueError`).
+  - axis values must be finite `0..100` or `null` with consistent `*_not_evaluable`/`*_effective_weight_ratio` companions.
+- Per-phase admissibility:
+  - minimum-basis gate is checked before hard floors.
+  - hard-floor missing inputs are not imputable and force phase score `0` with `hard_floor_failed`.
+- Score/dropout:
+  - optional weighted-score components may drop out phase-locally with renormalization.
+  - if surviving weighted mass `< cfg.phase.min_effective_weight_ratio`, phase is `hard_floor_failed`.
+- Ranking and semantics:
+  - rank by `phase_score`, then `phase_floor_margin`, then fixed order (`pressure_build > trend_resume > transition_reclaim`).
+  - `market_phase_gap = top_score - runner_up_score`.
+  - `market_phase_blended=true` only when positive phase selected and gap below `phase_gap_floor`.
+- Confidence:
+  - global confidence floor uses uncapped `top_score`.
+  - reduced-resolution cap applies only if winner used a weighted-score input with `_reduced_resolution=true`.
+- Freshness:
+  - `freshness_distance_structural*` values are passthrough diagnostics only.
+  - freshness is excluded from minimum-basis, hard-floor, and weighted-score calculations.
+- Canonical defaults:
+  - `global_confidence_floor=55`, `reduced_resolution_confidence_cap=75`, `phase_gap_floor=8`, `min_effective_weight_ratio=0.60`.
+  - floors: pressure_build `(60,50,50)`, trend_resume `(55,45,65)`, transition_reclaim `(45,45,55)`.

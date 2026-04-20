@@ -177,6 +177,28 @@ _FEATURE_LAYER_DEFAULTS = {
     },
 }
 
+_PHASE_DEFAULTS = {
+    "min_effective_weight_ratio": 0.60,
+    "global_confidence_floor": 55.0,
+    "reduced_resolution_confidence_cap": 75.0,
+    "phase_gap_floor": 8.0,
+    "pressure_build": {
+        "floor_compression": 60.0,
+        "floor_volume_shift": 50.0,
+        "max_expansion": 50.0,
+    },
+    "trend_resume": {
+        "floor_trend": 55.0,
+        "floor_reclaim": 45.0,
+        "max_expansion": 65.0,
+    },
+    "transition_reclaim": {
+        "floor_reclaim": 45.0,
+        "floor_volume_shift": 45.0,
+        "max_expansion": 55.0,
+    },
+}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -588,6 +610,61 @@ def resolve_feature_layer_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     merged["structural_break"] = {"min_bars_below_before_break": int(mbb)}
     return merged
 
+
+def resolve_phase_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("phase")
+    if section_raw is None:
+        section: Mapping[str, Any] = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("phase", section_raw, "must be an object")
+    else:
+        section = section_raw
+
+    merged = _deep_merge_dicts(_PHASE_DEFAULTS, section)
+
+    def _parse_ratio(key: str, value: Any) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(key, value, "must be finite number")
+        parsed = float(value)
+        if parsed <= 0 or parsed > 1:
+            _raise_invalid(key, value, "must satisfy 0 < value <= 1")
+        return parsed
+
+    def _parse_0_100(key: str, value: Any) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(key, value, "must be finite number")
+        parsed = float(value)
+        if parsed < 0 or parsed > 100:
+            _raise_invalid(key, value, "must be in [0,100]")
+        return parsed
+
+    merged["min_effective_weight_ratio"] = _parse_ratio(
+        "phase.min_effective_weight_ratio", merged.get("min_effective_weight_ratio")
+    )
+    merged["global_confidence_floor"] = _parse_0_100(
+        "phase.global_confidence_floor", merged.get("global_confidence_floor")
+    )
+    merged["reduced_resolution_confidence_cap"] = _parse_0_100(
+        "phase.reduced_resolution_confidence_cap", merged.get("reduced_resolution_confidence_cap")
+    )
+    merged["phase_gap_floor"] = _parse_0_100("phase.phase_gap_floor", merged.get("phase_gap_floor"))
+
+    for phase_name, keys in {
+        "pressure_build": ["floor_compression", "floor_volume_shift", "max_expansion"],
+        "trend_resume": ["floor_trend", "floor_reclaim", "max_expansion"],
+        "transition_reclaim": ["floor_reclaim", "floor_volume_shift", "max_expansion"],
+    }.items():
+        block = merged.get(phase_name)
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"phase.{phase_name}", block, "must be an object")
+        normalized: Dict[str, float] = {}
+        for key in keys:
+            normalized[key] = _parse_0_100(f"phase.{phase_name}.{key}", block.get(key))
+        merged[phase_name] = normalized
+
+    return merged
+
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -700,6 +777,10 @@ class ScannerConfig:
     @property
     def axes(self) -> Dict[str, Any]:
         return resolve_axes_config(self.raw)
+
+    @property
+    def phase(self) -> Dict[str, Any]:
+        return resolve_phase_config(self.raw)
 
     @property
     def spec_version(self) -> str:

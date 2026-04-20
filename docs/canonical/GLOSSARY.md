@@ -89,3 +89,11 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **two-path axis evaluation**: deterministic path selection rule where `data_4h_available=true` forces 4h-only evaluation and `data_4h_available=false` forces 1d fallback evaluation.
 - **segmentation validity pre-gate**: `pullback_quality_simplified` gate requiring `impulse_high_price_tf > impulse_start_price_tf` on the selected timeframe before any weighted scoring begins.
 - **_simplified suffix**: denotes the reduced Tier-2 axis family defined for Independence-Release Ticket 7, distinct from Tier-1 axes and from later phase/state interpretation layers.
+
+## Ticket 8 additive terms
+
+- **pressure_build / trend_resume / transition_reclaim**: the three positive phase classes emitted by the Layer-3 phase interpreter.
+- **none (phase result)**: valid deterministic classification when no positive phase assignment is granted.
+- **market_phase_runner_up**: deterministic second-ranked positive phase (non-nullable).
+- **market_phase_blended**: `true` when selected positive phase has `market_phase_gap < phase_gap_floor`; always `false` for `market_phase=none`.
+- **none paths**: three distinct causes are preserved—minimum basis not met, hard-floor failure, or global confidence floor not met.

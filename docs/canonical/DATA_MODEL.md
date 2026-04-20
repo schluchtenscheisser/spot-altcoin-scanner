@@ -166,3 +166,19 @@ Nullability contract is strict:
 - `<axis>_not_evaluable=true => <axis> is null`.
 - `<axis>_effective_weight_ratio = null` when `<axis>_not_evaluable=true`.
 - `<axis>_reduced_resolution=false` when `<axis>_not_evaluable=true`.
+
+## Ticket 8 additive in-memory phase model
+
+Ticket 8 introduces `PhaseInterpretationBundle` as typed in-memory output with fields for:
+- selected phase (`market_phase`), confidence, deterministic runner-up, gap, and blended flag,
+- per-phase scores, floor margins, floor-failure flags, and eval statuses,
+- passthrough freshness diagnostics (`freshness_distance_structural*`).
+
+Closed enums:
+- `market_phase ∈ {pressure_build, trend_resume, transition_reclaim, none}`
+- `market_phase_runner_up ∈ {pressure_build, trend_resume, transition_reclaim}`
+- `phase_eval_status_* ∈ {score_computed, minimum_basis_not_met, hard_floor_failed}`.
+
+Nullability rules:
+- `phase_floor_margin_*` may be `null` when minimum basis is missing or required floor inputs are unavailable.
+- `freshness_distance_structural` passthrough keeps upstream nullability and must not be coerced.
