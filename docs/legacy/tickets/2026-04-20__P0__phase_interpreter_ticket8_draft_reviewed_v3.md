@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Implement phase interpreter and typed phase-classification bundle (Ticket 8)
 

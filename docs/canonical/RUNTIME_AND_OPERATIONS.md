@@ -230,3 +230,13 @@ Determinism/semantics:
 - no direct OHLCV access
 - no repository/cache/SQLite/Parquet IO
 - no raw `now`/timestamp side effects.
+
+## Ticket 8 runtime verification boundaries (phase interpreter)
+
+- Public entrypoint is exactly `compute_phase_interpretation(tier1_bundle, tier2_bundle, cfg)`.
+- Bundle identity fields must match exactly (`symbol`, `daily_bar_id`, `intraday_bar_id`, `data_4h_available`) or fail hard.
+- Minimum-basis failure, hard-floor failure, and global-confidence-floor `none` remain diagnostically distinct.
+- Tie-break is deterministic: higher `phase_score`, then higher `phase_floor_margin`, then fixed phase order.
+- `market_phase_runner_up` is deterministic and non-nullable, including exact ties and all-zero scores.
+- Reduced-resolution confidence cap is derived only from weighted-score inputs used by the winning phase.
+- `freshness_distance_structural` is passthrough-only and must not influence phase floors or weighted scores.

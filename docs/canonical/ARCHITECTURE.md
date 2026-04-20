@@ -169,3 +169,14 @@ Execution contract:
 - all three axes use deterministic two-path selection (`data_4h_available=true -> 4h path only`, otherwise 1d fallback);
 - no automatic 4h-to-1d fallthrough when 4h path has partial dropout;
 - `pullback_quality_simplified` enforces segmentation validity (`impulse_high_price_tf > impulse_start_price_tf`) as a pre-gate before scoring.
+
+## Ticket 8 additive architecture contract (Phase interpreter)
+
+`scanner/phase/` now owns deterministic Layer-3 phase interpretation:
+- `scanner/phase/models.py` (`PhaseInterpretationBundle` typed in-memory contract)
+- `scanner/phase/interpreter.py` (`compute_phase_interpretation(tier1_bundle, tier2_bundle, cfg)`).
+
+Scope boundary:
+- consumes exactly `Tier1AxisBundle`, `Tier2AxisBundle`, and `cfg.phase`;
+- computes exactly three positive phases plus `none`;
+- no raw features, no OHLCV, no storage, no state/invalidation/entry/ranking logic.
