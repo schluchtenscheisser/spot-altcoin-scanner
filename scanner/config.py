@@ -227,6 +227,32 @@ _CYCLE_DEFAULTS = {
     "enable_reclaim_reset": False,
 }
 
+_STATE_DEFAULTS = {
+    "confidence": {
+        "blended_penalty": 5.0,
+        "not_full_resolution_penalty": 10.0,
+    },
+    "freshness": {
+        "bars_points": [[0.0, 0.0], [1.0, 20.0], [2.0, 40.0], [4.0, 70.0], [6.0, 100.0]],
+        "distance_points": [[0.0, 0.0], [1.0, 25.0], [2.0, 50.0], [3.0, 75.0], [5.0, 100.0]],
+    },
+    "early": {
+        "max_structural_freshness": 65.0,
+        "pressure_build": {"min_compression": 65.0, "min_volume_shift": 55.0, "max_expansion": 45.0},
+        "trend_resume": {"min_trend": 55.0, "min_reclaim": 40.0, "min_reaccel": 50.0},
+        "transition_reclaim": {"min_reclaim": 45.0, "min_volume_shift": 45.0},
+    },
+    "confirmed": {
+        "max_structural_freshness": 55.0,
+        "daily_only_min_phase_confidence": 70.0,
+        "pressure_build": {"min_reclaim": 55.0, "min_compression": 60.0, "min_volume_shift": 55.0, "max_expansion": 50.0},
+        "trend_resume": {"min_reclaim": 50.0, "min_trend": 60.0, "min_reaccel": 55.0},
+        "transition_reclaim": {"min_reclaim": 55.0, "min_trend_after_reclaim": 50.0},
+    },
+    "late": {"min_state_freshness": 60.0},
+    "chased": {"min_state_freshness": 85.0, "min_expansion_progress": 80.0},
+}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -765,6 +791,59 @@ def resolve_cycle_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     return merged
 
 
+def resolve_state_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("state")
+    if section_raw is None:
+        section = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("state", section_raw, "must be an object")
+    else:
+        section = section_raw
+    merged = _deep_merge_dicts(_STATE_DEFAULTS, section)
+
+    def _parse_0_100(key: str, value: Any) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(key, value, "must be finite number")
+        parsed = float(value)
+        if parsed < 0 or parsed > 100:
+            _raise_invalid(key, value, "must be in [0,100]")
+        return parsed
+
+    def _parse_points(key: str, value: Any) -> list[list[float]]:
+        if not isinstance(value, list) or not value:
+            _raise_invalid(key, value, "must be non-empty list of [x,y] points")
+        out: list[list[float]] = []
+        prev_x: float | None = None
+        for point in value:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                _raise_invalid(key, value, "each point must be [x,y]")
+            x, y = point
+            if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(float(x)):
+                _raise_invalid(key, x, "x must be finite number")
+            yv = _parse_0_100(key, y)
+            xf = float(x)
+            if prev_x is not None and xf <= prev_x:
+                _raise_invalid(key, value, "x values must be strictly ascending")
+            prev_x = xf
+            out.append([xf, yv])
+        return out
+
+    merged["confidence"]["blended_penalty"] = _parse_0_100("state.confidence.blended_penalty", merged["confidence"]["blended_penalty"])
+    merged["confidence"]["not_full_resolution_penalty"] = _parse_0_100(
+        "state.confidence.not_full_resolution_penalty", merged["confidence"]["not_full_resolution_penalty"]
+    )
+    merged["freshness"]["bars_points"] = _parse_points("state.freshness.bars_points", merged["freshness"]["bars_points"])
+    merged["freshness"]["distance_points"] = _parse_points(
+        "state.freshness.distance_points", merged["freshness"]["distance_points"]
+    )
+    merged["late"]["min_state_freshness"] = _parse_0_100("state.late.min_state_freshness", merged["late"]["min_state_freshness"])
+    merged["chased"]["min_state_freshness"] = _parse_0_100("state.chased.min_state_freshness", merged["chased"]["min_state_freshness"])
+    merged["chased"]["min_expansion_progress"] = _parse_0_100(
+        "state.chased.min_expansion_progress", merged["chased"]["min_expansion_progress"]
+    )
+    return merged
+
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -889,6 +968,10 @@ class ScannerConfig:
     @property
     def cycle(self) -> Dict[str, Any]:
         return resolve_cycle_config(self.raw)
+
+    @property
+    def state(self) -> Dict[str, Any]:
+        return resolve_state_config(self.raw)
 
     @property
     def spec_version(self) -> str:

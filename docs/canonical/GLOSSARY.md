@@ -104,3 +104,10 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **timing_invalidation**: freshness/progression invalidation signal evaluated only when structural invalidation is false.
 - **cycle_reason_code**: mandatory closed-enum explanation for detected/blocked cycle reset outcome.
 - **first-seen cycle bootstrap**: initialization path with `resolved_setup_cycle_id=1` and `new_cycle_detected=false`.
+
+## Ticket 10 additive terms
+
+- **state evaluation disposition**: admission gate result that can deny state assignment without creating a seventh state.
+- **data_resolution_class**: local Ticket-10 derivation with values `{full_1d_4h, reduced_1d_4h, daily_only}` for the resolved state path.
+- **state persistence patch**: single authoritative per-symbol write payload for final state + cycle continuity.
+- **sticky-within-cycle state references**: entry references and derived freshness fields that persist across state changes until cycle reset.

@@ -713,3 +713,19 @@ Dieses Dokument protokolliert alle Änderungen an:
   }
 }
 ```
+
+## 2026-04-21 — Ticket 10 state/cycle persistence table
+
+**Bereich:** SQLite Runtime DB (`scanner/storage/schema.py`)  
+**Schema-Version:** `3 -> 4`  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- Neue Tabelle `state_machine_context` für Ticket-10 Final-State-/Cycle-Kontinuität.
+- Felder enthalten den minimalen persistierten Zustand inkl. `setup_cycle_id`, `state_machine_state`, `state_confidence`, `bars_since_*`, Entry-Referenzen, Freshness-Distanzen und `cycle_end_*`.
+
+#### Warum?
+- Ticket 10 verlangt einen einzelnen autoritativen Write-Path für State/Cycle-Felder als Grundlage für nachfolgende Runner-Tickets.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja (additiv, bestehende Tabellen unverändert).

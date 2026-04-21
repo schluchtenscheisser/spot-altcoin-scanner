@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
+from scanner.state.models import PersistedStateMachineContext, StatePersistencePatch
 
 
 @dataclass(frozen=True)
@@ -216,3 +217,123 @@ def read_recent_ohlcv_bars(
     ]
     bars.reverse()
     return bars
+
+
+def load_persisted_state_machine_context(connection: sqlite3.Connection, symbol: str) -> PersistedStateMachineContext:
+    row = connection.execute(
+        """
+        SELECT
+            symbol, setup_cycle_id, previous_setup_cycle_id, state_recorded_in_cycle_id, state_machine_state,
+            freshness_distance_state_early, freshness_distance_state_confirmed, bars_since_state_entered,
+            bars_since_early_entered, bars_since_confirmed_entered, bars_since_cycle_end,
+            reclaim_below_reset_floor_seen_since_cycle_end, close_at_early_entry_bar, close_at_confirmed_entry_bar,
+            distance_from_ideal_entry_after_early, distance_from_ideal_entry_after_confirmed,
+            cycle_end_bar_index, cycle_end_timestamp
+        FROM state_machine_context
+        WHERE symbol = ?
+        """,
+        (symbol,),
+    ).fetchone()
+    if row is None:
+        return PersistedStateMachineContext(
+            symbol=symbol,
+            current_setup_cycle_id=None,
+            previous_setup_cycle_id=None,
+            state_recorded_in_cycle_id=None,
+            prev_state_machine_state=None,
+            freshness_distance_state_early=None,
+            freshness_distance_state_confirmed=None,
+            bars_since_state_entered=None,
+            bars_since_early_entered=None,
+            bars_since_confirmed_entered=None,
+            bars_since_cycle_end=None,
+            reclaim_below_reset_floor_seen_since_cycle_end=None,
+            close_at_early_entry_bar=None,
+            close_at_confirmed_entry_bar=None,
+            distance_from_ideal_entry_after_early=None,
+            distance_from_ideal_entry_after_confirmed=None,
+            cycle_end_bar_index=None,
+            cycle_end_timestamp=None,
+        )
+    flag = row["reclaim_below_reset_floor_seen_since_cycle_end"]
+    return PersistedStateMachineContext(
+        symbol=row["symbol"],
+        current_setup_cycle_id=row["setup_cycle_id"],
+        previous_setup_cycle_id=row["previous_setup_cycle_id"],
+        state_recorded_in_cycle_id=row["state_recorded_in_cycle_id"],
+        prev_state_machine_state=row["state_machine_state"],
+        freshness_distance_state_early=row["freshness_distance_state_early"],
+        freshness_distance_state_confirmed=row["freshness_distance_state_confirmed"],
+        bars_since_state_entered=row["bars_since_state_entered"],
+        bars_since_early_entered=row["bars_since_early_entered"],
+        bars_since_confirmed_entered=row["bars_since_confirmed_entered"],
+        bars_since_cycle_end=row["bars_since_cycle_end"],
+        reclaim_below_reset_floor_seen_since_cycle_end=(None if flag is None else bool(flag)),
+        close_at_early_entry_bar=row["close_at_early_entry_bar"],
+        close_at_confirmed_entry_bar=row["close_at_confirmed_entry_bar"],
+        distance_from_ideal_entry_after_early=row["distance_from_ideal_entry_after_early"],
+        distance_from_ideal_entry_after_confirmed=row["distance_from_ideal_entry_after_confirmed"],
+        cycle_end_bar_index=row["cycle_end_bar_index"],
+        cycle_end_timestamp=row["cycle_end_timestamp"],
+    )
+
+
+def apply_state_persistence_patch(connection: sqlite3.Connection, patch: StatePersistencePatch) -> None:
+    with connection:
+        connection.execute(
+            """
+            INSERT INTO state_machine_context (
+                symbol, setup_cycle_id, previous_setup_cycle_id, state_recorded_in_cycle_id, state_machine_state,
+                state_confidence, state_transition_reason, bars_since_state_entered, bars_since_early_entered,
+                bars_since_confirmed_entered, bars_since_cycle_end, close_at_early_entry_bar,
+                close_at_confirmed_entry_bar, distance_from_ideal_entry_after_early,
+                distance_from_ideal_entry_after_confirmed, freshness_distance_state_early,
+                freshness_distance_state_confirmed, cycle_end_bar_index, cycle_end_timestamp,
+                reclaim_below_reset_floor_seen_since_cycle_end, data_resolution_class
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                setup_cycle_id=excluded.setup_cycle_id,
+                previous_setup_cycle_id=excluded.previous_setup_cycle_id,
+                state_recorded_in_cycle_id=excluded.state_recorded_in_cycle_id,
+                state_machine_state=excluded.state_machine_state,
+                state_confidence=excluded.state_confidence,
+                state_transition_reason=excluded.state_transition_reason,
+                bars_since_state_entered=excluded.bars_since_state_entered,
+                bars_since_early_entered=excluded.bars_since_early_entered,
+                bars_since_confirmed_entered=excluded.bars_since_confirmed_entered,
+                bars_since_cycle_end=excluded.bars_since_cycle_end,
+                close_at_early_entry_bar=excluded.close_at_early_entry_bar,
+                close_at_confirmed_entry_bar=excluded.close_at_confirmed_entry_bar,
+                distance_from_ideal_entry_after_early=excluded.distance_from_ideal_entry_after_early,
+                distance_from_ideal_entry_after_confirmed=excluded.distance_from_ideal_entry_after_confirmed,
+                freshness_distance_state_early=excluded.freshness_distance_state_early,
+                freshness_distance_state_confirmed=excluded.freshness_distance_state_confirmed,
+                cycle_end_bar_index=excluded.cycle_end_bar_index,
+                cycle_end_timestamp=excluded.cycle_end_timestamp,
+                reclaim_below_reset_floor_seen_since_cycle_end=excluded.reclaim_below_reset_floor_seen_since_cycle_end,
+                data_resolution_class=excluded.data_resolution_class
+            """,
+            (
+                patch.symbol,
+                patch.setup_cycle_id,
+                patch.previous_setup_cycle_id,
+                patch.state_recorded_in_cycle_id,
+                patch.state_machine_state,
+                patch.state_confidence,
+                patch.state_transition_reason,
+                patch.bars_since_state_entered,
+                patch.bars_since_early_entered,
+                patch.bars_since_confirmed_entered,
+                patch.bars_since_cycle_end,
+                patch.close_at_early_entry_bar,
+                patch.close_at_confirmed_entry_bar,
+                patch.distance_from_ideal_entry_after_early,
+                patch.distance_from_ideal_entry_after_confirmed,
+                patch.freshness_distance_state_early,
+                patch.freshness_distance_state_confirmed,
+                patch.cycle_end_bar_index,
+                patch.cycle_end_timestamp,
+                None if patch.reclaim_below_reset_floor_seen_since_cycle_end is None else int(patch.reclaim_below_reset_floor_seen_since_cycle_end),
+                patch.data_resolution_class,
+            ),
+        )

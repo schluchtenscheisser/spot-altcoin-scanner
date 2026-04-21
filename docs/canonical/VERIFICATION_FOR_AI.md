@@ -291,3 +291,13 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - First-seen bootstrap returns `FIRST_CYCLE_INITIALIZED` and `resolved_setup_cycle_id=1`.
 - `cycle_reason_code` is always populated and `resolved_setup_cycle_id` is never null.
 - Missing config keys under `invalidation`/`cycle` use defaults; invalid values fail validation.
+
+## Ticket 10 verification boundaries (freshness + final state + persistence)
+
+- Public entrypoints are exactly `compute_state_freshness(...)` and `compute_state_machine(...)` with typed input contracts.
+- Current-run bundle mismatch (`symbol`, `daily_bar_id`, `intraday_bar_id`, `data_4h_available`) is a hard error.
+- Persisted context symbol mismatch is a hard error.
+- Not-admitted path (`PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE`) yields `state_machine_state=null` and `persistence_patch=null`.
+- State confidence starts from `market_phase_confidence` and applies only blended + not-full-resolution penalties.
+- Ticket 10 excludes the unresolved "knappe Margins" penalty.
+- State/cycle persistence uses one authoritative writer and must be atomic per symbol.
