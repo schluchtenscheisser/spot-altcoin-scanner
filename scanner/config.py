@@ -199,6 +199,34 @@ _PHASE_DEFAULTS = {
     },
 }
 
+_INVALIDATION_DEFAULTS = {
+    "max_state_freshness": 100.0,
+    "max_expansion_progress": 100.0,
+    "max_structural_freshness": 100.0,
+    "pressure_build": {
+        "min_compression_hold": 60.0,
+        "min_base_hold": 50.0,
+        "min_volume_shift_hold": 50.0,
+    },
+    "trend_resume": {
+        "min_trend_hold": 55.0,
+        "min_reclaim_hold": 45.0,
+        "min_pullback_hold": 45.0,
+        "min_reaccel_hold": 45.0,
+    },
+    "transition_reclaim": {
+        "min_reclaim_hold": 45.0,
+        "min_base_hold": 45.0,
+        "min_volume_shift_hold": 45.0,
+    },
+}
+
+_CYCLE_DEFAULTS = {
+    "expansion_reset_max": 35.0,
+    "min_bars_since_cycle_end": 2,
+    "enable_reclaim_reset": False,
+}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -665,6 +693,78 @@ def resolve_phase_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     return merged
 
 
+def resolve_invalidation_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("invalidation")
+    if section_raw is None:
+        section = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("invalidation", section_raw, "must be an object")
+    else:
+        section = section_raw
+
+    merged = _deep_merge_dicts(_INVALIDATION_DEFAULTS, section)
+
+    def _parse_0_100(key: str, value: Any) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(key, value, "must be finite number")
+        parsed = float(value)
+        if parsed < 0 or parsed > 100:
+            _raise_invalid(key, value, "must be in [0,100]")
+        return parsed
+
+    merged["max_state_freshness"] = _parse_0_100("invalidation.max_state_freshness", merged.get("max_state_freshness"))
+    merged["max_expansion_progress"] = _parse_0_100("invalidation.max_expansion_progress", merged.get("max_expansion_progress"))
+    merged["max_structural_freshness"] = _parse_0_100("invalidation.max_structural_freshness", merged.get("max_structural_freshness"))
+
+    for phase_name, keys in {
+        "pressure_build": ["min_compression_hold", "min_base_hold", "min_volume_shift_hold"],
+        "trend_resume": ["min_trend_hold", "min_reclaim_hold", "min_pullback_hold", "min_reaccel_hold"],
+        "transition_reclaim": ["min_reclaim_hold", "min_base_hold", "min_volume_shift_hold"],
+    }.items():
+        block = merged.get(phase_name)
+        if not isinstance(block, Mapping):
+            _raise_invalid(f"invalidation.{phase_name}", block, "must be an object")
+        normalized: Dict[str, float] = {}
+        for key in keys:
+            normalized[key] = _parse_0_100(f"invalidation.{phase_name}.{key}", block.get(key))
+        merged[phase_name] = normalized
+    return merged
+
+
+def resolve_cycle_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section_raw = raw.get("cycle")
+    if section_raw is None:
+        section = {}
+    elif not isinstance(section_raw, Mapping):
+        _raise_invalid("cycle", section_raw, "must be an object")
+    else:
+        section = section_raw
+
+    merged = _deep_merge_dicts(_CYCLE_DEFAULTS, section)
+
+    expansion_reset_max = merged.get("expansion_reset_max")
+    if (
+        isinstance(expansion_reset_max, bool)
+        or not isinstance(expansion_reset_max, (int, float))
+        or not math.isfinite(float(expansion_reset_max))
+        or float(expansion_reset_max) < 0
+        or float(expansion_reset_max) > 100
+    ):
+        _raise_invalid("cycle.expansion_reset_max", expansion_reset_max, "must be finite number in [0,100]")
+    merged["expansion_reset_max"] = float(expansion_reset_max)
+
+    min_bars = merged.get("min_bars_since_cycle_end")
+    if isinstance(min_bars, bool) or not isinstance(min_bars, (int, float)) or int(min_bars) < 0:
+        _raise_invalid("cycle.min_bars_since_cycle_end", min_bars, "must be integer >= 0")
+    merged["min_bars_since_cycle_end"] = int(min_bars)
+
+    enable_reclaim = merged.get("enable_reclaim_reset")
+    if not isinstance(enable_reclaim, bool):
+        _raise_invalid("cycle.enable_reclaim_reset", enable_reclaim, "must be bool")
+    merged["enable_reclaim_reset"] = enable_reclaim
+    return merged
+
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -781,6 +881,14 @@ class ScannerConfig:
     @property
     def phase(self) -> Dict[str, Any]:
         return resolve_phase_config(self.raw)
+
+    @property
+    def invalidation(self) -> Dict[str, Any]:
+        return resolve_invalidation_config(self.raw)
+
+    @property
+    def cycle(self) -> Dict[str, Any]:
+        return resolve_cycle_config(self.raw)
 
     @property
     def spec_version(self) -> str:
