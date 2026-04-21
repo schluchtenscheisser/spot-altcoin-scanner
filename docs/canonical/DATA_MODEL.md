@@ -207,3 +207,25 @@ Additive typed contracts:
 - `StateMachineBundle(...)`
 
 `StateEvaluationDisposition` is the only carrier for not-admitted outcomes; the six-state enum remains unchanged.
+
+
+## Ticket 11 additive entry-pattern model
+
+`EntryPatternBundle` is the typed Layer-5 output contract:
+- `entry_pattern: EntryPattern`
+- `entry_pattern_score: float`
+- `candidate_pattern_scores_within_phase: dict[AdmittedEntryPattern, float]`
+
+Type domains:
+- `EntryPattern` includes the 9 positive patterns plus sentinel `"none"`.
+- `AdmittedEntryPattern` includes only the 9 positive patterns; `"none"` is excluded by type.
+
+Invariants:
+- `entry_pattern == "none"` iff `entry_pattern_score == 0.0`.
+- `entry_pattern != "none"` implies `candidate_pattern_scores_within_phase[entry_pattern] == entry_pattern_score`.
+- `candidate_pattern_scores_within_phase` contains admitted patterns only; non-admitted patterns are absent (never represented as `0.0`).
+- For `market_phase="none"` or unrecognized phase, the dict is `{}`.
+
+Cross-layer guardrail handoff to Ticket 12 (documented interface semantics):
+- `state_machine_state="early_ready"` + `entry_pattern="none"` maps to bucket `watchlist`.
+- `state_machine_state="confirmed_ready"` + `entry_pattern="none"` maps to bucket `late_monitor` with reason `CONFIRMED_PATTERN_UNRESOLVED`.

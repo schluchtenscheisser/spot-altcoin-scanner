@@ -227,6 +227,62 @@ _CYCLE_DEFAULTS = {
     "enable_reclaim_reset": False,
 }
 
+
+_ENTRY_DEFAULTS = {
+    "pressure_build": {
+        "range_reclaim": {
+            "min_reclaim": 45.0,
+            "min_compression": 55.0,
+            "max_freshness": 60.0,
+        },
+        "breakout": {
+            "min_expansion": 35.0,
+            "min_volume_shift": 55.0,
+            "max_freshness": 65.0,
+            "target_expansion": 40.0,
+        },
+        "break_and_hold": {
+            "min_reclaim": 55.0,
+            "min_base_integrity": 45.0,
+            "min_expansion": 30.0,
+            "max_expansion": 65.0,
+        },
+    },
+    "trend_resume": {
+        "shallow_pullback": {
+            "min_pullback_quality": 55.0,
+            "min_trend": 55.0,
+            "max_freshness": 65.0,
+        },
+        "resume_reclaim": {
+            "min_reclaim": 50.0,
+            "min_reaccel": 50.0,
+            "max_freshness": 60.0,
+        },
+        "continuation_breakout": {
+            "min_trend": 60.0,
+            "min_reaccel": 55.0,
+            "max_expansion": 70.0,
+        },
+    },
+    "transition_reclaim": {
+        "ema_reclaim": {
+            "min_reclaim": 45.0,
+            "min_trend": 40.0,
+            "max_freshness": 65.0,
+        },
+        "base_reclaim": {
+            "min_base_integrity": 45.0,
+            "min_reclaim": 45.0,
+        },
+        "early_reversal_break": {
+            "min_reclaim": 50.0,
+            "min_volume_shift": 50.0,
+            "max_freshness": 60.0,
+        },
+    },
+}
+
 _STATE_DEFAULTS = {
     "confidence": {
         "blended_penalty": 5.0,
@@ -844,6 +900,35 @@ def resolve_state_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     return merged
 
 
+
+
+def resolve_entry_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    section = _read_nested(raw, "entry")
+    merged = _deep_merge_dicts(_ENTRY_DEFAULTS, section)
+
+    def _parse_0_100(field: str, value: Any) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(field, value, "must be finite number")
+        v = float(value)
+        if v < 0.0 or v > 100.0:
+            _raise_invalid(field, value, "must be in [0,100]")
+        return v
+
+    for phase_name, phase_cfg in merged.items():
+        for pattern_name, pattern_cfg in phase_cfg.items():
+            for key, value in pattern_cfg.items():
+                pattern_cfg[key] = _parse_0_100(f"entry.{phase_name}.{pattern_name}.{key}", value)
+
+    bh_cfg = merged["pressure_build"]["break_and_hold"]
+    if bh_cfg["min_expansion"] >= bh_cfg["max_expansion"]:
+        _raise_invalid(
+            "entry.pressure_build.break_and_hold.min_expansion",
+            bh_cfg["min_expansion"],
+            "must be strictly less than max_expansion",
+        )
+
+    return merged
+
 def _deep_merge_dicts(base: Mapping[str, Any], override: Mapping[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {key: value for key, value in base.items()}
     for key, value in override.items():
@@ -972,6 +1057,10 @@ class ScannerConfig:
     @property
     def state(self) -> Dict[str, Any]:
         return resolve_state_config(self.raw)
+
+    @property
+    def entry(self) -> Dict[str, Any]:
+        return resolve_entry_config(self.raw)
 
     @property
     def spec_version(self) -> str:
@@ -1510,6 +1599,11 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
     try:
         resolve_axes_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
+
+    try:
+        resolve_entry_config(config.raw)
     except ValueError as exc:
         errors.append(str(exc))
 

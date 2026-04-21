@@ -61,7 +61,7 @@ Owns market-phase determination used by the target architecture. Exact phase log
 Owns state-machine evaluation for setup lifecycle handling in the new architecture. This bootstrap keeps the module boundary explicit without introducing runtime state logic.
 
 ### `scanner/entry/`
-Owns entry qualification and trigger preparation for the target architecture. Ticket scope is limited to structure and documentation; no entry behavior is implemented here.
+Owns Layer-5 entry-pattern resolution (`resolve_entry_pattern`) and typed `EntryPatternBundle` output. The layer is pure computation: no IO, no OHLCV fetch, no storage access, and no state re-derivation. It consumes only `PhaseInterpretationBundle`, `Tier1AxisBundle`, `Tier2AxisBundle`, and validated `cfg.entry` thresholds.
 
 ### `scanner/execution/`
 Owns execution-adjacent abstractions for downstream decision consumption. The bootstrap does not introduce automated trading or live-order behavior.
