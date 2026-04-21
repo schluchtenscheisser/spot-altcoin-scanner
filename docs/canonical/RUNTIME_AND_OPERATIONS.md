@@ -240,3 +240,17 @@ Determinism/semantics:
 - `market_phase_runner_up` is deterministic and non-nullable, including exact ties and all-zero scores.
 - Reduced-resolution confidence cap is derived only from weighted-score inputs used by the winning phase.
 - `freshness_distance_structural` is passthrough-only and must not influence phase floors or weighted scores.
+
+## Ticket 9 runtime boundary (state invalidation/cycle pre-state)
+
+`compute_invalidation_and_cycle(...)` is a pure computation boundary:
+- no repository handles,
+- no storage writes,
+- no OHLCV/raw timestamps.
+
+Execution order is deterministic:
+1. structural invalidation,
+2. timing invalidation (only if structural is false),
+3. cycle resolution and `resolved_setup_cycle_id` determination.
+
+Ticket 10 consumes this bundle and performs the single authoritative persistence write.

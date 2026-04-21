@@ -182,3 +182,16 @@ Closed enums:
 Nullability rules:
 - `phase_floor_margin_*` may be `null` when minimum basis is missing or required floor inputs are unavailable.
 - `freshness_distance_structural` passthrough keeps upstream nullability and must not be coerced.
+
+## Ticket 9 additive in-memory state pre-contracts
+
+`PersistedStateCycleContext` defines the typed persisted-read input for Layer-4 pre-state logic.
+`InvalidationCycleBundle` defines deterministic in-memory output with:
+- structural/timing invalidation flags + primary reason codes,
+- cycle decision (`new_cycle_detected`, `cycle_reason_code`, `resolved_setup_cycle_id`),
+- diagnostics (`phase_floor_recovered_since_cycle_end`, `expansion_reset_condition_met`, `reclaim_reset_condition_met`).
+
+Contract notes:
+- `resolved_setup_cycle_id` is always a positive integer.
+- `cycle_reason_code` is always populated from a closed enum.
+- first-seen bootstrap initializes cycle id to `1` without emitting a new-cycle event.

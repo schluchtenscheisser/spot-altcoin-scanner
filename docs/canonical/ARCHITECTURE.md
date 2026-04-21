@@ -180,3 +180,15 @@ Scope boundary:
 - consumes exactly `Tier1AxisBundle`, `Tier2AxisBundle`, and `cfg.phase`;
 - computes exactly three positive phases plus `none`;
 - no raw features, no OHLCV, no storage, no state/invalidation/entry/ranking logic.
+
+## Ticket 9 additive architecture contract (state invalidation + cycle pre-state)
+
+`scanner/state/` now owns Layer-4 pre-state computation via:
+- `scanner/state/models.py` (`PersistedStateCycleContext`, `InvalidationCycleBundle`)
+- `scanner/state/invalidation.py` (`compute_invalidation_and_cycle(...)` public entrypoint)
+- `scanner/state/cycle.py` (cycle reset/new-cycle resolution helper).
+
+Scope boundary:
+- consumes only `PhaseInterpretationBundle`, `Tier1AxisBundle`, `Tier2AxisBundle`, persisted typed context, and `cfg`;
+- computes structural/timing invalidation + setup-cycle resolution;
+- performs no persistence writes and no final state assignment (reserved for Ticket 10).

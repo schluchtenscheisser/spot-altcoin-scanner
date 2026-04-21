@@ -279,3 +279,15 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - Canonical defaults:
   - `global_confidence_floor=55`, `reduced_resolution_confidence_cap=75`, `phase_gap_floor=8`, `min_effective_weight_ratio=0.60`.
   - floors: pressure_build `(60,50,50)`, trend_resume `(55,45,65)`, transition_reclaim `(45,45,55)`.
+
+## Ticket 9 verification boundaries (invalidation + setup-cycle pre-state)
+
+- Public entrypoint is exactly `compute_invalidation_and_cycle(phase_bundle, tier1_bundle, tier2_bundle, persisted_context, cfg)`.
+- Current-run bundle identity mismatch on `symbol`, `daily_bar_id`, `intraday_bar_id`, or `data_4h_available` is a hard error.
+- Persisted context symbol mismatch is a hard error.
+- Structural invalidation suppresses timing invalidation (`timing_invalidation=false`, `timing_invalidation_reason=null`).
+- `new_cycle_detected=true` and `structural_invalidation=true` cannot coexist.
+- `phase_floor_recovered_since_cycle_end` is evaluated from current hard-floor admissibility diagnostics, not from `market_phase` label alone.
+- First-seen bootstrap returns `FIRST_CYCLE_INITIALIZED` and `resolved_setup_cycle_id=1`.
+- `cycle_reason_code` is always populated and `resolved_setup_cycle_id` is never null.
+- Missing config keys under `invalidation`/`cycle` use defaults; invalid values fail validation.

@@ -97,3 +97,10 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **market_phase_runner_up**: deterministic second-ranked positive phase (non-nullable).
 - **market_phase_blended**: `true` when selected positive phase has `market_phase_gap < phase_gap_floor`; always `false` for `market_phase=none`.
 - **none paths**: three distinct causes are preserved—minimum basis not met, hard-floor failure, or global confidence floor not met.
+
+## Ticket 9 additive terms
+
+- **structural_invalidation**: hard pre-state invalidation signal derived from phase/axis continuity rules.
+- **timing_invalidation**: freshness/progression invalidation signal evaluated only when structural invalidation is false.
+- **cycle_reason_code**: mandatory closed-enum explanation for detected/blocked cycle reset outcome.
+- **first-seen cycle bootstrap**: initialization path with `resolved_setup_cycle_id=1` and `new_cycle_detected=false`.
