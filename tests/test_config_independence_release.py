@@ -128,3 +128,88 @@ independence_release:
 
     with pytest.raises(ValueError, match=r"independence_release\.ohlcv_fetch\.lookback_bars_4h"):
         load_config(config_path)
+
+
+def test_entry_overrides_from_independence_release_namespace_are_applied(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  entry:
+    pressure_build:
+      range_reclaim:
+        min_reclaim: 61
+""",
+    )
+
+    config = load_config(config_path)
+    assert config.entry["pressure_build"]["range_reclaim"]["min_reclaim"] == 61.0
+
+
+def test_top_level_entry_is_not_canonical_override_source(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+entry:
+  pressure_build:
+    range_reclaim:
+      min_reclaim: 61
+""",
+    )
+
+    config = load_config(config_path)
+    assert config.entry["pressure_build"]["range_reclaim"]["min_reclaim"] == 45.0
+
+
+def test_entry_malformed_phase_block_reports_clean_validation_error(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  entry:
+    pressure_build: 5
+""",
+    )
+
+    config = load_config(config_path)
+    errors = validate_config(config)
+    assert any("independence_release.entry.pressure_build" in err and "must be a mapping" in err for err in errors)
+
+
+def test_entry_malformed_pattern_block_reports_clean_validation_error(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  entry:
+    pressure_build:
+      range_reclaim: 5
+""",
+    )
+
+    config = load_config(config_path)
+    errors = validate_config(config)
+    assert any(
+        "independence_release.entry.pressure_build.range_reclaim" in err and "must be a mapping" in err for err in errors
+    )
+
+
+def test_entry_malformed_nested_types_do_not_raise_attribute_error(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  entry:
+    pressure_build:
+      range_reclaim: 5
+""",
+    )
+
+    config = load_config(config_path)
+    with pytest.raises(ValueError, match=r"independence_release\.entry\.pressure_build\.range_reclaim"):
+        _ = config.entry

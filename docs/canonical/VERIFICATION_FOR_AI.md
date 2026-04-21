@@ -301,3 +301,19 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
 - State confidence starts from `market_phase_confidence` and applies only blended + not-full-resolution penalties.
 - Ticket 10 excludes the unresolved "knappe Margins" penalty.
 - State/cycle persistence uses one authoritative writer and must be atomic per symbol.
+
+
+## Ticket 11 verification boundaries (entry patterns)
+
+- Public entrypoint is exactly `resolve_entry_pattern(phase_bundle, tier1_bundle, tier2_bundle, cfg)`.
+- Resolver must not accept or read `state_bundle` / state-machine outputs.
+- Phase gate: only `{pressure_build, trend_resume, transition_reclaim}` evaluate patterns; `none`/unknown phase returns `entry_pattern=none`, `entry_pattern_score=0.0`, `{}`.
+- Admission requires finite numeric values for all axes referenced by admission conditions **and** score formulas.
+- Missing/invalid/non-finite required axes (`None`, `NaN`, `inf`, `-inf`) make the pattern non-admitted.
+- `base_reclaim` explicitly requires finite `volume_regime_shift` because it is a score-formula input.
+- `candidate_pattern_scores_within_phase` includes admitted patterns only; non-admitted patterns must be absent.
+- Deterministic tie-break order:
+  - pressure_build: `range_reclaim > break_and_hold > breakout`
+  - trend_resume: `resume_reclaim > shallow_pullback > continuation_breakout`
+  - transition_reclaim: `base_reclaim > ema_reclaim > early_reversal_break`
+- `compute_breakout_expansion_fit(expansion, target)` is a named helper and clamps to `[0,100]`.

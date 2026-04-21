@@ -111,3 +111,16 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **data_resolution_class**: local Ticket-10 derivation with values `{full_1d_4h, reduced_1d_4h, daily_only}` for the resolved state path.
 - **state persistence patch**: single authoritative per-symbol write payload for final state + cycle continuity.
 - **sticky-within-cycle state references**: entry references and derived freshness fields that persist across state changes until cycle reset.
+
+
+## Ticket 11 additive terms
+
+- **entry_pattern**: Layer-5 selected pattern label from `EntryPattern`; may be `"none"` when no pattern is admitted in the active phase.
+- **entry_pattern_score**: numeric score of the selected entry pattern; exactly `0.0` when `entry_pattern="none"`.
+- **breakout_expansion_fit**: clamped fit helper `max(0,min(100,100-abs(expansion-target)))` used by `breakout` scoring.
+- **candidate_pattern_scores_within_phase**: admitted-only score map for patterns in the current phase; non-admitted patterns are absent.
+- **EntryPattern**: literal domain of 9 positive pattern names plus `"none"`.
+- **AdmittedEntryPattern**: literal domain of the 9 positive pattern names only.
+- **range_reclaim / breakout / break_and_hold**: pressure-build entry patterns.
+- **shallow_pullback / resume_reclaim / continuation_breakout**: trend-resume entry patterns.
+- **ema_reclaim / base_reclaim / early_reversal_break**: transition-reclaim entry patterns.
