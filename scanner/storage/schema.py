@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Final
 
-SCHEMA_VERSION: Final[int] = 3
+SCHEMA_VERSION: Final[int] = 4
 RUN_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id          TEXT PRIMARY KEY,
@@ -86,6 +86,32 @@ CREATE TABLE IF NOT EXISTS ohlcv_cache_meta (
 );
 """.strip()
 
+STATE_MACHINE_CONTEXT_TABLE_SQL: Final[str] = """
+CREATE TABLE IF NOT EXISTS state_machine_context (
+    symbol TEXT PRIMARY KEY,
+    setup_cycle_id INTEGER NOT NULL,
+    previous_setup_cycle_id INTEGER,
+    state_recorded_in_cycle_id INTEGER NOT NULL,
+    state_machine_state TEXT NOT NULL,
+    state_confidence REAL NOT NULL,
+    state_transition_reason TEXT NOT NULL,
+    bars_since_state_entered INTEGER NOT NULL,
+    bars_since_early_entered INTEGER,
+    bars_since_confirmed_entered INTEGER,
+    bars_since_cycle_end INTEGER,
+    close_at_early_entry_bar REAL,
+    close_at_confirmed_entry_bar REAL,
+    distance_from_ideal_entry_after_early REAL,
+    distance_from_ideal_entry_after_confirmed REAL,
+    freshness_distance_state_early REAL,
+    freshness_distance_state_confirmed REAL,
+    cycle_end_bar_index INTEGER,
+    cycle_end_timestamp INTEGER,
+    reclaim_below_reset_floor_seen_since_cycle_end INTEGER,
+    data_resolution_class TEXT NOT NULL
+);
+""".strip()
+
 
 def get_schema_version(connection: sqlite3.Connection) -> int:
     row = connection.execute("PRAGMA user_version;").fetchone()
@@ -115,6 +141,7 @@ def apply_schema(connection: sqlite3.Connection) -> int:
         connection.execute(OHLCV_BARS_TABLE_SQL)
         connection.execute(OHLCV_BARS_INDEX_SQL)
         connection.execute(OHLCV_CACHE_META_TABLE_SQL)
+        connection.execute(STATE_MACHINE_CONTEXT_TABLE_SQL)
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
 
     return SCHEMA_VERSION

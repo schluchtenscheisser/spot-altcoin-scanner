@@ -195,3 +195,15 @@ Contract notes:
 - `resolved_setup_cycle_id` is always a positive integer.
 - `cycle_reason_code` is always populated from a closed enum.
 - first-seen bootstrap initializes cycle id to `1` without emitting a new-cycle event.
+
+## Ticket 10 additive state-machine contracts
+
+Additive typed contracts:
+- `StateRuntimeContext(current_close, current_bar_index, delta_closed_bars_relevant)`
+- `PersistedStateMachineContext(...)` (state/freshness/cycle continuity fields)
+- `StateEvaluationDisposition(admitted, disposition_reason)`
+- `StateFreshnessBundle(...)`
+- `StatePersistencePatch(...)`
+- `StateMachineBundle(...)`
+
+`StateEvaluationDisposition` is the only carrier for not-admitted outcomes; the six-state enum remains unchanged.

@@ -192,3 +192,14 @@ Scope boundary:
 - consumes only `PhaseInterpretationBundle`, `Tier1AxisBundle`, `Tier2AxisBundle`, persisted typed context, and `cfg`;
 - computes structural/timing invalidation + setup-cycle resolution;
 - performs no persistence writes and no final state assignment (reserved for Ticket 10).
+
+## Ticket 10 additive architecture contract (state freshness + final state machine + single writer)
+
+`scanner/state/` now includes:
+- `scanner/state/freshness.py` (`compute_state_freshness(...)`),
+- `scanner/state/machine.py` (`compute_state_machine(...)` authoritative Layer-4 state entrypoint),
+- `scanner/state/models.py` additive runtime/output/patch models.
+
+Persistence boundary:
+- pure compute remains storage-free,
+- final state/cycle continuity is persisted only via one repository write path (`apply_state_persistence_patch(...)`).

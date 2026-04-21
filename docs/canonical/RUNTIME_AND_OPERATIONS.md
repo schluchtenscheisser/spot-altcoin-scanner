@@ -254,3 +254,11 @@ Execution order is deterministic:
 3. cycle resolution and `resolved_setup_cycle_id` determination.
 
 Ticket 10 consumes this bundle and performs the single authoritative persistence write.
+
+## Ticket 10 runtime policy (state admission, freshness, and counters)
+
+- `compute_state_machine(...)` must call `compute_state_freshness(...)` exactly once and forward that bundle unchanged.
+- `delta_closed_bars_relevant` is the canonical increment unit for all `bars_since_*` counters.
+- New-cycle detection resets cycle-scoped state references and clears stale `cycle_end_*` markers.
+- Terminal transitions into `rejected`/`chased` write `cycle_end_bar_index`, `cycle_end_timestamp`, and `bars_since_cycle_end=0` exactly on transition.
+- `market_phase=none` without prior active-cycle evidence is a disposition (`admitted=false`), not a synthetic `rejected` state.

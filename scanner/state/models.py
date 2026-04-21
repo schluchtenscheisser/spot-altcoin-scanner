@@ -36,6 +36,22 @@ _ALLOWED_CYCLE_CODES = {
     "NEW_CYCLE_BLOCKED_RECLAIM_RESET_NOT_MET",
     "FIRST_CYCLE_INITIALIZED",
 }
+_ALLOWED_DISPOSITION_REASONS = {"PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE"}
+_ALLOWED_TRANSITION_REASONS = {
+    "NEW_CYCLE_RESET_TO_WATCH",
+    "STRUCTURAL_INVALIDATION_REJECTED",
+    "CHASED_FROM_EXPANSION",
+    "CHASED_FROM_CONFIRMED_FRESHNESS",
+    "CHASED_FROM_EARLY_FRESHNESS",
+    "LATE_FROM_CONFIRMED_FRESHNESS",
+    "LATE_FROM_EARLY_FRESHNESS",
+    "LATE_FROM_CONFIRMED_LOST",
+    "STATE_HOLD",
+    "STATE_PROMOTED_TO_EARLY",
+    "STATE_PROMOTED_TO_CONFIRMED",
+    "STATE_DEMOTED_TO_WATCH",
+}
+_ALLOWED_RESOLUTION_CLASSES = {"full_1d_4h", "reduced_1d_4h", "daily_only"}
 
 
 def _is_finite_0_100(value: object) -> bool:
@@ -54,6 +70,20 @@ def _validate_non_negative_int(field: str, value: object) -> None:
         return
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{field} must be non-negative int or None")
+
+
+def _validate_positive_price(field: str, value: object) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or float(value) <= 0:
+        raise ValueError(f"{field} must be finite > 0 or None")
+
+
+def _validate_finite(field: str, value: object) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        raise ValueError(f"{field} must be finite number or None")
 
 
 @dataclass(frozen=True)
@@ -164,3 +194,138 @@ class InvalidationCycleBundle:
             raise ValueError("invalid cycle_reason_code")
         if isinstance(self.resolved_setup_cycle_id, bool) or not isinstance(self.resolved_setup_cycle_id, int) or self.resolved_setup_cycle_id <= 0:
             raise ValueError("resolved_setup_cycle_id must be positive int")
+
+
+@dataclass(frozen=True)
+class StateRuntimeContext:
+    current_close: float
+    current_bar_index: int
+    delta_closed_bars_relevant: int
+
+    def __post_init__(self) -> None:
+        _validate_positive_price("current_close", self.current_close)
+        if isinstance(self.current_bar_index, bool) or not isinstance(self.current_bar_index, int) or self.current_bar_index < 0:
+            raise ValueError("current_bar_index must be non-negative int")
+        if (
+            isinstance(self.delta_closed_bars_relevant, bool)
+            or not isinstance(self.delta_closed_bars_relevant, int)
+            or self.delta_closed_bars_relevant < 0
+        ):
+            raise ValueError("delta_closed_bars_relevant must be non-negative int")
+
+
+@dataclass(frozen=True)
+class PersistedStateMachineContext:
+    symbol: str
+    current_setup_cycle_id: int | None
+    previous_setup_cycle_id: int | None
+    state_recorded_in_cycle_id: int | None
+    prev_state_machine_state: str | None
+    freshness_distance_state_early: float | None
+    freshness_distance_state_confirmed: float | None
+    bars_since_state_entered: int | None
+    bars_since_early_entered: int | None
+    bars_since_confirmed_entered: int | None
+    bars_since_cycle_end: int | None
+    reclaim_below_reset_floor_seen_since_cycle_end: bool | None
+    close_at_early_entry_bar: float | None
+    close_at_confirmed_entry_bar: float | None
+    distance_from_ideal_entry_after_early: float | None
+    distance_from_ideal_entry_after_confirmed: float | None
+    cycle_end_bar_index: int | None
+    cycle_end_timestamp: int | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.symbol, str) or not self.symbol:
+            raise ValueError("symbol must be non-empty str")
+        _validate_cycle_id("current_setup_cycle_id", self.current_setup_cycle_id)
+        _validate_cycle_id("previous_setup_cycle_id", self.previous_setup_cycle_id)
+        _validate_cycle_id("state_recorded_in_cycle_id", self.state_recorded_in_cycle_id)
+        if self.prev_state_machine_state is not None and self.prev_state_machine_state not in _ALLOWED_STATES:
+            raise ValueError("prev_state_machine_state has invalid enum value")
+        for field in ["freshness_distance_state_early", "freshness_distance_state_confirmed"]:
+            value = getattr(self, field)
+            if value is not None and not _is_finite_0_100(value):
+                raise ValueError(f"{field} must be finite and in [0,100] or None")
+        _validate_non_negative_int("bars_since_state_entered", self.bars_since_state_entered)
+        _validate_non_negative_int("bars_since_early_entered", self.bars_since_early_entered)
+        _validate_non_negative_int("bars_since_confirmed_entered", self.bars_since_confirmed_entered)
+        _validate_non_negative_int("bars_since_cycle_end", self.bars_since_cycle_end)
+        _validate_positive_price("close_at_early_entry_bar", self.close_at_early_entry_bar)
+        _validate_positive_price("close_at_confirmed_entry_bar", self.close_at_confirmed_entry_bar)
+        _validate_finite("distance_from_ideal_entry_after_early", self.distance_from_ideal_entry_after_early)
+        _validate_finite("distance_from_ideal_entry_after_confirmed", self.distance_from_ideal_entry_after_confirmed)
+        _validate_non_negative_int("cycle_end_bar_index", self.cycle_end_bar_index)
+        _validate_non_negative_int("cycle_end_timestamp", self.cycle_end_timestamp)
+        if self.reclaim_below_reset_floor_seen_since_cycle_end not in {True, False, None}:
+            raise ValueError("reclaim_below_reset_floor_seen_since_cycle_end must be bool or None")
+
+
+@dataclass(frozen=True)
+class StateEvaluationDisposition:
+    admitted: bool
+    disposition_reason: str | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.admitted, bool):
+            raise ValueError("admitted must be bool")
+        if self.disposition_reason is not None and self.disposition_reason not in _ALLOWED_DISPOSITION_REASONS:
+            raise ValueError("invalid disposition_reason")
+        if (not self.admitted) and self.disposition_reason is None:
+            raise ValueError("disposition_reason is required when admitted is false")
+
+
+@dataclass(frozen=True)
+class StateFreshnessBundle:
+    freshness_distance_state_early: float | None
+    freshness_distance_state_confirmed: float | None
+    distance_from_ideal_entry_after_early: float | None
+    distance_from_ideal_entry_after_confirmed: float | None
+
+
+@dataclass(frozen=True)
+class StatePersistencePatch:
+    symbol: str
+    setup_cycle_id: int
+    previous_setup_cycle_id: int | None
+    state_recorded_in_cycle_id: int
+    state_machine_state: str
+    state_confidence: float
+    state_transition_reason: str
+    bars_since_state_entered: int
+    bars_since_early_entered: int | None
+    bars_since_confirmed_entered: int | None
+    bars_since_cycle_end: int | None
+    close_at_early_entry_bar: float | None
+    close_at_confirmed_entry_bar: float | None
+    distance_from_ideal_entry_after_early: float | None
+    distance_from_ideal_entry_after_confirmed: float | None
+    freshness_distance_state_early: float | None
+    freshness_distance_state_confirmed: float | None
+    cycle_end_bar_index: int | None
+    cycle_end_timestamp: int | None
+    reclaim_below_reset_floor_seen_since_cycle_end: bool | None
+    data_resolution_class: str
+
+    def __post_init__(self) -> None:
+        if self.state_machine_state not in _ALLOWED_STATES:
+            raise ValueError("invalid state_machine_state")
+        if self.state_transition_reason not in _ALLOWED_TRANSITION_REASONS:
+            raise ValueError("invalid state_transition_reason")
+        if self.data_resolution_class not in _ALLOWED_RESOLUTION_CLASSES:
+            raise ValueError("invalid data_resolution_class")
+
+
+@dataclass(frozen=True)
+class StateMachineBundle:
+    symbol: str
+    daily_bar_id: int
+    intraday_bar_id: int | None
+    data_4h_available: bool
+    disposition: StateEvaluationDisposition
+    state_machine_state: str | None
+    state_confidence: float | None
+    state_transition_reason: str | None
+    data_resolution_class: str | None
+    freshness: StateFreshnessBundle
+    persistence_patch: StatePersistencePatch | None
