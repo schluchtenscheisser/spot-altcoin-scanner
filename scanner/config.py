@@ -903,7 +903,33 @@ def resolve_state_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def resolve_entry_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
-    section = _read_nested(raw, "entry")
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be a mapping")
+
+    section = independence_release.get("entry", {})
+    if section is None:
+        section = {}
+    if not isinstance(section, Mapping):
+        _raise_invalid("independence_release.entry", section, "must be a mapping")
+
+    for phase_name, phase_override in section.items():
+        if not isinstance(phase_override, Mapping):
+            _raise_invalid(
+                f"independence_release.entry.{phase_name}",
+                phase_override,
+                "must be a mapping",
+            )
+        for pattern_name, pattern_override in phase_override.items():
+            if not isinstance(pattern_override, Mapping):
+                _raise_invalid(
+                    f"independence_release.entry.{phase_name}.{pattern_name}",
+                    pattern_override,
+                    "must be a mapping",
+                )
+
     merged = _deep_merge_dicts(_ENTRY_DEFAULTS, section)
 
     def _parse_0_100(field: str, value: Any) -> float:
@@ -914,15 +940,25 @@ def resolve_entry_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
             _raise_invalid(field, value, "must be in [0,100]")
         return v
 
-    for phase_name, phase_cfg in merged.items():
-        for pattern_name, pattern_cfg in phase_cfg.items():
+    for phase_name, phase_defaults in _ENTRY_DEFAULTS.items():
+        phase_cfg = merged.get(phase_name, {})
+        if not isinstance(phase_cfg, Mapping):
+            _raise_invalid(f"independence_release.entry.{phase_name}", phase_cfg, "must be a mapping")
+        for pattern_name in phase_defaults:
+            pattern_cfg = phase_cfg.get(pattern_name, {})
+            if not isinstance(pattern_cfg, Mapping):
+                _raise_invalid(
+                    f"independence_release.entry.{phase_name}.{pattern_name}",
+                    pattern_cfg,
+                    "must be a mapping",
+                )
             for key, value in pattern_cfg.items():
-                pattern_cfg[key] = _parse_0_100(f"entry.{phase_name}.{pattern_name}.{key}", value)
+                pattern_cfg[key] = _parse_0_100(f"independence_release.entry.{phase_name}.{pattern_name}.{key}", value)
 
     bh_cfg = merged["pressure_build"]["break_and_hold"]
     if bh_cfg["min_expansion"] >= bh_cfg["max_expansion"]:
         _raise_invalid(
-            "entry.pressure_build.break_and_hold.min_expansion",
+            "independence_release.entry.pressure_build.break_and_hold.min_expansion",
             bh_cfg["min_expansion"],
             "must be strictly less than max_expansion",
         )
