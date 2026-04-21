@@ -14,6 +14,70 @@ from scanner.state.models import (
 )
 
 
+def _meets_min(value: float | None, minimum: float) -> bool:
+    return value is not None and float(value) >= float(minimum)
+
+
+def _meets_max(value: float | None, maximum: float) -> bool:
+    return value is not None and float(value) <= float(maximum)
+
+
+def _early_ready_admitted(phase_bundle: PhaseInterpretationBundle, tier1_bundle: Tier1AxisBundle, tier2_bundle: Tier2AxisBundle, cfg: ScannerConfig) -> bool:
+    structural = phase_bundle.freshness_distance_structural
+    if structural is None or float(structural) > float(cfg.state["early"]["max_structural_freshness"]):
+        return False
+
+    phase = phase_bundle.market_phase
+    if phase == "pressure_build":
+        gate = cfg.state["early"]["pressure_build"]
+        return _meets_min(tier1_bundle.compression_strength, gate["min_compression"]) and _meets_min(
+            tier1_bundle.volume_regime_shift, gate["min_volume_shift"]
+        ) and _meets_max(tier1_bundle.expansion_progress_structural, gate["max_expansion"])
+    if phase == "trend_resume":
+        gate = cfg.state["early"]["trend_resume"]
+        return _meets_min(tier1_bundle.trend_strength, gate["min_trend"]) and _meets_min(
+            tier1_bundle.reclaim_progress, gate["min_reclaim"]
+        ) and _meets_min(tier2_bundle.reacceleration_strength_simplified, gate["min_reaccel"])
+    if phase == "transition_reclaim":
+        gate = cfg.state["early"]["transition_reclaim"]
+        return _meets_min(tier1_bundle.reclaim_progress, gate["min_reclaim"]) and _meets_min(
+            tier1_bundle.volume_regime_shift, gate["min_volume_shift"]
+        )
+    return False
+
+
+def _confirmed_ready_admitted(phase_bundle: PhaseInterpretationBundle, tier1_bundle: Tier1AxisBundle, tier2_bundle: Tier2AxisBundle, cfg: ScannerConfig) -> bool:
+    structural = phase_bundle.freshness_distance_structural
+    if structural is None or float(structural) > float(cfg.state["confirmed"]["max_structural_freshness"]):
+        return False
+
+    phase = phase_bundle.market_phase
+    if not phase_bundle.data_4h_available:
+        if phase not in {"trend_resume", "transition_reclaim"}:
+            return False
+        return float(phase_bundle.market_phase_confidence) >= float(cfg.state["confirmed"]["daily_only_min_phase_confidence"])
+
+    if phase == "pressure_build":
+        gate = cfg.state["confirmed"]["pressure_build"]
+        return (
+            _meets_min(tier1_bundle.reclaim_progress, gate["min_reclaim"])
+            and _meets_min(tier1_bundle.compression_strength, gate["min_compression"])
+            and _meets_min(tier1_bundle.volume_regime_shift, gate["min_volume_shift"])
+            and _meets_max(tier1_bundle.expansion_progress_structural, gate["max_expansion"])
+        )
+    if phase == "trend_resume":
+        gate = cfg.state["confirmed"]["trend_resume"]
+        return _meets_min(tier1_bundle.reclaim_progress, gate["min_reclaim"]) and _meets_min(
+            tier1_bundle.trend_strength, gate["min_trend"]
+        ) and _meets_min(tier2_bundle.reacceleration_strength_simplified, gate["min_reaccel"])
+    if phase == "transition_reclaim":
+        gate = cfg.state["confirmed"]["transition_reclaim"]
+        return _meets_min(tier1_bundle.reclaim_progress, gate["min_reclaim"]) and _meets_min(
+            tier1_bundle.trend_strength, gate["min_trend_after_reclaim"]
+        )
+    return False
+
+
 def _require(field: str, phase: PhaseInterpretationBundle, t1: Tier1AxisBundle, t2: Tier2AxisBundle, inv: InvalidationCycleBundle) -> None:
     base = getattr(phase, field)
     if base != getattr(t1, field) or base != getattr(t2, field) or base != getattr(inv, field):
@@ -98,18 +162,8 @@ def compute_state_machine(
     else:
         state = prev_state
         reason = "STATE_HOLD"
-        early_ok = (
-            phase_bundle.market_phase in {"pressure_build", "trend_resume", "transition_reclaim"}
-            and (tier1_bundle.compression_strength or 0) >= cfg.state["early"]["pressure_build"]["min_compression"]
-            and (tier1_bundle.volume_regime_shift or 0) >= cfg.state["early"]["pressure_build"]["min_volume_shift"]
-        )
-        confirmed_ok = (
-            phase_bundle.market_phase in {"trend_resume", "transition_reclaim"}
-            and (tier1_bundle.reclaim_progress or 0) >= cfg.state["confirmed"]["trend_resume"]["min_reclaim"]
-            and (tier1_bundle.trend_strength or 0) >= cfg.state["confirmed"]["trend_resume"]["min_trend"]
-        )
-        if phase_bundle.market_phase == "pressure_build" and not phase_bundle.data_4h_available:
-            confirmed_ok = False
+        early_ok = _early_ready_admitted(phase_bundle, tier1_bundle, tier2_bundle, cfg)
+        confirmed_ok = _confirmed_ready_admitted(phase_bundle, tier1_bundle, tier2_bundle, cfg)
         if confirmed_ok and prev_state not in {"late", "chased", "rejected"}:
             state = "confirmed_ready"
             reason = "STATE_PROMOTED_TO_CONFIRMED"
@@ -147,9 +201,13 @@ def compute_state_machine(
 
     close_early = persisted_context.close_at_early_entry_bar
     bars_early = persisted_context.bars_since_early_entered
+    distance_early = freshness.distance_from_ideal_entry_after_early
+    freshness_early = freshness.freshness_distance_state_early
     if invalidation_cycle_bundle.new_cycle_detected:
         close_early = None
         bars_early = None
+        distance_early = None
+        freshness_early = None
     elif close_early is None and state == "early_ready":
         close_early = runtime_context.current_close
         bars_early = 0
@@ -158,9 +216,13 @@ def compute_state_machine(
 
     close_confirmed = persisted_context.close_at_confirmed_entry_bar
     bars_confirmed = persisted_context.bars_since_confirmed_entered
+    distance_confirmed = freshness.distance_from_ideal_entry_after_confirmed
+    freshness_confirmed = freshness.freshness_distance_state_confirmed
     if invalidation_cycle_bundle.new_cycle_detected:
         close_confirmed = None
         bars_confirmed = None
+        distance_confirmed = None
+        freshness_confirmed = None
     elif close_confirmed is None and state == "confirmed_ready":
         close_confirmed = runtime_context.current_close
         bars_confirmed = 0
@@ -181,6 +243,10 @@ def compute_state_machine(
         bars_since_cycle_end = persisted_context.bars_since_cycle_end + delta
     else:
         bars_since_cycle_end = None
+
+    reclaim_seen = persisted_context.reclaim_below_reset_floor_seen_since_cycle_end
+    if invalidation_cycle_bundle.new_cycle_detected:
+        reclaim_seen = None
 
     confidence = float(phase_bundle.market_phase_confidence)
     if phase_bundle.market_phase_blended:
@@ -204,13 +270,13 @@ def compute_state_machine(
         bars_since_cycle_end=bars_since_cycle_end,
         close_at_early_entry_bar=close_early,
         close_at_confirmed_entry_bar=close_confirmed,
-        distance_from_ideal_entry_after_early=freshness.distance_from_ideal_entry_after_early,
-        distance_from_ideal_entry_after_confirmed=freshness.distance_from_ideal_entry_after_confirmed,
-        freshness_distance_state_early=freshness.freshness_distance_state_early,
-        freshness_distance_state_confirmed=freshness.freshness_distance_state_confirmed,
+        distance_from_ideal_entry_after_early=distance_early,
+        distance_from_ideal_entry_after_confirmed=distance_confirmed,
+        freshness_distance_state_early=freshness_early,
+        freshness_distance_state_confirmed=freshness_confirmed,
         cycle_end_bar_index=cycle_end_bar_index,
         cycle_end_timestamp=cycle_end_timestamp,
-        reclaim_below_reset_floor_seen_since_cycle_end=persisted_context.reclaim_below_reset_floor_seen_since_cycle_end,
+        reclaim_below_reset_floor_seen_since_cycle_end=reclaim_seen,
         data_resolution_class=data_resolution_class,
     )
 

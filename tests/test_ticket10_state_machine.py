@@ -213,3 +213,85 @@ def test_state_persistence_repository_roundtrip():
 def test_compute_state_freshness_type_validation():
     with pytest.raises(TypeError):
         compute_state_freshness({}, _ctx(), StateRuntimeContext(current_close=100.0, current_bar_index=1, delta_closed_bars_relevant=1), ScannerConfig(raw={}))
+
+
+def test_trend_resume_not_promoted_to_early_from_pressure_build_style_metrics():
+    out = compute_state_machine(
+        _phase(market_phase="trend_resume"),
+        _tier1(compression_strength=90.0, volume_regime_shift=90.0, trend_strength=10.0, reclaim_progress=10.0),
+        _tier2(reacceleration_strength_simplified=10.0),
+        _inv(),
+        _ctx(prev_state_machine_state="watch"),
+        StateRuntimeContext(current_close=100.0, current_bar_index=10, delta_closed_bars_relevant=1),
+        ScannerConfig(raw={}),
+    )
+    assert out.state_machine_state == "watch"
+
+
+def test_transition_reclaim_not_promoted_to_early_when_own_thresholds_missed():
+    out = compute_state_machine(
+        _phase(market_phase="transition_reclaim"),
+        _tier1(compression_strength=90.0, volume_regime_shift=40.0, reclaim_progress=40.0),
+        _tier2(),
+        _inv(),
+        _ctx(prev_state_machine_state="watch"),
+        StateRuntimeContext(current_close=100.0, current_bar_index=10, delta_closed_bars_relevant=1),
+        ScannerConfig(raw={}),
+    )
+    assert out.state_machine_state == "watch"
+
+
+def test_pressure_build_can_become_confirmed_ready():
+    out = compute_state_machine(
+        _phase(market_phase="pressure_build"),
+        _tier1(reclaim_progress=60.0, compression_strength=70.0, volume_regime_shift=70.0, expansion_progress_structural=30.0),
+        _tier2(),
+        _inv(),
+        _ctx(prev_state_machine_state="watch"),
+        StateRuntimeContext(current_close=100.0, current_bar_index=10, delta_closed_bars_relevant=1),
+        ScannerConfig(raw={}),
+    )
+    assert out.state_machine_state == "confirmed_ready"
+
+
+def test_transition_reclaim_confirmed_does_not_use_trend_resume_thresholds():
+    out = compute_state_machine(
+        _phase(market_phase="transition_reclaim"),
+        _tier1(reclaim_progress=60.0, trend_strength=45.0),
+        _tier2(reacceleration_strength_simplified=90.0),
+        _inv(),
+        _ctx(prev_state_machine_state="watch"),
+        StateRuntimeContext(current_close=100.0, current_bar_index=10, delta_closed_bars_relevant=1),
+        ScannerConfig(raw={}),
+    )
+    assert out.state_machine_state == "early_ready"
+
+
+def test_new_cycle_resets_freshness_distance_fields_and_reclaim_flag():
+    out = compute_state_machine(
+        _phase(),
+        _tier1(),
+        _tier2(),
+        _inv(new_cycle_detected=True, resolved_setup_cycle_id=4, cycle_reason_code="NEW_CYCLE_AFTER_RESET"),
+        _ctx(
+            prev_state_machine_state="confirmed_ready",
+            bars_since_early_entered=5,
+            bars_since_confirmed_entered=3,
+            close_at_early_entry_bar=95.0,
+            close_at_confirmed_entry_bar=97.0,
+            reclaim_below_reset_floor_seen_since_cycle_end=True,
+        ),
+        StateRuntimeContext(current_close=100.0, current_bar_index=20, delta_closed_bars_relevant=1),
+        ScannerConfig(raw={}),
+    )
+    assert out.persistence_patch is not None
+    patch = out.persistence_patch
+    assert patch.close_at_early_entry_bar is None
+    assert patch.close_at_confirmed_entry_bar is None
+    assert patch.distance_from_ideal_entry_after_early is None
+    assert patch.distance_from_ideal_entry_after_confirmed is None
+    assert patch.freshness_distance_state_early is None
+    assert patch.freshness_distance_state_confirmed is None
+    assert patch.bars_since_early_entered is None
+    assert patch.bars_since_confirmed_entered is None
+    assert patch.reclaim_below_reset_floor_seen_since_cycle_end is None
