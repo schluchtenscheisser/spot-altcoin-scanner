@@ -754,9 +754,9 @@ def resolve_cycle_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     merged["expansion_reset_max"] = float(expansion_reset_max)
 
     min_bars = merged.get("min_bars_since_cycle_end")
-    if isinstance(min_bars, bool) or not isinstance(min_bars, (int, float)) or int(min_bars) < 0:
+    if isinstance(min_bars, bool) or not isinstance(min_bars, int) or min_bars < 0:
         _raise_invalid("cycle.min_bars_since_cycle_end", min_bars, "must be integer >= 0")
-    merged["min_bars_since_cycle_end"] = int(min_bars)
+    merged["min_bars_since_cycle_end"] = min_bars
 
     enable_reclaim = merged.get("enable_reclaim_reset")
     if not isinstance(enable_reclaim, bool):

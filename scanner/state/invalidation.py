@@ -183,6 +183,7 @@ def compute_invalidation_and_cycle(
 
     cycle = resolve_cycle_state(
         phase_bundle=phase_bundle,
+        tier1_bundle=tier1_bundle,
         persisted_context=persisted_context,
         cycle_cfg=cfg.cycle,
         structural_invalidation=structural,

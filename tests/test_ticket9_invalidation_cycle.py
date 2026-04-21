@@ -261,6 +261,29 @@ def test_cycle_detection_and_first_seen_initialization():
     assert out_first.cycle_reason_code == "FIRST_CYCLE_INITIALIZED"
 
 
+def test_z1_uses_expansion_progress_not_structural_freshness():
+    out_blocked = compute_invalidation_and_cycle(
+        _phase(freshness_distance_structural=10.0),
+        _tier1(expansion_progress_structural=95.0),
+        _tier2(),
+        _context(prev_state_machine_state="rejected", bars_since_cycle_end=5),
+        _cfg({"cycle": {"expansion_reset_max": 40.0, "min_bars_since_cycle_end": 2}}),
+    )
+    assert out_blocked.expansion_reset_condition_met is False
+    assert out_blocked.new_cycle_detected is False
+    assert out_blocked.cycle_reason_code == "NEW_CYCLE_BLOCKED_EXPANSION_NOT_RESET"
+
+    out_allowed = compute_invalidation_and_cycle(
+        _phase(freshness_distance_structural=95.0),
+        _tier1(expansion_progress_structural=10.0),
+        _tier2(),
+        _context(prev_state_machine_state="rejected", bars_since_cycle_end=5),
+        _cfg({"cycle": {"expansion_reset_max": 40.0, "min_bars_since_cycle_end": 2}}),
+    )
+    assert out_allowed.expansion_reset_condition_met is True
+    assert out_allowed.new_cycle_detected is True
+
+
 def test_optional_reclaim_reset_gate():
     out = compute_invalidation_and_cycle(
         _phase(),
@@ -279,6 +302,18 @@ def test_config_defaults_and_invalid_values_and_persisted_validation():
     assert cfg.invalidation["max_state_freshness"] == 80.0
     assert cfg.invalidation["trend_resume"]["min_trend_hold"] == 55.0
 
+    assert _cfg({"cycle": {"min_bars_since_cycle_end": 2}}).cycle["min_bars_since_cycle_end"] == 2
+
+    with pytest.raises(ValueError, match=r"cycle.min_bars_since_cycle_end.*2.0"):
+        _cfg({"cycle": {"min_bars_since_cycle_end": 2.0}}).cycle
+    with pytest.raises(ValueError, match=r"cycle.min_bars_since_cycle_end.*2.9"):
+        _cfg({"cycle": {"min_bars_since_cycle_end": 2.9}}).cycle
+    with pytest.raises(ValueError, match=r"cycle.min_bars_since_cycle_end.*'3'"):
+        _cfg({"cycle": {"min_bars_since_cycle_end": "3"}}).cycle
+    with pytest.raises(ValueError, match=r"cycle.min_bars_since_cycle_end.*True"):
+        _cfg({"cycle": {"min_bars_since_cycle_end": True}}).cycle
+    with pytest.raises(ValueError, match=r"cycle.min_bars_since_cycle_end.*None"):
+        _cfg({"cycle": {"min_bars_since_cycle_end": None}}).cycle
     with pytest.raises(ValueError, match="cycle.min_bars_since_cycle_end"):
         _cfg({"cycle": {"min_bars_since_cycle_end": -1}}).cycle
 

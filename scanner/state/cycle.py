@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from scanner.axes.models import Tier1AxisBundle
 from scanner.phase.models import PhaseInterpretationBundle
 from scanner.state.models import PersistedStateCycleContext
 
@@ -29,6 +30,7 @@ def _phase_floor_recovered(phase_bundle: PhaseInterpretationBundle) -> bool:
 
 def resolve_cycle_state(
     phase_bundle: PhaseInterpretationBundle,
+    tier1_bundle: Tier1AxisBundle,
     persisted_context: PersistedStateCycleContext,
     cycle_cfg: dict,
     structural_invalidation: bool,
@@ -43,9 +45,9 @@ def resolve_cycle_state(
             reclaim_reset_condition_met=None,
         )
 
-    expansion_value = phase_bundle.freshness_distance_structural
+    expansion_value = tier1_bundle.expansion_progress_structural
     expansion_reset_condition_met: bool | None
-    if expansion_value is None:
+    if expansion_value is None or tier1_bundle.expansion_progress_structural_not_evaluable:
         expansion_reset_condition_met = None
     else:
         expansion_reset_condition_met = float(expansion_value) <= float(cycle_cfg["expansion_reset_max"])
