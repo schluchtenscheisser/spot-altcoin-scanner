@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-22 06:01 UTC  
+**Last Updated:** 2026-04-22 06:51 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 81
-- **Total Classes:** 44
-- **Total Functions:** 600
+- **Total Modules:** 86
+- **Total Classes:** 54
+- **Total Functions:** 617
 
 ---
 
@@ -144,9 +144,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, resolve_axes_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+77 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+78 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -189,6 +189,54 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `bar, bars, c, cached, cached_close, cfg, client, close_time, cutoff, db_path` _(+31 more)_
 
 **Imports:** `__future__, dataclasses, datetime, math, os, requests, scanner.clients.mexc_client, scanner.config` _(+4 more)_
+
+---
+
+### 📄 `scanner/decision/__init__.py`
+
+**Functions:** —
+
+**Imports:** `scanner.decision.buckets, scanner.decision.models, scanner.decision.ranking, scanner.decision.reasons`
+
+---
+
+### 📄 `scanner/decision/buckets.py`
+
+**Functions:** `_build, _coerce_market_phase_confidence_for_rankability, _is_finite, _make_discarded, assign_bucket`
+
+**Module Variables:** `confirmed_gate, early_gate, execution_pending, execution_required, execution_status, mpc, priority, reasons, sc, state` _(+2 more)_
+
+**Imports:** `__future__, scanner.decision.models, scanner.decision.ranking, scanner.decision.reasons, scanner.entry.models, scanner.phase.models, scanner.state.models`
+
+---
+
+### 📄 `scanner/decision/models.py`
+
+**Classes:** `ConfirmedReason, DecisionBucket, DecisionBundle, DiscardedReason, EarlyReason, ExecutionInputContract, LateMonitorReason, RankedDecision, ReasonAssignment, WatchlistReason`
+
+**Functions:** `__post_init__`
+
+**Module Variables:** `CHASED_STATE, CONFIRMED_CANDIDATES, CONFIRMED_EXECUTION_OK, CONFIRMED_EXECUTION_PENDING, CONFIRMED_PATTERN_UNRESOLVED, CONFIRMED_PATTERN_VALID, CONFIRMED_STATE_VALID, DISCARDED, EARLY_CANDIDATES, EARLY_EXECUTION_OK` _(+19 more)_
+
+**Imports:** `__future__, dataclasses, enum, math, scanner.entry.models`
+
+---
+
+### 📄 `scanner/decision/ranking.py`
+
+**Functions:** `_coerce_score_input_for_non_gated_path, _require_finite, _sort_nullable_desc, compute_priority_score, map_execution_grade, rank_coins`
+
+**Module Variables:** `bucket, bucket_order, grade, mapping, raw, sorted_records`
+
+**Imports:** `__future__, math, scanner.decision.models`
+
+---
+
+### 📄 `scanner/decision/reasons.py`
+
+**Functions:** `assign_reasons`
+
+**Imports:** `__future__, scanner.decision.models`
 
 ---
 
@@ -967,6 +1015,7 @@ _This section shows which functions call which other functions, helping identify
 | `btc_regime_enabled` | — | `get` |
 | `btc_regime_mode` | — | `get` |
 | `btc_regime_risk_off_enter_boost` | — | `get` |
+| `bucket` | `resolve_bucket_config` | — |
 | `budget_orderbook_top_k` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
 | `budget_shortlist_size` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
 | `cmc_api_key` | — | `get`, `getenv` |
@@ -986,7 +1035,7 @@ _This section shows which functions call which other functions, helping identify
 | `independence_ohlcv_fetch` | `resolve_independence_ohlcv_fetch_config` | — |
 | `independence_release` | `_normalize_independence_release_config` | `get` |
 | `invalidation` | `resolve_invalidation_config` | — |
-| `load_config` | `_normalize_independence_release_config`, `resolve_axes_config`, `resolve_independence_ohlcv_fetch_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
+| `load_config` | `_normalize_independence_release_config`, `resolve_axes_config`, `resolve_bucket_config`, `resolve_independence_ohlcv_fetch_config`, `resolve_priority_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
 | `log_file` | — | `get` |
 | `log_level` | — | `get` |
 | `log_to_file` | — | `get` |
@@ -1001,7 +1050,9 @@ _This section shows which functions call which other functions, helping identify
 | `min_turnover_24h` | — | `get` |
 | `phase` | `resolve_phase_config` | — |
 | `pre_shortlist_market_cap_floor_usd` | `_budget_mapping`, `_parse_integer_budget_value` | `get` |
+| `priority` | `resolve_priority_config` | — |
 | `resolve_axes_config` | `_deep_merge_dicts`, `_raise_invalid`, `_validate_linear`, `_validate_points`, `_validate_weight` | `get`, `isfinite`, `items` |
+| `resolve_bucket_config` | `_deep_merge_dicts` | `ValueError`, `get`, `isfinite` |
 | `resolve_cycle_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_entry_config` | `_deep_merge_dicts`, `_parse_0_100`, `_raise_invalid` | `get`, `items` |
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
@@ -1010,6 +1061,7 @@ _This section shows which functions call which other functions, helping identify
 | `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_invalidation_config` | `_deep_merge_dicts`, `_parse_0_100`, `_raise_invalid` | `get`, `items` |
 | `resolve_phase_config` | `_deep_merge_dicts`, `_parse_0_100`, `_parse_ratio`, `_raise_invalid` | `get`, `items` |
+| `resolve_priority_config` | `_deep_merge_dicts` | `ValueError`, `get`, `isfinite` |
 | `resolve_risk_max_stop_distance_pct` | `_parse` | `ValueError`, `get` |
 | `resolve_risk_min_rr_to_target_1` | — | `ValueError`, `get`, `isfinite` |
 | `resolve_state_config` | `_deep_merge_dicts`, `_parse_0_100`, `_parse_points`, `_raise_invalid` | `get` |
@@ -1037,7 +1089,7 @@ _This section shows which functions call which other functions, helping identify
 | `tradeability_min_depth_1pct_usd` | — | `get` |
 | `tradeability_notional_chunk_usdt` | — | `get` |
 | `tradeability_notional_total_usdt` | — | `get` |
-| `validate_config` | `_expect_integer_number`, `_expect_number`, `resolve_axes_config`, `resolve_entry_config` | `append`, `get` |
+| `validate_config` | `_expect_integer_number`, `_expect_number`, `resolve_axes_config`, `resolve_bucket_config`, `resolve_entry_config`, `resolve_priority_config` | `append`, `get` |
 
 ### 📄 scanner/data/bar_clock.py
 
@@ -1075,6 +1127,38 @@ _This section shows which functions call which other functions, helping identify
 | `fetch_and_persist` | `_get_connection_and_cfg`, `fetch_closed_bars`, `persist_fetch` | `FetchResult`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_fetch_decision`, `get_ohlcv_cache_meta` |
 | `fetch_closed_bars` | `_get_connection_and_cfg`, `_resolve_lookback`, `_utc_now_ms`, `_validate_now` | `Bar`, `FetchResult`, `MEXCClient`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_klines`, `is_close_time_on_grid`, `isfinite`, `keys`, `most_recent_closed_bar_close_time_utc_ms`, `timeframe_to_duration_ms` |
 | `persist_fetch` | `_get_connection_and_cfg`, `_iso_now`, `_validate_now` | `OhlcvBarRecord`, `PersistResult`, `_validate_symbol`, `_validate_timeframe`, `close`, `get_ohlcv_cache_meta`, `upsert_ohlcv_cache_meta`, `write_ohlcv_bars_conflict_strict` |
+
+### 📄 scanner/decision/buckets.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_build` | `_coerce_market_phase_confidence_for_rankability` | `DecisionBundle`, `_coerce_score_input_for_non_gated_path`, `assign_reasons`, `compute_priority_score` |
+| `_coerce_market_phase_confidence_for_rankability` | — | `_coerce_score_input_for_non_gated_path` |
+| `_make_discarded` | `_coerce_market_phase_confidence_for_rankability` | `DecisionBundle`, `_coerce_score_input_for_non_gated_path`, `compute_priority_score` |
+| `assign_bucket` | `_build`, `_is_finite`, `_make_discarded` | — |
+
+### 📄 scanner/decision/models.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__post_init__` | — | `ValueError`, `isfinite` |
+
+### 📄 scanner/decision/ranking.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_coerce_score_input_for_non_gated_path` | — | `isfinite` |
+| `_require_finite` | — | `TypeError`, `isfinite` |
+| `_sort_nullable_desc` | — | `isfinite` |
+| `compute_priority_score` | `_require_finite`, `map_execution_grade` | `isfinite` |
+| `map_execution_grade` | — | `ValueError` |
+| `rank_coins` | `_sort_nullable_desc` | `RankedDecision`, `append`, `get` |
+
+### 📄 scanner/decision/reasons.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `assign_reasons` | — | `ReasonAssignment`, `ValueError` |
 
 ### 📄 scanner/entry/patterns.py
 
@@ -1727,7 +1811,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 70 | 110 | 180 | 🔴 High |
+| `scanner/config.py` | 78 | 116 | 194 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -1769,10 +1853,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/decision/buckets.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/entry/patterns.py` | 7 | 6 | 13 | ⚠️ Medium |
 | `scanner/state/invalidation.py` | 6 | 7 | 13 | ⚠️ Medium |
 | `scanner/state/models.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/axes/normalization.py` | 4 | 8 | 12 | 🔴 High |
+| `scanner/decision/ranking.py` | 3 | 9 | 12 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
@@ -1789,6 +1875,8 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/storage/schema.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
+| `scanner/decision/models.py` | 0 | 2 | 2 | 🔴 High |
+| `scanner/decision/reasons.py` | 0 | 2 | 2 | 🔴 High |
 | `scanner/state/cycle.py` | 1 | 1 | 2 | ⚠️ Medium |
 
 **Interpretation:**
@@ -1808,4 +1896,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-22 06:01 UTC_
+_Generated by GitHub Actions • 2026-04-22 06:51 UTC_
