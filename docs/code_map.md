@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-22 12:06 UTC  
+**Last Updated:** 2026-04-22 13:36 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 86
-- **Total Classes:** 54
-- **Total Functions:** 617
+- **Total Modules:** 90
+- **Total Classes:** 56
+- **Total Functions:** 643
 
 ---
 
@@ -144,9 +144,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, feature_layer_config, independence_ohlcv_fetch, independence_release, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_release_reports_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+78 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+79 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -337,6 +337,48 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `args, cfg, parser`
 
 **Imports:** `__future__, argparse, config, pipeline, sys`
+
+---
+
+### 📄 `scanner/output/__init__.py`
+
+**Functions:** —
+
+**Imports:** `diagnostics, report_builder, schema`
+
+---
+
+### 📄 `scanner/output/diagnostics.py`
+
+**Functions:** `_atomic_write_bytes, serialize_diagnostics_jsonl_lines, write_symbol_diagnostics_jsonl_gz`
+
+**Module Variables:** `gz_bytes, payload, validated`
+
+**Imports:** `__future__, gzip, json, os, pathlib, schema, tempfile, typing`
+
+---
+
+### 📄 `scanner/output/report_builder.py`
+
+**Classes:** `ReportBuilder`
+
+**Functions:** `__init__, _atomic_write_json, _atomic_write_text, _date_parts_from_daily_bar_id, _sort_newest_first, _update_index_after_run, make_report_builder, write_daily_report, write_run_report`
+
+**Module Variables:** `counts, daily_bar_id, daily_report_path, diagnostics_path_rel, existing, existing_payload, latest_paths, merged, new_entry, newest` _(+7 more)_
+
+**Imports:** `__future__, datetime, diagnostics, json, os, pathlib, scanner.config, schema` _(+2 more)_
+
+---
+
+### 📄 `scanner/output/schema.py`
+
+**Classes:** `RunReport`
+
+**Functions:** `_require_bool, _require_symbol, _require_symbol_list, _validate_relative_path, normalize_counts_by_bucket, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
+
+**Module Variables:** `COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, block, raw, scan_mode, unknown`
+
+**Imports:** `__future__, dataclasses, datetime, re, typing`
 
 ---
 
@@ -1058,6 +1100,7 @@ _This section shows which functions call which other functions, helping identify
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
+| `resolve_independence_release_reports_config` | `_deep_merge_dicts`, `_raise_invalid` | `get` |
 | `resolve_independence_universe_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_invalidation_config` | `_deep_merge_dicts`, `_parse_0_100`, `_raise_invalid` | `get`, `items` |
 | `resolve_phase_config` | `_deep_merge_dicts`, `_parse_0_100`, `_parse_ratio`, `_raise_invalid` | `get`, `items` |
@@ -1220,6 +1263,45 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `main` | `parse_args` | `load_config`, `run_pipeline`, `setdefault` |
 | `parse_args` | `parse_args` | `ArgumentParser`, `add_argument` |
+
+### 📄 scanner/output/diagnostics.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_atomic_write_bytes` | — | `fdopen`, `fileno`, `flush`, `fsync`, `mkdir`, `mkstemp`, `replace`, `unlink`, `write` |
+| `serialize_diagnostics_jsonl_lines` | — | `append`, `dumps`, `validate_diagnostics_record` |
+| `write_symbol_diagnostics_jsonl_gz` | `_atomic_write_bytes`, `serialize_diagnostics_jsonl_lines` | `compress`, `encode`, `join` |
+
+### 📄 scanner/output/report_builder.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `__init__` | — | `resolve_independence_release_reports_config` |
+| `_atomic_write_json` | `_atomic_write_text` | `dumps` |
+| `_atomic_write_text` | — | `fdopen`, `fileno`, `flush`, `fsync`, `mkdir`, `mkstemp`, `replace`, `unlink`, `write` |
+| `_date_parts_from_daily_bar_id` | — | `split`, `validate_daily_bar_id` |
+| `_update_index_after_run` | `_atomic_write_json`, `_atomic_write_text`, `_sort_newest_first` | `exists`, `get`, `loads`, `mkdir`, `read_text` |
+| `make_report_builder` | — | `ReportBuilder` |
+| `write_daily_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id` | `mkdir` |
+| `write_run_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id`, `_update_index_after_run` | `RunReport`, `as_posix`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `relative_to`, `to_dict`, `write_symbol_diagnostics_jsonl_gz` |
+
+### 📄 scanner/output/schema.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_require_bool` | — | `ValueError` |
+| `_require_symbol` | — | `ValueError` |
+| `_require_symbol_list` | — | `ValueError`, `append` |
+| `_validate_relative_path` | — | `ValueError`, `startswith` |
+| `normalize_counts_by_bucket` | — | `ValueError`, `get`, `keys` |
+| `normalize_symbol_lists` | `_require_symbol_list` | `ValueError`, `get`, `keys` |
+| `to_dict` | `_validate_relative_path`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | — |
+| `validate_as_of_utc` | — | `ValueError`, `match`, `strptime` |
+| `validate_daily_bar_id` | — | `ValueError`, `fromisoformat`, `match` |
+| `validate_diagnostics_record` | `_require_bool`, `_require_symbol`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get` |
+| `validate_intraday_bar_id` | — | `ValueError` |
+| `validate_run_id` | — | `ValueError`, `match`, `strip` |
+| `validate_scan_mode` | — | `ValueError` |
 
 ### 📄 scanner/phase/interpreter.py
 
@@ -1811,7 +1893,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 78 | 116 | 194 | ⚠️ Medium |
+| `scanner/config.py` | 80 | 117 | 197 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -1821,12 +1903,14 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
+| `scanner/output/schema.py` | 16 | 25 | 41 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/tools/prepare_shadow_calibration.py` | 13 | 27 | 40 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/tools/backfill_btc_regime.py` | 11 | 27 | 38 | 🔴 High |
+| `scanner/output/report_builder.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
@@ -1846,6 +1930,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/axes/tier1.py` | 7 | 11 | 18 | 🔴 High |
+| `scanner/output/diagnostics.py` | 2 | 15 | 17 | 🔴 High |
 | `scanner/state/machine.py` | 8 | 9 | 17 | ⚠️ Medium |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -1896,4 +1981,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-22 12:06 UTC_
+_Generated by GitHub Actions • 2026-04-22 13:36 UTC_
