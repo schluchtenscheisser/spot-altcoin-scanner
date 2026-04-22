@@ -104,6 +104,18 @@ def test_bucket_assignment_paths():
     assert d5.bucket_reason_primary == LateMonitorReason.EXECUTION_FAILED_MONITOR
 
 
+def test_gated_candidate_paths_keep_rankable_score_when_phase_confidence_missing_or_non_finite():
+    d_none = assign_bucket(_phase(market_phase_confidence=None), _state("confirmed_ready", 70.0), _entry("breakout", 60.0), _cfg())
+    assert d_none.decision_bucket == DecisionBucket.CONFIRMED_CANDIDATES
+    assert isinstance(d_none.priority_score, float)
+    assert d_none.priority_score == pytest.approx(43.0)
+
+    d_nan = assign_bucket(_phase(market_phase_confidence=float("nan")), _state("early_ready", 70.0), _entry("breakout", 60.0), _cfg())
+    assert d_nan.decision_bucket == DecisionBucket.EARLY_CANDIDATES
+    assert isinstance(d_nan.priority_score, float)
+    assert d_nan.priority_score == pytest.approx(43.0)
+
+
 def test_none_pattern_special_cases_and_rule10_floor_policy():
     out_confirmed = assign_bucket(_phase(), _state("confirmed_ready", None), _entry("none"), _cfg())
     assert out_confirmed.decision_bucket == DecisionBucket.LATE_MONITOR
@@ -128,6 +140,32 @@ def test_late_and_chased_require_non_none_phase():
     late_none = assign_bucket(_phase(market_phase="none"), _state("late", 50.0), _entry("none"), _cfg())
     assert late_none.decision_bucket == DecisionBucket.DISCARDED
     assert late_none.bucket_reason_primary == DiscardedReason.PHASE_NONE
+
+
+def test_execution_fail_demotions_use_non_gated_floor_scoring():
+    confirmed_fail = assign_bucket(
+        _phase(market_phase_confidence=None),
+        _state("confirmed_ready", None),
+        _entry("breakout", 60.0),
+        _cfg(),
+        ExecutionInputContract(execution_status="fail"),
+    )
+    assert confirmed_fail.decision_bucket == DecisionBucket.LATE_MONITOR
+    assert confirmed_fail.bucket_reason_primary == LateMonitorReason.EXECUTION_FAILED_MONITOR
+    assert isinstance(confirmed_fail.priority_score, float)
+    assert confirmed_fail.priority_score == pytest.approx(12.0)
+
+    early_fail = assign_bucket(
+        _phase(market_phase_confidence=float("inf")),
+        _state("early_ready", None),
+        _entry("breakout", 60.0),
+        _cfg(),
+        ExecutionInputContract(execution_status="fail"),
+    )
+    assert early_fail.decision_bucket == DecisionBucket.DISCARDED
+    assert early_fail.bucket_reason_primary == DiscardedReason.EXECUTION_FAILED
+    assert isinstance(early_fail.priority_score, float)
+    assert early_fail.priority_score == pytest.approx(12.0)
 
 
 def test_priority_score_and_mapping():

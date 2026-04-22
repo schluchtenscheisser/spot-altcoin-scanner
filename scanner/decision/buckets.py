@@ -78,6 +78,7 @@ def assign_bucket(
             state_bundle=state_bundle,
             entry_bundle=entry_bundle,
             execution_contract=execution_contract,
+            non_gated=True,
         )
 
     if state == "early_ready" and entry_bundle.entry_pattern != "none" and early_gate and execution_status != "fail":
@@ -107,6 +108,7 @@ def assign_bucket(
             state_bundle=state_bundle,
             entry_bundle=entry_bundle,
             execution_contract=execution_contract,
+            non_gated=True,
         )
 
     if state == "watch" and watch_gate:
@@ -148,11 +150,10 @@ def _build(
     non_gated: bool = False,
     early_none_penalty: float = 0.0,
 ) -> DecisionBundle:
+    mpc = _coerce_market_phase_confidence_for_rankability(phase_bundle.market_phase_confidence)
     if non_gated:
-        mpc = _coerce_score_input_for_non_gated_path(phase_bundle.market_phase_confidence)
         sc = _coerce_score_input_for_non_gated_path(state_bundle.state_confidence)
     else:
-        mpc = float(phase_bundle.market_phase_confidence)
         sc = float(state_bundle.state_confidence)
 
     priority = compute_priority_score(
@@ -194,11 +195,10 @@ def _make_discarded(
     execution_contract: ExecutionInputContract | None,
     non_gated: bool = False,
 ) -> DecisionBundle:
+    mpc = _coerce_market_phase_confidence_for_rankability(phase_bundle.market_phase_confidence)
     if non_gated:
-        mpc = _coerce_score_input_for_non_gated_path(phase_bundle.market_phase_confidence)
         sc = _coerce_score_input_for_non_gated_path(state_bundle.state_confidence)
     else:
-        mpc = float(phase_bundle.market_phase_confidence)
         sc = float(state_bundle.state_confidence)
 
     priority = compute_priority_score(
@@ -228,3 +228,11 @@ def _is_finite(value: float | None) -> bool:
     except (TypeError, ValueError):
         return False
     return x == x and x not in {float("inf"), float("-inf")}
+
+
+def _coerce_market_phase_confidence_for_rankability(value: float | None) -> float:
+    """
+    Narrow Ticket-12 floor policy:
+    market_phase_confidence can be nullable/non-finite by contract and must stay rankable.
+    """
+    return _coerce_score_input_for_non_gated_path(value)
