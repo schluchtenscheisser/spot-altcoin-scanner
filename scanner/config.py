@@ -309,6 +309,14 @@ _STATE_DEFAULTS = {
     "chased": {"min_state_freshness": 85.0, "min_expansion_progress": 80.0},
 }
 
+_BUCKET_DEFAULTS = {
+    "watchlist": {"min_state_confidence": 50.0},
+    "early": {"min_state_confidence": 60.0},
+    "confirmed": {"min_state_confidence": 65.0},
+}
+
+_PRIORITY_DEFAULTS = {"early_without_pattern_penalty": 15.0}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -1050,6 +1058,46 @@ def resolve_risk_max_stop_distance_pct(risk_cfg: Mapping[str, Any] | None, setup
     return _parse("risk.max_stop_distance_pct", raw_value)
 
 
+def resolve_bucket_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    configured = raw.get("bucket")
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        raise ValueError("bucket must be an object")
+
+    merged = _deep_merge_dicts(_BUCKET_DEFAULTS, configured)
+    resolved: Dict[str, Any] = {}
+    for key in ["watchlist", "early", "confirmed"]:
+        block = merged.get(key)
+        if not isinstance(block, Mapping):
+            raise ValueError(f"bucket.{key} must be an object")
+        value = block.get("min_state_confidence")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"bucket.{key}.min_state_confidence must be numeric")
+        number = float(value)
+        if not math.isfinite(number) or number < 0.0 or number > 100.0:
+            raise ValueError(f"bucket.{key}.min_state_confidence must be in [0,100]")
+        resolved[key] = {"min_state_confidence": number}
+    return resolved
+
+
+def resolve_priority_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    configured = raw.get("priority")
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        raise ValueError("priority must be an object")
+
+    merged = _deep_merge_dicts(_PRIORITY_DEFAULTS, configured)
+    value = merged.get("early_without_pattern_penalty")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("priority.early_without_pattern_penalty must be numeric")
+    penalty = float(value)
+    if not math.isfinite(penalty) or penalty < 0.0 or penalty > 100.0:
+        raise ValueError("priority.early_without_pattern_penalty must be in [0,100]")
+    return {"early_without_pattern_penalty": penalty}
+
+
 @dataclass
 class ScannerConfig:
     """
@@ -1097,6 +1145,14 @@ class ScannerConfig:
     @property
     def entry(self) -> Dict[str, Any]:
         return resolve_entry_config(self.raw)
+
+    @property
+    def bucket(self) -> Dict[str, Any]:
+        return resolve_bucket_config(self.raw)
+
+    @property
+    def priority(self) -> Dict[str, Any]:
+        return resolve_priority_config(self.raw)
 
     @property
     def spec_version(self) -> str:
@@ -1399,6 +1455,8 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     raw["independence_release"] = _normalize_independence_release_config(raw)
     resolve_independence_ohlcv_fetch_config(raw)
     resolve_axes_config(raw)
+    resolve_bucket_config(raw)
+    resolve_priority_config(raw)
 
     return ScannerConfig(raw=raw)
 
@@ -1640,6 +1698,14 @@ def validate_config(config: ScannerConfig) -> List[str]:
 
     try:
         resolve_entry_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
+    try:
+        resolve_bucket_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
+    try:
+        resolve_priority_config(config.raw)
     except ValueError as exc:
         errors.append(str(exc))
 

@@ -67,7 +67,14 @@ Owns Layer-5 entry-pattern resolution (`resolve_entry_pattern`) and typed `Entry
 Owns execution-adjacent abstractions for downstream decision consumption. The bootstrap does not introduce automated trading or live-order behavior.
 
 ### `scanner/decision/`
-Owns decision bucketing and trade/no-trade style outputs in the Independence-Release architecture. Concrete rules are deferred to later canonical tickets.
+Owns Layer-6 decision bucketing, deterministic reason assignment, and bucket-aware ranking.
+
+Ticket-12 additive contract:
+- `assign_bucket(...)` consumes `PhaseInterpretationBundle` (T8), `StateMachineBundle` (T10), `EntryPatternBundle` (T11), and optional `ExecutionInputContract` (T16-owned canonical model, T12 read-contract).
+- Dual-mode behavior is explicit:
+  - pre-execution mode (no execution contract): structural bucketing + `execution_pending=True` for candidate buckets;
+  - post-execution mode (execution contract present): execution fail can demote buckets and execution grade affects score.
+- Outputs are run-local in-memory contracts (`DecisionBundle`, `RankedDecision`) only; Layer-6 does not write storage.
 
 ### `scanner/storage/`
 Owns persistence boundaries for Independence-Release. The initial foundation is SQLite infrastructure only: opening/creating the database, enabling WAL mode, tracking schema version via `PRAGMA user_version`, and creating the technical `run_metadata` table. Business tables such as `symbol_state`, `cycle_state`, and `cache_meta` are deferred to later tickets.
