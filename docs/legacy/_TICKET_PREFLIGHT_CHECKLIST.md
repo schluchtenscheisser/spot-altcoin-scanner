@@ -1,3 +1,6 @@
+DIESE DATEI IST ARCHIVIERT UND WURDE DURCH EINE NEUE VERSION ERSETZT. 
+DIE NEUE VERSION IST HIER ZU FINDEN: docs/tickets/_TICKET_PREFLIGHT_CHECKLIST_updated.md
+
 # Master-Checkliste für codex-feste Tickets
 
 **Zweck:**  
