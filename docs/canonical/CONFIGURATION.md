@@ -172,9 +172,24 @@ Example:
 independence_release:
   bar_clock: {}
   reports:
-    output_root: reports/runs
+    recent_runs_limit: 10
 ```
 This is valid. All unspecified `independence_release.*` sections still exist after merge.
+
+### `independence_release.reports` (Ticket 13)
+Canonical defaults:
+```yaml
+independence_release:
+  reports:
+    recent_runs_limit: 30
+    emit_report_md: false
+    emit_report_xlsx: false
+```
+
+Validation:
+- `recent_runs_limit` must be integer `> 0`
+- `emit_report_md` must be boolean
+- `emit_report_xlsx` must be boolean
 
 ## 3) Units & conventions
 - Cross-sectional `percent_rank` values are in `[0..100]` (percent scale).

@@ -86,7 +86,18 @@ Provides connection/bootstrap helpers that create the database if required, enab
 Provides the schema-version contract and idempotent migration entrypoint for the infrastructure foundation. This ticket defines schema version tracking plus exactly one table, `run_metadata`.
 
 ### `scanner/output/`
-Owns report and export generation for the target architecture, aligned with the canonical reports/output documents. File-level output contracts remain to be implemented later.
+Owns deterministic output artifact generation for Independence-Release.
+
+Binding module responsibilities:
+- `scanner/output/schema.py`: canonical typed models, enums, `SCHEMA_VERSION = "ir1.0"`.
+- `scanner/output/diagnostics.py`: diagnostics validation and `symbol_diagnostics.jsonl.gz` serialization.
+- `scanner/output/report_builder.py`: canonical pathing + writer orchestration for run reports, daily reports, and index artifacts.
+
+Architectural constraints:
+- summary (`report.json`) and full diagnostics (`symbol_diagnostics.jsonl.gz`) are separated artifacts.
+- manifest is referenced by path (`manifest_path`) and is not duplicated under `reports/`.
+- path date partitions under `reports/runs/` and `reports/daily/` derive from `daily_bar_id`.
+- writers are atomic (temp + rename); index finalization occurs only after run artifacts succeed.
 
 ### `scanner/runners/`
 Owns orchestration entrypoints for scheduled scans and related runtime jobs in the new architecture. This ticket creates only the structural landing zone.

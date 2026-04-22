@@ -85,6 +85,12 @@ _INDEPENDENCE_MARKET_DATA_BUDGET_DEFAULTS = {
     "max_4h_fetch_count": 100,
 }
 
+_INDEPENDENCE_REPORTS_DEFAULTS = {
+    "recent_runs_limit": 30,
+    "emit_report_md": False,
+    "emit_report_xlsx": False,
+}
+
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
@@ -1000,6 +1006,41 @@ def _normalize_independence_release_config(raw: Mapping[str, Any]) -> Dict[str, 
         merged[key] = dict(value)
 
     return merged
+
+
+def resolve_independence_release_reports_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+
+    configured = independence_release.get("reports", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.reports", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_REPORTS_DEFAULTS, configured)
+
+    recent_runs_limit = merged.get("recent_runs_limit")
+    if isinstance(recent_runs_limit, bool) or not isinstance(recent_runs_limit, int) or recent_runs_limit <= 0:
+        _raise_invalid(
+            "independence_release.reports.recent_runs_limit",
+            recent_runs_limit,
+            "must be integer > 0",
+        )
+
+    for key in ("emit_report_md", "emit_report_xlsx"):
+        value = merged.get(key)
+        if not isinstance(value, bool):
+            _raise_invalid(f"independence_release.reports.{key}", value, "must be bool")
+
+    return {
+        "recent_runs_limit": recent_runs_limit,
+        "emit_report_md": bool(merged["emit_report_md"]),
+        "emit_report_xlsx": bool(merged["emit_report_xlsx"]),
+    }
 
 
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
