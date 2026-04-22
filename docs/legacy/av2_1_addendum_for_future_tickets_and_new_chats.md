@@ -1,3 +1,6 @@
+DIESES DOKUMENT IST ARCHIVIERT UND WURDE DURCH EINE NEUE VERSION ERSETZT.
+
+
 # v2.1 / Independence-Release — Zusatzkontext für weitere Ticket-Arbeit ab Status „Tickets 1–3 umgesetzt“
 
 ## Zweck dieses Dokuments
