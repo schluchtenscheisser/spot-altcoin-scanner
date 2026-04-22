@@ -1009,7 +1009,13 @@ def _normalize_independence_release_config(raw: Mapping[str, Any]) -> Dict[str, 
 
 
 def resolve_independence_release_reports_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
-    configured = _read_nested(raw, "independence_release", "reports")
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+
+    configured = independence_release.get("reports", {})
     if configured is None:
         configured = {}
     if not isinstance(configured, Mapping):

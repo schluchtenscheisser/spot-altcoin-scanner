@@ -37,6 +37,7 @@ REQUIRED_DIAGNOSTIC_BLOCKS = (
 
 _AS_OF_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DAILY_BAR_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def validate_scan_mode(value: Any) -> ScanMode:
@@ -48,6 +49,13 @@ def validate_scan_mode(value: Any) -> ScanMode:
 def validate_run_id(value: Any) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"run_id must be a non-empty string, got {value!r}")
+    if not _RUN_ID_RE.match(value):
+        raise ValueError(
+            "run_id must match ^[A-Za-z0-9][A-Za-z0-9._-]*$ "
+            "(safe characters only; no path separators)"
+        )
+    if ".." in value:
+        raise ValueError("run_id must not contain '..'")
     return value
 
 

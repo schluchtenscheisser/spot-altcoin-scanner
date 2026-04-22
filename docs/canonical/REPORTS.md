@@ -30,6 +30,14 @@ reports/
 - `reports/aux/`: auxiliary report artifacts that support the primary report set without redefining canonical truth.
 - `reports/archive/`: optional retention/archive destination (no archive job implied by this document).
 
+## Verbindliche Dateitypen
+Die Independence-Release Reports-Struktur enthält verbindliche maschinenlesbare Canonical-Artefakte:
+- `report.json` als kompakte Run-/Daily-Summary
+- `symbol_diagnostics.jsonl.gz` als vollständige Symbol-Diagnostics
+- `reports/index/*` als deterministische Latest-/Pointer-/Recent-Run-Artefakte
+
+Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) existieren, sie sind aber nicht die Canonical-Truth-Ebene.
+
 ## Canonical schema and ownership
 - `schema_version` is fixed to `ir1.0`.
 - The output layer owns report/diagnostics/index writers in `scanner/output/`.

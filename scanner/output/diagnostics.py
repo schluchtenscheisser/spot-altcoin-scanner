@@ -37,5 +37,5 @@ def serialize_diagnostics_jsonl_lines(records: Iterable[Mapping[str, Any]]) -> l
 
 def write_symbol_diagnostics_jsonl_gz(path: Path, records: Iterable[Mapping[str, Any]]) -> None:
     payload = "\n".join(serialize_diagnostics_jsonl_lines(records)).encode("utf-8")
-    gz_bytes = gzip.compress(payload)
+    gz_bytes = gzip.compress(payload, mtime=0)
     _atomic_write_bytes(path, gz_bytes)

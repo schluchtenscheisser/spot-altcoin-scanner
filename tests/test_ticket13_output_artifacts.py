@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 
 from scanner.config import resolve_independence_release_reports_config
+from scanner.output.diagnostics import write_symbol_diagnostics_jsonl_gz
 from scanner.output.report_builder import ReportBuilder
-from scanner.output.schema import SCHEMA_VERSION
+from scanner.output.schema import SCHEMA_VERSION, validate_run_id
 
 
 def _stub_diag(symbol: str = "STUBUSDT") -> dict:
@@ -53,6 +54,12 @@ def test_reports_config_defaults_and_validation() -> None:
         resolve_independence_release_reports_config(
             {"independence_release": {"reports": {"recent_runs_limit": 0}}}
         )
+
+    for invalid in ("oops", 123, []):
+        with pytest.raises(ValueError):
+            resolve_independence_release_reports_config(
+                {"independence_release": {"reports": invalid}}
+            )
 
 
 def test_write_run_report_and_indexes(tmp_path: Path) -> None:
@@ -156,3 +163,38 @@ def test_write_daily_report_and_latest_daily(tmp_path: Path) -> None:
     assert daily_path.exists()
     latest_daily = json.loads((tmp_path / "reports" / "index" / "latest_daily.json").read_text(encoding="utf-8"))
     assert latest_daily == json.loads(daily_path.read_text(encoding="utf-8"))
+
+
+def test_diagnostics_gzip_bytes_are_deterministic(tmp_path: Path) -> None:
+    one = tmp_path / "one.jsonl.gz"
+    two = tmp_path / "two.jsonl.gz"
+    records = [_stub_diag("AAAUSDT"), _stub_diag("BBBUSDT")]
+
+    write_symbol_diagnostics_jsonl_gz(one, records)
+    write_symbol_diagnostics_jsonl_gz(two, records)
+
+    assert one.read_bytes() == two.read_bytes()
+
+
+def test_run_id_rejects_path_traversal_and_separators() -> None:
+    invalid_ids = [
+        "../x",
+        "../../foo",
+        "a/b",
+        r"a\\b",
+        "/abs",
+        "C:\\temp",
+        "..hidden",
+        "has space",
+    ]
+    for candidate in invalid_ids:
+        with pytest.raises(ValueError):
+            validate_run_id(candidate)
+
+    assert validate_run_id("safe-run_01.v1") == "safe-run_01.v1"
+
+
+def test_reports_doc_and_ticket_preflight_path_compatibility() -> None:
+    reports_doc = Path("docs/canonical/REPORTS.md").read_text(encoding="utf-8")
+    assert "Verbindliche Dateitypen" in reports_doc
+    assert Path("docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md").exists()
