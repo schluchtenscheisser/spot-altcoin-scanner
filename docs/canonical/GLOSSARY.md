@@ -124,3 +124,22 @@ Cross-timeframe raw-feature model computed from precomputed `RawFeatures1D` and 
 - **range_reclaim / breakout / break_and_hold**: pressure-build entry patterns.
 - **shallow_pullback / resume_reclaim / continuation_breakout**: trend-resume entry patterns.
 - **ema_reclaim / base_reclaim / early_reversal_break**: transition-reclaim entry patterns.
+
+## Ticket 12 additive terms
+
+- **DecisionBucket**: closed five-value enum: `watchlist`, `early_candidates`, `confirmed_candidates`, `late_monitor`, `discarded`.
+- **decision_bucket**: assigned Layer-6 bucket from `DecisionBucket`.
+- **DecisionBundle**: per-coin Layer-6 output carrying bucket, reasons, score, execution flags, and entry pass-through fields.
+- **RankedDecision**: ranking record with `symbol`, `decision`, and `rank_within_bucket`.
+- **priority_score**: finite `[0,100]` score used as first within-bucket sort key.
+- **execution_grade**: numeric execution quality input (T16-owned); falls back to `map_execution_grade(execution_status)` when absent/non-finite.
+- **execution_required**: classification flag indicating structural candidate bucket requiring execution evaluation.
+- **execution_pending**: `true` iff candidate bucket and no execution input was provided.
+- **bucket_reason_primary / bucket_reason_secondary**: deterministic closed-enum reason codes bound to the assigned bucket.
+- **ExecutionInputContract**: optional Ticket-12 read contract for execution fields (`execution_status`, optional `execution_grade`, supplemental flags/reason text).
+- **map_execution_grade**: deterministic default mapping `direct_ok=100`, `tranche_ok=75`, `marginal=40`, `fail=0`.
+- **_coerce_score_input_for_non_gated_path**: localized floor-policy helper that converts nullable/non-finite confidence inputs to `0.0` for non-gated/Rule-10 score paths.
+- **pre-execution mode**: Ticket-12 run mode without execution contract.
+- **post-execution mode**: Ticket-12 run mode with execution contract.
+- **symbol**: canonical ranking identifier and final alphabetical tie-break key.
+- **rank_within_bucket**: 1-based rank position inside each bucket.

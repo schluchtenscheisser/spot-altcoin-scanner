@@ -229,3 +229,34 @@ Invariants:
 Cross-layer guardrail handoff to Ticket 12 (documented interface semantics):
 - `state_machine_state="early_ready"` + `entry_pattern="none"` maps to bucket `watchlist`.
 - `state_machine_state="confirmed_ready"` + `entry_pattern="none"` maps to bucket `late_monitor` with reason `CONFIRMED_PATTERN_UNRESOLVED`.
+
+## Ticket 12 additive decision model
+
+`DecisionBucket` is a closed enum with exactly five values:
+`watchlist`, `early_candidates`, `confirmed_candidates`, `late_monitor`, `discarded`.
+`execution_pending` is an output flag and is never a bucket value.
+
+`DecisionBundle` fields:
+- `decision_bucket`
+- `priority_score` (finite float in `[0,100]`, never null/non-finite)
+- `bucket_reason_primary` / `bucket_reason_secondary`
+- `execution_required` / `execution_pending`
+- `entry_pattern` / `entry_pattern_score`
+
+`RankedDecision` fields:
+- `symbol` (final deterministic tie-break key)
+- `decision: DecisionBundle`
+- `rank_within_bucket` (1-based, per bucket)
+- tie-break inputs include `state_confidence` and `market_phase_confidence`.
+
+Execution contract note:
+- `ExecutionInputContract` is consumed as optional read contract in T12.
+- Canonical ownership of execution derivation remains Ticket 16.
+- If T16 provides a finite numeric `execution_grade`, it overrides the T12 default mapping (`direct_ok=100`, `tranche_ok=75`, `marginal=40`, `fail=0`).
+
+Spec inconsistency resolution (explicit): Abschnitt 7 §10.4 overrides incomplete §17.4 enumeration for this path:
+`confirmed_ready + entry_pattern="none"` maps to `late_monitor` with primary reason `CONFIRMED_PATTERN_UNRESOLVED`.
+
+Finite-score floor policy:
+- For non-gated paths and Rule-10 catch-all, nullable/non-finite `state_confidence` and `market_phase_confidence` are explicitly substituted with `0.0` via `_coerce_score_input_for_non_gated_path` before scoring.
+- This substitution is localized to Ticket-12 score calculation and is not a global missing-numeric policy.
