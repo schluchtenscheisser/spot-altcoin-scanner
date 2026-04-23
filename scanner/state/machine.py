@@ -238,7 +238,7 @@ def compute_state_machine(
     elif state in {"rejected", "chased"} and prev_state not in {"rejected", "chased"}:
         bars_since_cycle_end = 0
         cycle_end_bar_index = runtime_context.current_bar_index
-        cycle_end_timestamp = phase_bundle.intraday_bar_id if phase_bundle.intraday_bar_id is not None else phase_bundle.daily_bar_id
+        cycle_end_timestamp = runtime_context.current_bar_index
     elif persisted_context.bars_since_cycle_end is not None:
         bars_since_cycle_end = persisted_context.bars_since_cycle_end + delta
     else:

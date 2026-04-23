@@ -17,7 +17,7 @@ from scanner.storage.schema import apply_schema
 def _phase(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 111,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 222,
         "data_4h_available": True,
         "market_phase": "trend_resume",
@@ -48,7 +48,7 @@ def _phase(**overrides):
 def _tier1(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 111,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 222,
         "data_4h_available": True,
         "trend_strength": 70.0,
@@ -83,7 +83,7 @@ def _tier1(**overrides):
 def _tier2(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 111,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 222,
         "data_4h_available": True,
         "base_integrity_simplified": 70.0,
@@ -106,7 +106,7 @@ def _tier2(**overrides):
 def _inv(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 111,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 222,
         "data_4h_available": True,
         "structural_invalidation": False,
@@ -164,7 +164,7 @@ def test_not_admitted_disposition_has_no_patch():
     assert out.persistence_patch is None
 
 
-def test_terminal_daily_run_uses_daily_bar_id_for_cycle_end_timestamp():
+def test_terminal_daily_run_uses_integer_runtime_timestamp_for_cycle_end_timestamp():
     out = compute_state_machine(
         _phase(intraday_bar_id=None),
         _tier1(expansion_progress_structural=95.0, intraday_bar_id=None),
@@ -176,7 +176,7 @@ def test_terminal_daily_run_uses_daily_bar_id_for_cycle_end_timestamp():
     )
     assert out.state_machine_state == "chased"
     assert out.persistence_patch is not None
-    assert out.persistence_patch.cycle_end_timestamp == 111
+    assert out.persistence_patch.cycle_end_timestamp == 77
     assert out.persistence_patch.cycle_end_bar_index == 77
     assert out.persistence_patch.bars_since_cycle_end == 0
 

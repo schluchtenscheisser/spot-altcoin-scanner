@@ -332,6 +332,10 @@ _BUCKET_DEFAULTS = {
 
 _PRIORITY_DEFAULTS = {"early_without_pattern_penalty": 15.0}
 
+_RUNNER_DEFAULTS = {
+    "max_symbol_retries": 1,
+}
+
 
 def _raise_invalid(key: str, value: Any, msg: str) -> None:
     raise ValueError(f"{key} invalid value {value!r}: {msg}")
@@ -1178,6 +1182,22 @@ def resolve_bucket_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     return resolved
 
 
+def resolve_runner_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    configured = raw.get("runner")
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        raise ValueError("runner must be an object")
+    merged = _deep_merge_dicts(_RUNNER_DEFAULTS, configured)
+    value = merged.get("max_symbol_retries")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != float(value):
+        raise ValueError("runner.max_symbol_retries must be integer")
+    retries = int(value)
+    if retries < 0 or retries > 10:
+        raise ValueError("runner.max_symbol_retries must be in [0,10]")
+    return {"max_symbol_retries": retries}
+
+
 def resolve_priority_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     configured = raw.get("priority")
     if configured is None:
@@ -1258,6 +1278,10 @@ class ScannerConfig:
     @property
     def priority(self) -> Dict[str, Any]:
         return resolve_priority_config(self.raw)
+
+    @property
+    def runner(self) -> Dict[str, Any]:
+        return resolve_runner_config(self.raw)
 
     @property
     def spec_version(self) -> str:
@@ -1811,6 +1835,10 @@ def validate_config(config: ScannerConfig) -> List[str]:
         errors.append(str(exc))
     try:
         resolve_priority_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
+    try:
+        resolve_runner_config(config.raw)
     except ValueError as exc:
         errors.append(str(exc))
 

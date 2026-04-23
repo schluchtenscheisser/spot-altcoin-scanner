@@ -149,7 +149,7 @@ class PersistedStateCycleContext:
 @dataclass(frozen=True)
 class InvalidationCycleBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     data_4h_available: bool
 
@@ -319,7 +319,7 @@ class StatePersistencePatch:
 @dataclass(frozen=True)
 class StateMachineBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     data_4h_available: bool
     disposition: StateEvaluationDisposition

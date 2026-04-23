@@ -13,7 +13,7 @@ from scanner.state import InvalidationCycleBundle, PersistedStateCycleContext, c
 def _phase(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 10,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 20,
         "data_4h_available": True,
         "market_phase": "trend_resume",
@@ -44,7 +44,7 @@ def _phase(**overrides):
 def _tier1(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 10,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 20,
         "data_4h_available": True,
         "trend_strength": 70.0,
@@ -79,7 +79,7 @@ def _tier1(**overrides):
 def _tier2(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 10,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 20,
         "data_4h_available": True,
         "base_integrity_simplified": 70.0,
@@ -135,7 +135,7 @@ def test_type_validation_and_bundle_identity_validation():
     with pytest.raises(TypeError):
         compute_invalidation_and_cycle(_phase(), _tier1(), _tier2(), _context(), {})
     with pytest.raises(ValueError, match="daily_bar_id"):
-        compute_invalidation_and_cycle(_phase(daily_bar_id=99), _tier1(), _tier2(), _context(), _cfg())
+        compute_invalidation_and_cycle(_phase(daily_bar_id="2026-02-02"), _tier1(), _tier2(), _context(), _cfg())
     with pytest.raises(ValueError, match="symbol"):
         compute_invalidation_and_cycle(_phase(), _tier1(), _tier2(), _context(symbol="X"), _cfg())
 

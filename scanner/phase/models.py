@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class PhaseInterpretationBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     data_4h_available: bool
 

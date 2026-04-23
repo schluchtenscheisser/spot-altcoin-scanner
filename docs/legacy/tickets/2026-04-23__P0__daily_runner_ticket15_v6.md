@@ -1,4 +1,4 @@
-> DRAFT (ticket): Not yet implemented. Canonical truth remains the authoritative source set until merged.
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
 
 # Title
 [P0] Implement daily runner and resolve OQ3 (`daily_bar_id` type harmonization) (Ticket 15)

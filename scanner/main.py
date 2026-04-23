@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from .config import load_config
-from .pipeline import run_pipeline
+from .runners import run_daily_scan
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode:
         cfg.raw.setdefault("general", {})["run_mode"] = args.mode
 
-    run_pipeline(cfg)
+    run_daily_scan(cfg)
     return 0
 
 

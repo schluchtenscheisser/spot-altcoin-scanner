@@ -13,7 +13,7 @@ from scanner.phase import PhaseInterpretationBundle, compute_phase_interpretatio
 def _tier1(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 1,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 2,
         "data_4h_available": True,
         "trend_strength": 70.0,
@@ -48,7 +48,7 @@ def _tier1(**overrides):
 def _tier2(**overrides):
     base = {
         "symbol": "TESTUSDT",
-        "daily_bar_id": 1,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 2,
         "data_4h_available": True,
         "base_integrity_simplified": 74.0,
