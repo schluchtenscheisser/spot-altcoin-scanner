@@ -147,7 +147,7 @@ The module now owns the deterministic chain: pre-1d eligibility -> post-1d activ
 
 ## Ticket 4 OHLCV Fetch + Cache (transitional SQLite)
 
-Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` as deterministic primitives for `(symbol, timeframe, now)` cache decisions and closed-bar-only persistence for `1d`/`4h` OHLCV. The persistence authority for this ticket scope is SQLite (`ohlcv_bars`, `ohlcv_cache_meta`) with atomic writes and conflict-strict history immutability. This is explicitly transitional for OHLCV history; Ticket 14 defines the migration path toward the long-term history target. 
+Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` as deterministic primitives for `(symbol, timeframe, now)` cache decisions and closed-bar-only persistence for `1d`/`4h` OHLCV. SQLite remains valid for operational cache metadata (`ohlcv_cache_meta`) and transitional local rows (`ohlcv_bars`), while Ticket 14 defines Parquet under `snapshots/history/ohlcv/` as the canonical long-term OHLCV base-history authority.
 
 ## Ticket 5 additive architecture contract (raw features layer)
 

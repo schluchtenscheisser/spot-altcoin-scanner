@@ -213,3 +213,38 @@ independence_release:
     config = load_config(config_path)
     with pytest.raises(ValueError, match=r"independence_release\.entry\.pressure_build\.range_reclaim"):
         _ = config.entry
+
+
+def test_independence_snapshots_defaults_and_partial_override(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(
+        config_path,
+        """
+independence_release:
+  snapshots:
+    runs_root: snapshots/custom-runs
+""",
+    )
+    config = load_config(config_path)
+    assert config.independence_snapshots == {
+        "history_root": "snapshots/history",
+        "runs_root": "snapshots/custom-runs",
+    }
+
+
+def test_independence_retention_defaults_and_validation(tmp_path) -> None:
+    config_path = tmp_path / "config.yml"
+    _write_config(config_path)
+    config = load_config(config_path)
+    assert config.independence_retention == {"run_snapshots_online_days": 90}
+
+    _write_config(
+        config_path,
+        """
+independence_release:
+  retention:
+    run_snapshots_online_days: 0
+""",
+    )
+    with pytest.raises(ValueError, match=r"independence_release\.retention\.run_snapshots_online_days"):
+        _ = load_config(config_path).independence_retention

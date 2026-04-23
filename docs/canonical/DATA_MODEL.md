@@ -91,12 +91,14 @@ Reserved for the authoritative Field Group D defined by Abschnitt 6 §4. This do
 - PK: `(symbol, timeframe, close_time_utc_ms)`
 - `timeframe` closed enum: `{'1d','4h'}`
 - historical bars are conflict-strict immutable: same PK + differing values is an error (no replace).
+- post-Ticket 14 role: non-canonical transitional store (canonical base history is Parquet under `snapshots/history/ohlcv/`).
 
 `ohlcv_cache_meta`
 - PK: `(symbol, timeframe)`
 - `cached_close_time_utc_ms`, `last_fetch_at_utc`, `last_error_code` are nullable and must round-trip as `None`.
 - `last_fetch_status` closed enum: `{'ok','empty','error_transport','error_invalid'}`.
 - absence of a row is the only bootstrap missing-cache state.
+- post-Ticket 14 role: operational fetch/cache metadata remains valid and canonical for refresh decision support.
 
 Terminology mapping note: `cached_close_time_utc_ms` is the OHLCV-cache representation aligned with the same close-bar semantics later represented by `daily_cache_bar_id` / `intraday_cache_bar_id` in state-oriented persistence layers.
 
