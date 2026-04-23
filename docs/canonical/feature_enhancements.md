@@ -8,6 +8,7 @@ status: canonical
 
 ## Purpose
 This file lists **bewusst verschobene Themen** for the Independence-Release architecture. It starts empty by design; new entries should be added only when a future ticket explicitly defers an enhancement instead of implementing it.
+Bootstrap placeholder text was `none yet` before deferred entries were added.
 
 ## Deferred enhancements
 - **State confidence penalty for “narrow margins” — operationalization and calibration**

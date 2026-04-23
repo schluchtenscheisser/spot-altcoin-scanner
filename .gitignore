@@ -18,6 +18,8 @@ ENV/
 # Data & Logs
 data/raw/*
 data/processed/*
+snapshots/history/ohlcv/
+snapshots/runs/
 logs/*.log
 *.log
 
@@ -33,4 +35,3 @@ Thumbs.db
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !logs/.gitkeep
-

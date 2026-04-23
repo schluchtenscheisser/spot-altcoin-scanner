@@ -9,22 +9,50 @@ history_format: parquet
 ```
 
 ## Snapshot classes
-The Independence-Release bootstrap reserves four canonical snapshot classes that are referenced as **A / B / C / D** in the authoritative planning material. Their detailed payload definitions remain deferred to later tickets.
+The Independence-Release snapshot model uses canonical storage classes **A / B / C / D**:
 
-- **Class A**: reserved snapshot class from Gesamtkonzept §6.
-- **Class B**: reserved snapshot class from Gesamtkonzept §6.
-- **Class C**: reserved snapshot class from Gesamtkonzept §6.
-- **Class D**: reserved snapshot class from Gesamtkonzept §6.
+- **Class A (base history):** canonical OHLCV base history under `snapshots/history/ohlcv/`.
+- **Class B (point-in-time run artifacts):** canonical run placement under `snapshots/runs/YYYY/MM/DD/<run_id>/`.
+- **Class C (evaluation/calibration artifacts):** reserved, outside Ticket-14 implementation scope.
+- **Class D (manifest/provenance):** canonical run manifest placement under `snapshots/runs/.../run.manifest.json`.
 
-## Parquet partitioning (Festlegung 1)
-Parquet is the canonical history format for snapshot/history exports. The authoritative partitioning rule referenced by the bootstrap ticket is acknowledged here as binding for future implementation; this ticket intentionally does not invent additional partition keys beyond reserving the history path and Parquet requirement.
+## Clean-start policy (binding)
+- Parquet under `snapshots/history/ohlcv/` is the sole canonical OHLCV base-history store from Ticket 14 onward.
+- No SQLite-to-Parquet migration is introduced by this ticket.
+- Existing SQLite `ohlcv_bars` rows are non-canonical legacy/transitional data after Ticket 14.
+- SQLite `ohlcv_cache_meta` remains valid for operational fetch/refresh metadata (`cache_status`, `cached_close_time_utc_ms`).
+
+## OHLCV Parquet partitioning contract
+- Canonical history scopes in Ticket 14 are exactly: `1d` and `4h`.
+- Partition keys are exactly: `timeframe`, `symbol`, `year`, `month`.
+- Canonical partition directory shape:
+  - `snapshots/history/ohlcv/timeframe=1d/symbol=TAOUSDT/year=2026/month=03/`
+  - `snapshots/history/ohlcv/timeframe=4h/symbol=TAOUSDT/year=2026/month=03/`
+- Paths are repository-root-relative (never absolute).
+
+### Month mutability contract
+- A partition month is **open** iff explicit `reference_date` is in the same calendar month.
+- Open months are mutable in normal operation (append/rebuild allowed).
+- A partition month is **closed** iff explicit `reference_date` is in a later calendar month.
+- Closed months are immutable in normal operation.
+- Closed month changes are allowed only via explicit targeted monthly repair/backfill.
 
 ## Directory structure
 ```text
 snapshots/
 ├── history/
+│   └── ohlcv/
 └── runs/
 ```
 
-## Bootstrap rule
-Detailed class payloads, filenames, and partition fields must be introduced only when the corresponding authoritative material is available in-repo or in later implementation tickets.
+## Run snapshot placement contract
+- Canonical run root: `snapshots/runs/YYYY/MM/DD/<run_id>/`
+- `YYYY/MM/DD` is derived from `daily_bar_id` (not wall-clock write time).
+- Canonical manifest path: `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json`
+- Path derivation does not require that the manifest file already exists at derivation time.
+- Manifest content/required fields remain defined by `docs/canonical/OUTPUT_SCHEMA.md`; this document defines placement/lifecycle only.
+
+## Lifecycle/retention semantics
+- `snapshots/history/` is durable base history (no routine deletion introduced here).
+- `snapshots/runs/` uses online-retention class semantics (policy/config only in Ticket 14; no archive/delete jobs here).
+- Manifest/provenance stays with the run snapshot; no duplicate canonical manifest body under `reports/`.

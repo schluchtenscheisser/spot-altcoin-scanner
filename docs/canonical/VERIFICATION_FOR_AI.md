@@ -187,6 +187,23 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - same PK + identical values => no-op
   - same PK + differing values => hard conflict/rollback
 
+## Ticket 14 verification boundaries (history storage + snapshot lifecycle)
+
+- Canonical OHLCV base-history root is `snapshots/history/ohlcv/`; path outputs are repository-root-relative.
+- Supported canonical history timeframes are exactly `{1d, 4h}`; unsupported values fail clearly.
+- History partition shape is deterministic: `timeframe=<tf>/symbol=<symbol>/year=<YYYY>/month=<MM>/`.
+- Symbol path segments reject separators/traversal inputs (`/`, `\\`, `..`).
+- Open/closed month classification uses explicit `reference_date` input only (no implicit wall-clock reads).
+- Open month => mutable in normal operation; closed month => immutable in normal operation.
+- Targeted monthly repair/backfill permission remains explicit and does not imply generic compaction/rewrite orchestration.
+- Run snapshot path is deterministic from `daily_bar_id`: `snapshots/runs/YYYY/MM/DD/<run_id>/`.
+- Canonical manifest path is exactly `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json`.
+- Manifest-path derivation is existence-agnostic (must succeed even before a runner physically writes the file).
+- Config defaults and validation:
+  - missing `independence_release.snapshots.*` and `independence_release.retention.*` keys fall back to defaults;
+  - partial overrides merge field-by-field;
+  - invalid values fail with key-specific validation errors.
+
 ## Ticket 5 verification boundaries (raw features)
 
 - Mandatory public functions: `compute_raw_1d`, `compute_raw_4h`, `compute_raw_shared`, `build_feature_bundle`.

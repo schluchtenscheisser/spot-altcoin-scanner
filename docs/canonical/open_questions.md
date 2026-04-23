@@ -8,6 +8,7 @@ status: canonical
 
 ## Purpose
 This file tracks authoritative open questions that remain unresolved in the current Independence-Release architecture and therefore must not be silently decided by later implementation tickets.
+These questions map to the unresolved clarification surface referenced in Gesamtkonzept §21.
 
 ## Bootstrap rule
 Until an open question listed here is resolved in canonical documentation, later tickets and implementations must not silently invent business-logic answers for it.

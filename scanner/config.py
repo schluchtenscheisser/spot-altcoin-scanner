@@ -91,6 +91,15 @@ _INDEPENDENCE_REPORTS_DEFAULTS = {
     "emit_report_xlsx": False,
 }
 
+_INDEPENDENCE_SNAPSHOTS_DEFAULTS = {
+    "history_root": "snapshots/history",
+    "runs_root": "snapshots/runs",
+}
+
+_INDEPENDENCE_RETENTION_DEFAULTS = {
+    "run_snapshots_online_days": 90,
+}
+
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
@@ -1043,6 +1052,53 @@ def resolve_independence_release_reports_config(raw: Mapping[str, Any]) -> Dict[
     }
 
 
+def resolve_independence_release_snapshots_config(raw: Mapping[str, Any]) -> Dict[str, str]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+
+    configured = independence_release.get("snapshots", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.snapshots", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_SNAPSHOTS_DEFAULTS, configured)
+    resolved: Dict[str, str] = {}
+    for key in ("history_root", "runs_root"):
+        value = merged.get(key)
+        if not isinstance(value, str) or not value.strip():
+            _raise_invalid(f"independence_release.snapshots.{key}", value, "must be non-empty string")
+        resolved[key] = value.strip()
+    return resolved
+
+
+def resolve_independence_release_retention_config(raw: Mapping[str, Any]) -> Dict[str, int]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+
+    configured = independence_release.get("retention", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.retention", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_RETENTION_DEFAULTS, configured)
+    value = merged.get("run_snapshots_online_days")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        _raise_invalid(
+            "independence_release.retention.run_snapshots_online_days",
+            value,
+            "must be integer > 0",
+        )
+    return {"run_snapshots_online_days": value}
+
+
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
     """Resolve RR threshold with canonical-key precedence and legacy alias fallback."""
     cfg = risk_cfg if isinstance(risk_cfg, Mapping) else {}
@@ -1157,6 +1213,14 @@ class ScannerConfig:
     @property
     def independence_ohlcv_fetch(self) -> Dict[str, Any]:
         return resolve_independence_ohlcv_fetch_config(self.raw)
+
+    @property
+    def independence_snapshots(self) -> Dict[str, str]:
+        return resolve_independence_release_snapshots_config(self.raw)
+
+    @property
+    def independence_retention(self) -> Dict[str, int]:
+        return resolve_independence_release_retention_config(self.raw)
 
     @property
     def feature_layer_config(self) -> Dict[str, Any]:
