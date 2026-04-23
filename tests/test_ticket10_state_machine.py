@@ -164,7 +164,7 @@ def test_not_admitted_disposition_has_no_patch():
     assert out.persistence_patch is None
 
 
-def test_terminal_daily_run_uses_daily_bar_id_for_cycle_end_timestamp():
+def test_terminal_daily_run_uses_integer_runtime_timestamp_for_cycle_end_timestamp():
     out = compute_state_machine(
         _phase(intraday_bar_id=None),
         _tier1(expansion_progress_structural=95.0, intraday_bar_id=None),
@@ -176,7 +176,7 @@ def test_terminal_daily_run_uses_daily_bar_id_for_cycle_end_timestamp():
     )
     assert out.state_machine_state == "chased"
     assert out.persistence_patch is not None
-    assert out.persistence_patch.cycle_end_timestamp == "2026-01-01"
+    assert out.persistence_patch.cycle_end_timestamp == 77
     assert out.persistence_patch.cycle_end_bar_index == 77
     assert out.persistence_patch.bars_since_cycle_end == 0
 

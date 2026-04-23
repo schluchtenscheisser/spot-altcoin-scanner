@@ -91,6 +91,21 @@ def _persist_run_manifest(project_root: Path, daily_id: str, run_id: str, ranked
     return rel.as_posix()
 
 
+
+
+def _derive_runtime_context(*, bars_1d: list[Any], bars_4h: list[Any] | None) -> StateRuntimeContext:
+    relevant = bars_4h if bars_4h else bars_1d
+    if not relevant:
+        raise ValueError("runtime context requires non-empty closed bars")
+    last_bar = relevant[-1]
+    current_close = float(getattr(last_bar, "close"))
+    current_bar_index = int(getattr(last_bar, "close_time_utc_ms"))
+    return StateRuntimeContext(
+        current_close=current_close,
+        current_bar_index=current_bar_index,
+        delta_closed_bars_relevant=DAILY_SCAN_DELTA_BARS,
+    )
+
 def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     daily_id = _validate_as_of_date(as_of_date)
     run_id = f"daily-{daily_id}-{uuid.uuid4().hex[:12]}"
@@ -137,14 +152,14 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 persisted = load_persisted_state_machine_context(conn, symbol)
                 inv_ctx = PersistedStateMachineContext(**asdict(persisted))
                 invalidation = compute_invalidation_and_cycle(phase, t1, t2, inv_ctx, cfg)
-                runtime = StateRuntimeContext(current_close=1.0, current_bar_index=0, delta_closed_bars_relevant=DAILY_SCAN_DELTA_BARS)
+                runtime = _derive_runtime_context(bars_1d=bars_1d, bars_4h=bars_4h if bars_4h else None)
                 state_bundle = compute_state_machine(phase, t1, t2, invalidation, persisted, runtime, cfg)
-                if state_bundle.persistence_patch is not None:
-                    apply_state_persistence_patch(conn, state_bundle.persistence_patch)
 
                 entry = resolve_entry_pattern(phase, t1, t2, cfg)
                 execution_contract = _execution_adapter_callsite(symbol=symbol)
                 decision = assign_bucket(phase, state_bundle, entry, cfg, execution_contract=execution_contract)
+                if state_bundle.persistence_patch is not None:
+                    apply_state_persistence_patch(conn, state_bundle.persistence_patch)
                 ranked_inputs.append(
                     RankedDecision(
                         symbol=symbol,
