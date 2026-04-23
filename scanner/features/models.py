@@ -151,7 +151,7 @@ class RawFeaturesShared:
 @dataclass(frozen=True)
 class FeatureBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     daily_close_time_utc_ms: int
     intraday_close_time_utc_ms: int | None

@@ -29,7 +29,7 @@ def _cfg(raw: dict | None = None) -> ScannerConfig:
 def _phase(**overrides):
     base = {
         "symbol": "TEST",
-        "daily_bar_id": 1,
+        "daily_bar_id": "2026-01-01",
         "intraday_bar_id": 2,
         "data_4h_available": True,
         "market_phase": "trend_resume",
@@ -60,7 +60,7 @@ def _phase(**overrides):
 def _state(state_machine_state: str | None = "watch", state_confidence: float | None = 70.0):
     return StateMachineBundle(
         symbol="TEST",
-        daily_bar_id=1,
+        daily_bar_id="2026-01-01",
         intraday_bar_id=2,
         data_4h_available=True,
         disposition=StateEvaluationDisposition(admitted=True, disposition_reason=None),

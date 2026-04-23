@@ -29,7 +29,7 @@ def _bundle(*, data_4h_available: bool = True, raw1: dict | None = None, raw4: d
     rs.update(raws or {})
     return FeatureBundle(
         symbol="TESTUSDT",
-        daily_bar_id=1,
+        daily_bar_id="2026-01-01",
         intraday_bar_id=2 if data_4h_available else None,
         daily_close_time_utc_ms=1,
         intraday_close_time_utc_ms=2 if data_4h_available else None,
@@ -211,7 +211,7 @@ def test_tier2_output_contract_and_determinism():
     b = compute_tier2_axes(fb, _cfg())
     assert isinstance(a, Tier2AxisBundle)
     assert a == b
-    assert a.symbol == "TESTUSDT" and a.daily_bar_id == 1 and a.intraday_bar_id == 2
+    assert a.symbol == "TESTUSDT" and a.daily_bar_id == "2026-01-01" and a.intraday_bar_id == 2
     for axis_name in [
         "base_integrity_simplified",
         "pullback_quality_simplified",

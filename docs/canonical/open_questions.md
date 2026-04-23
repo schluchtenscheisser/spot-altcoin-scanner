@@ -87,60 +87,13 @@ Until then, current OHLCV persistence must continue to be treated as transitiona
 
 ### 3) `daily_bar_id` type consistency across Independence-Release layers
 
-**Context**
+**Status:** Resolved by Ticket 15 (daily runner integration).
 
-There is an unresolved cross-layer type inconsistency around `daily_bar_id` in the current Independence-Release implementation/contracts:
+Canonical cross-layer type is now `str` in `YYYY-MM-DD` format for: bar-clock context, runner-facing typed bundles, and output/report schemas.
 
-- Ticket 1 / bar-clock semantics define `daily_bar_id(t)` canonically as a string in `YYYY-MM-DD` format.
-- Current internal typed layer models were implemented with `daily_bar_id: int` in multiple places, including:
-  - `Tier1AxisBundle`
-  - `Tier2AxisBundle`
-  - `PhaseInterpretationBundle`
-- Output/report/schema validation currently still treats `daily_bar_id` canonically as a string in `YYYY-MM-DD` format.
+Resolved scope includes at least:
+- `Tier1AxisBundle.daily_bar_id`
+- `Tier2AxisBundle.daily_bar_id`
+- `PhaseInterpretationBundle.daily_bar_id`
 
-This means the architecture currently exposes two competing representations:
-
-- internal bundle-layer representation: `int`
-- canonical output/schema representation: `str` (`YYYY-MM-DD`)
-
-**Why this matters**
-
-If this remains unresolved, later runner / integration / diagnostics work may silently introduce:
-
-- ad hoc conversions between `int` and `str`,
-- inconsistent typed contracts across layers,
-- schema friction between in-memory bundles and output artifacts,
-- avoidable bugs in reporting, persistence boundaries, diagnostics, or runner integration.
-
-This is especially relevant before broader integration tickets finalize cross-layer boundaries.
-
-**Open question**
-
-What is the canonical type of `daily_bar_id` across the Independence-Release architecture?
-
-**Decision options**
-
-1. **Canonicalize on string (`YYYY-MM-DD`) everywhere**
-   - aligns directly with bar-clock output,
-   - simplifies report/output contracts,
-   - avoids dual representations.
-
-2. **Allow internal non-string representation, but require an explicit boundary conversion**
-   - internal bundles may use a non-string representation for technical reasons,
-   - but canonical docs must define exactly:
-     - where conversion happens,
-     - which module owns it,
-     - and which layers are allowed to see which representation.
-
-**Required before / during later integration work**
-
-Before later runner/integration/output work is finalized, canonical docs should explicitly decide:
-
-- the cross-layer canonical type of `daily_bar_id`,
-- whether any internal exception is allowed,
-- if yes: which boundary owns conversion to canonical string form,
-- and which typed models/docs/schemas must be harmonized.
-
-**Current recommendation**
-
-Prefer a single canonical representation unless there is a strong technical reason not to. If dual representation is retained, the conversion boundary must be explicit, documented, and tested.
+No dual `int`/`str` representation is canonical after this resolution.

@@ -1,8 +1,7 @@
 """
-Pipeline Orchestration
-======================
-
-Orchestrates the full daily scanning pipeline.
+LEGACY — non-authoritative for Independence-Release logic.
+This module is the pre-Independence-Release pipeline orchestrator.
+Do not use for Independence-Release flows. See scanner/runners/daily.py.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Tier1AxisBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     data_4h_available: bool
 
@@ -44,7 +44,7 @@ class Tier1AxisBundle:
 @dataclass(frozen=True)
 class Tier2AxisBundle:
     symbol: str
-    daily_bar_id: int
+    daily_bar_id: str
     intraday_bar_id: int | None
     data_4h_available: bool
 

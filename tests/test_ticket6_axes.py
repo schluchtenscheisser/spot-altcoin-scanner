@@ -39,7 +39,7 @@ def _bundle(*, data_4h_available: bool = True, raw1: dict | None = None, raw4: d
 
     return FeatureBundle(
         symbol="TESTUSDT",
-        daily_bar_id=1,
+        daily_bar_id="2026-01-01",
         intraday_bar_id=2 if data_4h_available else None,
         daily_close_time_utc_ms=1,
         intraday_close_time_utc_ms=2 if data_4h_available else None,
@@ -218,7 +218,7 @@ def test_output_contract_and_determinism():
     assert isinstance(a, Tier1AxisBundle)
     assert a == b
     assert a.symbol == "TESTUSDT"
-    assert a.daily_bar_id == 1 and a.intraday_bar_id == 2
+    assert a.daily_bar_id == "2026-01-01" and a.intraday_bar_id == 2
     for axis_name in [
         "trend_strength",
         "reclaim_progress",
