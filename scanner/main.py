@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from .config import load_config
-from .runners import run_daily_scan
+from .runners import run_daily_scan, run_intraday_scan
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -13,7 +13,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=["standard", "fast", "offline", "backtest"],
+        choices=["standard", "fast", "offline", "backtest", "intraday_promotion"],
         help="Override run_mode from config.yml",
     )
     return parser.parse_args(argv)
@@ -26,10 +26,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode:
         cfg.raw.setdefault("general", {})["run_mode"] = args.mode
 
-    run_daily_scan(cfg)
+    if args.mode == "intraday_promotion":
+        run_intraday_scan(cfg)
+    else:
+        run_daily_scan(cfg)
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

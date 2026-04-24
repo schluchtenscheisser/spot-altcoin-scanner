@@ -37,6 +37,7 @@ REQUIRED_DIAGNOSTIC_BLOCKS = (
 
 _AS_OF_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _DAILY_BAR_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_INTRADAY_BAR_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(00|04|08|12|16|20):00:00Z$")
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
@@ -75,17 +76,19 @@ def validate_daily_bar_id(value: Any) -> str:
     return value
 
 
-def validate_intraday_bar_id(scan_mode: ScanMode, value: Any) -> int | None:
+def validate_intraday_bar_id(scan_mode: ScanMode, value: Any) -> int | str | None:
     if scan_mode == "daily":
         if value is not None:
             raise ValueError("intraday_bar_id must be null for daily scan_mode")
         return None
 
-    if value is None or isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(
-            f"intraday_bar_id must be int for intraday scan_mode, got {value!r}"
-        )
-    return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str) and _INTRADAY_BAR_ID_RE.match(value):
+        return value
+    raise ValueError(
+        f"intraday_bar_id must be int or YYYY-MM-DDTHH:00:00Z for intraday scan_mode, got {value!r}"
+    )
 
 
 def _require_symbol_list(key: str, value: Any) -> list[str]:
@@ -131,7 +134,7 @@ class RunReport:
     scan_mode: ScanMode
     as_of_utc: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: int | str | None
     counts_by_bucket: Dict[str, int]
     symbol_lists: Dict[str, list[str]]
     manifest_path: str
