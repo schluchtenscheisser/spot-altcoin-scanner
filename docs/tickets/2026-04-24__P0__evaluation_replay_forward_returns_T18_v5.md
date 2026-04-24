@@ -1,4 +1,4 @@
-# 2026-04-24__P18__evaluation_replay_forward_returns
+# 2026-04-24__P0__evaluation_replay_forward_returns_T18
 
 Status: Draft for review  
 Project: Independence-Release / MEXC Spot Altcoin Scanner  
