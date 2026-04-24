@@ -11,6 +11,16 @@ This file lists **bewusst verschobene Themen** for the Independence-Release arch
 Bootstrap placeholder text was `none yet` before deferred entries were added.
 
 ## Deferred enhancements
+- **Terminal-event forward returns for decay / invalidation states**
+  - Source context: Ticket 18 records terminal events (`first_late`, `first_chased`, `first_rejected`) for transition and lead-time analysis, but does not calculate forward returns, MFE, or MAE from those events.
+  - Current handling: terminal events are timestamp/provenance records only.
+  - Reason for deferral: these events are not entry signals; returns from them would answer a separate counterfactual question and could be confused with signal-event quality metrics.
+  - Future enhancement scope:
+    - define the analytical question for terminal-event returns
+    - define reference-price semantics for each terminal event
+    - decide whether terminal-event returns belong in separate exports
+    - ensure they cannot be mixed with signal-event forward-return metrics
+
 - **State confidence penalty for “narrow margins” — operationalization and calibration**
   - Source context: Abschnitt 4 defines a `-5` penalty when the current state rests on “narrow margins”, but the concept is not yet operationalized.
   - Current interim handling: treated as `0` / not applied until the concept is specified.

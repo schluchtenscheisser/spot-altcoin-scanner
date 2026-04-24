@@ -124,6 +124,12 @@ _INDEPENDENCE_INTRADAY_DEFAULTS = {
     "max_execution_subset_size": None,
 }
 
+_INDEPENDENCE_EVALUATION_DEFAULTS = {
+    "horizons_days": [1, 3, 5, 10],
+    "include_first_watch_metrics": True,
+    "include_terminal_event_return_metrics": False,
+}
+
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
@@ -1248,6 +1254,59 @@ def resolve_independence_intraday_config(raw: Mapping[str, Any]) -> Dict[str, An
     }
 
 
+def resolve_independence_evaluation_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+    configured = independence_release.get("evaluation", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.evaluation", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_EVALUATION_DEFAULTS, configured)
+    horizons = merged.get("horizons_days")
+    if not isinstance(horizons, list) or not horizons:
+        _raise_invalid("independence_release.evaluation.horizons_days", horizons, "must be a non-empty list")
+    if any(isinstance(x, bool) or not isinstance(x, int) or x <= 0 for x in horizons):
+        _raise_invalid(
+            "independence_release.evaluation.horizons_days",
+            horizons,
+            "must contain positive integers",
+        )
+    if horizons != [1, 3, 5, 10]:
+        _raise_invalid(
+            "independence_release.evaluation.horizons_days",
+            horizons,
+            "must resolve to [1, 3, 5, 10] in T18",
+        )
+
+    include_watch = merged.get("include_first_watch_metrics")
+    if not isinstance(include_watch, bool):
+        _raise_invalid(
+            "independence_release.evaluation.include_first_watch_metrics",
+            include_watch,
+            "must be boolean",
+        )
+    include_terminal = merged.get("include_terminal_event_return_metrics")
+    if not isinstance(include_terminal, bool):
+        _raise_invalid(
+            "independence_release.evaluation.include_terminal_event_return_metrics",
+            include_terminal,
+            "must be boolean",
+        )
+    if include_terminal:
+        raise ValueError("terminal-event return metrics are deferred and out of scope for T18")
+
+    return {
+        "horizons_days": horizons,
+        "include_first_watch_metrics": include_watch,
+        "include_terminal_event_return_metrics": include_terminal,
+    }
+
+
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
     """Resolve RR threshold with canonical-key precedence and legacy alias fallback."""
     cfg = risk_cfg if isinstance(risk_cfg, Mapping) else {}
@@ -1394,6 +1453,10 @@ class ScannerConfig:
     @property
     def intraday(self) -> Dict[str, Any]:
         return resolve_independence_intraday_config(self.raw)
+
+    @property
+    def evaluation(self) -> Dict[str, Any]:
+        return resolve_independence_evaluation_config(self.raw)
 
     @property
     def feature_layer_config(self) -> Dict[str, Any]:

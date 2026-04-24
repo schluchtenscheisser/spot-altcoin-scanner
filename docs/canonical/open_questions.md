@@ -60,28 +60,17 @@ A future canonical resolution must define:
 
 ### 2) Long-term OHLCV history storage path beyond Ticket 4 transitional SQLite persistence
 
-**Context**
+**Status:** resolved by Ticket 14.
 
-Ticket 4 explicitly introduced SQLite-backed OHLCV persistence as a transitional implementation. The long-term architecture still expects a durable historical-storage migration path beyond this interim state.
+Canonical OHLCV long-term storage is:
 
-**Why this matters**
+`snapshots/history/ohlcv/timeframe=<tf>/symbol=<symbol>/year=<yyyy>/month=<mm>/`
 
-Later layers may otherwise incorrectly assume that current SQLite OHLCV persistence is permanent, which would blur the boundary between:
+SQLite is not the canonical long-term OHLCV history store.
 
-- transitional runtime persistence,
-- long-term historical storage,
-- and future history/research/export workflows.
+Ticket 18 evaluation reads forward-looking OHLCV data from the canonical Parquet history store above.
 
-**Still to decide / implement**
-
-Ticket 14 (or equivalent canonical follow-up) must define and implement the long-term OHLCV history-storage target and migration path, including:
-
-- the authoritative storage layer for bulk OHLCV history,
-- the ownership of migration from transitional SQLite persistence,
-- downstream reader expectations after migration,
-- and any canonical doc/schema updates required by that migration.
-
-Until then, current OHLCV persistence must continue to be treated as transitional rather than final.
+No additional open question remains for this topic.
 
 ---
 
