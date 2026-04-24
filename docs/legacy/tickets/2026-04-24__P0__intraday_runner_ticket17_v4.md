@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Implement intraday promotion runner and resolve intraday execution frequency policy (Ticket 17)
 

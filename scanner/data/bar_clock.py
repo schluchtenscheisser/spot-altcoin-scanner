@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Final
 
 UTC = timezone.utc
@@ -11,6 +12,7 @@ FOUR_HOURS_SECONDS: Final[int] = 4 * 60 * 60
 FOUR_HOURS_MS: Final[int] = FOUR_HOURS_SECONDS * 1000
 ONE_DAY_MS: Final[int] = 86_400_000
 DAILY_SCAN_DELTA_BARS: Final[int] = 6
+_INTRADAY_BAR_ID_RE: Final[re.Pattern[str]] = re.compile(r"^(\d{4}-\d{2}-\d{2})T(00|04|08|12|16|20):00:00Z$")
 
 
 def _coerce_utc_datetime(value: object, field_name: str = "timestamp") -> datetime:
@@ -93,6 +95,36 @@ def intraday_bar_id(timestamp: object) -> int:
     dt = _coerce_utc_datetime(timestamp, "timestamp")
     boundary = _floor_to_4h_boundary(dt)
     return int(boundary.timestamp() * 1000)
+
+
+def get_last_closed_intraday_bar_id(now_utc: datetime, timeframe: str = "4h") -> str:
+    """Return canonical closed-bar id (`YYYY-MM-DDTHH:00:00Z`) for intraday scans."""
+    dt = _coerce_utc_datetime(now_utc, "now_utc")
+    if timeframe != "4h":
+        raise ValueError("timeframe invalid value {!r}: must be '4h'".format(timeframe))
+
+    boundary = _floor_to_4h_boundary(dt)
+    return boundary.strftime("%Y-%m-%dT%H:00:00Z")
+
+
+def has_new_intraday_bar(previous_bar_id: str | None, current_bar_id: str) -> bool:
+    """Return whether `current_bar_id` is newer than `previous_bar_id`."""
+    if previous_bar_id is None:
+        _parse_intraday_bar_id(current_bar_id, field_name="current_bar_id")
+        return True
+
+    previous_dt = _parse_intraday_bar_id(previous_bar_id, field_name="previous_bar_id")
+    current_dt = _parse_intraday_bar_id(current_bar_id, field_name="current_bar_id")
+    return current_dt > previous_dt
+
+
+def _parse_intraday_bar_id(value: str, *, field_name: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be str in YYYY-MM-DDTHH:00:00Z format")
+    match = _INTRADAY_BAR_ID_RE.match(value)
+    if match is None:
+        raise ValueError(f"{field_name} must match YYYY-MM-DDTHH:00:00Z with HH in {{00,04,08,12,16,20}}")
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
 
 
 def delta_closed_4h_bars(previous_timestamp: object, current_timestamp: object) -> int:

@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS run_metadata (
 - `finished_at_utc`: nullable ISO-8601 UTC timestamp of completion. `NULL` means the run is still in progress.
 - `daily_bar_id`: canonical `YYYY-MM-DD` daily bar identifier for the run context.
 - Cross-layer canonical type: `daily_bar_id` is `str` (`YYYY-MM-DD`) for runner-facing typed bundles and output-facing schemas.
-- `intraday_bar_id`: nullable UTC epoch-millisecond close time of the 4h bar context. `NULL` is valid for daily-only runs.
+- `intraday_bar_id`: for intraday runner/report contracts canonical type is `str` in `YYYY-MM-DDTHH:00:00Z` (UTC, `HH ∈ {00,04,08,12,16,20}`) representing the last fully closed 4h bar. `NULL` remains valid for daily-only runs.
 - `schema_version`: integer schema version copied from the SQLite infrastructure layer.
 - `status`: exactly one of `running`, `completed`, `failed`.
 

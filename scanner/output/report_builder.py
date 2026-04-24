@@ -62,7 +62,7 @@ class ReportBuilder:
         scan_mode: str,
         as_of_utc: str,
         daily_bar_id: str,
-        intraday_bar_id: int | None,
+        intraday_bar_id: int | str | None,
         symbol_lists: Mapping[str, list[str]] | None,
         manifest_path: str,
         diagnostics_records: Iterable[Mapping[str, Any]],
@@ -129,14 +129,17 @@ class ReportBuilder:
         _atomic_write_text(self.index_root / "latest_run.txt", f"{run_id}\n")
         _atomic_write_json(self.index_root / "latest_paths.json", latest_paths)
         _atomic_write_json(self.index_root / "latest.json", report)
-        _atomic_write_json(
-            self.index_root / "latest_confirmed_candidates.json",
-            list(report["symbol_lists"]["confirmed_candidates"]),
-        )
-        _atomic_write_json(
-            self.index_root / "latest_watchlist.json",
-            list(report["symbol_lists"]["watchlist"]),
-        )
+        if report["scan_mode"] == "daily":
+            _atomic_write_json(
+                self.index_root / "latest_confirmed_candidates.json",
+                list(report["symbol_lists"]["confirmed_candidates"]),
+            )
+            _atomic_write_json(
+                self.index_root / "latest_watchlist.json",
+                list(report["symbol_lists"]["watchlist"]),
+            )
+        else:
+            _atomic_write_json(self.index_root / "latest_intraday.json", report)
 
         recent_runs_path = self.index_root / "recent_runs.json"
         existing: list[Dict[str, Any]] = []

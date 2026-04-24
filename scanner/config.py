@@ -117,6 +117,13 @@ _INDEPENDENCE_EXECUTION_DEFAULTS = {
     "execution_safety_limit": None,
 }
 
+_INDEPENDENCE_INTRADAY_DEFAULTS = {
+    "frequency_hours": 4,
+    "min_phase_confidence_for_monitoring": 55.0,
+    "enable_reset_check": False,
+    "max_execution_subset_size": None,
+}
+
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
@@ -1186,6 +1193,61 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
     return out
 
 
+def resolve_independence_intraday_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+    configured = independence_release.get("intraday", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.intraday", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_INTRADAY_DEFAULTS, configured)
+    resolved = dict(merged)
+
+    frequency_hours = resolved.get("frequency_hours")
+    if isinstance(frequency_hours, bool) or not isinstance(frequency_hours, int) or frequency_hours not in {4, 6}:
+        _raise_invalid("independence_release.intraday.frequency_hours", frequency_hours, "must be integer 4 or 6")
+
+    confidence = resolved.get("min_phase_confidence_for_monitoring")
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not math.isfinite(float(confidence)):
+        _raise_invalid(
+            "independence_release.intraday.min_phase_confidence_for_monitoring",
+            confidence,
+            "must be finite number in [0,100]",
+        )
+    confidence_value = float(confidence)
+    if confidence_value < 0.0 or confidence_value > 100.0:
+        _raise_invalid(
+            "independence_release.intraday.min_phase_confidence_for_monitoring",
+            confidence_value,
+            "must be in [0,100]",
+        )
+
+    enable_reset_check = resolved.get("enable_reset_check")
+    if not isinstance(enable_reset_check, bool):
+        _raise_invalid("independence_release.intraday.enable_reset_check", enable_reset_check, "must be boolean")
+
+    limit = resolved.get("max_execution_subset_size")
+    if limit is not None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            _raise_invalid(
+                "independence_release.intraday.max_execution_subset_size",
+                limit,
+                "must be integer > 0 or null",
+            )
+
+    return {
+        "frequency_hours": int(frequency_hours),
+        "min_phase_confidence_for_monitoring": confidence_value,
+        "enable_reset_check": enable_reset_check,
+        "max_execution_subset_size": int(limit) if limit is not None else None,
+    }
+
+
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
     """Resolve RR threshold with canonical-key precedence and legacy alias fallback."""
     cfg = risk_cfg if isinstance(risk_cfg, Mapping) else {}
@@ -1328,6 +1390,10 @@ class ScannerConfig:
     @property
     def execution(self) -> Dict[str, Any]:
         return resolve_independence_execution_config(self.raw)
+
+    @property
+    def intraday(self) -> Dict[str, Any]:
+        return resolve_independence_intraday_config(self.raw)
 
     @property
     def feature_layer_config(self) -> Dict[str, Any]:
@@ -1670,6 +1736,7 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     raw = dict(raw)
     raw["independence_release"] = _normalize_independence_release_config(raw)
     resolve_independence_ohlcv_fetch_config(raw)
+    resolve_independence_intraday_config(raw)
     resolve_axes_config(raw)
     resolve_bucket_config(raw)
     resolve_priority_config(raw)
