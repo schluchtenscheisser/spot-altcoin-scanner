@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-24 21:29 UTC  
+**Last Updated:** 2026-04-24 22:09 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 97
-- **Total Classes:** 60
-- **Total Functions:** 700
+- **Total Modules:** 101
+- **Total Classes:** 61
+- **Total Functions:** 718
 
 ---
 
@@ -144,9 +144,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _float_finite, _float_pos, _float_range, _int_pos, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, execution, feature_layer_config, independence_ohlcv_fetch, independence_release, independence_retention, independence_snapshots, intraday, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_execution_config, resolve_independence_intraday_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_release_reports_config, resolve_independence_release_retention_config, resolve_independence_release_snapshots_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_runner_config, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, runner, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _float_finite, _float_pos, _float_range, _int_pos, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, evaluation, exclude_leveraged, exclude_stablecoins, exclude_wrapped, execution, feature_layer_config, independence_ohlcv_fetch, independence_release, independence_retention, independence_snapshots, intraday, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_evaluation_config, resolve_independence_execution_config, resolve_independence_intraday_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_release_reports_config, resolve_independence_release_retention_config, resolve_independence_release_snapshots_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_runner_config, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, runner, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+89 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+92 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -267,6 +267,46 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `base_integrity, best, bh_cfg, bo_cfg, br_cfg, candidate_scores, cb_cfg, compression, er_cfg, erb_cfg` _(+16 more)_
 
 **Imports:** `__future__, math, scanner.axes.models, scanner.config, scanner.entry.models, scanner.phase.models, typing`
+
+---
+
+### 📄 `scanner/evaluation/__init__.py`
+
+**Functions:** —
+
+**Imports:** `dataset_export`
+
+---
+
+### 📄 `scanner/evaluation/dataset_export.py`
+
+**Functions:** `run_evaluation_export`
+
+**Module Variables:** `eval_cfg, exports_dir, k, manifest_path, payload, raw_cfg, replay_diag_path, replay_dir, signal_path, summary_path` _(+3 more)_
+
+**Imports:** `__future__, hashlib, json, pathlib, scanner.config, scanner.evaluation.forward_returns, scanner.evaluation.replay, typing`
+
+---
+
+### 📄 `scanner/evaluation/forward_returns.py`
+
+**Functions:** `_event_daily_bar_id, _finite_pos, _load_daily_ohlcv, build_signal_metrics`
+
+**Module Variables:** `HORIZONS, SIGNAL_EVENTS, TERMINAL_EVENTS, base, candidate, close, day, df, diagnostics, dt_s` _(+28 more)_
+
+**Imports:** `__future__, datetime, math, pandas, pathlib, typing`
+
+---
+
+### 📄 `scanner/evaluation/replay.py`
+
+**Classes:** `ReplayEvent`
+
+**Functions:** `_bucket, _coalesce_none, _cycle_id, _extract, _finite_or_none, _iter_diag_records, _parse_ts, _resolve_diag_path, _run_paths, _state, reconstruct_event_timeline`
+
+**Module Variables:** `candidate, canonical, colocated, current_sig, cycle, daily, decision_root, diag_path, diagnostics, event_bar_id` _(+29 more)_
+
+**Imports:** `__future__, dataclasses, datetime, gzip, json, math, pathlib, typing`
 
 ---
 
@@ -1146,6 +1186,7 @@ _This section shows which functions call which other functions, helping identify
 | `decision_require_risk_acceptable_for_enter` | — | `get` |
 | `decision_require_tradeability_for_enter` | — | `get` |
 | `entry` | `resolve_entry_config` | — |
+| `evaluation` | `resolve_independence_evaluation_config` | — |
 | `exclude_leveraged` | — | `get` |
 | `exclude_stablecoins` | — | `get` |
 | `exclude_wrapped` | — | `get` |
@@ -1178,6 +1219,7 @@ _This section shows which functions call which other functions, helping identify
 | `resolve_cycle_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_entry_config` | `_deep_merge_dicts`, `_parse_0_100`, `_raise_invalid` | `get`, `items` |
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
+| `resolve_independence_evaluation_config` | `_deep_merge_dicts`, `_raise_invalid` | `ValueError`, `get` |
 | `resolve_independence_execution_config` | `_deep_merge_dicts`, `_float_pos`, `_float_range`, `_int_pos`, `_raise_invalid` | `get` |
 | `resolve_independence_intraday_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
@@ -1303,6 +1345,35 @@ _This section shows which functions call which other functions, helping identify
 | `_is_finite_number` | — | `isfinite` |
 | `_pick_best_pattern` | — | `index`, `items` |
 | `resolve_entry_pattern` | `_pick_best_pattern` | `EntryPatternBundle`, `TypeError`, `ValueError` |
+
+### 📄 scanner/evaluation/dataset_export.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `run_evaluation_export` | — | `as_posix`, `build_signal_metrics`, `dumps`, `encode`, `get`, `hexdigest`, `mkdir`, `reconstruct_event_timeline`, `resolve_independence_evaluation_config`, `sha256`, `to_parquet`, `write`, `write_text` |
+
+### 📄 scanner/evaluation/forward_returns.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_event_daily_bar_id` | — | `split` |
+| `_finite_pos` | — | `isfinite` |
+| `_load_daily_ohlcv` | — | `DataFrame`, `ValueError`, `concat`, `drop_duplicates`, `glob`, `issubset`, `read_parquet`, `reset_index`, `sort_values`, `strftime`, `to_datetime` |
+| `build_signal_metrics` | `_event_daily_bar_id`, `_finite_pos`, `_load_daily_ohlcv` | `DataFrame`, `append`, `fromisoformat`, `get`, `items`, `replace`, `setdefault`, `tolist`, `total_seconds` |
+
+### 📄 scanner/evaluation/replay.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_bucket` | `_extract` | `get` |
+| `_cycle_id` | `_extract` | `get` |
+| `_finite_or_none` | — | `isfinite` |
+| `_iter_diag_records` | — | `exists`, `loads`, `strip` |
+| `_parse_ts` | — | `ValueError`, `astimezone`, `fromisoformat`, `replace` |
+| `_resolve_diag_path` | — | `as_posix`, `exists`, `get`, `lstrip`, `relative_to`, `replace`, `rsplit`, `strip` |
+| `_run_paths` | — | `as_posix` |
+| `_state` | `_extract` | `get` |
+| `reconstruct_event_timeline` | `_bucket`, `_coalesce_none`, `_cycle_id`, `_extract`, `_finite_or_none`, `_iter_diag_records`, `_parse_ts`, `_resolve_diag_path`, `_run_paths`, `_state` | `RuntimeError`, `append`, `get`, `glob`, `loads`, `read_text`, `strftime`, `values` |
 
 ### 📄 scanner/execution/adapter.py
 
@@ -2042,7 +2113,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 105 | 128 | 233 | ⚠️ Medium |
+| `scanner/config.py` | 108 | 130 | 238 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -2055,6 +2126,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/runners/intraday.py` | 10 | 33 | 43 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
+| `scanner/evaluation/replay.py` | 13 | 28 | 41 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
@@ -2075,6 +2147,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
+| `scanner/evaluation/forward_returns.py` | 3 | 22 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
@@ -2092,6 +2165,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
 | `scanner/decision/buckets.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/entry/patterns.py` | 7 | 6 | 13 | ⚠️ Medium |
+| `scanner/evaluation/dataset_export.py` | 0 | 13 | 13 | 🔴 High |
 | `scanner/state/invalidation.py` | 6 | 7 | 13 | ⚠️ Medium |
 | `scanner/state/models.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/axes/normalization.py` | 4 | 8 | 12 | 🔴 High |
@@ -2135,4 +2209,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-24 21:29 UTC_
+_Generated by GitHub Actions • 2026-04-24 22:09 UTC_
