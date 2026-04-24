@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-24 13:20 UTC  
+**Last Updated:** 2026-04-24 14:37 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 96
+- **Total Modules:** 97
 - **Total Classes:** 60
-- **Total Functions:** 684
+- **Total Functions:** 700
 
 ---
 
@@ -144,9 +144,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `ScannerConfig`
 
-**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _float_finite, _float_pos, _float_range, _int_pos, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, execution, feature_layer_config, independence_ohlcv_fetch, independence_release, independence_retention, independence_snapshots, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_execution_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_release_reports_config, resolve_independence_release_retention_config, resolve_independence_release_snapshots_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_runner_config, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, runner, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
+**Functions:** `_budget_mapping, _deep_merge_dicts, _expect_integer_number, _expect_number, _float_finite, _float_pos, _float_range, _int_pos, _normalize_independence_release_config, _parse, _parse_0_100, _parse_int, _parse_integer_budget_value, _parse_points, _parse_ratio, _raise_invalid, _read_nested, _validate_linear, _validate_points, _validate_weight, axes, btc_regime_enabled, btc_regime_mode, btc_regime_risk_off_enter_boost, bucket, budget_orderbook_top_k, budget_shortlist_size, cmc_api_key, config_version, cycle, decision_enabled, decision_min_effective_rr_to_target_2_for_enter, decision_min_score_for_enter, decision_min_score_for_wait, decision_require_risk_acceptable_for_enter, decision_require_tradeability_for_enter, entry, exclude_leveraged, exclude_stablecoins, exclude_wrapped, execution, feature_layer_config, independence_ohlcv_fetch, independence_release, independence_retention, independence_snapshots, intraday, invalidation, load_config, log_file, log_level, log_to_file, lookback_days_1d, lookback_days_4h, market_cap_max, market_cap_min, mexc_enabled, min_history_days_1d, min_mexc_quote_volume_24h_usdt, min_mexc_share_24h, min_quote_volume_24h, min_turnover_24h, phase, pre_shortlist_market_cap_floor_usd, priority, resolve_axes_config, resolve_bucket_config, resolve_cycle_config, resolve_entry_config, resolve_feature_layer_config, resolve_independence_execution_config, resolve_independence_intraday_config, resolve_independence_market_data_budget_config, resolve_independence_ohlcv_fetch_config, resolve_independence_release_reports_config, resolve_independence_release_retention_config, resolve_independence_release_snapshots_config, resolve_independence_universe_config, resolve_invalidation_config, resolve_phase_config, resolve_priority_config, resolve_risk_max_stop_distance_pct, resolve_risk_min_rr_to_target_1, resolve_runner_config, resolve_state_config, risk_atr_multiple, risk_atr_period, risk_atr_timeframe, risk_enabled, risk_max_stop_distance_pct, risk_max_stop_distance_pct_for_setup, risk_min_rr_to_target_1, risk_min_rr_to_tp10, risk_min_stop_distance_pct, risk_stop_method, run_mode, runner, scoring_volume_source, shadow_mode, shortlist_size, spec_version, state, timezone, tradeability_band_pct, tradeability_class_thresholds, tradeability_enabled, tradeability_max_spread_pct, tradeability_max_tranches, tradeability_min_depth_1pct_usd, tradeability_notional_chunk_usdt, tradeability_notional_total_usdt, validate_config`
 
-**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+84 more)_
+**Module Variables:** `CONFIG_PATH, allowed_shadow_modes, anchor, anchors, bh_cfg, block, btc_cfg, budget_cfg, cfg, cfg_path` _(+89 more)_
 
 **Imports:** `dataclasses, math, os, pathlib, typing, yaml`
 
@@ -162,11 +162,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/data/bar_clock.py`
 
-**Functions:** `_coerce_utc_datetime, _floor_to_4h_boundary, daily_bar_id, delta_closed_4h_bars, intraday_bar_id, is_close_time_on_grid, most_recent_closed_bar_close_time_utc_ms, timeframe_to_duration_ms`
+**Functions:** `_coerce_utc_datetime, _floor_to_4h_boundary, _parse_intraday_bar_id, daily_bar_id, delta_closed_4h_bars, get_last_closed_intraday_bar_id, has_new_intraday_bar, intraday_bar_id, is_close_time_on_grid, most_recent_closed_bar_close_time_utc_ms, timeframe_to_duration_ms`
 
-**Module Variables:** `UTC, boundary, closed_bar_date, current_boundaries, current_dt, current_epoch, dt, duration, floored_seconds, normalized` _(+5 more)_
+**Module Variables:** `UTC, boundary, closed_bar_date, current_boundaries, current_dt, current_epoch, dt, duration, floored_seconds, match` _(+6 more)_
 
-**Imports:** `__future__, datetime, math, typing`
+**Imports:** `__future__, datetime, math, re, typing`
 
 ---
 
@@ -364,9 +364,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/main.py`
 
-**Functions:** `main, parse_args`
+**Functions:** `_resolve_effective_run_mode, main, parse_args`
 
-**Module Variables:** `args, cfg, parser`
+**Module Variables:** `args, cfg, effective_mode, mode, parser`
 
 **Imports:** `__future__, argparse, config, runners, sys`
 
@@ -728,7 +728,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** —
 
-**Imports:** `daily`
+**Imports:** `daily, intraday`
 
 ---
 
@@ -739,6 +739,16 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 **Module Variables:** `bar_clock_context, bars_1d, bars_4h, builder, conn, contract, current, current_bar_index, current_close, daily_id` _(+37 more)_
 
 **Imports:** `__future__, dataclasses, datetime, json, logging, pathlib, scanner.axes, scanner.config` _(+15 more)_
+
+---
+
+### 📄 `scanner/runners/intraday.py`
+
+**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _latest_completed_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _write_intraday_noop_report, run_intraday_scan`
+
+**Module Variables:** `bucket, builder, confidence, conn, context_provider, daily_cache_bar_id, daily_id, execution, final_status, has_new` _(+23 more)_
+
+**Imports:** `__future__, datetime, logging, pathlib, scanner.config, scanner.data.bar_clock, scanner.execution, scanner.output` _(+4 more)_
 
 ---
 
@@ -1145,8 +1155,9 @@ _This section shows which functions call which other functions, helping identify
 | `independence_release` | `_normalize_independence_release_config` | `get` |
 | `independence_retention` | `resolve_independence_release_retention_config` | — |
 | `independence_snapshots` | `resolve_independence_release_snapshots_config` | — |
+| `intraday` | `resolve_independence_intraday_config` | — |
 | `invalidation` | `resolve_invalidation_config` | — |
-| `load_config` | `_normalize_independence_release_config`, `resolve_axes_config`, `resolve_bucket_config`, `resolve_independence_ohlcv_fetch_config`, `resolve_priority_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
+| `load_config` | `_normalize_independence_release_config`, `resolve_axes_config`, `resolve_bucket_config`, `resolve_independence_intraday_config`, `resolve_independence_ohlcv_fetch_config`, `resolve_priority_config` | `FileNotFoundError`, `Path`, `ScannerConfig`, `ValueError`, `exists`, `safe_load` |
 | `log_file` | — | `get` |
 | `log_level` | — | `get` |
 | `log_to_file` | — | `get` |
@@ -1168,6 +1179,7 @@ _This section shows which functions call which other functions, helping identify
 | `resolve_entry_config` | `_deep_merge_dicts`, `_parse_0_100`, `_raise_invalid` | `get`, `items` |
 | `resolve_feature_layer_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_execution_config` | `_deep_merge_dicts`, `_float_pos`, `_float_range`, `_int_pos`, `_raise_invalid` | `get` |
+| `resolve_independence_intraday_config` | `_deep_merge_dicts`, `_raise_invalid` | `get`, `isfinite` |
 | `resolve_independence_market_data_budget_config` | `_deep_merge_dicts`, `_raise_invalid`, `_read_nested` | `get`, `isfinite` |
 | `resolve_independence_ohlcv_fetch_config` | `_deep_merge_dicts`, `_parse_int`, `_raise_invalid`, `_read_nested` | — |
 | `resolve_independence_release_reports_config` | `_deep_merge_dicts`, `_raise_invalid` | `get` |
@@ -1214,8 +1226,11 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `_coerce_utc_datetime` | — | `TypeError`, `ValueError`, `astimezone`, `endswith`, `fromisoformat`, `fromtimestamp`, `isfinite`, `replace`, `strip` |
 | `_floor_to_4h_boundary` | — | `replace`, `timedelta` |
+| `_parse_intraday_bar_id` | — | `ValueError`, `astimezone`, `fromisoformat`, `match`, `replace` |
 | `daily_bar_id` | `_coerce_utc_datetime` | `date`, `isoformat`, `replace`, `timedelta` |
 | `delta_closed_4h_bars` | `_coerce_utc_datetime` | `floor`, `timestamp` |
+| `get_last_closed_intraday_bar_id` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `ValueError`, `strftime` |
+| `has_new_intraday_bar` | `_parse_intraday_bar_id` | — |
 | `intraday_bar_id` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `timestamp` |
 | `is_close_time_on_grid` | `timeframe_to_duration_ms` | — |
 | `most_recent_closed_bar_close_time_utc_ms` | `_coerce_utc_datetime`, `_floor_to_4h_boundary` | `ValueError`, `replace`, `timestamp` |
@@ -1351,7 +1366,8 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `main` | `parse_args` | `load_config`, `run_daily_scan`, `setdefault` |
+| `_resolve_effective_run_mode` | — | `ValueError`, `setdefault` |
+| `main` | `_resolve_effective_run_mode`, `parse_args` | `load_config`, `run_daily_scan`, `run_intraday_scan` |
 | `parse_args` | `parse_args` | `ArgumentParser`, `add_argument` |
 
 ### 📄 scanner/output/diagnostics.py
@@ -1391,7 +1407,7 @@ _This section shows which functions call which other functions, helping identify
 | `validate_as_of_utc` | — | `ValueError`, `match`, `strptime` |
 | `validate_daily_bar_id` | — | `ValueError`, `fromisoformat`, `match` |
 | `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get` |
-| `validate_intraday_bar_id` | — | `ValueError` |
+| `validate_intraday_bar_id` | — | `ValueError`, `match` |
 | `validate_run_id` | — | `ValueError`, `match`, `strip` |
 | `validate_scan_mode` | — | `ValueError` |
 
@@ -1768,6 +1784,19 @@ _This section shows which functions call which other functions, helping identify
 | `_validate_as_of_date` | — | `ValueError`, `compute_daily_bar_id`, `date`, `fromisoformat`, `isoformat`, `now` |
 | `run_daily_scan` | `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `PersistedStateMachineContext`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `asdict`, `assign_bucket`, `build_feature_bundle`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `split`, `universe_resolver`, `update`, `uuid4`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
 
+### 📄 scanner/runners/intraday.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_create_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
+| `_diag` | `_utc_now_iso` | — |
+| `_finish_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
+| `_latest_completed_intraday_bar_id` | — | `execute`, `fetchone` |
+| `_select_monitoring_universe` | — | `append`, `get` |
+| `_utc_now_iso` | — | `now`, `strftime` |
+| `_write_intraday_noop_report` | `_utc_now_iso` | `cwd`, `info`, `make_report_builder`, `write_run_report` |
+| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `uuid4`, `warning` |
+
 ### 📄 scanner/state/cycle.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2013,7 +2042,7 @@ _Modules with high external call counts may benefit from refactoring._
 
 | Module | Internal Calls | External Calls | Total | Coupling |
 |--------|----------------|----------------|-------|----------|
-| `scanner/config.py` | 101 | 126 | 227 | ⚠️ Medium |
+| `scanner/config.py` | 105 | 128 | 233 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
@@ -2022,13 +2051,15 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
+| `scanner/output/schema.py` | 18 | 28 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
-| `scanner/output/schema.py` | 18 | 27 | 45 | 🔴 High |
+| `scanner/runners/intraday.py` | 10 | 33 | 43 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/tools/prepare_shadow_calibration.py` | 13 | 27 | 40 | 🔴 High |
+| `scanner/data/bar_clock.py` | 10 | 29 | 39 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/tools/backfill_btc_regime.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/output/report_builder.py` | 9 | 27 | 36 | 🔴 High |
@@ -2041,7 +2072,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/phase/interpreter.py` | 14 | 16 | 30 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/storage/snapshots.py` | 10 | 20 | 30 | 🔴 High |
-| `scanner/data/bar_clock.py` | 7 | 22 | 29 | 🔴 High |
 | `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
@@ -2069,13 +2099,13 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
 | `scanner/execution/grading.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
+| `scanner/main.py` | 3 | 7 | 10 | 🔴 High |
 | `scanner/execution/adapter.py` | 0 | 9 | 9 | 🔴 High |
 | `scanner/features/bundle.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
-| `scanner/main.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/state/freshness.py` | 3 | 4 | 7 | ⚠️ Medium |
 | `scanner/storage/sqlite.py` | 1 | 6 | 7 | 🔴 High |
@@ -2105,4 +2135,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-24 13:20 UTC_
+_Generated by GitHub Actions • 2026-04-24 14:37 UTC_
