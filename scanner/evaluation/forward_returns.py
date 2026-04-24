@@ -46,7 +46,13 @@ def _load_daily_ohlcv(project_root: Path, symbol: str, history_root: str = "snap
     return df.reset_index(drop=True)
 
 
-def build_signal_metrics(events: list[dict[str, Any]], *, project_root: Path, history_root: str = "snapshots/history") -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+def build_signal_metrics(
+    events: list[dict[str, Any]],
+    *,
+    project_root: Path,
+    history_root: str = "snapshots/history",
+    include_first_watch_metrics: bool = True,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     by_symbol: dict[str, pd.DataFrame] = {}
     signal_rows: list[dict[str, Any]] = []
     terminal_rows: list[dict[str, Any]] = []
@@ -106,6 +112,8 @@ def build_signal_metrics(events: list[dict[str, Any]], *, project_root: Path, hi
                 })
                 continue
             if event["event_type"] not in SIGNAL_EVENTS:
+                continue
+            if not include_first_watch_metrics and event["event_type"] == "first_watch":
                 continue
 
             if symbol not in by_symbol:

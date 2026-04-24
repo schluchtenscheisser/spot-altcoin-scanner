@@ -5,13 +5,20 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scanner.config import resolve_independence_evaluation_config
 from scanner.evaluation.forward_returns import build_signal_metrics
 from scanner.evaluation.replay import reconstruct_event_timeline
 
 
 def run_evaluation_export(*, project_root: Path, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    raw_cfg = config or {}
+    eval_cfg = resolve_independence_evaluation_config(raw_cfg)
     events, replay_diag = reconstruct_event_timeline(project_root=project_root)
-    signal_df, terminal_df, transitions_df, metric_diag = build_signal_metrics(events, project_root=project_root)
+    signal_df, terminal_df, transitions_df, metric_diag = build_signal_metrics(
+        events,
+        project_root=project_root,
+        include_first_watch_metrics=bool(eval_cfg["include_first_watch_metrics"]),
+    )
 
     replay_dir = project_root / "evaluation" / "replay"
     exports_dir = project_root / "evaluation" / "exports"
@@ -53,7 +60,7 @@ def run_evaluation_export(*, project_root: Path, config: dict[str, Any] | None =
             "terminal_event_timeline_parquet": terminal_path.as_posix(),
             "transition_lead_times_parquet": transitions_path.as_posix(),
         },
-        "config_hash": hashlib.sha256(json.dumps(config or {}, sort_keys=True).encode("utf-8")).hexdigest(),
+        "config_hash": hashlib.sha256(json.dumps(raw_cfg, sort_keys=True).encode("utf-8")).hexdigest(),
     }
     summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     manifest_path.write_text(json.dumps({"event_count": len(events), "signal_rows": len(signal_df)}, indent=2, sort_keys=True) + "\n", encoding="utf-8")

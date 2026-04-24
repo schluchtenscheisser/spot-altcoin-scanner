@@ -51,8 +51,10 @@ def test_replay_uses_snapshots_runs_and_picks_earliest_event(tmp_path: Path) -> 
     run2 = tmp_path / "snapshots" / "runs" / "2026" / "04" / "02" / "r2"
     _write_manifest(run1 / "run.manifest.json", "r1")
     _write_manifest(run2 / "run.manifest.json", "r2")
+    report_run1 = tmp_path / "reports" / "runs" / "2026" / "04" / "01" / "r1"
+    report_run2 = tmp_path / "reports" / "runs" / "2026" / "04" / "02" / "r2"
     _write_diag(
-        run1 / "symbol_diagnostics.jsonl.gz",
+        report_run1 / "symbol_diagnostics.jsonl.gz",
         [
             {
                 "symbol": "AAAUSDT",
@@ -65,7 +67,7 @@ def test_replay_uses_snapshots_runs_and_picks_earliest_event(tmp_path: Path) -> 
         ],
     )
     _write_diag(
-        run2 / "symbol_diagnostics.jsonl.gz",
+        report_run2 / "symbol_diagnostics.jsonl.gz",
         [
             {
                 "symbol": "AAAUSDT",
@@ -78,22 +80,29 @@ def test_replay_uses_snapshots_runs_and_picks_earliest_event(tmp_path: Path) -> 
         ],
     )
 
-    report_dir = tmp_path / "reports" / "runs" / "2026" / "04" / "02" / "r2"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    (report_dir / "symbol_diagnostics.jsonl.gz").write_bytes(b"not used")
-
     events, diag = reconstruct_event_timeline(project_root=tmp_path)
     assert len(events) == 1
     assert events[0]["event_timestamp_utc"] == "2026-04-01T00:00:00Z"
     assert events[0]["source_snapshot_path"].startswith((tmp_path / "snapshots" / "runs").as_posix())
     assert diag["run_count"] == 2
+    assert diag["missing_diagnostics_run_count"] == 0
+
+
+def test_replay_missing_diagnostics_is_explicit(tmp_path: Path) -> None:
+    run1 = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r1"
+    _write_manifest(run1 / "run.manifest.json", "r1")
+    events, diag = reconstruct_event_timeline(project_root=tmp_path)
+    assert events == []
+    assert diag["missing_diagnostics_run_count"] == 1
+    assert diag["missing_diagnostics_run_ids"] == ["r1"]
 
 
 def test_evaluation_export_intraday_mapping_and_terminal_scope(tmp_path: Path) -> None:
     run = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r1"
     _write_manifest(run / "run.manifest.json", "r1")
+    report = tmp_path / "reports" / "runs" / "2026" / "04" / "01" / "r1"
     _write_diag(
-        run / "symbol_diagnostics.jsonl.gz",
+        report / "symbol_diagnostics.jsonl.gz",
         [
             {
                 "symbol": "AAAUSDT",
@@ -103,6 +112,9 @@ def test_evaluation_export_intraday_mapping_and_terminal_scope(tmp_path: Path) -
                 "as_of_utc": "2026-04-01T08:10:00Z",
                 "intraday_bar_id": "2026-04-01T08:00:00Z",
                 "close_at_early_entry_bar": 90.0,
+                "market_phase_confidence": 0,
+                "state_confidence": 0,
+                "priority_score": 0.0,
             },
             {
                 "symbol": "AAAUSDT",
@@ -130,12 +142,69 @@ def test_evaluation_export_intraday_mapping_and_terminal_scope(tmp_path: Path) -
 
     row = signal.iloc[0].to_dict()
     assert row["reference_price"] == 90.0
+    assert row["market_phase_confidence"] == 0
+    assert row["state_confidence"] == 0
+    assert row["priority_score"] == 0.0
     assert row["metric_status_1d"] == "ok"
     assert row["forward_return_1d_pct"] == pytest.approx(10.0)
     assert row["metric_status_3d"] == "insufficient_future_data"
 
     assert terminal.iloc[0]["event_type"] == "first_late"
     assert terminal.iloc[0]["return_metrics_status"] == "terminal_event_returns_out_of_scope"
+
+
+def test_include_first_watch_metrics_respected(tmp_path: Path) -> None:
+    run = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r1"
+    _write_manifest(run / "run.manifest.json", "r1")
+    report = tmp_path / "reports" / "runs" / "2026" / "04" / "01" / "r1"
+    _write_diag(
+        report / "symbol_diagnostics.jsonl.gz",
+        [
+            {
+                "symbol": "AAAUSDT",
+                "setup_cycle_id": 1,
+                "state_machine_state": "watch",
+                "decision_bucket": "watchlist",
+                "as_of_utc": "2026-04-01T00:00:00Z",
+                "daily_bar_id": "2026-04-01",
+            },
+            {
+                "symbol": "AAAUSDT",
+                "setup_cycle_id": 1,
+                "state_machine_state": "early_ready",
+                "decision_bucket": "watchlist",
+                "as_of_utc": "2026-04-01T08:10:00Z",
+                "intraday_bar_id": "2026-04-01T08:00:00Z",
+                "close_at_early_entry_bar": 90.0,
+            },
+        ],
+    )
+    _write_daily_ohlcv(
+        tmp_path,
+        "AAAUSDT",
+        [
+            {"daily_bar_id": "2026-04-01", "close": 100.0, "high": 105.0, "low": 95.0},
+            {"daily_bar_id": "2026-04-02", "close": 99.0, "high": 120.0, "low": 80.0},
+            {"daily_bar_id": "2026-04-03", "close": 110.0, "high": 112.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-04", "close": 111.0, "high": 115.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-05", "close": 112.0, "high": 118.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-06", "close": 113.0, "high": 119.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-07", "close": 114.0, "high": 120.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-08", "close": 115.0, "high": 121.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-09", "close": 116.0, "high": 122.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-10", "close": 117.0, "high": 123.0, "low": 90.0},
+            {"daily_bar_id": "2026-04-11", "close": 118.0, "high": 124.0, "low": 90.0},
+        ],
+    )
+
+    run_evaluation_export(project_root=tmp_path, config={"independence_release": {"evaluation": {"include_first_watch_metrics": True}}})
+    signal_true = pd.read_parquet(tmp_path / "evaluation" / "exports" / "signal_event_metrics.parquet")
+    assert "first_watch" in set(signal_true["event_type"].tolist())
+
+    run_evaluation_export(project_root=tmp_path, config={"independence_release": {"evaluation": {"include_first_watch_metrics": False}}})
+    signal_false = pd.read_parquet(tmp_path / "evaluation" / "exports" / "signal_event_metrics.parquet")
+    assert "first_watch" not in set(signal_false["event_type"].tolist())
+    assert "first_early_ready" in set(signal_false["event_type"].tolist())
 
 
 def test_ticket18_docs_updated() -> None:

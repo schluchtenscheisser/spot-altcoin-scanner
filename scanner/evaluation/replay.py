@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import gzip
 import json
+import math
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -71,6 +72,51 @@ def _run_paths(manifest_path: Path) -> tuple[str, str]:
     return source_snapshot_path, manifest_path.as_posix()
 
 
+def _coalesce_none(primary: Any, fallback: Any) -> Any:
+    return fallback if primary is None else primary
+
+
+def _finite_or_none(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(float(value)):
+        return None
+    return float(value)
+
+
+def _resolve_diag_path(project_root: Path, manifest_path: Path, manifest_payload: dict[str, Any]) -> Path | None:
+    explicit = (
+        manifest_payload.get("symbol_diagnostics_path")
+        or manifest_payload.get("diagnostics_path")
+        or manifest_payload.get("symbol_diagnostics_relpath")
+    )
+    if isinstance(explicit, str) and explicit.strip():
+        candidate = project_root / explicit.strip().lstrip("/")
+        if candidate.exists():
+            return candidate
+
+    # Canonical split layout:
+    # snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json
+    # reports/runs/YYYY/MM/DD/<run_id>/symbol_diagnostics.jsonl.gz
+    try:
+        rel = manifest_path.relative_to(project_root).as_posix()
+    except ValueError:
+        rel = manifest_path.as_posix()
+    if "/snapshots/runs/" in f"/{rel}":
+        canonical = rel.replace("snapshots/runs/", "reports/runs/").rsplit("/", 1)[0] + "/symbol_diagnostics.jsonl.gz"
+        candidate = project_root / canonical
+        if candidate.exists():
+            return candidate
+
+    # Backward-compatible co-located fallback.
+    colocated = manifest_path.parent / "symbol_diagnostics.jsonl.gz"
+    if colocated.exists():
+        return colocated
+    return None
+
+
 def _iter_diag_records(path: Path) -> Iterable[dict[str, Any]]:
     if not path.exists():
         return []
@@ -85,11 +131,20 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
     manifests = sorted(root.glob("*/*/*/*/run.manifest.json"))
     by_identity: dict[tuple[str, int, str], dict[str, Any]] = {}
     unknown_bar_ids = 0
+    missing_diag_runs: list[str] = []
+    invalid_numeric_counts = {
+        "market_phase_confidence": 0,
+        "state_confidence": 0,
+        "priority_score": 0,
+    }
 
     for manifest in manifests:
         manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
         run_id = str(manifest_payload.get("run_id") or manifest.parent.name)
-        diag_path = manifest.parent / "symbol_diagnostics.jsonl.gz"
+        diag_path = _resolve_diag_path(project_root, manifest, manifest_payload)
+        if diag_path is None:
+            missing_diag_runs.append(run_id)
+            continue
         seen_in_run: dict[tuple[str, int, str], tuple[str, str]] = {}
         for record in _iter_diag_records(diag_path):
             symbol = record.get("symbol")
@@ -120,6 +175,21 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
             seen_in_run[identity] = current_sig
 
             source_snapshot_path, source_manifest_path = _run_paths(manifest)
+            phase_root = record.get("phase") if isinstance(record.get("phase"), dict) else {}
+            state_root = record.get("state") if isinstance(record.get("state"), dict) else {}
+            decision_root = record.get("decision") if isinstance(record.get("decision"), dict) else {}
+            raw_mpc = _coalesce_none(record.get("market_phase_confidence"), phase_root.get("market_phase_confidence"))
+            raw_sc = _coalesce_none(record.get("state_confidence"), state_root.get("state_confidence"))
+            raw_ps = _coalesce_none(record.get("priority_score"), decision_root.get("priority_score"))
+            mpc = _finite_or_none(raw_mpc)
+            sc = _finite_or_none(raw_sc)
+            ps = _finite_or_none(raw_ps)
+            if raw_mpc is not None and mpc is None:
+                invalid_numeric_counts["market_phase_confidence"] += 1
+            if raw_sc is not None and sc is None:
+                invalid_numeric_counts["state_confidence"] += 1
+            if raw_ps is not None and ps is None:
+                invalid_numeric_counts["priority_score"] += 1
             row = {
                 "symbol": symbol,
                 "setup_cycle_id": cycle,
@@ -130,10 +200,10 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
                 "event_bar_id_type": event_bar_type,
                 "state_machine_state": state,
                 "decision_bucket": _bucket(record),
-                "market_phase": record.get("market_phase") or (record.get("phase") or {}).get("market_phase"),
-                "market_phase_confidence": record.get("market_phase_confidence") or (record.get("phase") or {}).get("market_phase_confidence"),
-                "state_confidence": record.get("state_confidence") or (record.get("state") or {}).get("state_confidence"),
-                "priority_score": record.get("priority_score") or (record.get("decision") or {}).get("priority_score"),
+                "market_phase": _coalesce_none(record.get("market_phase"), phase_root.get("market_phase")),
+                "market_phase_confidence": mpc,
+                "state_confidence": sc,
+                "priority_score": ps,
                 "first_observed_run_id": run_id,
                 "first_observed_run_mode": record.get("scan_mode") or manifest_payload.get("scan_mode"),
                 "source_snapshot_path": source_snapshot_path,
@@ -159,5 +229,8 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
         "run_count": len(manifests),
         "event_count": len(events),
         "missing_or_unknown_event_bar_id_count": unknown_bar_ids,
+        "missing_diagnostics_run_count": len(missing_diag_runs),
+        "missing_diagnostics_run_ids": sorted(missing_diag_runs),
+        "invalid_numeric_field_counts": invalid_numeric_counts,
     }
     return events, diagnostics
