@@ -97,3 +97,14 @@ Resolved scope includes at least:
 - `PhaseInterpretationBundle.daily_bar_id`
 
 No dual `int`/`str` representation is canonical after this resolution.
+
+---
+
+### 4) §21/3 Execution frequency + Top-N policy (Daily vs Intraday)
+
+**Status:** Partially resolved by Ticket 16 for the **Daily Discovery Scan** only.
+
+Resolved Daily rule: execution subset selection follows Abschnitt 6 §8.2 (state/confidence/active-bucket OR-logic with hard exclusions for rejected/chased/discarded). No fachlicher Top-N cap is applied in Daily unless an explicit safety-limit hard-fail guard is configured.
+
+Still open:
+- Intraday Promotion Scan behavior remains open and must be resolved by Ticket 17 (adopt/adapt §8.2 explicitly).
