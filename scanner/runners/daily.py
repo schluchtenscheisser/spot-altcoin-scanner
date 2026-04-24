@@ -16,6 +16,7 @@ from scanner.decision.buckets import assign_bucket
 from scanner.decision.models import RankedDecision
 from scanner.decision.ranking import rank_coins
 from scanner.entry.patterns import resolve_entry_pattern
+from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.features.bundle import build_feature_bundle
 from scanner.output import make_report_builder
 from scanner.phase import compute_phase_interpretation
@@ -37,11 +38,6 @@ def _validate_as_of_date(as_of_date: str | None) -> str:
     if parsed >= today:
         raise ValueError("as_of_date must be a past date")
     return parsed.isoformat()
-
-
-def _execution_adapter_callsite(*, symbol: str) -> None:
-    # Execution adapter call-site — Ticket 16. Returns None in pre-execution mode.
-    return None
 
 
 def _utc_now_iso() -> str:
@@ -138,6 +134,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
             return
 
         ranked_inputs: list[RankedDecision] = []
+        decision_context: dict[str, dict[str, Any]] = {}
         diagnostics: list[dict[str, Any]] = []
         for symbol in sorted(symbols):
             try:
@@ -156,10 +153,17 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 state_bundle = compute_state_machine(phase, t1, t2, invalidation, persisted, runtime, cfg)
 
                 entry = resolve_entry_pattern(phase, t1, t2, cfg)
-                execution_contract = _execution_adapter_callsite(symbol=symbol)
-                decision = assign_bucket(phase, state_bundle, entry, cfg, execution_contract=execution_contract)
+                decision = assign_bucket(phase, state_bundle, entry, cfg, execution_contract=None)
                 if state_bundle.persistence_patch is not None:
                     apply_state_persistence_patch(conn, state_bundle.persistence_patch)
+                decision_context[symbol] = {
+                    "phase": phase,
+                    "state_bundle": state_bundle,
+                    "entry": entry,
+                    "decision": decision,
+                    "market_phase_confidence": phase.market_phase_confidence,
+                    "state_machine_state": state_bundle.state_machine_state,
+                }
                 ranked_inputs.append(
                     RankedDecision(
                         symbol=symbol,
@@ -171,6 +175,75 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
             except Exception as exc:
                 logger.warning("daily scan symbol skipped", extra={"symbol": symbol, "exception_type": type(exc).__name__})
                 continue
+
+        if decision_context:
+            selection_rows = [
+                type(
+                    "ExecutionSelectionRow",
+                    (),
+                    {
+                        "symbol": symbol,
+                        "priority_score": float(ctx["decision"].priority_score),
+                        "decision_bucket": ctx["decision"].decision_bucket,
+                        "market_phase_confidence": ctx["market_phase_confidence"],
+                        "state_machine_state": ctx["state_machine_state"],
+                    },
+                )()
+                for symbol, ctx in decision_context.items()
+            ]
+            execution_subset = select_execution_subset(selection_rows, cfg.execution)
+            safety_limit = cfg.execution.get("execution_safety_limit")
+            if safety_limit is not None and len(execution_subset) > int(safety_limit):
+                raise RuntimeError("Category 3: execution_safety_limit exceeded")
+
+            execution_result = evaluate_execution_subset(execution_subset, cfg.execution)
+            ranked_inputs = []
+            for symbol, ctx in decision_context.items():
+                contract = execution_result.contracts.get(symbol)
+                decision = ctx["decision"]
+                if contract is not None:
+                    decision = assign_bucket(
+                        ctx["phase"],
+                        ctx["state_bundle"],
+                        ctx["entry"],
+                        cfg,
+                        execution_contract=contract,
+                    )
+                ranked_inputs.append(
+                    RankedDecision(
+                        symbol=symbol,
+                        decision=decision,
+                        state_confidence=ctx["state_bundle"].state_confidence,
+                        market_phase_confidence=ctx["market_phase_confidence"],
+                    )
+                )
+                diag = {
+                    "schema_version": "ir1.0",
+                    "run_id": run_id,
+                    "scan_mode": "daily",
+                    "symbol": symbol,
+                    "as_of_utc": _utc_now_iso(),
+                    "daily_bar_id": daily_id,
+                    "intraday_bar_id": None,
+                    "data_4h_available": True,
+                    "axes": {},
+                    "phase": {},
+                    "invalidation": {},
+                    "cycle": {},
+                    "state": {},
+                    "pattern": {},
+                    "decision": {},
+                    "reasons": {},
+                    "execution_attempted": False,
+                    "execution_status_raw": None,
+                    "execution_reason_raw": None,
+                    "execution_pass": None,
+                    "execution_grade_t16": None,
+                    "execution_fetch_duration_ms": None,
+                }
+                if symbol in execution_result.diagnostics:
+                    diag.update(execution_result.diagnostics[symbol])
+                diagnostics.append(diag)
 
         ranked = rank_coins(ranked_inputs, cfg)
         symbol_lists = {

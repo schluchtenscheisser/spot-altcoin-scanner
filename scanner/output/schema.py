@@ -188,6 +188,19 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
             raise ValueError(f"diagnostics.{block_key} must be object")
         out[block_key] = dict(block)
 
+    out["execution_attempted"] = _require_bool("execution_attempted", record.get("execution_attempted", False))
+    out["execution_status_raw"] = _require_nullable_str("execution_status_raw", record.get("execution_status_raw"))
+    out["execution_reason_raw"] = _require_nullable_str("execution_reason_raw", record.get("execution_reason_raw"))
+    out["execution_pass"] = _require_nullable_bool("execution_pass", record.get("execution_pass"))
+    grade = record.get("execution_grade_t16")
+    if grade is not None:
+        raise ValueError("execution_grade_t16 must be null")
+    out["execution_grade_t16"] = None
+    duration = record.get("execution_fetch_duration_ms")
+    if duration is not None and (isinstance(duration, bool) or not isinstance(duration, int) or duration < 0):
+        raise ValueError("execution_fetch_duration_ms must be int >= 0 or null")
+    out["execution_fetch_duration_ms"] = duration
+
     return out
 
 
@@ -200,4 +213,20 @@ def _require_symbol(value: Any) -> str:
 def _require_bool(key: str, value: Any) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{key} must be bool, got {value!r}")
+    return value
+
+
+def _require_nullable_str(key: str, value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be str or null, got {value!r}")
+    return value
+
+
+def _require_nullable_bool(key: str, value: Any) -> bool | None:
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be bool or null, got {value!r}")
     return value

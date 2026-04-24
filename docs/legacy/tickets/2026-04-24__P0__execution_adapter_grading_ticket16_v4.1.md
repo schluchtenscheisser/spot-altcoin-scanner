@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 > DRAFT (ticket): Not yet implemented. Canonical truth remains the authoritative source set until merged.
 
 # Title

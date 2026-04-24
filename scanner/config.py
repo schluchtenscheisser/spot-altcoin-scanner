@@ -100,6 +100,23 @@ _INDEPENDENCE_RETENTION_DEFAULTS = {
     "run_snapshots_online_days": 90,
 }
 
+_INDEPENDENCE_EXECUTION_DEFAULTS = {
+    "min_phase_confidence": 60.0,
+    "orderbook_depth_levels": 20,
+    "orderbook_freshness_max_seconds": 300,
+    "fetch_timeout_seconds": 10,
+    "fetch_max_retries": 2,
+    "max_spread_pct": 0.15,
+    "min_depth_1pct_usd": 200_000.0,
+    "notional_total_usdt": 20_000.0,
+    "notional_chunk_usdt": 5_000.0,
+    "max_tranches": 4,
+    "direct_ok_max_slippage_bps": 50.0,
+    "tranche_ok_max_slippage_bps": 100.0,
+    "marginal_max_slippage_bps": 150.0,
+    "execution_safety_limit": None,
+}
+
 
 _AXES_DEFAULTS = {
     "min_effective_weight_ratio": 0.60,
@@ -1103,6 +1120,62 @@ def resolve_independence_release_retention_config(raw: Mapping[str, Any]) -> Dic
     return {"run_snapshots_online_days": value}
 
 
+def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+    configured = independence_release.get("execution", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.execution", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_EXECUTION_DEFAULTS, configured)
+    resolved = dict(merged)
+
+    def _float_pos(key: str) -> float:
+        value = resolved.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or float(value) <= 0:
+            _raise_invalid(f"independence_release.execution.{key}", value, "must be finite > 0")
+        return float(value)
+
+    def _int_pos(key: str, allow_zero: bool = False) -> int:
+        value = resolved.get(key)
+        if isinstance(value, bool) or not isinstance(value, int):
+            _raise_invalid(f"independence_release.execution.{key}", value, "must be integer")
+        if value < 0 or (value == 0 and not allow_zero):
+            cmp = ">= 0" if allow_zero else "> 0"
+            _raise_invalid(f"independence_release.execution.{key}", value, f"must be {cmp}")
+        return int(value)
+
+    out = {
+        "min_phase_confidence": float(resolved["min_phase_confidence"]),
+        "orderbook_depth_levels": _int_pos("orderbook_depth_levels"),
+        "orderbook_freshness_max_seconds": _int_pos("orderbook_freshness_max_seconds"),
+        "fetch_timeout_seconds": _int_pos("fetch_timeout_seconds"),
+        "fetch_max_retries": _int_pos("fetch_max_retries", allow_zero=True),
+        "max_spread_pct": _float_pos("max_spread_pct"),
+        "min_depth_1pct_usd": _float_pos("min_depth_1pct_usd"),
+        "notional_total_usdt": _float_pos("notional_total_usdt"),
+        "notional_chunk_usdt": _float_pos("notional_chunk_usdt"),
+        "max_tranches": _int_pos("max_tranches"),
+        "direct_ok_max_slippage_bps": _float_pos("direct_ok_max_slippage_bps"),
+        "tranche_ok_max_slippage_bps": _float_pos("tranche_ok_max_slippage_bps"),
+        "marginal_max_slippage_bps": _float_pos("marginal_max_slippage_bps"),
+        "execution_safety_limit": None,
+    }
+    if out["min_phase_confidence"] < 0 or out["min_phase_confidence"] > 100:
+        _raise_invalid("independence_release.execution.min_phase_confidence", out["min_phase_confidence"], "must be in [0,100]")
+    raw_limit = resolved.get("execution_safety_limit")
+    if raw_limit is not None:
+        if isinstance(raw_limit, bool) or not isinstance(raw_limit, int) or raw_limit <= 0:
+            _raise_invalid("independence_release.execution.execution_safety_limit", raw_limit, "must be integer > 0 or null")
+        out["execution_safety_limit"] = int(raw_limit)
+    return out
+
+
 def resolve_risk_min_rr_to_target_1(risk_cfg: Mapping[str, Any] | None) -> float:
     """Resolve RR threshold with canonical-key precedence and legacy alias fallback."""
     cfg = risk_cfg if isinstance(risk_cfg, Mapping) else {}
@@ -1241,6 +1314,10 @@ class ScannerConfig:
     @property
     def independence_retention(self) -> Dict[str, int]:
         return resolve_independence_release_retention_config(self.raw)
+
+    @property
+    def execution(self) -> Dict[str, Any]:
+        return resolve_independence_execution_config(self.raw)
 
     @property
     def feature_layer_config(self) -> Dict[str, Any]:

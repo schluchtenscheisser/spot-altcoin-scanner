@@ -255,7 +255,10 @@ Cross-layer guardrail handoff to Ticket 12 (documented interface semantics):
 Execution contract note:
 - `ExecutionInputContract` is consumed as optional read contract in T12.
 - Canonical ownership of execution derivation remains Ticket 16.
-- If T16 provides a finite numeric `execution_grade`, it overrides the T12 default mapping (`direct_ok=100`, `tranche_ok=75`, `marginal=40`, `fail=0`).
+- `ExecutionInputContract.execution_status` is closed to: `direct_ok | tranche_ok | marginal | fail`.
+- `ExecutionInputContract.execution_pass` is `True` for `direct_ok/tranche_ok`, `False` for `marginal/fail`.
+- Ticket-16 adapter emits `execution_grade=None` for all produced contracts; T12 applies the canonical fallback grade mapping (`direct_ok=100`, `tranche_ok=75`, `marginal=40`, `fail=0`).
+- `unknown` execution outcomes do **not** produce an `ExecutionInputContract`; those symbols keep the pass-1 bucket result with `execution_pending=True`, while diagnostics carries `execution_status_raw=\"unknown\"`.
 
 Spec inconsistency resolution (explicit): Abschnitt 7 §10.4 overrides incomplete §17.4 enumeration for this path:
 `confirmed_ready + entry_pattern="none"` maps to `late_monitor` with primary reason `CONFIRMED_PATTERN_UNRESOLVED`.
