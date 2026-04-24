@@ -1135,11 +1135,23 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
     merged = _deep_merge_dicts(_INDEPENDENCE_EXECUTION_DEFAULTS, configured)
     resolved = dict(merged)
 
-    def _float_pos(key: str) -> float:
+    def _float_finite(key: str) -> float:
         value = resolved.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or float(value) <= 0:
-            _raise_invalid(f"independence_release.execution.{key}", value, "must be finite > 0")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            _raise_invalid(f"independence_release.execution.{key}", value, "must be finite number")
         return float(value)
+
+    def _float_pos(key: str) -> float:
+        parsed = _float_finite(key)
+        if parsed <= 0:
+            _raise_invalid(f"independence_release.execution.{key}", parsed, "must be > 0")
+        return parsed
+
+    def _float_range(key: str, *, min_value: float, max_value: float) -> float:
+        parsed = _float_finite(key)
+        if parsed < min_value or parsed > max_value:
+            _raise_invalid(f"independence_release.execution.{key}", parsed, f"must be in [{min_value},{max_value}]")
+        return parsed
 
     def _int_pos(key: str, allow_zero: bool = False) -> int:
         value = resolved.get(key)
@@ -1151,7 +1163,7 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
         return int(value)
 
     out = {
-        "min_phase_confidence": float(resolved["min_phase_confidence"]),
+        "min_phase_confidence": _float_range("min_phase_confidence", min_value=0.0, max_value=100.0),
         "orderbook_depth_levels": _int_pos("orderbook_depth_levels"),
         "orderbook_freshness_max_seconds": _int_pos("orderbook_freshness_max_seconds"),
         "fetch_timeout_seconds": _int_pos("fetch_timeout_seconds"),
@@ -1166,8 +1178,6 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
         "marginal_max_slippage_bps": _float_pos("marginal_max_slippage_bps"),
         "execution_safety_limit": None,
     }
-    if out["min_phase_confidence"] < 0 or out["min_phase_confidence"] > 100:
-        _raise_invalid("independence_release.execution.min_phase_confidence", out["min_phase_confidence"], "must be in [0,100]")
     raw_limit = resolved.get("execution_safety_limit")
     if raw_limit is not None:
         if isinstance(raw_limit, bool) or not isinstance(raw_limit, int) or raw_limit <= 0:

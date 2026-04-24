@@ -241,3 +241,93 @@ def test_no_state_persist_when_symbol_fails_after_t10(tmp_path: Path, monkeypatc
 
     run_daily_scan(cfg, as_of_date="2026-01-01")
     assert apply_calls == []
+
+
+def test_daily_diagnostics_use_real_data_4h_available_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    cfg = _cfg()
+    cfg.daily_universe_provider = lambda *_: ["AUSDT", "BUSDT"]
+    bars_1d = [_Bar(close_time_utc_ms=100, close=10.0)]
+    bars_4h = [_Bar(close_time_utc_ms=200, close=20.0)]
+    cfg.daily_ohlcv_provider = lambda symbol, tf: ([] if (symbol == "AUSDT" and tf == "4h") else (bars_4h if tf == "4h" else bars_1d))
+
+    monkeypatch.setattr(daily_runner, "compute_tier1_axes", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "compute_tier2_axes", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "compute_phase_interpretation", lambda *_args, **_kwargs: type("P", (), {"market_phase_confidence": 70.0})())
+    monkeypatch.setattr(daily_runner, "compute_invalidation_and_cycle", lambda *_args, **_kwargs: InvalidationCycleBundle(
+        symbol="X",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id=None,
+        data_4h_available=True,
+        structural_invalidation=False,
+        structural_invalidation_reason=None,
+        timing_invalidation=False,
+        timing_invalidation_reason=None,
+        new_cycle_detected=False,
+        cycle_reason_code="FIRST_CYCLE_INITIALIZED",
+        resolved_setup_cycle_id=1,
+        phase_floor_recovered_since_cycle_end=False,
+        expansion_reset_condition_met=None,
+        reclaim_reset_condition_met=None,
+    ))
+    monkeypatch.setattr(daily_runner, "load_persisted_state_machine_context", lambda *_args, **_kwargs: PersistedStateMachineContext(
+        symbol="X",
+        current_setup_cycle_id=None,
+        previous_setup_cycle_id=None,
+        state_recorded_in_cycle_id=None,
+        prev_state_machine_state=None,
+        freshness_distance_state_early=None,
+        freshness_distance_state_confirmed=None,
+        bars_since_state_entered=None,
+        bars_since_early_entered=None,
+        bars_since_confirmed_entered=None,
+        bars_since_cycle_end=None,
+        reclaim_below_reset_floor_seen_since_cycle_end=None,
+        close_at_early_entry_bar=None,
+        close_at_confirmed_entry_bar=None,
+        distance_from_ideal_entry_after_early=None,
+        distance_from_ideal_entry_after_confirmed=None,
+        cycle_end_bar_index=None,
+        cycle_end_timestamp=None,
+    ))
+    monkeypatch.setattr(daily_runner, "compute_state_machine", lambda *_args, **_kwargs: StateMachineBundle(
+        symbol="X",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id=None,
+        data_4h_available=True,
+        disposition=StateEvaluationDisposition(admitted=True, disposition_reason=None),
+        state_machine_state="watch",
+        state_confidence=60.0,
+        state_transition_reason="STATE_HOLD",
+        data_resolution_class="full_1d_4h",
+        freshness=StateFreshnessBundle(None, None, None, None),
+        persistence_patch=None,
+    ))
+    monkeypatch.setattr(daily_runner, "resolve_entry_pattern", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "assign_bucket", lambda *_args, **_kwargs: type("D", (), {"priority_score": 10.0, "decision_bucket": type("B", (), {"value": "watchlist"})()})())
+    monkeypatch.setattr(daily_runner, "select_execution_subset", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(daily_runner, "evaluate_execution_subset", lambda *_args, **_kwargs: type("E", (), {"contracts": {}, "diagnostics": {}})())
+    monkeypatch.setattr(daily_runner, "rank_coins", lambda records, *_args, **_kwargs: records)
+    monkeypatch.setattr(daily_runner, "_persist_run_manifest", lambda *_args, **_kwargs: "snapshots/runs/x/run.manifest.json")
+
+    seen: dict[str, list[dict]] = {}
+
+    class _Builder:
+        def write_run_report(self, **kwargs):
+            seen["records"] = list(kwargs["diagnostics_records"])
+            return {"daily_bar_id": "2026-01-01"}
+
+        def write_daily_report(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(daily_runner, "make_report_builder", lambda *_args, **_kwargs: _Builder())
+    monkeypatch.setattr(
+        daily_runner,
+        "build_feature_bundle",
+        lambda symbol, *_args, **_kwargs: type("FB", (), {"data_4h_available": symbol != "AUSDT"})(),
+    )
+
+    run_daily_scan(cfg, as_of_date="2026-01-01")
+    by_symbol = {r["symbol"]: r for r in seen["records"]}
+    assert by_symbol["AUSDT"]["data_4h_available"] is False
+    assert by_symbol["BUSDT"]["data_4h_available"] is True

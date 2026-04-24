@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from scanner.config import ScannerConfig
-from scanner.decision.models import DecisionBucket, ExecutionInputContract, RankedDecision
+from scanner.decision.models import DecisionBucket, ExecutionInputContract
 from scanner.execution.adapter import evaluate_execution_subset, select_execution_subset
 from scanner.execution.grading import grade_execution_orderbook
 
@@ -36,6 +36,12 @@ def test_execution_config_defaults_and_validation() -> None:
         _cfg({"independence_release": {"execution": {"execution_safety_limit": 0}}}).execution
     with pytest.raises(ValueError):
         _cfg({"independence_release": {"execution": {"min_phase_confidence": 101}}}).execution
+    with pytest.raises(ValueError):
+        _cfg({"independence_release": {"execution": {"min_phase_confidence": float("nan")}}}).execution
+    with pytest.raises(ValueError):
+        _cfg({"independence_release": {"execution": {"min_phase_confidence": float("inf")}}}).execution
+    with pytest.raises(ValueError):
+        _cfg({"independence_release": {"execution": {"min_phase_confidence": float("-inf")}}}).execution
 
 
 def test_subset_selection_hard_exclusions_and_determinism() -> None:
@@ -73,5 +79,18 @@ def test_evaluate_execution_subset_unknown_on_fetch_failure() -> None:
         client=_Client({"AAA": RuntimeError("boom")}),
     )
     assert result.contracts == {}
+    assert result.diagnostics["AAA"]["execution_status_raw"] == "unknown"
+    assert result.diagnostics["AAA"]["execution_reason_raw"] == "UNKNOWN_FETCH_FAILED"
+
+
+@pytest.mark.parametrize("payload", [None, [], "oops", 123])
+def test_evaluate_execution_subset_non_mapping_payload_is_unknown(payload) -> None:
+    result = evaluate_execution_subset(
+        ["AAA"],
+        _cfg().execution,
+        client=_Client({"AAA": payload}),
+    )
+    assert result.contracts == {}
+    assert result.diagnostics["AAA"]["execution_attempted"] is True
     assert result.diagnostics["AAA"]["execution_status_raw"] == "unknown"
     assert result.diagnostics["AAA"]["execution_reason_raw"] == "UNKNOWN_FETCH_FAILED"

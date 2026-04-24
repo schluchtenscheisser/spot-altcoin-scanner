@@ -163,6 +163,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "decision": decision,
                     "market_phase_confidence": phase.market_phase_confidence,
                     "state_machine_state": state_bundle.state_machine_state,
+                    "data_4h_available": bool(features.data_4h_available),
                 }
                 ranked_inputs.append(
                     RankedDecision(
@@ -225,7 +226,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "as_of_utc": _utc_now_iso(),
                     "daily_bar_id": daily_id,
                     "intraday_bar_id": None,
-                    "data_4h_available": True,
+                    "data_4h_available": bool(ctx["data_4h_available"]),
                     "axes": {},
                     "phase": {},
                     "invalidation": {},

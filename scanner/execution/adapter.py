@@ -10,6 +10,7 @@ from scanner.execution.grading import grade_execution_orderbook
 
 _ACTIVE_BUCKETS = {"early_candidates", "confirmed_candidates", "late_monitor"}
 _HARD_EXCLUDED_STATES = {"rejected", "chased"}
+_UNKNOWN_NON_MAPPING_PAYLOAD_REASON = "UNKNOWN_FETCH_FAILED"
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,20 @@ def evaluate_execution_subset(
                 "execution_attempted": True,
                 "execution_status_raw": "unknown",
                 "execution_reason_raw": "UNKNOWN_FETCH_FAILED",
+                "execution_pass": None,
+                "execution_grade_t16": None,
+                "execution_fetch_duration_ms": duration_ms,
+            }
+            continue
+
+        if not isinstance(orderbook, Mapping):
+            # Re-use existing UNKNOWN_* taxonomy without schema expansion:
+            # non-mapping payloads are treated as fetch/transport-level invalid responses.
+            duration_ms = max(0, int((perf_counter() - t0) * 1000))
+            diagnostics[symbol] = {
+                "execution_attempted": True,
+                "execution_status_raw": "unknown",
+                "execution_reason_raw": _UNKNOWN_NON_MAPPING_PAYLOAD_REASON,
                 "execution_pass": None,
                 "execution_grade_t16": None,
                 "execution_fetch_duration_ms": duration_ms,
