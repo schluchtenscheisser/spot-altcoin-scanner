@@ -6,6 +6,7 @@ import pytest
 
 from scanner.config import ScannerConfig, resolve_independence_intraday_config
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intraday_bar
+import scanner.runners.intraday as intraday_runner
 from scanner.runners.intraday import run_intraday_scan
 from scanner.storage import init_db
 
@@ -100,3 +101,31 @@ def test_intraday_runner_safety_limit_hard_fails(tmp_path, monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="max_execution_subset_size"):
         run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+
+def test_intraday_noop_report_uses_active_config(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg({"independence_release": {"reports": {"recent_runs_limit": 7}}})
+    cfg.intraday_context_provider = lambda _cfg, _daily: []  # type: ignore[attr-defined]
+
+    seen: dict[str, object] = {}
+
+    class _DummyBuilder:
+        def write_run_report(self, **kwargs):
+            seen["called"] = True
+            seen["kwargs"] = kwargs
+            return {}
+
+    def _fake_make_report_builder(*, project_root, config):
+        seen["project_root"] = project_root
+        seen["config"] = config
+        return _DummyBuilder()
+
+    monkeypatch.setattr(intraday_runner, "make_report_builder", _fake_make_report_builder)
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+    assert seen["called"] is True
+    cfg_used = seen["config"]
+    assert isinstance(cfg_used, dict)
+    assert cfg_used["independence_release"]["reports"]["recent_runs_limit"] == 7

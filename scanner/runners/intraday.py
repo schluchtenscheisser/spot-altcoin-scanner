@@ -126,7 +126,7 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
         rows = list(context_provider(cfg, daily_id))
         monitoring = _select_monitoring_universe(cfg, rows)
         if not monitoring:
-            _write_intraday_noop_report(run_id=run_id, daily_id=daily_id, intraday_id=intraday_id)
+            _write_intraday_noop_report(run_id=run_id, daily_id=daily_id, intraday_id=intraday_id, cfg_raw=cfg.raw)
             return
 
         previous_intraday_id = _latest_completed_intraday_bar_id(conn)
@@ -143,6 +143,7 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
                 run_id=run_id,
                 daily_id=daily_id,
                 intraday_id=intraday_id,
+                cfg_raw=cfg.raw,
                 skip_reason="no_new_4h_bar",
             )
             return
@@ -195,7 +196,13 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
         if postdecision_provider is not None:
             postdecision_provider(decision_rows, execution)
 
-        _write_intraday_noop_report(run_id=run_id, daily_id=daily_id, intraday_id=intraday_id, diagnostics=diagnostics)
+        _write_intraday_noop_report(
+            run_id=run_id,
+            daily_id=daily_id,
+            intraday_id=intraday_id,
+            cfg_raw=cfg.raw,
+            diagnostics=diagnostics,
+        )
     except Exception:
         final_status = "failed"
         raise
@@ -245,10 +252,11 @@ def _write_intraday_noop_report(
     run_id: str,
     daily_id: str,
     intraday_id: str,
+    cfg_raw: Mapping[str, Any],
     skip_reason: str = "empty_monitoring_universe",
     diagnostics: list[Mapping[str, Any]] | None = None,
 ) -> None:
-    builder = make_report_builder(project_root=Path.cwd(), config={})
+    builder = make_report_builder(project_root=Path.cwd(), config=cfg_raw)
     builder.write_run_report(
         run_id=run_id,
         scan_mode="intraday",
