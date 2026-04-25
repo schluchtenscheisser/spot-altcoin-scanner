@@ -72,7 +72,7 @@ def parse_args() -> argparse.Namespace:
         description="Counterfactual analysis for setup-specific chased thresholds."
     )
     parser.add_argument("--reports-dir", default="reports")
-    parser.add_argument("--output-dir", default="reports/analysis")
+    parser.add_argument("--output-dir", default="reports/aux")
     parser.add_argument("--runs", type=int, default=7)
     parser.add_argument("--start-date", default=None)
     parser.add_argument("--end-date", default=None)

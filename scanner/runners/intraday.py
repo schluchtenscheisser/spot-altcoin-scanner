@@ -38,7 +38,7 @@ def _legacy_ms_intraday_id_to_canonical(value: int, *, field_name: str) -> str:
     return legacy_dt.strftime("%Y-%m-%dT%H:00:00Z")
 
 
-def _normalize_intraday_id_from_metadata(value: object, *, field_name: str) -> str | None:
+def _normalize_legacy_run_metadata_intraday_bar_id(value: object, *, field_name: str) -> str | None:
     if value is None:
         return None
     if isinstance(value, int) and not isinstance(value, bool):
@@ -50,6 +50,16 @@ def _normalize_intraday_id_from_metadata(value: object, *, field_name: str) -> s
         has_new_intraday_bar(None, normalized)
         return normalized
     raise TypeError(f"unsupported {field_name} type: {type(value).__name__}")
+
+
+def _validate_runtime_intraday_bar_id(value: object, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"{field_name} must be canonical str or None, got {type(value).__name__}")
+    normalized = value.strip()
+    has_new_intraday_bar(None, normalized)
+    return normalized
 
 
 def _create_run_metadata(
@@ -91,7 +101,7 @@ def _latest_completed_intraday_bar_id(conn: sqlite3.Connection) -> str | None:
     if row is None:
         return None
     value = row[0]
-    return _normalize_intraday_id_from_metadata(value, field_name="intraday_bar_id")
+    return _normalize_legacy_run_metadata_intraday_bar_id(value, field_name="intraday_bar_id")
 
 
 def _default_context_provider(_: ScannerConfig, __: str) -> list[dict[str, Any]]:
@@ -163,7 +173,7 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
 
         refresh_required: set[str] = set()
         for row in monitoring:
-            cache_intraday = _normalize_intraday_id_from_metadata(
+            cache_intraday = _validate_runtime_intraday_bar_id(
                 row.get("intraday_cache_bar_id"),
                 field_name=f"intraday_cache_bar_id[{row.get('symbol', '?')}]",
             )

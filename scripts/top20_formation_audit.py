@@ -27,8 +27,8 @@ What it audits
 Outputs
 -------
 Writes both:
-- reports/analysis/top20_formation_audit_<date>.json
-- reports/analysis/top20_formation_audit_<date>.md
+- reports/aux/top20_formation_audit_<date>.json
+- reports/aux/top20_formation_audit_<date>.md
 
 Design notes
 ------------
@@ -72,7 +72,7 @@ def repo_root() -> Path:
 
 
 def analysis_dir() -> Path:
-    out = repo_root() / "reports" / "analysis"
+    out = repo_root() / "reports" / "aux"
     out.mkdir(parents=True, exist_ok=True)
     return out
 

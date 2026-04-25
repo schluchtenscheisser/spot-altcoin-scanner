@@ -18,8 +18,8 @@ Questions answered
 Outputs
 -------
 Writes both:
-- reports/analysis/post_risk_unlock_audit_<date>.json
-- reports/analysis/post_risk_unlock_audit_<date>.md
+- reports/aux/post_risk_unlock_audit_<date>.json
+- reports/aux/post_risk_unlock_audit_<date>.md
 
 Design notes
 ------------
@@ -73,7 +73,7 @@ def repo_root() -> Path:
 
 
 def analysis_dir() -> Path:
-    out = repo_root() / "reports" / "analysis"
+    out = repo_root() / "reports" / "aux"
     out.mkdir(parents=True, exist_ok=True)
     return out
 

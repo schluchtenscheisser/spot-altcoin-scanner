@@ -7,7 +7,7 @@ Improvements over v1:
 - Shows which symbols unlock at each threshold step
 - Cross-checks ATR counterfactual summary vs row-level data
 
-Output: reports/analysis/diagnose_rr_<date>.json + .md
+Output: reports/aux/diagnose_rr_<date>.json + .md
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 REPORTS_DIR = Path("reports")
-OUTPUT_DIR = Path("reports/analysis")
+OUTPUT_DIR = Path("reports/aux")
 MAX_RUNS = 7
 
 CURRENT_RISK_CONFIG = {
