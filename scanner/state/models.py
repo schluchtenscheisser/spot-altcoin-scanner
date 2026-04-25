@@ -34,6 +34,7 @@ _ALLOWED_CYCLE_CODES = {
     "NEW_CYCLE_BLOCKED_PHASE_FLOOR_NOT_RECOVERED",
     "NEW_CYCLE_BLOCKED_STRUCTURAL_INVALIDATION_ACTIVE",
     "NEW_CYCLE_BLOCKED_RECLAIM_RESET_NOT_MET",
+    "RECLAIM_RESET_UNKNOWN",
     "FIRST_CYCLE_INITIALIZED",
 }
 _ALLOWED_DISPOSITION_REASONS = {"PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE"}
@@ -150,7 +151,7 @@ class PersistedStateCycleContext:
 class InvalidationCycleBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     data_4h_available: bool
 
     structural_invalidation: bool
@@ -320,7 +321,7 @@ class StatePersistencePatch:
 class StateMachineBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     data_4h_available: bool
     disposition: StateEvaluationDisposition
     state_machine_state: str | None

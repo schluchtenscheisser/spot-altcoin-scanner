@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS run_metadata (
     started_at_utc  TEXT NOT NULL,
     finished_at_utc TEXT,
     daily_bar_id    TEXT NOT NULL,
-    intraday_bar_id INTEGER,
+    intraday_bar_id TEXT,
     schema_version  INTEGER NOT NULL,
     status          TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
     eligible_pre_1d_count INTEGER NOT NULL DEFAULT 0,

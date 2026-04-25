@@ -8,7 +8,7 @@ Answers:
 4. Counterfactual: what if max_stop_distance_pct were setup-specific?
 5. Counterfactual: what if reversals used ATR-fallback instead of base_low?
 
-Output: reports/analysis/diagnose_rr_<date>.json + .md
+Output: reports/aux/diagnose_rr_<date>.json + .md
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from typing import Any, Optional
 # ---------------------------------------------------------------------------
 
 REPORTS_DIR = Path("reports")
-OUTPUT_DIR = Path("reports/analysis")
+OUTPUT_DIR = Path("reports/aux")
 MAX_RUNS = 7
 
 # Current production risk config

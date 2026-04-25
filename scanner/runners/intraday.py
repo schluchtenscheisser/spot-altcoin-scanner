@@ -12,7 +12,7 @@ from scanner.data.bar_clock import daily_bar_id as compute_daily_bar_id
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intraday_bar
 from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.output import make_report_builder
-from scanner.storage import init_db
+from scanner.storage import build_run_manifest_path, init_db
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,38 @@ def _utc_now_iso() -> str:
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _legacy_ms_intraday_id_to_canonical(value: int, *, field_name: str) -> str:
+    legacy_dt = datetime.fromtimestamp(value / 1000.0, tz=timezone.utc)
+    if (
+        legacy_dt.minute != 0
+        or legacy_dt.second != 0
+        or legacy_dt.microsecond != 0
+        or legacy_dt.hour not in {0, 4, 8, 12, 16, 20}
+    ):
+        raise ValueError(f"{field_name} legacy millisecond value is not canonical 4h UTC close-time: {value!r}")
+    return legacy_dt.strftime("%Y-%m-%dT%H:00:00Z")
+
+
+def _normalize_intraday_id_from_metadata(value: object, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return _legacy_ms_intraday_id_to_canonical(value, field_name=field_name)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.isdigit():
+            return _legacy_ms_intraday_id_to_canonical(int(normalized), field_name=field_name)
+        has_new_intraday_bar(None, normalized)
+        return normalized
+    raise TypeError(f"unsupported {field_name} type: {type(value).__name__}")
+
+
 def _create_run_metadata(
     conn: sqlite3.Connection, *, run_id: str, daily_id: str, intraday_id: str, scan_mode: str
 ) -> None:
+    if not isinstance(intraday_id, str):
+        raise TypeError(f"intraday_bar_id must be canonical str, got {type(intraday_id).__name__}")
+    has_new_intraday_bar(None, intraday_id)
     conn.execute(
         """
         INSERT INTO run_metadata(
@@ -62,7 +91,7 @@ def _latest_completed_intraday_bar_id(conn: sqlite3.Connection) -> str | None:
     if row is None:
         return None
     value = row[0]
-    return str(value) if value is not None else None
+    return _normalize_intraday_id_from_metadata(value, field_name="intraday_bar_id")
 
 
 def _default_context_provider(_: ScannerConfig, __: str) -> list[dict[str, Any]]:
@@ -132,12 +161,14 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
         previous_intraday_id = _latest_completed_intraday_bar_id(conn)
         has_new = has_new_intraday_bar(previous_intraday_id, intraday_id)
 
-        refresh_required = {
-            str(row["symbol"])
-            for row in monitoring
-            if row.get("intraday_cache_bar_id") != intraday_id
-            or row.get("last_intraday_status") == "STALE_4H_REFRESH_FAILED"
-        }
+        refresh_required: set[str] = set()
+        for row in monitoring:
+            cache_intraday = _normalize_intraday_id_from_metadata(
+                row.get("intraday_cache_bar_id"),
+                field_name=f"intraday_cache_bar_id[{row.get('symbol', '?')}]",
+            )
+            if cache_intraday != intraday_id or row.get("last_intraday_status") == "STALE_4H_REFRESH_FAILED":
+                refresh_required.add(str(row["symbol"]))
         if not has_new and not refresh_required:
             _write_intraday_noop_report(
                 run_id=run_id,
@@ -159,7 +190,6 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
             if daily_cache_bar_id != daily_id:
                 diagnostics.append(_diag(run_id, symbol, daily_id, intraday_id, "MISSING_DAILY_CACHE"))
                 continue
-
             needs_refresh = symbol in refresh_required
             if needs_refresh:
                 refresh = refresh_provider(symbol, intraday_id)
@@ -257,6 +287,7 @@ def _write_intraday_noop_report(
     diagnostics: list[Mapping[str, Any]] | None = None,
 ) -> None:
     builder = make_report_builder(project_root=Path.cwd(), config=cfg_raw)
+    manifest_path = build_run_manifest_path(daily_bar_id=daily_id, run_id=run_id)
     builder.write_run_report(
         run_id=run_id,
         scan_mode="intraday",
@@ -264,7 +295,7 @@ def _write_intraday_noop_report(
         daily_bar_id=daily_id,
         intraday_bar_id=intraday_id,
         symbol_lists={"confirmed_candidates": [], "early_candidates": [], "watchlist": [], "late_monitor": []},
-        manifest_path=f"reports/runs/{daily_id}/{run_id}.manifest.json",
+        manifest_path=manifest_path,
         diagnostics_records=diagnostics or [],
     )
     logger.info("intraday noop run", extra={"run_id": run_id, "skip_reason": skip_reason})

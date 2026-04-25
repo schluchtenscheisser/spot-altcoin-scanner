@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class PhaseInterpretationBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     data_4h_available: bool
 
     market_phase: str

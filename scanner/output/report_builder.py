@@ -62,7 +62,7 @@ class ReportBuilder:
         scan_mode: str,
         as_of_utc: str,
         daily_bar_id: str,
-        intraday_bar_id: int | str | None,
+        intraday_bar_id: str | None,
         symbol_lists: Mapping[str, list[str]] | None,
         manifest_path: str,
         diagnostics_records: Iterable[Mapping[str, Any]],

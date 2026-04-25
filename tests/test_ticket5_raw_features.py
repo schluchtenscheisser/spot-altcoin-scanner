@@ -93,8 +93,8 @@ def test_shared_field_cross_timeframe() -> None:
 def test_bundle_order_and_contract() -> None:
     cfg = ScannerConfig(raw={})
     ctx = {
-        "daily_bar_id": 111,
-        "intraday_bar_id": 222,
+        "daily_bar_id": "2026-04-24",
+        "intraday_bar_id": "2026-04-25T08:00:00Z",
         "daily_close_time_utc_ms": 111,
         "intraday_close_time_utc_ms": 222,
     }

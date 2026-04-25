@@ -284,6 +284,90 @@ def test_z1_uses_expansion_progress_not_structural_freshness():
     assert out_allowed.new_cycle_detected is True
 
 
+def test_reclaim_reset_preserves_unknown_and_emits_reason_code() -> None:
+    cfg = _cfg({"cycle": {"enable_reclaim_reset": True, "expansion_reset_max": 40.0, "min_bars_since_cycle_end": 2}})
+    out_unknown = compute_invalidation_and_cycle(
+        _phase(phase_floor_failed_pressure_build=False, phase_floor_failed_trend_resume=False, phase_floor_failed_transition_reclaim=False),
+        _tier1(expansion_progress_structural=10.0),
+        _tier2(),
+        _context(
+            prev_state_machine_state="rejected",
+            bars_since_cycle_end=5,
+            reclaim_below_reset_floor_seen_since_cycle_end=None,
+        ),
+        cfg,
+    )
+    assert out_unknown.reclaim_reset_condition_met is None
+    assert out_unknown.new_cycle_detected is False
+    assert out_unknown.cycle_reason_code == "RECLAIM_RESET_UNKNOWN"
+
+    out_false = compute_invalidation_and_cycle(
+        _phase(phase_floor_failed_pressure_build=False, phase_floor_failed_trend_resume=False, phase_floor_failed_transition_reclaim=False),
+        _tier1(expansion_progress_structural=10.0),
+        _tier2(),
+        _context(
+            prev_state_machine_state="rejected",
+            bars_since_cycle_end=5,
+            reclaim_below_reset_floor_seen_since_cycle_end=False,
+        ),
+        cfg,
+    )
+    assert out_false.reclaim_reset_condition_met is False
+    assert out_false.new_cycle_detected is False
+    assert out_false.cycle_reason_code == "NEW_CYCLE_BLOCKED_RECLAIM_RESET_NOT_MET"
+
+    out_true = compute_invalidation_and_cycle(
+        _phase(phase_floor_failed_pressure_build=False, phase_floor_failed_trend_resume=False, phase_floor_failed_transition_reclaim=False),
+        _tier1(expansion_progress_structural=10.0),
+        _tier2(),
+        _context(
+            prev_state_machine_state="rejected",
+            bars_since_cycle_end=5,
+            reclaim_below_reset_floor_seen_since_cycle_end=True,
+        ),
+        cfg,
+    )
+    assert out_true.reclaim_reset_condition_met is True
+    assert out_true.new_cycle_detected is True
+
+
+def test_reclaim_reset_unknown_is_not_emitted_when_gate_disabled() -> None:
+    out = compute_invalidation_and_cycle(
+        _phase(
+            phase_floor_failed_pressure_build=False,
+            phase_floor_failed_trend_resume=False,
+            phase_floor_failed_transition_reclaim=False,
+        ),
+        _tier1(expansion_progress_structural=10.0),
+        _tier2(),
+        _context(
+            prev_state_machine_state="rejected",
+            bars_since_cycle_end=5,
+            reclaim_below_reset_floor_seen_since_cycle_end=None,
+        ),
+        _cfg({"cycle": {"enable_reclaim_reset": False, "expansion_reset_max": 40.0, "min_bars_since_cycle_end": 2}}),
+    )
+    assert out.reclaim_reset_condition_met is None
+    assert out.cycle_reason_code != "RECLAIM_RESET_UNKNOWN"
+    assert out.new_cycle_detected is True
+
+
+def test_gate_disabled_with_expansion_none_keeps_non_reclaim_reason() -> None:
+    out = compute_invalidation_and_cycle(
+        _phase(),
+        _tier1(expansion_progress_structural=None, expansion_progress_structural_not_evaluable=True),
+        _tier2(),
+        _context(
+            prev_state_machine_state="rejected",
+            bars_since_cycle_end=5,
+            reclaim_below_reset_floor_seen_since_cycle_end=None,
+        ),
+        _cfg({"cycle": {"enable_reclaim_reset": False, "min_bars_since_cycle_end": 2}}),
+    )
+    assert out.expansion_reset_condition_met is None
+    assert out.cycle_reason_code == "NEW_CYCLE_BLOCKED_EXPANSION_NOT_RESET"
+
+
 def test_optional_reclaim_reset_gate():
     out = compute_invalidation_and_cycle(
         _phase(),

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class Tier1AxisBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     data_4h_available: bool
 
     trend_strength: float | None
@@ -45,7 +45,7 @@ class Tier1AxisBundle:
 class Tier2AxisBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     data_4h_available: bool
 
     base_integrity_simplified: float | None

@@ -9,7 +9,7 @@ import pytest
 from scanner.config import resolve_independence_release_reports_config
 from scanner.output.diagnostics import write_symbol_diagnostics_jsonl_gz
 from scanner.output.report_builder import ReportBuilder
-from scanner.output.schema import SCHEMA_VERSION, validate_run_id
+from scanner.output.schema import SCHEMA_VERSION, validate_intraday_bar_id, validate_run_id
 
 
 def _stub_diag(symbol: str = "STUBUSDT") -> dict:
@@ -198,3 +198,9 @@ def test_reports_doc_and_ticket_preflight_path_compatibility() -> None:
     reports_doc = Path("docs/canonical/REPORTS.md").read_text(encoding="utf-8")
     assert "Verbindliche Dateitypen" in reports_doc
     assert Path("docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md").exists()
+
+
+def test_intraday_bar_id_validation_accepts_canonical_strings_and_rejects_ints() -> None:
+    assert validate_intraday_bar_id("intraday", "2026-04-24T08:00:00Z") == "2026-04-24T08:00:00Z"
+    with pytest.raises(ValueError, match="YYYY-MM-DDTHH:00:00Z"):
+        validate_intraday_bar_id("intraday", 1774324800000)

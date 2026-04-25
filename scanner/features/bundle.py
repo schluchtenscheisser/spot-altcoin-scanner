@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from scanner.features.models import FeatureBundle
 from scanner.features.raw_1d import compute_raw_1d
 from scanner.features.raw_4h import compute_raw_4h
 from scanner.features.shared import compute_raw_shared
+
+_INTRADAY_BAR_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(00|04|08|12|16|20):00:00Z$")
 
 
 def _extract_ctx_int(ctx: Any, field: str) -> int | None:
@@ -27,6 +30,17 @@ def _extract_ctx_daily_bar_id(ctx: Any) -> str | None:
         return None
     return str(v)
 
+def _extract_ctx_intraday_bar_id(ctx: Any) -> str | None:
+    if isinstance(ctx, dict):
+        v = ctx.get("intraday_bar_id")
+    else:
+        v = getattr(ctx, "intraday_bar_id", None)
+    if v is None:
+        return None
+    if not isinstance(v, str) or _INTRADAY_BAR_ID_RE.match(v) is None:
+        raise ValueError("intraday_bar_id must match YYYY-MM-DDTHH:00:00Z with HH in {00,04,08,12,16,20}")
+    return v
+
 
 def build_feature_bundle(
     symbol: str,
@@ -40,7 +54,7 @@ def build_feature_bundle(
     raw_shared = compute_raw_shared(symbol, bar_clock_context, raw_1d, raw_4h, cfg)
 
     daily_bar_id = _extract_ctx_daily_bar_id(bar_clock_context)
-    intraday_bar_id = _extract_ctx_int(bar_clock_context, "intraday_bar_id")
+    intraday_bar_id = _extract_ctx_intraday_bar_id(bar_clock_context)
     daily_close = _extract_ctx_int(bar_clock_context, "daily_close_time_utc_ms")
     intraday_close = _extract_ctx_int(bar_clock_context, "intraday_close_time_utc_ms")
 

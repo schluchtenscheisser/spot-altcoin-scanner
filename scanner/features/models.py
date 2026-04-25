@@ -152,7 +152,7 @@ class RawFeaturesShared:
 class FeatureBundle:
     symbol: str
     daily_bar_id: str
-    intraday_bar_id: int | None
+    intraday_bar_id: str | None
     daily_close_time_utc_ms: int
     intraday_close_time_utc_ms: int | None
     data_4h_available: bool
