@@ -81,6 +81,21 @@ Some analysis scripts may only print stdout and produce no files; in that case a
 
 `reports/analysis/` is deprecated/not allowed for this workflow.
 
+
+## Manual Independence smoke test workflow
+Use `.github/workflows/independence-smoke-test.yml` via `workflow_dispatch` to run an end-to-end executability smoke check (Daily Runner -> Intraday Runner -> Evaluation Replay) against a fixed candidate list:
+- `SOLUSDT`
+- `AVAXUSDT`
+- `LINKUSDT`
+- `INJUSDT`
+- `ARBUSDT`
+
+Scope and guarantees:
+- Manual trigger only (`workflow_dispatch`), no schedule/push trigger.
+- Runtime outputs are isolated under `${{ runner.temp }}/ir-smoke-workdir`; the workflow verifies no generated run artifacts are written back to `${{ github.workspace }}`.
+- Artifacts are uploaded from the temporary smoke workdir only; the workflow does not commit or push generated outputs.
+- This smoke workflow validates stage execution and canonical artifact locations only (not business-logic quality assertions or calibration).
+
 ## Canonical docs and deeper architecture
 - Canonical entry point: `docs/canonical/INDEX.md`
 - Authority and precedence: `docs/canonical/AUTHORITY.md`
