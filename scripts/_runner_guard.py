@@ -23,6 +23,9 @@ def validate_script_path(script_path: str, *, repo_root: Path | None = None) -> 
     if candidate.is_absolute():
         raise ValueError("script_path must be a relative path under scripts/")
 
+    if ".." in candidate.parts:
+        raise ValueError("script_path must not contain traversal segments ('..')")
+
     root = (repo_root or Path.cwd()).resolve()
     scripts_root = (root / "scripts").resolve()
     normalized = (root / candidate).resolve(strict=False)

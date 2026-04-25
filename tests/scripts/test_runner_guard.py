@@ -29,6 +29,13 @@ def test_accepts_existing_nested_python_file_under_scripts(tmp_path: Path, monke
     )
 
 
+def test_accepts_filename_containing_double_dots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _touch(tmp_path / "scripts" / "foo..bar.py")
+    monkeypatch.chdir(tmp_path)
+
+    assert _runner_guard.validate_script_path("scripts/foo..bar.py") == "scripts/foo..bar.py"
+
+
 def test_rejects_missing_argument() -> None:
     rc = _runner_guard.main([])
     assert rc == 1
@@ -52,6 +59,7 @@ def test_rejects_absolute_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     [
         "../scripts/foo.py",
         "scripts/../foo.py",
+        "scripts/subdir/../foo.py",
         "scripts/subdir/../../foo.py",
         "docs/foo.py",
         "reports/analysis/foo.py",
