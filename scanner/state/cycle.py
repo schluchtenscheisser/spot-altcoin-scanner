@@ -62,13 +62,13 @@ def resolve_cycle_state(
     reclaim_reset_condition_met: bool | None = None
     if bool(cycle_cfg["enable_reclaim_reset"]):
         flag = persisted_context.reclaim_below_reset_floor_seen_since_cycle_end
-        reclaim_reset_condition_met = bool(flag) if flag is not None else False
+        reclaim_reset_condition_met = bool(flag) if flag is not None else None
 
     z1 = expansion_reset_condition_met is True
     z2 = min_bars_met
     z3 = phase_floor_recovered
     z4 = not structural_invalidation
-    z5 = reclaim_reset_condition_met is not False
+    z5 = reclaim_reset_condition_met is True if bool(cycle_cfg["enable_reclaim_reset"]) else True
 
     if z1 and z2 and z3 and z4 and z5:
         prev = persisted_context.prev_state_machine_state
@@ -97,6 +97,8 @@ def resolve_cycle_state(
         reason = "NEW_CYCLE_BLOCKED_MIN_BARS_NOT_MET"
     elif not z3:
         reason = "NEW_CYCLE_BLOCKED_PHASE_FLOOR_NOT_RECOVERED"
+    elif reclaim_reset_condition_met is None:
+        reason = "RECLAIM_RESET_UNKNOWN"
     elif reclaim_reset_condition_met is False:
         reason = "NEW_CYCLE_BLOCKED_RECLAIM_RESET_NOT_MET"
     else:

@@ -25,7 +25,7 @@ def test_run_metadata_schema_and_nullable_fields(tmp_path) -> None:
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='run_metadata'"
     ).fetchone()[0]
     assert "finished_at_utc TEXT" in table_sql
-    assert "intraday_bar_id INTEGER" in table_sql
+    assert "intraday_bar_id TEXT" in table_sql
     assert "scan_mode IN ('daily_discovery', 'intraday_promotion')" in table_sql
     assert "status IN ('running', 'completed', 'failed')" in table_sql
 

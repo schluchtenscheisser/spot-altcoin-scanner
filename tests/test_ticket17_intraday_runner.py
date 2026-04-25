@@ -129,3 +129,28 @@ def test_intraday_noop_report_uses_active_config(tmp_path, monkeypatch) -> None:
     cfg_used = seen["config"]
     assert isinstance(cfg_used, dict)
     assert cfg_used["independence_release"]["reports"]["recent_runs_limit"] == 7
+    kwargs = seen["kwargs"]
+    assert isinstance(kwargs, dict)
+    manifest_path = kwargs["manifest_path"]
+    assert manifest_path.endswith("/run.manifest.json")
+    assert manifest_path.startswith("snapshots/runs/")
+    assert "reports/runs" not in manifest_path
+
+
+def test_intraday_context_rejects_integer_cache_bar_ids(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: [  # type: ignore[attr-defined]
+        {
+            "symbol": "AAAUSDT",
+            "state_machine_state": "watch",
+            "decision_bucket": "watchlist",
+            "market_phase_confidence": 40.0,
+            "daily_cache_bar_id": "2026-04-23",
+            "intraday_cache_bar_id": 1774324800000,
+        }
+    ]
+
+    with pytest.raises(TypeError, match="intraday_cache_bar_id"):
+        run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))

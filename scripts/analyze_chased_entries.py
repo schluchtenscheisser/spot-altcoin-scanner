@@ -88,8 +88,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-dir",
-        default="reports/analysis",
-        help="Directory for generated analysis artifacts (default: reports/analysis)",
+        default="reports/aux",
+        help="Directory for generated analysis artifacts (default: reports/aux)",
     )
     parser.add_argument(
         "--runs",

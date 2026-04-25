@@ -76,18 +76,16 @@ def validate_daily_bar_id(value: Any) -> str:
     return value
 
 
-def validate_intraday_bar_id(scan_mode: ScanMode, value: Any) -> int | str | None:
+def validate_intraday_bar_id(scan_mode: ScanMode, value: Any) -> str | None:
     if scan_mode == "daily":
         if value is not None:
             raise ValueError("intraday_bar_id must be null for daily scan_mode")
         return None
 
-    if isinstance(value, int) and not isinstance(value, bool):
-        return value
     if isinstance(value, str) and _INTRADAY_BAR_ID_RE.match(value):
         return value
     raise ValueError(
-        f"intraday_bar_id must be int or YYYY-MM-DDTHH:00:00Z for intraday scan_mode, got {value!r}"
+        f"intraday_bar_id must match YYYY-MM-DDTHH:00:00Z for intraday scan_mode, got {value!r}"
     )
 
 
@@ -134,7 +132,7 @@ class RunReport:
     scan_mode: ScanMode
     as_of_utc: str
     daily_bar_id: str
-    intraday_bar_id: int | str | None
+    intraday_bar_id: str | None
     counts_by_bucket: Dict[str, int]
     symbol_lists: Dict[str, list[str]]
     manifest_path: str

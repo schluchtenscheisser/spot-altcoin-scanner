@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 
+from scanner.execution import select_execution_subset
 from scanner.universe import (
     EligibilityInput,
     cap_non_bypass_candidates,
@@ -137,3 +138,37 @@ def test_config_invalid_rule_b_threshold_raises_before_runtime_cast():
                 }
             ),
         )
+
+
+def test_pre_4h_filter_failure_does_not_imply_fachlich_rejection_or_discarded() -> None:
+    filter_result = evaluate_pre_4h_candidate_filter(
+        {
+            "close_vs_ema50_1d_pct": -2.0,
+            "ema20_vs_ema50_1d_pct": -1.0,
+            "ema20_slope_1d_pct_per_bar": -0.2,
+            "volume_1d_current_vs_median10": 0.8,
+            "range_width_10bars_1d_pct": 25.0,
+            "close_position_in_range_10bars_1d": 0.2,
+        },
+        _cfg(),
+    )
+    assert filter_result["pre_4h_filter_status"] == "failed"
+
+    row = type(
+        "ExecutionSelectionRow",
+        (),
+        {
+            "symbol": "AAAUSDT",
+            "priority_score": 10.0,
+            "decision_bucket": "watchlist",
+            "market_phase_confidence": 40.0,
+            "state_machine_state": "watch",
+            "pre_4h_filter_status": filter_result["pre_4h_filter_status"],
+            "pre_4h_filter_primary_reason": filter_result["pre_4h_filter_primary_reason"],
+        },
+    )()
+    subset = select_execution_subset([row], {"min_phase_confidence": 60.0})
+    assert subset == []
+    assert row.state_machine_state != "rejected"
+    assert row.decision_bucket != "discarded"
+    assert row.pre_4h_filter_primary_reason == "FILTER_FAILED_ALL_RULES"

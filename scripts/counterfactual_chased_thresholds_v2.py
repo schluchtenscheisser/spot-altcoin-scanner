@@ -39,7 +39,7 @@ from typing import Any, Optional
 # ---------------------------------------------------------------------------
 
 DEFAULT_REPORTS_DIR = Path("reports")
-DEFAULT_OUTPUT_DIR = Path("reports/analysis")
+DEFAULT_OUTPUT_DIR = Path("reports/aux")
 DEFAULT_MAX_RUNS = 7
 
 CURRENT_THRESHOLD_PCT = 3.0
@@ -95,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),
-        help="Directory for generated analysis artifacts (default: reports/analysis)",
+        help="Directory for generated analysis artifacts (default: reports/aux)",
     )
     parser.add_argument(
         "--max-runs",
