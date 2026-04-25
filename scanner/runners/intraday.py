@@ -26,6 +26,32 @@ def _utc_now_iso() -> str:
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _legacy_ms_intraday_id_to_canonical(value: int, *, field_name: str) -> str:
+    legacy_dt = datetime.fromtimestamp(value / 1000.0, tz=timezone.utc)
+    if (
+        legacy_dt.minute != 0
+        or legacy_dt.second != 0
+        or legacy_dt.microsecond != 0
+        or legacy_dt.hour not in {0, 4, 8, 12, 16, 20}
+    ):
+        raise ValueError(f"{field_name} legacy millisecond value is not canonical 4h UTC close-time: {value!r}")
+    return legacy_dt.strftime("%Y-%m-%dT%H:00:00Z")
+
+
+def _normalize_intraday_id_from_metadata(value: object, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return _legacy_ms_intraday_id_to_canonical(value, field_name=field_name)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.isdigit():
+            return _legacy_ms_intraday_id_to_canonical(int(normalized), field_name=field_name)
+        has_new_intraday_bar(None, normalized)
+        return normalized
+    raise TypeError(f"unsupported {field_name} type: {type(value).__name__}")
+
+
 def _create_run_metadata(
     conn: sqlite3.Connection, *, run_id: str, daily_id: str, intraday_id: str, scan_mode: str
 ) -> None:
@@ -65,17 +91,7 @@ def _latest_completed_intraday_bar_id(conn: sqlite3.Connection) -> str | None:
     if row is None:
         return None
     value = row[0]
-    if value is None:
-        return None
-    if isinstance(value, str):
-        has_new_intraday_bar(None, value)
-        return value
-    if isinstance(value, int) and not isinstance(value, bool):
-        legacy_dt = datetime.fromtimestamp(value / 1000.0, tz=timezone.utc)
-        if legacy_dt.minute != 0 or legacy_dt.second != 0 or legacy_dt.microsecond != 0 or legacy_dt.hour not in {0, 4, 8, 12, 16, 20}:
-            raise ValueError(f"legacy intraday_bar_id integer is not canonical 4h UTC close-time: {value!r}")
-        return legacy_dt.strftime("%Y-%m-%dT%H:00:00Z")
-    raise TypeError(f"unsupported intraday_bar_id type in run_metadata: {type(value).__name__}")
+    return _normalize_intraday_id_from_metadata(value, field_name="intraday_bar_id")
 
 
 def _default_context_provider(_: ScannerConfig, __: str) -> list[dict[str, Any]]:
@@ -145,12 +161,14 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
         previous_intraday_id = _latest_completed_intraday_bar_id(conn)
         has_new = has_new_intraday_bar(previous_intraday_id, intraday_id)
 
-        refresh_required = {
-            str(row["symbol"])
-            for row in monitoring
-            if row.get("intraday_cache_bar_id") != intraday_id
-            or row.get("last_intraday_status") == "STALE_4H_REFRESH_FAILED"
-        }
+        refresh_required: set[str] = set()
+        for row in monitoring:
+            cache_intraday = _normalize_intraday_id_from_metadata(
+                row.get("intraday_cache_bar_id"),
+                field_name=f"intraday_cache_bar_id[{row.get('symbol', '?')}]",
+            )
+            if cache_intraday != intraday_id or row.get("last_intraday_status") == "STALE_4H_REFRESH_FAILED":
+                refresh_required.add(str(row["symbol"]))
         if not has_new and not refresh_required:
             _write_intraday_noop_report(
                 run_id=run_id,
@@ -172,12 +190,6 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
             if daily_cache_bar_id != daily_id:
                 diagnostics.append(_diag(run_id, symbol, daily_id, intraday_id, "MISSING_DAILY_CACHE"))
                 continue
-            intraday_cache_bar_id = row.get("intraday_cache_bar_id")
-            if intraday_cache_bar_id is not None and not isinstance(intraday_cache_bar_id, str):
-                raise TypeError(
-                    f"intraday_cache_bar_id must be canonical str or None for symbol={symbol}, got {type(intraday_cache_bar_id).__name__}"
-                )
-
             needs_refresh = symbol in refresh_required
             if needs_refresh:
                 refresh = refresh_provider(symbol, intraday_id)

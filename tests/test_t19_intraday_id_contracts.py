@@ -48,6 +48,19 @@ def test_run_metadata_new_integer_intraday_id_write_fails_fast(tmp_path) -> None
     conn.close()
 
 
+def test_run_metadata_new_digit_string_intraday_id_write_fails_fast(tmp_path) -> None:
+    conn = init_db(tmp_path / "independence_release.sqlite")
+    with pytest.raises(ValueError, match="current_bar_id"):
+        _create_run_metadata(
+            conn,
+            run_id="intraday-run-legacy-digit-write",
+            daily_id="2026-04-23",
+            intraday_id="1774324800000",
+            scan_mode="intraday_promotion",
+        )
+    conn.close()
+
+
 def test_legacy_integer_row_is_converted_only_at_read_boundary(tmp_path) -> None:
     conn = sqlite3.connect(tmp_path / "legacy.sqlite")
     conn.row_factory = sqlite3.Row
@@ -79,6 +92,47 @@ def test_legacy_integer_row_is_converted_only_at_read_boundary(tmp_path) -> None
             "2026-04-24T09:01:00Z",
             "2026-04-23",
             1774324800000,
+            4,
+            "completed",
+        ),
+    )
+    conn.commit()
+
+    assert _latest_completed_intraday_bar_id(conn) == "2026-03-24T04:00:00Z"
+    conn.close()
+
+
+def test_legacy_digit_string_row_is_converted_only_at_read_boundary(tmp_path) -> None:
+    conn = sqlite3.connect(tmp_path / "legacy_digit.sqlite")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """
+        CREATE TABLE run_metadata (
+            run_id TEXT PRIMARY KEY,
+            scan_mode TEXT NOT NULL,
+            started_at_utc TEXT NOT NULL,
+            finished_at_utc TEXT,
+            daily_bar_id TEXT NOT NULL,
+            intraday_bar_id TEXT,
+            schema_version INTEGER NOT NULL,
+            status TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO run_metadata (
+            run_id, scan_mode, started_at_utc, finished_at_utc,
+            daily_bar_id, intraday_bar_id, schema_version, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "legacy-digit-run",
+            "intraday_promotion",
+            "2026-04-24T09:00:00Z",
+            "2026-04-24T09:01:00Z",
+            "2026-04-23",
+            "1774324800000",
             4,
             "completed",
         ),
