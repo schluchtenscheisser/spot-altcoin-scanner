@@ -100,6 +100,24 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - Runtime logic for phase/state/entry remains deferred even though the operating model reserves those stages.
 - All future implementations must preserve the documented separation between daily discovery and intraday promotion scans.
 
+
+## Analysis Script Runner Operations Contract (Ticket 19)
+
+- Workflow: `.github/workflows/run-analysis-script.yml`
+- Trigger: manual `workflow_dispatch` with required input `script_path`.
+- `script_path` must be a relative path to an existing `.py` file under `scripts/`.
+- The workflow must validate `script_path` via `scripts/_runner_guard.py` and execute only the normalized guarded output.
+- Invalid `script_path` (empty, absolute, traversal, outside `scripts/`, non-`.py`, missing, directory) fails before script execution.
+- Permissions are read-only (`contents: read`); analysis runs must not commit/push generated files.
+- Analysis file outputs are uploaded as action artifacts only (not repository writeback).
+- Allowed artifact collection roots for this workflow are exactly:
+  - `evaluation/exports/**`
+  - `evaluation/calibration/**`
+  - `artifacts/**`
+  - `reports/aux/**`
+- `reports/analysis/**` is deprecated/not allowed for this workflow contract.
+- Artifact upload uses `if-no-files-found: warn` because valid analysis runs may produce stdout-only output.
+
 ## AI Sparring Runtime Operations Contract
 
 `tools/ai_sparring/` provides a manual/operator-triggered runtime (local CLI and `workflow_dispatch`) for design/code review sparring.
