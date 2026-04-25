@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket 19 — Harden Analysis Workflow and Script Output Conventions
 
 ## Status

@@ -60,6 +60,27 @@ Typical run artifacts are written to:
 ## Scheduling (optional)
 You can schedule the scanner using cron or CI by calling the same CLI command (`python -m scanner.main --mode ...`) with the required environment variables and working directory.
 
+
+## Running ad-hoc analysis scripts in GitHub Actions
+Use the manual workflow `.github/workflows/run-analysis-script.yml` via `workflow_dispatch` with required input `script_path`.
+
+Rules for `script_path`:
+- must be a relative path
+- must point to an existing `.py` file under `scripts/`
+- empty values, absolute paths, traversal paths, non-`scripts/` paths, missing files, directories, and non-Python files are rejected
+
+Analysis workflow outputs are uploaded as GitHub Actions artifacts only (no `git add`/`commit`/`push` writeback).
+
+If an analysis script writes files, only these output roots are allowed for collection:
+- `evaluation/exports/`
+- `evaluation/calibration/`
+- `artifacts/`
+- `reports/aux/`
+
+Some analysis scripts may only print stdout and produce no files; in that case artifact upload can warn about missing files while the run remains valid.
+
+`reports/analysis/` is deprecated/not allowed for this workflow.
+
 ## Canonical docs and deeper architecture
 - Canonical entry point: `docs/canonical/INDEX.md`
 - Authority and precedence: `docs/canonical/AUTHORITY.md`

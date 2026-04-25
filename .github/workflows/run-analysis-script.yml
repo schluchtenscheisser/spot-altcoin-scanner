@@ -2,13 +2,15 @@ name: Run Analysis Script
 
 on:
   workflow_dispatch:
+    inputs:
+      script_path:
+        description: "Relative path to a Python script under scripts/"
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
-env:
-  ANALYSIS_SCRIPT: scripts/pre_top20_inclusion_audit-3.py  # An jeweiliges Skript anpassen
-    
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
@@ -27,45 +29,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify analysis script exists
+      - name: Validate analysis script path
+        id: guard
         run: |
-          test -f "${ANALYSIS_SCRIPT}"
+          python scripts/_runner_guard.py "${{ inputs.script_path }}" >> "$GITHUB_OUTPUT"
 
       - name: Run analysis script
         run: |
-          python "${ANALYSIS_SCRIPT}"
-
-      - name: Show generated files
-        run: |
-          echo "PWD=$(pwd)"
-          echo "Top-level:"
-          ls -la
-          echo ""
-          echo "reports:"
-          ls -la reports || true
-          echo ""
-          echo "reports/analysis:"
-          ls -la reports/analysis || true
-          echo ""
-          echo "git status:"
-          git status --short
+          python "${{ steps.guard.outputs.script_path }}"
 
       - name: Upload analysis artifacts
         uses: actions/upload-artifact@v4
         with:
           name: analysis-output
-          path: reports/analysis/**
-          if-no-files-found: error
-
-      - name: Commit generated analysis artifacts
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git add -A reports/analysis/
-
-          echo "git status after add:"
-          git status --short
-
-          git diff --cached --quiet || git commit -m "Run analysis script: ${ANALYSIS_SCRIPT}"
-          git push
+          path: |
+            evaluation/exports/**
+            evaluation/calibration/**
+            artifacts/**
+            reports/aux/**
+          if-no-files-found: warn
