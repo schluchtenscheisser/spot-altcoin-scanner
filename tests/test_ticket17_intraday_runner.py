@@ -65,7 +65,7 @@ def test_intraday_runner_no_new_bar_noop_when_no_refresh_required(tmp_path, monk
     conn = init_db("data/independence_release.sqlite")
     conn.execute(
         "INSERT INTO run_metadata(run_id, scan_mode, started_at_utc, finished_at_utc, daily_bar_id, intraday_bar_id, schema_version, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("r1", "intraday_promotion", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "2026-04-24T08:00:00Z", 4, "completed"),
+        ("r1", "intraday", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "2026-04-24T08:00:00Z", 4, "completed"),
     )
     conn.commit()
     conn.close()
@@ -174,7 +174,7 @@ def test_intraday_runner_accepts_legacy_digit_string_previous_bar_id(tmp_path, m
     conn = init_db("data/independence_release.sqlite")
     conn.execute(
         "INSERT INTO run_metadata(run_id, scan_mode, started_at_utc, finished_at_utc, daily_bar_id, intraday_bar_id, schema_version, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("r1", "intraday_promotion", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "1774324800000", 4, "completed"),
+        ("r1", "intraday", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "1774324800000", 4, "completed"),
     )
     conn.commit()
     conn.close()

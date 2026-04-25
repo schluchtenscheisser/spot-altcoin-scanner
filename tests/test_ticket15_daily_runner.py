@@ -58,7 +58,7 @@ def test_empty_universe_non_publishable_minimal_artifacts(tmp_path: Path, monkey
     assert row is not None
     assert row[0] == "completed"
     assert row[1] == "2026-01-01"
-    assert row[2] == "daily_discovery"
+    assert row[2] == "daily"
 
     run_reports = list((tmp_path / "reports" / "runs" / "2026" / "01" / "01").glob("*/report.json"))
     assert len(run_reports) == 1
@@ -331,3 +331,85 @@ def test_daily_diagnostics_use_real_data_4h_available_flag(tmp_path: Path, monke
     by_symbol = {r["symbol"]: r for r in seen["records"]}
     assert by_symbol["AUSDT"]["data_4h_available"] is False
     assert by_symbol["BUSDT"]["data_4h_available"] is True
+
+
+def test_daily_runner_writes_canonical_daily_scan_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    cfg = _cfg()
+    cfg.daily_universe_provider = lambda *_: ["BTCUSDT"]
+    cfg.daily_ohlcv_provider = lambda *_: [_Bar(close_time_utc_ms=100, close=10.0)]
+
+    monkeypatch.setattr(daily_runner, "build_feature_bundle", lambda *_args, **_kwargs: type("FB", (), {"data_4h_available": False})())
+    monkeypatch.setattr(daily_runner, "compute_tier1_axes", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "compute_tier2_axes", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "compute_phase_interpretation", lambda *_args, **_kwargs: type("P", (), {"market_phase_confidence": 70.0})())
+    monkeypatch.setattr(daily_runner, "compute_invalidation_and_cycle", lambda *_args, **_kwargs: InvalidationCycleBundle(
+        symbol="BTCUSDT",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id=None,
+        data_4h_available=False,
+        structural_invalidation=False,
+        structural_invalidation_reason=None,
+        timing_invalidation=False,
+        timing_invalidation_reason=None,
+        new_cycle_detected=False,
+        cycle_reason_code="FIRST_CYCLE_INITIALIZED",
+        resolved_setup_cycle_id=1,
+        phase_floor_recovered_since_cycle_end=False,
+        expansion_reset_condition_met=None,
+        reclaim_reset_condition_met=None,
+    ))
+    monkeypatch.setattr(daily_runner, "load_persisted_state_machine_context", lambda *_args, **_kwargs: PersistedStateMachineContext(
+        symbol="BTCUSDT",
+        current_setup_cycle_id=None,
+        previous_setup_cycle_id=None,
+        state_recorded_in_cycle_id=None,
+        prev_state_machine_state=None,
+        freshness_distance_state_early=None,
+        freshness_distance_state_confirmed=None,
+        bars_since_state_entered=None,
+        bars_since_early_entered=None,
+        bars_since_confirmed_entered=None,
+        bars_since_cycle_end=None,
+        reclaim_below_reset_floor_seen_since_cycle_end=None,
+        close_at_early_entry_bar=None,
+        close_at_confirmed_entry_bar=None,
+        distance_from_ideal_entry_after_early=None,
+        distance_from_ideal_entry_after_confirmed=None,
+        cycle_end_bar_index=None,
+        cycle_end_timestamp=None,
+    ))
+    monkeypatch.setattr(daily_runner, "compute_state_machine", lambda *_args, **_kwargs: StateMachineBundle(
+        symbol="BTCUSDT",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id=None,
+        data_4h_available=False,
+        disposition=StateEvaluationDisposition(admitted=True, disposition_reason=None),
+        state_machine_state="watch",
+        state_confidence=60.0,
+        state_transition_reason="STATE_HOLD",
+        data_resolution_class="full_1d",
+        freshness=StateFreshnessBundle(None, None, None, None),
+        persistence_patch=None,
+    ))
+    monkeypatch.setattr(daily_runner, "resolve_entry_pattern", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(daily_runner, "assign_bucket", lambda *_args, **_kwargs: type("D", (), {"priority_score": 1.0, "decision_bucket": type("B", (), {"value": "watchlist"})()})())
+    monkeypatch.setattr(daily_runner, "select_execution_subset", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(daily_runner, "evaluate_execution_subset", lambda *_args, **_kwargs: type("E", (), {"contracts": {}, "diagnostics": {}})())
+    monkeypatch.setattr(daily_runner, "rank_coins", lambda records, *_args, **_kwargs: records)
+    monkeypatch.setattr(daily_runner, "_persist_run_manifest", lambda *_args, **_kwargs: "snapshots/runs/x/run.manifest.json")
+
+    captured: dict[str, str] = {}
+
+    class _Builder:
+        def write_run_report(self, **kwargs):
+            captured["scan_mode"] = str(kwargs["scan_mode"])
+            return {"daily_bar_id": "2026-01-01"}
+
+        def write_daily_report(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(daily_runner, "make_report_builder", lambda *_args, **_kwargs: _Builder())
+
+    run_daily_scan(cfg, as_of_date="2026-01-01")
+    assert captured["scan_mode"] == "daily"

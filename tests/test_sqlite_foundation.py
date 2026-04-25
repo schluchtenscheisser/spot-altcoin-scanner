@@ -26,7 +26,7 @@ def test_run_metadata_schema_and_nullable_fields(tmp_path) -> None:
     ).fetchone()[0]
     assert "finished_at_utc TEXT" in table_sql
     assert "intraday_bar_id TEXT" in table_sql
-    assert "scan_mode IN ('daily_discovery', 'intraday_promotion')" in table_sql
+    assert "scan_mode IN ('daily', 'intraday')" in table_sql
     assert "status IN ('running', 'completed', 'failed')" in table_sql
 
     connection.execute(
@@ -38,7 +38,7 @@ def test_run_metadata_schema_and_nullable_fields(tmp_path) -> None:
         """,
         (
             "run-1",
-            "daily_discovery",
+            "daily",
             "2026-03-24T00:00:00Z",
             None,
             "2026-03-23",

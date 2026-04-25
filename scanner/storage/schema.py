@@ -9,7 +9,7 @@ SCHEMA_VERSION: Final[int] = 4
 RUN_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id          TEXT PRIMARY KEY,
-    scan_mode       TEXT NOT NULL CHECK (scan_mode IN ('daily_discovery', 'intraday_promotion')),
+    scan_mode       TEXT NOT NULL CHECK (scan_mode IN ('daily', 'intraday')),
     started_at_utc  TEXT NOT NULL,
     finished_at_utc TEXT,
     daily_bar_id    TEXT NOT NULL,
