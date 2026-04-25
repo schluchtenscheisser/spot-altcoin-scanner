@@ -9,7 +9,7 @@ import pytest
 from scanner.config import resolve_independence_release_reports_config
 from scanner.output.diagnostics import write_symbol_diagnostics_jsonl_gz
 from scanner.output.report_builder import ReportBuilder
-from scanner.output.schema import SCHEMA_VERSION, validate_intraday_bar_id, validate_run_id
+from scanner.output.schema import SCHEMA_VERSION, validate_intraday_bar_id, validate_run_id, validate_scan_mode
 
 
 def _stub_diag(symbol: str = "STUBUSDT") -> dict:
@@ -204,3 +204,10 @@ def test_intraday_bar_id_validation_accepts_canonical_strings_and_rejects_ints()
     assert validate_intraday_bar_id("intraday", "2026-04-24T08:00:00Z") == "2026-04-24T08:00:00Z"
     with pytest.raises(ValueError, match="YYYY-MM-DDTHH:00:00Z"):
         validate_intraday_bar_id("intraday", 1774324800000)
+
+
+def test_scan_mode_validation_rejects_non_canonical_values() -> None:
+    assert validate_scan_mode("daily") == "daily"
+    assert validate_scan_mode("intraday") == "intraday"
+    with pytest.raises(ValueError, match="scan_mode must be 'daily' or 'intraday'"):
+        validate_scan_mode("daily_discovery")

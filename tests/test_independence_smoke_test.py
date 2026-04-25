@@ -67,7 +67,7 @@ def _install_fake_pipeline(monkeypatch: pytest.MonkeyPatch, capture: dict[str, s
                     "run_id": run_id,
                     "daily_bar_id": daily,
                     "diagnostics_path": diagnostics.as_posix(),
-                    "scan_mode": "daily_discovery",
+                    "scan_mode": "daily",
                     "intraday_bar_id": None,
                 }
             )
@@ -180,3 +180,79 @@ def test_resolve_config_path_uses_github_workspace_when_present(monkeypatch: pyt
     resolved = Path(smoke._resolve_config_path())
     assert resolved == (tmp_path / "config" / "config.yml").resolve()
     assert resolved.is_absolute()
+
+
+def test_daily_stage_exception_is_fail_not_skip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+    monkeypatch.setattr(smoke, "run_daily_scan", lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("boom")))
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+    rc = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert payload["steps"]["daily_runner"] == "FAIL"
+    assert any("ValueError: boom" in err for err in payload["errors"])
+
+
+def test_evaluation_stage_skip_only_when_no_run_artifacts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+    monkeypatch.setattr(smoke, "run_daily_scan", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(smoke, "run_intraday_scan", lambda *_args, **_kwargs: None)
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+    rc = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert payload["steps"]["evaluation_replay"] == "SKIP"
+
+
+def test_smoke_summary_contains_per_symbol_skip_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+
+    _ = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    symbol_diag = payload["per_symbol_diagnostics"]
+    assert "SOLUSDT" in symbol_diag
+    assert symbol_diag["SOLUSDT"]["1d_bar_count"] == 0
+    assert isinstance(symbol_diag["AVAXUSDT"]["skip_reason"], str)

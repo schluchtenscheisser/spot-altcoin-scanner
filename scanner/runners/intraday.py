@@ -93,7 +93,7 @@ def _latest_completed_intraday_bar_id(conn: sqlite3.Connection) -> str | None:
         """
         SELECT intraday_bar_id
         FROM run_metadata
-        WHERE scan_mode='intraday_promotion' AND status='completed'
+        WHERE scan_mode='intraday' AND status='completed'
         ORDER BY started_at_utc DESC
         LIMIT 1
         """
@@ -160,7 +160,7 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
             run_id=run_id,
             daily_id=daily_id,
             intraday_id=intraday_id,
-            scan_mode="intraday_promotion",
+            scan_mode="intraday",
         )
         rows = list(context_provider(cfg, daily_id))
         monitoring = _select_monitoring_universe(cfg, rows)

@@ -112,7 +112,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     ohlcv_provider = getattr(cfg, "daily_ohlcv_provider", _default_ohlcv)
 
     try:
-        _create_run_metadata(conn, run_id=run_id, daily_id=daily_id, scan_mode="daily_discovery")
+        _create_run_metadata(conn, run_id=run_id, daily_id=daily_id, scan_mode="daily")
         symbols = list(universe_resolver(cfg, daily_id))
 
         if not symbols:
@@ -123,7 +123,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
             run_dir.mkdir(parents=True, exist_ok=True)
             minimal_report = {
                 "run_id": run_id,
-                "scan_mode": "daily_discovery",
+                "scan_mode": "daily",
                 "as_of_utc": _utc_now_iso(),
                 "daily_bar_id": daily_id,
                 "intraday_bar_id": None,
@@ -258,7 +258,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
         builder = make_report_builder(project_root=project_root, config=cfg.raw)
         report = builder.write_run_report(
             run_id=run_id,
-            scan_mode="daily_discovery",
+            scan_mode="daily",
             as_of_utc=_utc_now_iso(),
             daily_bar_id=daily_id,
             intraday_bar_id=None,
