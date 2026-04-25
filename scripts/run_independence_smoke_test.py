@@ -46,11 +46,23 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _resolve_config_path() -> str:
-    raw = os.environ.get(
-        "SCANNER_CONFIG_PATH",
-        os.path.join(os.environ.get("GITHUB_WORKSPACE", os.getcwd()), "config", "config.yml"),
-    )
-    return os.path.abspath(raw)
+    original_cwd = Path.cwd()
+    configured = os.environ.get("SCANNER_CONFIG_PATH")
+    if configured:
+        candidate = Path(configured)
+        if not candidate.is_absolute():
+            candidate = (original_cwd / candidate).resolve()
+        return candidate.as_posix()
+
+    workspace = os.environ.get("GITHUB_WORKSPACE")
+    if workspace:
+        return (Path(workspace).resolve() / "config" / "config.yml").as_posix()
+
+    repo_candidate = (REPO_ROOT / "config" / "config.yml").resolve()
+    if repo_candidate.exists():
+        return repo_candidate.as_posix()
+
+    return (original_cwd / "config" / "config.yml").resolve().as_posix()
 
 
 def _load_diag_rows(path: Path) -> list[dict[str, Any]]:
@@ -112,6 +124,7 @@ def main() -> int:
     checks: list[CheckResult] = []
     prev_cwd = Path.cwd()
 
+    os.environ["SCANNER_CONFIG_PATH"] = config_path
     cfg = load_config(config_path)
 
     # Public MEXC endpoints are used without credentials for exchangeInfo/klines in this smoke path.

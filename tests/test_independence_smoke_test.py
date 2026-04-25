@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+import gzip
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from scripts import run_independence_smoke_test as smoke
+
+
+def _write_gz_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _install_fake_pipeline(monkeypatch: pytest.MonkeyPatch, capture: dict[str, str]) -> None:
+    class _FakeMexcClient:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def get_exchange_info(self, use_cache: bool = False) -> dict[str, object]:
+            return {"use_cache": use_cache, "symbols": []}
+
+    def fake_fetch_closed_bars(*, symbol: str, timeframe: str, now: object, lookback_bars: int | None = None):
+        _ = (symbol, timeframe, now, lookback_bars)
+        capture["provider_seen_scanner_config_path"] = str(Path(os.environ["SCANNER_CONFIG_PATH"]).resolve())
+        capture["provider_seen_cwd"] = Path.cwd().as_posix()
+
+        class _Result:
+            bars: list[object] = []
+
+        return _Result()
+
+    def fake_run_daily_scan(cfg, as_of_date: str | None = None) -> None:
+        daily = str(as_of_date)
+        y, m, d = daily.split("-")
+        run_id = f"daily-{daily}-fake"
+
+        # trigger provider call after chdir(workdir)
+        cfg.daily_ohlcv_provider("SOLUSDT", "1d")
+
+        manifest = Path("snapshots") / "runs" / y / m / d / run_id / "run.manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"run_id": run_id, "daily_bar_id": daily}) + "\n", encoding="utf-8")
+
+        diagnostics = Path("reports") / "runs" / y / m / d / run_id / "symbol_diagnostics.jsonl.gz"
+        _write_gz_jsonl(
+            diagnostics,
+            [
+                {
+                    "symbol": "SOLUSDT",
+                    "daily_bar_id": daily,
+                    "intraday_bar_id": None,
+                    "as_of_utc": "2026-04-25T00:00:00Z",
+                }
+            ],
+        )
+
+        report = Path("reports") / "runs" / y / m / d / run_id / "report.json"
+        report.write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "daily_bar_id": daily,
+                    "diagnostics_path": diagnostics.as_posix(),
+                    "scan_mode": "daily_discovery",
+                    "intraday_bar_id": None,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def fake_run_intraday_scan(cfg, now_utc=None) -> None:
+        _ = (cfg, now_utc)
+        run_id = "intraday-2026-04-24-fake"
+        report = Path("reports") / "runs" / "2026" / "04" / "24" / run_id / "report.json"
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "intraday_bar_id": "2026-04-25T12:00:00Z",
+                    "scan_mode": "intraday",
+                    "daily_bar_id": "2026-04-24",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        _write_gz_jsonl(report.parent / "symbol_diagnostics.jsonl.gz", [])
+
+    def fake_run_evaluation_export(*, project_root: Path, config: dict[str, object] | None = None) -> dict[str, object]:
+        _ = config
+        out = project_root / "evaluation" / "exports" / "evaluation_summary.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({"cycle_count": 0}) + "\n", encoding="utf-8")
+        return {"cycle_count": 0}
+
+    monkeypatch.setattr(smoke, "MEXCClient", _FakeMexcClient)
+    monkeypatch.setattr(smoke, "fetch_closed_bars", fake_fetch_closed_bars)
+    monkeypatch.setattr(smoke, "run_daily_scan", fake_run_daily_scan)
+    monkeypatch.setattr(smoke, "run_intraday_scan", fake_run_intraday_scan)
+    monkeypatch.setattr(smoke, "run_evaluation_export", fake_run_evaluation_export)
+
+
+def test_smoke_main_exports_absolute_config_path_when_env_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SCANNER_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("GITHUB_WORKSPACE", raising=False)
+
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+
+    rc = smoke.main()
+    assert rc == 0
+
+    expected = (smoke.REPO_ROOT / "config" / "config.yml").resolve()
+    exported = Path(os.environ["SCANNER_CONFIG_PATH"]).resolve()
+
+    assert exported.is_absolute()
+    assert exported == expected
+    assert capture["provider_seen_scanner_config_path"] == expected.as_posix()
+    assert capture["provider_seen_cwd"] == workdir.resolve().as_posix()
+    assert capture["provider_seen_scanner_config_path"] != str((workdir / "config" / "config.yml").resolve())
+
+
+def test_smoke_main_preserves_absolute_scanner_config_path_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    custom_cfg = (tmp_path / "custom-config.yml").resolve()
+    custom_cfg.write_text("general:\n  run_mode: fast\n", encoding="utf-8")
+    monkeypatch.setenv("SCANNER_CONFIG_PATH", custom_cfg.as_posix())
+
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            (tmp_path / "smoke-workdir").as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+
+    rc = smoke.main()
+    assert rc == 0
+    assert Path(os.environ["SCANNER_CONFIG_PATH"]).resolve() == custom_cfg
+    assert capture["provider_seen_scanner_config_path"] == custom_cfg.as_posix()
+
+
+def test_resolve_config_path_uses_github_workspace_when_present(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("SCANNER_CONFIG_PATH", raising=False)
+    monkeypatch.setenv("GITHUB_WORKSPACE", tmp_path.as_posix())
+
+    resolved = Path(smoke._resolve_config_path())
+    assert resolved == (tmp_path / "config" / "config.yml").resolve()
+    assert resolved.is_absolute()
