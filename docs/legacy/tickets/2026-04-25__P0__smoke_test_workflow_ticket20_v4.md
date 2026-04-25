@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Ticket 20 — Add Manual End-to-End Smoke Test Workflow
 
 ## Status
