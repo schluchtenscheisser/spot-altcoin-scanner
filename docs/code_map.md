@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-25 05:40 UTC  
+**Last Updated:** 2026-04-25 06:37 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 101
 - **Total Classes:** 61
-- **Total Functions:** 718
+- **Total Functions:** 721
 
 ---
 
@@ -352,11 +352,11 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/features/bundle.py`
 
-**Functions:** `_extract_ctx_daily_bar_id, _extract_ctx_int, build_feature_bundle`
+**Functions:** `_extract_ctx_daily_bar_id, _extract_ctx_int, _extract_ctx_intraday_bar_id, build_feature_bundle`
 
 **Module Variables:** `daily_bar_id, daily_close, intraday_bar_id, intraday_close, raw_1d, raw_4h, raw_shared, v`
 
-**Imports:** `__future__, scanner.features.models, scanner.features.raw_1d, scanner.features.raw_4h, scanner.features.shared, typing`
+**Imports:** `__future__, re, scanner.features.models, scanner.features.raw_1d, scanner.features.raw_4h, scanner.features.shared, typing`
 
 ---
 
@@ -784,9 +784,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/runners/intraday.py`
 
-**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _latest_completed_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _write_intraday_noop_report, run_intraday_scan`
+**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _latest_completed_intraday_bar_id, _legacy_ms_intraday_id_to_canonical, _normalize_intraday_id_from_metadata, _select_monitoring_universe, _utc_now_iso, _write_intraday_noop_report, run_intraday_scan`
 
-**Module Variables:** `bucket, builder, confidence, conn, context_provider, daily_cache_bar_id, daily_id, execution, final_status, has_new` _(+23 more)_
+**Module Variables:** `bucket, builder, cache_intraday, confidence, conn, context_provider, daily_cache_bar_id, daily_id, execution, final_status` _(+26 more)_
 
 **Imports:** `__future__, datetime, logging, pathlib, scanner.config, scanner.data.bar_clock, scanner.execution, scanner.output` _(+4 more)_
 
@@ -814,7 +814,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `_phase_floor_recovered, resolve_cycle_state`
 
-**Module Variables:** `expansion_reset_condition_met, expansion_value, flag, min_bars_met, phase_floor_recovered, prev, reason, reclaim_reset_condition_met, z1, z2` _(+3 more)_
+**Module Variables:** `expansion_reset_condition_met, expansion_value, flag, min_bars_met, phase_floor_recovered, prev, reason, reclaim_reset_condition_met, reclaim_reset_enabled, z1` _(+4 more)_
 
 **Imports:** `__future__, dataclasses, scanner.axes.models, scanner.phase.models, scanner.state.models`
 
@@ -1396,7 +1396,8 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `_extract_ctx_daily_bar_id` | — | `get` |
 | `_extract_ctx_int` | — | `get` |
-| `build_feature_bundle` | `_extract_ctx_daily_bar_id`, `_extract_ctx_int` | `FeatureBundle`, `ValueError`, `compute_raw_1d`, `compute_raw_4h`, `compute_raw_shared` |
+| `_extract_ctx_intraday_bar_id` | — | `ValueError`, `get`, `match` |
+| `build_feature_bundle` | `_extract_ctx_daily_bar_id`, `_extract_ctx_int`, `_extract_ctx_intraday_bar_id` | `FeatureBundle`, `ValueError`, `compute_raw_1d`, `compute_raw_4h`, `compute_raw_shared` |
 
 ### 📄 scanner/features/raw_1d.py
 
@@ -1859,14 +1860,16 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `_create_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
+| `_create_run_metadata` | `_utc_now_iso` | `TypeError`, `commit`, `execute`, `has_new_intraday_bar` |
 | `_diag` | `_utc_now_iso` | — |
 | `_finish_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
-| `_latest_completed_intraday_bar_id` | — | `execute`, `fetchone` |
+| `_latest_completed_intraday_bar_id` | `_normalize_intraday_id_from_metadata` | `execute`, `fetchone` |
+| `_legacy_ms_intraday_id_to_canonical` | — | `ValueError`, `fromtimestamp`, `strftime` |
+| `_normalize_intraday_id_from_metadata` | `_legacy_ms_intraday_id_to_canonical` | `TypeError`, `has_new_intraday_bar`, `isdigit`, `strip` |
 | `_select_monitoring_universe` | — | `append`, `get` |
 | `_utc_now_iso` | — | `now`, `strftime` |
-| `_write_intraday_noop_report` | `_utc_now_iso` | `cwd`, `info`, `make_report_builder`, `write_run_report` |
-| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `uuid4`, `warning` |
+| `_write_intraday_noop_report` | `_utc_now_iso` | `build_run_manifest_path`, `cwd`, `info`, `make_report_builder`, `write_run_report` |
+| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_latest_completed_intraday_bar_id`, `_normalize_intraday_id_from_metadata`, `_select_monitoring_universe`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `add`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `uuid4`, `warning` |
 
 ### 📄 scanner/state/cycle.py
 
@@ -2119,12 +2122,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/runners/daily.py` | 8 | 59 | 67 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
+| `scanner/runners/intraday.py` | 13 | 44 | 57 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
 | `scanner/output/schema.py` | 18 | 28 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
-| `scanner/runners/intraday.py` | 10 | 33 | 43 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/evaluation/replay.py` | 13 | 28 | 41 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
@@ -2166,6 +2169,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/decision/buckets.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/entry/patterns.py` | 7 | 6 | 13 | ⚠️ Medium |
 | `scanner/evaluation/dataset_export.py` | 0 | 13 | 13 | 🔴 High |
+| `scanner/features/bundle.py` | 3 | 10 | 13 | 🔴 High |
 | `scanner/state/invalidation.py` | 6 | 7 | 13 | ⚠️ Medium |
 | `scanner/state/models.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/axes/normalization.py` | 4 | 8 | 12 | 🔴 High |
@@ -2175,7 +2179,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/main.py` | 3 | 7 | 10 | 🔴 High |
 | `scanner/execution/adapter.py` | 0 | 9 | 9 | 🔴 High |
-| `scanner/features/bundle.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
@@ -2209,4 +2212,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-25 05:40 UTC_
+_Generated by GitHub Actions • 2026-04-25 06:37 UTC_
