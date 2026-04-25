@@ -118,6 +118,123 @@ def get_schema_version(connection: sqlite3.Connection) -> int:
     return int(row[0]) if row else 0
 
 
+_SCAN_MODE_MAP: Final[dict[str, str]] = {
+    "daily_discovery": "daily",
+    "standard": "daily",
+    "fast": "daily",
+    "offline": "daily",
+    "backtest": "daily",
+    "intraday_promotion": "intraday",
+    "daily": "daily",
+    "intraday": "intraday",
+}
+
+
+def _run_metadata_sql(connection: sqlite3.Connection) -> str | None:
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='run_metadata'"
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row[0]) if row[0] is not None else None
+
+
+def _run_metadata_needs_scan_mode_migration(connection: sqlite3.Connection) -> bool:
+    table_sql = _run_metadata_sql(connection)
+    if not table_sql:
+        return False
+    normalized = " ".join(table_sql.replace("\n", " ").split())
+    return "scan_mode IN ('daily', 'intraday')" not in normalized
+
+
+def _migrate_run_metadata_scan_mode_constraint(connection: sqlite3.Connection) -> None:
+    if not _run_metadata_needs_scan_mode_migration(connection):
+        return
+
+    distinct = {
+        str(row[0])
+        for row in connection.execute("SELECT DISTINCT scan_mode FROM run_metadata")
+        if row[0] is not None
+    }
+    unknown = sorted(value for value in distinct if value not in _SCAN_MODE_MAP)
+    if unknown:
+        raise ValueError(
+            "run_metadata.scan_mode migration failed: unsupported legacy values "
+            f"{unknown}. Please normalize these rows before upgrading."
+        )
+
+    columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(run_metadata)").fetchall()}
+    required = {
+        "run_id",
+        "scan_mode",
+        "started_at_utc",
+        "finished_at_utc",
+        "daily_bar_id",
+        "intraday_bar_id",
+        "schema_version",
+        "status",
+    }
+    missing_required = sorted(required - columns)
+    if missing_required:
+        raise ValueError(f"run_metadata scan_mode migration failed: missing columns {missing_required}")
+
+    optional_defaults: dict[str, str] = {
+        "eligible_pre_1d_count": "0",
+        "activity_gate_passed_count": "0",
+        "monitoring_bypass_count": "0",
+        "selected_for_4h_count": "0",
+    }
+
+    mapped_case = (
+        "CASE "
+        "WHEN scan_mode IN ('daily', 'intraday') THEN scan_mode "
+        "WHEN scan_mode IN ('daily_discovery', 'standard', 'fast', 'offline', 'backtest') THEN 'daily' "
+        "WHEN scan_mode = 'intraday_promotion' THEN 'intraday' "
+        "END"
+    )
+    insert_columns = [
+        "run_id",
+        "scan_mode",
+        "started_at_utc",
+        "finished_at_utc",
+        "daily_bar_id",
+        "intraday_bar_id",
+        "schema_version",
+        "status",
+        "eligible_pre_1d_count",
+        "activity_gate_passed_count",
+        "monitoring_bypass_count",
+        "selected_for_4h_count",
+    ]
+    select_exprs = [
+        "run_id",
+        f"{mapped_case} AS scan_mode",
+        "started_at_utc",
+        "finished_at_utc",
+        "daily_bar_id",
+        "intraday_bar_id",
+        "schema_version",
+        "status",
+        *(col if col in columns else default for col, default in optional_defaults.items()),
+    ]
+
+    create_new_sql = RUN_METADATA_TABLE_SQL.replace("run_metadata", "run_metadata_new", 1)
+    prior_fk_state = int(connection.execute("PRAGMA foreign_keys;").fetchone()[0])
+    if prior_fk_state:
+        connection.execute("PRAGMA foreign_keys=OFF;")
+    try:
+        connection.execute(create_new_sql)
+        connection.execute(
+            f"INSERT INTO run_metadata_new ({', '.join(insert_columns)}) "
+            f"SELECT {', '.join(select_exprs)} FROM run_metadata"
+        )
+        connection.execute("DROP TABLE run_metadata")
+        connection.execute("ALTER TABLE run_metadata_new RENAME TO run_metadata")
+    finally:
+        if prior_fk_state:
+            connection.execute("PRAGMA foreign_keys=ON;")
+
+
 def apply_schema(connection: sqlite3.Connection) -> int:
     current_version = get_schema_version(connection)
     if current_version > SCHEMA_VERSION:
@@ -127,6 +244,7 @@ def apply_schema(connection: sqlite3.Connection) -> int:
 
     with connection:
         connection.execute(RUN_METADATA_TABLE_SQL)
+        _migrate_run_metadata_scan_mode_constraint(connection)
         cols = {row[1] for row in connection.execute("PRAGMA table_info(run_metadata)").fetchall()}
         for col, ddl in [
             ("eligible_pre_1d_count", "ALTER TABLE run_metadata ADD COLUMN eligible_pre_1d_count INTEGER NOT NULL DEFAULT 0"),
