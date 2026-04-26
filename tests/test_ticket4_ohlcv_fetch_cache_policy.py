@@ -7,6 +7,7 @@ import pytest
 from scanner.data.cache_policy import bars_missing_since_cached, get_cache_status, get_fetch_decision
 from scanner.data.ohlcv_fetch import fetch_and_persist, fetch_closed_bars
 from scanner.storage import init_db
+from scanner.clients.mexc_client import MEXCClient
 
 
 @pytest.fixture
@@ -222,3 +223,83 @@ def test_persist_ok_noop_bars_advances_cached_close_from_null(monkeypatch, temp_
     assert result.rows_noop_identical == 1
     assert result.cached_close_time_utc_ms == 1713067200000
     assert get_cache_status("FOOUSDT", "4h", now) == "fresh"
+
+
+def test_mexc_client_max_retries_zero_still_makes_one_request(monkeypatch):
+    calls = {"n": 0}
+
+    class _Resp:
+        status_code = 200
+        headers = {}
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"ok": True}
+
+    def _fake_request(self, **kwargs):
+        _ = kwargs
+        calls["n"] += 1
+        return _Resp()
+
+    monkeypatch.setattr("requests.Session.request", _fake_request)
+    client = MEXCClient(max_retries=0, retry_backoff=0.0, timeout=1)
+    payload = client._request("GET", "/api/v3/exchangeInfo")
+
+    assert payload == {"ok": True}
+    assert calls["n"] == 1
+
+
+def test_mexc_client_max_retries_one_allows_single_retry(monkeypatch):
+    calls = {"n": 0}
+
+    class _Resp:
+        status_code = 200
+        headers = {}
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"ok": True}
+
+    def _fake_request(self, **kwargs):
+        _ = kwargs
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise Exception("transport down")
+        return _Resp()
+
+    def _wrapped_request(self, **kwargs):
+        import requests
+
+        try:
+            return _fake_request(self, **kwargs)
+        except Exception as exc:
+            raise requests.RequestException(str(exc))
+
+    monkeypatch.setattr("requests.Session.request", _wrapped_request)
+    client = MEXCClient(max_retries=1, retry_backoff=0.0, timeout=1)
+    payload = client._request("GET", "/api/v3/exchangeInfo")
+
+    assert payload == {"ok": True}
+    assert calls["n"] == 2
+
+
+def test_fetch_closed_bars_with_default_zero_retries_is_not_transport_error_on_success(monkeypatch, temp_db):
+    class _Resp:
+        status_code = 200
+        headers = {}
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return [[1712966400000, "1", "2", "0.5", "1.6", "100", 1713052800000, "150"]]
+
+    monkeypatch.setattr("requests.Session.request", lambda self, **kwargs: _Resp())
+    result = fetch_closed_bars("FOOUSDT", "1d", datetime(2024, 4, 14, 12, 0, tzinfo=timezone.utc), lookback_bars=120)
+    assert result.last_fetch_status == "ok"
+    assert result.last_error_code is None
+    assert len(result.bars) == 1
