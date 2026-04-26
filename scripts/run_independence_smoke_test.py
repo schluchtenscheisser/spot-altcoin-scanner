@@ -30,6 +30,7 @@ from scanner.runners.intraday import run_intraday_scan
 SMOKE_SYMBOLS = ["SOLUSDT", "AVAXUSDT", "LINKUSDT", "INJUSDT", "ARBUSDT"]
 _DAILY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _INTRADAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(00|04|08|12|16|20):00:00Z$")
+_FORBIDDEN_WORKSPACE_ROOTS = ("reports", "snapshots", "evaluation", "artifacts", "data")
 
 
 @dataclass
@@ -142,6 +143,7 @@ def main() -> int:
         "per_symbol_diagnostics": {},
         "artifacts_written": [],
         "uploaded_artifact_candidates": [],
+        "allowed_workspace_log_writes": [],
         "forbidden_path_writes": [],
         "warnings": [],
         "errors": [],
@@ -388,7 +390,12 @@ def main() -> int:
         for path, after in workspace_state_after.items():
             before = workspace_state_before.get(path)
             if before is None or before != after:
-                summary["forbidden_path_writes"].append(path)
+                rel = Path(path).relative_to(workspace_path).as_posix()
+                if rel.startswith("logs/"):
+                    summary["allowed_workspace_log_writes"].append(rel)
+                    continue
+                if any(rel == root or rel.startswith(f"{root}/") for root in _FORBIDDEN_WORKSPACE_ROOTS):
+                    summary["forbidden_path_writes"].append(rel)
 
     if (workdir / "reports" / "analysis").exists():
         for path in sorted((workdir / "reports" / "analysis").rglob("*")):

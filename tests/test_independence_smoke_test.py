@@ -286,5 +286,81 @@ def test_smoke_summary_path_write_classification(tmp_path: Path, monkeypatch: py
     _ = smoke.main()
     payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
     assert "uploaded_artifact_candidates" in payload
+    assert "allowed_workspace_log_writes" in payload
     assert "forbidden_path_writes" in payload
     assert payload["forbidden_path_writes"] == []
+
+
+def test_workspace_logs_churn_is_allowed_not_forbidden(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+    workspace = tmp_path / "workspace"
+    (workspace / "logs").mkdir(parents=True, exist_ok=True)
+    log_file = workspace / "logs" / "scanner_2026-04-26.log"
+    log_file.write_text("before\n", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_WORKSPACE", workspace.as_posix())
+    monkeypatch.setenv("SCANNER_CONFIG_PATH", (smoke.REPO_ROOT / "config" / "config.yml").as_posix())
+
+    original_daily = smoke.run_daily_scan
+
+    def _daily_with_log_churn(cfg, as_of_date=None):
+        original_daily(cfg, as_of_date=as_of_date)
+        log_file.write_text("before\nafter\n", encoding="utf-8")
+
+    monkeypatch.setattr(smoke, "run_daily_scan", _daily_with_log_churn)
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+    rc = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    assert rc == 0
+    assert "logs/scanner_2026-04-26.log" in payload["allowed_workspace_log_writes"]
+    assert payload["forbidden_path_writes"] == []
+
+
+def test_workspace_run_output_write_is_forbidden(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("GITHUB_WORKSPACE", workspace.as_posix())
+    monkeypatch.setenv("SCANNER_CONFIG_PATH", (smoke.REPO_ROOT / "config" / "config.yml").as_posix())
+
+    original_daily = smoke.run_daily_scan
+
+    def _daily_with_forbidden_workspace_write(cfg, as_of_date=None):
+        original_daily(cfg, as_of_date=as_of_date)
+        forbidden = workspace / "reports" / "runs" / "oops.txt"
+        forbidden.parent.mkdir(parents=True, exist_ok=True)
+        forbidden.write_text("bad\n", encoding="utf-8")
+
+    monkeypatch.setattr(smoke, "run_daily_scan", _daily_with_forbidden_workspace_write)
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+    rc = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert "reports/runs/oops.txt" in payload["forbidden_path_writes"]
