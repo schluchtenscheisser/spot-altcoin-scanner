@@ -364,3 +364,77 @@ def test_workspace_run_output_write_is_forbidden(tmp_path: Path, monkeypatch: py
     payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
     assert rc == 1
     assert "reports/runs/oops.txt" in payload["forbidden_path_writes"]
+
+
+def test_smoke_replay_surfaces_failed_stage_when_daily_rows_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict[str, str] = {}
+    _install_fake_pipeline(monkeypatch, capture)
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class _Bar:
+        close_time_utc_ms: int
+        close: float
+        high: float = 1.0
+        low: float = 1.0
+        base_volume: float = 1.0
+        quote_volume: float = 1.0
+
+    class _Fetch:
+        def __init__(self):
+            self.bars = [_Bar(close_time_utc_ms=1, close=1.0)]
+            self.last_fetch_status = "ok"
+            self.last_error_code = None
+
+    monkeypatch.setattr(smoke, "fetch_closed_bars", lambda **_kwargs: _Fetch())
+
+    def _daily_no_rows(cfg, as_of_date=None):
+        daily = str(as_of_date)
+        y, m, d = daily.split("-")
+        run_id = f"daily-{daily}-fake"
+        for symbol in smoke.SMOKE_SYMBOLS:
+            cfg.daily_ohlcv_provider(symbol, "1d")
+            cfg.daily_ohlcv_provider(symbol, "4h")
+        manifest = Path("snapshots") / "runs" / y / m / d / run_id / "run.manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"run_id": run_id, "daily_bar_id": daily}) + "\n", encoding="utf-8")
+        diagnostics = Path("reports") / "runs" / y / m / d / run_id / "symbol_diagnostics.jsonl.gz"
+        _write_gz_jsonl(diagnostics, [])
+        report = Path("reports") / "runs" / y / m / d / run_id / "report.json"
+        report.write_text(
+            json.dumps({"run_id": run_id, "daily_bar_id": daily, "diagnostics_path": diagnostics.as_posix(), "scan_mode": "daily", "intraday_bar_id": None})
+            + "\n",
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(smoke, "run_daily_scan", _daily_no_rows)
+    monkeypatch.setattr(
+        smoke,
+        "_run_daily_symbol_replay",
+        lambda **_kwargs: {
+            "failed_stage": "compute_invalidation_and_cycle",
+            "exception_type": "TypeError",
+            "exception_message": "persisted_context must be PersistedStateCycleContext",
+            "traceback_tail": ["TypeError: persisted_context must be PersistedStateCycleContext"],
+        },
+    )
+
+    workdir = tmp_path / "smoke-workdir"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_independence_smoke_test.py",
+            "--workdir",
+            workdir.as_posix(),
+            "--daily-bar-id",
+            "2026-04-24",
+            "--intraday-bar-id",
+            "2026-04-25T12:00:00Z",
+        ],
+    )
+    rc = smoke.main()
+    payload = json.loads((workdir / "artifacts" / "smoke-test-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    sol = payload["per_symbol_diagnostics"]["SOLUSDT"]
+    assert sol["failed_stage"] == "compute_invalidation_and_cycle"
+    assert sol["exception_type"] == "TypeError"

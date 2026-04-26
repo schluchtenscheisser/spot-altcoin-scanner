@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import date, datetime, timezone
 import json
 import logging
@@ -21,7 +20,7 @@ from scanner.features.bundle import build_feature_bundle
 from scanner.output import make_report_builder
 from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
-from scanner.state.models import PersistedStateMachineContext, StateRuntimeContext
+from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
 from scanner.storage import apply_state_persistence_patch, init_db, load_persisted_state_machine_context
 
 logger = logging.getLogger(__name__)
@@ -102,6 +101,23 @@ def _derive_runtime_context(*, bars_1d: list[Any], bars_4h: list[Any] | None) ->
         delta_closed_bars_relevant=DAILY_SCAN_DELTA_BARS,
     )
 
+
+def _to_cycle_context(persisted: Any) -> PersistedStateCycleContext:
+    return PersistedStateCycleContext(
+        symbol=str(getattr(persisted, "symbol")),
+        current_setup_cycle_id=getattr(persisted, "current_setup_cycle_id"),
+        previous_setup_cycle_id=getattr(persisted, "previous_setup_cycle_id"),
+        state_recorded_in_cycle_id=getattr(persisted, "state_recorded_in_cycle_id"),
+        prev_state_machine_state=getattr(persisted, "prev_state_machine_state"),
+        freshness_distance_state_early=getattr(persisted, "freshness_distance_state_early"),
+        freshness_distance_state_confirmed=getattr(persisted, "freshness_distance_state_confirmed"),
+        bars_since_state_entered=getattr(persisted, "bars_since_state_entered"),
+        bars_since_early_entered=getattr(persisted, "bars_since_early_entered"),
+        bars_since_confirmed_entered=getattr(persisted, "bars_since_confirmed_entered"),
+        bars_since_cycle_end=getattr(persisted, "bars_since_cycle_end"),
+        reclaim_below_reset_floor_seen_since_cycle_end=getattr(persisted, "reclaim_below_reset_floor_seen_since_cycle_end"),
+    )
+
 def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     daily_id = _validate_as_of_date(as_of_date)
     run_id = f"daily-{daily_id}-{uuid.uuid4().hex[:12]}"
@@ -147,7 +163,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 phase = compute_phase_interpretation(t1, t2, cfg)
 
                 persisted = load_persisted_state_machine_context(conn, symbol)
-                inv_ctx = PersistedStateMachineContext(**asdict(persisted))
+                inv_ctx = _to_cycle_context(persisted)
                 invalidation = compute_invalidation_and_cycle(phase, t1, t2, inv_ctx, cfg)
                 runtime = _derive_runtime_context(bars_1d=bars_1d, bars_4h=bars_4h if bars_4h else None)
                 state_bundle = compute_state_machine(phase, t1, t2, invalidation, persisted, runtime, cfg)

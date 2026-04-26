@@ -106,6 +106,7 @@ jobs:
             ${{ runner.temp }}/ir-smoke-workdir/artifacts/smoke-test-report.json
             ${{ runner.temp }}/ir-smoke-workdir/snapshots/runs/**
             ${{ runner.temp }}/ir-smoke-workdir/reports/runs/**
+            ${{ runner.temp }}/ir-smoke-workdir/logs/*.log
           if-no-files-found: warn
           retention-days: 7
 
