@@ -19,13 +19,21 @@ if str(REPO_ROOT) not in sys.path:
 
 from scanner.clients.mexc_client import MEXCClient
 import scanner.config as scanner_config_module
+from scanner.axes import compute_tier1_axes, compute_tier2_axes
 from scanner.config import load_config
 from scanner.data.bar_clock import daily_bar_id as compute_daily_bar_id
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id
 from scanner.data.ohlcv_fetch import fetch_closed_bars
+from scanner.decision.buckets import assign_bucket
+from scanner.entry.patterns import resolve_entry_pattern
 from scanner.evaluation.dataset_export import run_evaluation_export
+from scanner.features.bundle import build_feature_bundle
+from scanner.phase import compute_phase_interpretation
+from scanner.runners.daily import _derive_runtime_context, _to_cycle_context
 from scanner.runners.daily import run_daily_scan
 from scanner.runners.intraday import run_intraday_scan
+from scanner.state import compute_invalidation_and_cycle, compute_state_machine
+from scanner.storage import init_db, load_persisted_state_machine_context
 
 SMOKE_SYMBOLS = ["SOLUSDT", "AVAXUSDT", "LINKUSDT", "INJUSDT", "ARBUSDT"]
 _DAILY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -112,6 +120,69 @@ def _ms_to_iso(value: Any) -> str | None:
         return None
 
 
+def _traceback_tail(exc: Exception, *, max_lines: int = 5) -> list[str]:
+    import traceback
+
+    lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    compact = [line.rstrip("\n") for block in lines for line in block.splitlines() if line.strip()]
+    return compact[-max_lines:]
+
+
+def _run_daily_symbol_replay(
+    *,
+    cfg: Any,
+    daily_bar_id: str,
+    symbol: str,
+    bars_1d: list[Any],
+    bars_4h: list[Any],
+    db_path: Path,
+) -> dict[str, Any] | None:
+    bar_clock_context = {"daily_bar_id": daily_bar_id, "intraday_bar_id": None, "daily_close_time_utc_ms": 0}
+    try:
+        features = build_feature_bundle(symbol, bar_clock_context, bars_1d, bars_4h if bars_4h else None, cfg)
+    except Exception as exc:
+        return {"failed_stage": "build_feature_bundle", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        t1 = compute_tier1_axes(features, cfg)
+    except Exception as exc:
+        return {"failed_stage": "compute_tier1_axes", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        t2 = compute_tier2_axes(features, cfg)
+    except Exception as exc:
+        return {"failed_stage": "compute_tier2_axes", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        phase = compute_phase_interpretation(t1, t2, cfg)
+    except Exception as exc:
+        return {"failed_stage": "compute_phase_interpretation", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        conn = init_db(db_path.as_posix())
+        try:
+            persisted = load_persisted_state_machine_context(conn, symbol)
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"failed_stage": "load_persisted_state_machine_context", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        inv_ctx = _to_cycle_context(persisted)
+        invalidation = compute_invalidation_and_cycle(phase, t1, t2, inv_ctx, cfg)
+    except Exception as exc:
+        return {"failed_stage": "compute_invalidation_and_cycle", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        runtime = _derive_runtime_context(bars_1d=bars_1d, bars_4h=bars_4h if bars_4h else None)
+        state_bundle = compute_state_machine(phase, t1, t2, invalidation, persisted, runtime, cfg)
+    except Exception as exc:
+        return {"failed_stage": "compute_state_machine", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        entry = resolve_entry_pattern(phase, t1, t2, cfg)
+    except Exception as exc:
+        return {"failed_stage": "resolve_entry_pattern", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    try:
+        _ = assign_bucket(phase, state_bundle, entry, cfg, execution_contract=None)
+    except Exception as exc:
+        return {"failed_stage": "assign_bucket", "exception_type": type(exc).__name__, "exception_message": str(exc), "traceback_tail": _traceback_tail(exc)}
+    return None
+
+
 def main() -> int:
     args = _parse_args()
     now = datetime.now(timezone.utc)
@@ -180,6 +251,7 @@ def main() -> int:
         }
         for symbol in SMOKE_SYMBOLS
     }
+    ohlcv_cache: dict[str, dict[str, list[Any]]] = {symbol: {} for symbol in SMOKE_SYMBOLS}
 
     def ohlcv_provider(symbol: str, timeframe: str) -> list[Any]:
         try:
@@ -198,6 +270,7 @@ def main() -> int:
                 diag["skip_reason"] = f"empty {timeframe} OHLCV response"
             if fetch_status != "ok":
                 diag["skip_reason"] = f"{timeframe} OHLCV fetch status={fetch_status}"
+            ohlcv_cache.setdefault(symbol, {})[timeframe] = bars
             return bars
         except Exception as exc:
             diag = per_symbol.setdefault(symbol, {})
@@ -280,6 +353,25 @@ def main() -> int:
                 if len(seen_symbols) == 0:
                     summary["errors"].append("daily_runner: zero symbols processed; see per_symbol_diagnostics")
                     summary["steps"]["daily_runner"] = "FAIL"
+                    db_path = workdir / "data" / "independence_release.sqlite"
+                    for symbol in SMOKE_SYMBOLS:
+                        diag = per_symbol.setdefault(symbol, {})
+                        bars_1d = ohlcv_cache.get(symbol, {}).get("1d", [])
+                        bars_4h = ohlcv_cache.get(symbol, {}).get("4h", [])
+                        if not bars_1d:
+                            continue
+                        replay = _run_daily_symbol_replay(
+                            cfg=cfg,
+                            daily_bar_id=daily,
+                            symbol=symbol,
+                            bars_1d=bars_1d,
+                            bars_4h=bars_4h,
+                            db_path=db_path,
+                        )
+                        if replay is not None:
+                            diag.update(replay)
+                            if diag.get("error") is None:
+                                diag["error"] = f"{replay['exception_type']}: {replay['exception_message']}"
 
         reports_manifest = list((workdir / "reports" / "runs").glob("**/*.manifest.json")) if (workdir / "reports" / "runs").exists() else []
         _add_check(checks, "no manifest under reports/runs", len(reports_manifest) == 0, f"count={len(reports_manifest)}")
@@ -382,6 +474,7 @@ def main() -> int:
                 rel == "artifacts/smoke-test-report.json"
                 or rel.startswith("snapshots/runs/")
                 or rel.startswith("reports/runs/")
+                or rel.startswith("logs/")
             ):
                 summary["uploaded_artifact_candidates"].append(rel)
 
