@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import logging
 from pathlib import Path
 import sqlite3
@@ -298,6 +299,7 @@ def _write_intraday_noop_report(
 ) -> None:
     builder = make_report_builder(project_root=Path.cwd(), config=cfg_raw)
     manifest_path = build_run_manifest_path(daily_bar_id=daily_id, run_id=run_id)
+    _write_intraday_manifest(project_root=Path.cwd(), manifest_path=manifest_path, run_id=run_id, daily_id=daily_id, intraday_id=intraday_id)
     builder.write_run_report(
         run_id=run_id,
         scan_mode="intraday",
@@ -309,3 +311,16 @@ def _write_intraday_noop_report(
         diagnostics_records=diagnostics or [],
     )
     logger.info("intraday noop run", extra={"run_id": run_id, "skip_reason": skip_reason})
+
+
+def _write_intraday_manifest(*, project_root: Path, manifest_path: str, run_id: str, daily_id: str, intraday_id: str) -> None:
+    path = project_root / manifest_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "run_id": run_id,
+        "scan_mode": "intraday",
+        "daily_bar_id": daily_id,
+        "intraday_bar_id": intraday_id,
+        "symbols": [],
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

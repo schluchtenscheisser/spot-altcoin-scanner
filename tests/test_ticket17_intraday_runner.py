@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 
 import pytest
 
@@ -135,6 +136,10 @@ def test_intraday_noop_report_uses_active_config(tmp_path, monkeypatch) -> None:
     assert manifest_path.endswith("/run.manifest.json")
     assert manifest_path.startswith("snapshots/runs/")
     assert "reports/runs" not in manifest_path
+    manifest_file = tmp_path / manifest_path
+    assert manifest_file.exists()
+    reports_manifests = list((tmp_path / "reports" / "runs").glob("**/*.manifest.json"))
+    assert reports_manifests == []
 
 
 def test_intraday_context_rejects_non_legacy_non_canonical_cache_bar_ids(tmp_path, monkeypatch) -> None:
@@ -218,3 +223,20 @@ def test_intraday_runner_rejects_legacy_digit_string_cache_bar_id(tmp_path, monk
 
     with pytest.raises(ValueError, match="current_bar_id"):
         run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+
+def test_intraday_report_manifest_path_points_to_existing_snapshot_manifest(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: []  # type: ignore[attr-defined]
+
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+    report_paths = sorted((tmp_path / "reports" / "runs").glob("**/intraday-*/report.json"))
+    assert len(report_paths) == 1
+    report = json.loads(report_paths[0].read_text(encoding="utf-8"))
+    manifest_path = report["manifest_path"]
+    assert isinstance(manifest_path, str) and manifest_path
+    assert manifest_path.startswith("snapshots/runs/")
+    assert "reports/runs" not in manifest_path
+    assert (tmp_path / manifest_path).exists()

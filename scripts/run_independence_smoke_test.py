@@ -30,6 +30,7 @@ from scanner.runners.intraday import run_intraday_scan
 SMOKE_SYMBOLS = ["SOLUSDT", "AVAXUSDT", "LINKUSDT", "INJUSDT", "ARBUSDT"]
 _DAILY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _INTRADAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(00|04|08|12|16|20):00:00Z$")
+_FORBIDDEN_WORKSPACE_ROOTS = ("reports", "snapshots", "evaluation", "artifacts", "data")
 
 
 @dataclass
@@ -91,6 +92,17 @@ def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _file_state(root: Path) -> dict[str, tuple[int, int]]:
+    state: dict[str, tuple[int, int]] = {}
+    if not root.exists():
+        return state
+    for path in root.rglob("*"):
+        if path.is_file():
+            stat = path.stat()
+            state[path.as_posix()] = (int(stat.st_mtime_ns), int(stat.st_size))
+    return state
+
+
 def _ms_to_iso(value: Any) -> str | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -115,6 +127,9 @@ def main() -> int:
     workdir = Path(args.workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "artifacts").mkdir(parents=True, exist_ok=True)
+    workspace = os.environ.get("GITHUB_WORKSPACE")
+    workspace_path = Path(workspace).resolve() if workspace else None
+    workspace_state_before = _file_state(workspace_path) if workspace_path is not None and workspace_path.exists() else {}
 
     summary: dict[str, Any] = {
         "daily_bar_id": daily,
@@ -127,7 +142,9 @@ def main() -> int:
         },
         "per_symbol_diagnostics": {},
         "artifacts_written": [],
-        "unexpected_path_writes": [],
+        "uploaded_artifact_candidates": [],
+        "allowed_workspace_log_writes": [],
+        "forbidden_path_writes": [],
         "warnings": [],
         "errors": [],
         "follow_up_required": True,
@@ -150,6 +167,10 @@ def main() -> int:
         symbol: {
             "1d_bar_count": None,
             "4h_bar_count": None,
+            "1d_fetch_status": None,
+            "4h_fetch_status": None,
+            "1d_error_code": None,
+            "4h_error_code": None,
             "1d_first_close_time": None,
             "1d_last_close_time": None,
             "4h_first_close_time": None,
@@ -166,13 +187,17 @@ def main() -> int:
             bars = list(fetch.bars)
             diag = per_symbol.setdefault(symbol, {})
             diag[f"{timeframe}_bar_count"] = len(bars)
+            fetch_status = str(getattr(fetch, "last_fetch_status", "unknown"))
+            fetch_error_code = getattr(fetch, "last_error_code", None)
+            diag[f"{timeframe}_fetch_status"] = fetch_status
+            diag[f"{timeframe}_error_code"] = fetch_error_code
             if bars:
                 diag[f"{timeframe}_first_close_time"] = _ms_to_iso(getattr(bars[0], "close_time_utc_ms", None))
                 diag[f"{timeframe}_last_close_time"] = _ms_to_iso(getattr(bars[-1], "close_time_utc_ms", None))
             if not bars:
                 diag["skip_reason"] = f"empty {timeframe} OHLCV response"
-            elif getattr(fetch, "last_fetch_status", "ok") != "ok":
-                diag["skip_reason"] = f"{timeframe} OHLCV status={getattr(fetch, 'last_fetch_status', 'unknown')}"
+            if fetch_status != "ok":
+                diag["skip_reason"] = f"{timeframe} OHLCV fetch status={fetch_status}"
             return bars
         except Exception as exc:
             diag = per_symbol.setdefault(symbol, {})
@@ -291,6 +316,14 @@ def main() -> int:
                 intraday_actual == intraday,
                 f"expected={intraday}, actual={intraday_actual}",
             )
+            intraday_manifest_rel = intraday_payload.get("manifest_path")
+            intraday_manifest = workdir / str(intraday_manifest_rel) if isinstance(intraday_manifest_rel, str) else None
+            _add_check(
+                checks,
+                "intraday manifest exists when referenced",
+                bool(intraday_manifest and intraday_manifest.exists()),
+                str(intraday_manifest_rel),
+            )
 
         intraday_diags = sorted(workdir.glob("reports/runs/*/*/*/intraday-*/symbol_diagnostics.jsonl.gz"))
         numeric_intraday_found = False
@@ -345,16 +378,35 @@ def main() -> int:
         if path.is_file():
             rel = path.relative_to(workdir).as_posix()
             summary["artifacts_written"].append(rel)
-            if not (
+            if (
                 rel == "artifacts/smoke-test-report.json"
                 or rel.startswith("snapshots/runs/")
                 or rel.startswith("reports/runs/")
             ):
-                summary["unexpected_path_writes"].append(rel)
+                summary["uploaded_artifact_candidates"].append(rel)
+
+    if workspace_path is not None and workspace_path != workdir and workspace_path.exists():
+        workspace_state_after = _file_state(workspace_path)
+        for path, after in workspace_state_after.items():
+            before = workspace_state_before.get(path)
+            if before is None or before != after:
+                rel = Path(path).relative_to(workspace_path).as_posix()
+                if rel.startswith("logs/"):
+                    summary["allowed_workspace_log_writes"].append(rel)
+                    continue
+                if any(rel == root or rel.startswith(f"{root}/") for root in _FORBIDDEN_WORKSPACE_ROOTS):
+                    summary["forbidden_path_writes"].append(rel)
+
+    if (workdir / "reports" / "analysis").exists():
+        for path in sorted((workdir / "reports" / "analysis").rglob("*")):
+            if path.is_file():
+                summary["forbidden_path_writes"].append(path.relative_to(workdir).as_posix())
 
     failures = [c for c in checks if not c.ok]
     for failed in failures:
         summary["errors"].append(f"{failed.name}: {failed.detail}")
+    for forbidden_path in summary["forbidden_path_writes"]:
+        summary["errors"].append(f"forbidden path write: {forbidden_path}")
 
     out_path = workdir / "artifacts" / "smoke-test-report.json"
     out_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")

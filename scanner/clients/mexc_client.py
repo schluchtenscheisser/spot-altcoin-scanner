@@ -78,7 +78,8 @@ class MEXCClient:
         """
         url = f"{self.BASE_URL}{endpoint}"
         
-        for attempt in range(self.max_retries):
+        total_attempts = max(1, int(self.max_retries) + 1)
+        for attempt in range(total_attempts):
             try:
                 self._rate_limit()
                 
@@ -100,12 +101,12 @@ class MEXCClient:
                 return response.json()
                 
             except requests.RequestException as e:
-                logger.warning(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                logger.warning(f"Request failed (attempt {attempt + 1}/{total_attempts}): {e}")
                 
-                if attempt < self.max_retries - 1:
+                if attempt < total_attempts - 1:
                     time.sleep(self.retry_backoff * (attempt + 1))  # Exponential backoff
                 else:
-                    logger.error(f"Request failed after {self.max_retries} attempts")
+                    logger.error(f"Request failed after {total_attempts} attempts")
                     raise
         
         raise requests.RequestException("Unexpected error in retry loop")
