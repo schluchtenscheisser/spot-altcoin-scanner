@@ -96,7 +96,7 @@ Each record contains at minimum:
 
 Validation invariants are enforced centrally in `scanner/output/schema.py` via `validate_diagnostics_record`:
 - `execution_attempted=true` requires coherent non-null execution context (`state`, `decision`, `phase`, cycle-id resolvability).
-- non-null `decision.decision_bucket` requires non-null `state.state_machine_state`.
+- non-null `decision.decision_bucket` requires non-null `state.state_machine_state`, except `decision.decision_bucket="discarded"` which may validly occur with `state.state_machine_state=null` for non-admitted / `market_phase="none"` records.
 - active/event states (`watch|early_ready|confirmed_ready|late|chased|rejected`) require at least one cycle-id source (`state.setup_cycle_id`, `state.current_setup_cycle_id`, `cycle.resolved_setup_cycle_id`).
 
 Replay compatibility:
