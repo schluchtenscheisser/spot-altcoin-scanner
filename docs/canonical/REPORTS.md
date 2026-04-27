@@ -45,7 +45,7 @@ Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) e
 - `run_id` is a non-empty opaque string (format not constrained here).
 - `as_of_utc` uses `YYYY-MM-DDTHH:MM:SSZ`.
 - `daily_bar_id` uses `YYYY-MM-DD` and is the date basis for report directories.
-- `intraday_bar_id` is always present; for daily mode it is `null`, for intraday mode it is an integer UTC-close timestamp (ms).
+- `intraday_bar_id` is always present; for daily mode it is `null`, for intraday mode it is a canonical UTC 4h bar-id string (`YYYY-MM-DDTHH:00:00Z`).
 
 ## Canonical run and daily artifacts
 Run outputs:
@@ -93,6 +93,15 @@ Each record contains at minimum:
 - identity fields: `schema_version`, `run_id`, `scan_mode`, `symbol`, `as_of_utc`, `daily_bar_id`, `intraday_bar_id`
 - data-resolution field: `data_4h_available` (the only canonical field for this distinction here)
 - required block containers: `axes`, `phase`, `invalidation`, `cycle`, `state`, `pattern`, `decision`, `reasons`
+
+Validation invariants are enforced centrally in `scanner/output/schema.py` via `validate_diagnostics_record`:
+- `execution_attempted=true` requires coherent non-null execution context (`state`, `decision`, `phase`, cycle-id resolvability).
+- non-null `decision.decision_bucket` requires non-null `state.state_machine_state`.
+- active/event states (`watch|early_ready|confirmed_ready|late|chased|rejected`) require at least one cycle-id source (`state.setup_cycle_id`, `state.current_setup_cycle_id`, `cycle.resolved_setup_cycle_id`).
+
+Replay compatibility:
+- canonical writer contract remains nested blocks (`state.*`, `cycle.*`, `decision.*`, `phase.*`);
+- replay extraction keeps backward-compatible top-level fallbacks and also accepts `cycle.resolved_setup_cycle_id` as cycle-id fallback.
 
 This contract does not introduce `data_resolution_class`.
 

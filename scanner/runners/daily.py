@@ -18,6 +18,17 @@ from scanner.entry.patterns import resolve_entry_pattern
 from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.features.bundle import build_feature_bundle
 from scanner.output import make_report_builder
+from scanner.output.diagnostics_serialization import (
+    serialize_axes_block,
+    serialize_cycle_block,
+    serialize_decision_block,
+    serialize_invalidation_block,
+    serialize_pattern_block,
+    serialize_phase_block,
+    serialize_reasons_block,
+    serialize_state_block,
+)
+from scanner.output.schema import validate_diagnostics_record
 from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
 from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
@@ -173,7 +184,11 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 if state_bundle.persistence_patch is not None:
                     apply_state_persistence_patch(conn, state_bundle.persistence_patch)
                 decision_context[symbol] = {
+                    "t1": t1,
+                    "t2": t2,
                     "phase": phase,
+                    "invalidation": invalidation,
+                    "persisted": persisted,
                     "state_bundle": state_bundle,
                     "entry": entry,
                     "decision": decision,
@@ -226,6 +241,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                         cfg,
                         execution_contract=contract,
                     )
+                execution_diag = execution_result.diagnostics.get(symbol, {})
                 ranked_inputs.append(
                     RankedDecision(
                         symbol=symbol,
@@ -243,14 +259,19 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "daily_bar_id": daily_id,
                     "intraday_bar_id": None,
                     "data_4h_available": bool(ctx["data_4h_available"]),
-                    "axes": {},
-                    "phase": {},
-                    "invalidation": {},
-                    "cycle": {},
-                    "state": {},
-                    "pattern": {},
-                    "decision": {},
-                    "reasons": {},
+                    "axes": serialize_axes_block(ctx["t1"], ctx["t2"]),
+                    "phase": serialize_phase_block(ctx["phase"]),
+                    "invalidation": serialize_invalidation_block(ctx["invalidation"]),
+                    "cycle": serialize_cycle_block(ctx["invalidation"], ctx["state_bundle"], ctx["persisted"]),
+                    "state": serialize_state_block(ctx["state_bundle"], ctx["persisted"]),
+                    "pattern": serialize_pattern_block(ctx["entry"]),
+                    "decision": serialize_decision_block(decision),
+                    "reasons": serialize_reasons_block(
+                        ctx["invalidation"],
+                        ctx["state_bundle"],
+                        decision,
+                        execution_diagnostics=execution_diag,
+                    ),
                     "execution_attempted": False,
                     "execution_status_raw": None,
                     "execution_reason_raw": None,
@@ -258,9 +279,9 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "execution_grade_t16": None,
                     "execution_fetch_duration_ms": None,
                 }
-                if symbol in execution_result.diagnostics:
-                    diag.update(execution_result.diagnostics[symbol])
-                diagnostics.append(diag)
+                if execution_diag:
+                    diag.update(execution_diag)
+                diagnostics.append(validate_diagnostics_record(diag))
 
         ranked = rank_coins(ranked_inputs, cfg)
         symbol_lists = {

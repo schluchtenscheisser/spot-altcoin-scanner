@@ -334,3 +334,16 @@ breakout_distance_score = 30 + 40*(dist_pct/2) = 62.868136160
   - trend_resume: `resume_reclaim > shallow_pullback > continuation_breakout`
   - transition_reclaim: `base_reclaim > ema_reclaim > early_reversal_break`
 - `compute_breakout_expansion_fit(expansion, target)` is a named helper and clamps to `[0,100]`.
+
+## Ticket 21 verification boundaries (diagnostics serialization + replay fallback)
+
+- Runtime diagnostics serialization is explicit field mapping (no `dataclasses.asdict()`), JSON-stable, and preserves nullable semantics (`None` stays `null`).
+- Daily diagnostics writes populated blocks (`axes`, `phase`, `invalidation`, `cycle`, `state`, `pattern`, `decision`, `reasons`) from already-computed pipeline bundles when available.
+- Daily `decision` block reflects the post-execution bucket assignment when execution contracts exist.
+- `state.setup_cycle_id` is sourced from `state_bundle.persistence_patch.setup_cycle_id` when patch is present; not from persisted pre-run context.
+- `reasons` keeps only non-null reason values and includes `execution_reason_raw` only from per-symbol execution diagnostics.
+- Intraday no-op/error records keep all required block containers, `execution_attempted=false`, and reason key `reasons.intraday_skip_reason`.
+- Execution diagnostics in Intraday are merged only for symbols that reached `decision_rows` / execution selection path in the current run.
+- Diagnostics co-presence invariants are enforced in one shared path (`validate_diagnostics_record`) and gate processed records before artifact writes.
+- Replay cycle-id extraction fallback order is: `state.setup_cycle_id` → `state.current_setup_cycle_id` → top-level legacy fields → `cycle.resolved_setup_cycle_id`.
+- Numeric `0` / `0.0` values for confidence and priority fields remain valid and are not treated as missing.

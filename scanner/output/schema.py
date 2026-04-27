@@ -201,8 +201,50 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     if duration is not None and (isinstance(duration, bool) or not isinstance(duration, int) or duration < 0):
         raise ValueError("execution_fetch_duration_ms must be int >= 0 or null")
     out["execution_fetch_duration_ms"] = duration
+    _validate_diagnostics_invariants(out)
 
     return out
+
+
+def _validate_diagnostics_invariants(record: Mapping[str, Any]) -> None:
+    state = record.get("state") if isinstance(record.get("state"), Mapping) else {}
+    phase = record.get("phase") if isinstance(record.get("phase"), Mapping) else {}
+    decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
+    cycle = record.get("cycle") if isinstance(record.get("cycle"), Mapping) else {}
+
+    state_machine_state = state.get("state_machine_state")
+    setup_cycle_id = state.get("setup_cycle_id")
+    current_setup_cycle_id = state.get("current_setup_cycle_id")
+    resolved_setup_cycle_id = cycle.get("resolved_setup_cycle_id")
+    cycle_id_present = any(v is not None for v in (setup_cycle_id, current_setup_cycle_id, resolved_setup_cycle_id))
+    decision_bucket = decision.get("decision_bucket")
+
+    if record.get("execution_attempted") is True:
+        missing: list[str] = []
+        if state_machine_state is None:
+            missing.append("state.state_machine_state")
+        if decision_bucket is None:
+            missing.append("decision.decision_bucket")
+        if decision.get("priority_score") is None:
+            missing.append("decision.priority_score")
+        if phase.get("market_phase") is None:
+            missing.append("phase.market_phase")
+        if phase.get("market_phase_confidence") is None:
+            missing.append("phase.market_phase_confidence")
+        if not cycle_id_present:
+            missing.append("state.setup_cycle_id|state.current_setup_cycle_id|cycle.resolved_setup_cycle_id")
+        if missing:
+            raise ValueError(f"execution_attempted=true requires non-null fields: {', '.join(missing)}")
+
+    if decision_bucket is not None and state_machine_state is None:
+        raise ValueError("decision.decision_bucket requires non-null state.state_machine_state")
+
+    cycle_required_states = {"watch", "early_ready", "confirmed_ready", "late", "chased", "rejected"}
+    if state_machine_state in cycle_required_states and not cycle_id_present:
+        raise ValueError(
+            f"state.state_machine_state={state_machine_state!r} requires at least one cycle id "
+            "(state.setup_cycle_id|state.current_setup_cycle_id|cycle.resolved_setup_cycle_id)"
+        )
 
 
 def _require_symbol(value: Any) -> str:

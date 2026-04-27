@@ -64,6 +64,9 @@ def _cycle_id(record: dict[str, Any]) -> Any:
         for key in ("setup_cycle_id", "current_setup_cycle_id"):
             if key in nested:
                 return nested[key]
+    cycle_nested = record.get("cycle")
+    if isinstance(cycle_nested, dict) and "resolved_setup_cycle_id" in cycle_nested:
+        return cycle_nested["resolved_setup_cycle_id"]
     return _extract(record, "setup_cycle_id", "current_setup_cycle_id")
 
 

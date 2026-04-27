@@ -13,6 +13,7 @@ from scanner.data.bar_clock import daily_bar_id as compute_daily_bar_id
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intraday_bar
 from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.output import make_report_builder
+from scanner.output.schema import validate_diagnostics_record
 from scanner.storage import build_run_manifest_path, init_db
 
 logger = logging.getLogger(__name__)
@@ -225,17 +226,50 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
                     },
                 )()
             decision_rows.append(row_obj)
-            diagnostics.append(_diag(run_id, symbol, daily_id, intraday_id, None))
+            diagnostics.append(_intraday_diag_from_row(run_id=run_id, row=row, daily_id=daily_id, intraday_id=intraday_id))
 
         subset = select_execution_subset(decision_rows, cfg.execution)
         max_subset = intraday_cfg["max_execution_subset_size"]
         if max_subset is not None and len(subset) > max_subset:
             raise RuntimeError("Category 3: intraday.max_execution_subset_size exceeded")
         execution = evaluate_execution_subset(subset, cfg.execution)
-        _ = execution
+        decision_symbols = {str(getattr(row_obj, "symbol", "")) for row_obj in decision_rows}
+        by_symbol = {str(record["symbol"]): dict(record) for record in diagnostics}
+        for symbol in sorted(decision_symbols):
+            execution_diag = execution.diagnostics.get(symbol)
+            if execution_diag is not None and symbol in by_symbol:
+                candidate = by_symbol[symbol]
+                state = candidate.get("state") if isinstance(candidate.get("state"), Mapping) else {}
+                phase = candidate.get("phase") if isinstance(candidate.get("phase"), Mapping) else {}
+                decision = candidate.get("decision") if isinstance(candidate.get("decision"), Mapping) else {}
+                cycle = candidate.get("cycle") if isinstance(candidate.get("cycle"), Mapping) else {}
+                has_cycle = any(
+                    value is not None
+                    for value in (
+                        state.get("setup_cycle_id"),
+                        state.get("current_setup_cycle_id"),
+                        cycle.get("resolved_setup_cycle_id"),
+                    )
+                )
+                can_attach_execution = (
+                    state.get("state_machine_state") is not None
+                    and decision.get("decision_bucket") is not None
+                    and decision.get("priority_score") is not None
+                    and phase.get("market_phase") is not None
+                    and phase.get("market_phase_confidence") is not None
+                    and has_cycle
+                )
+                if can_attach_execution:
+                    candidate.update(execution_diag)
 
         if postdecision_provider is not None:
-            postdecision_provider(decision_rows, execution)
+            maybe_records = postdecision_provider(decision_rows, execution)
+            if isinstance(maybe_records, Mapping):
+                for symbol, payload in maybe_records.items():
+                    if symbol in by_symbol and isinstance(payload, Mapping):
+                        by_symbol[symbol].update(payload)
+
+        diagnostics = [validate_diagnostics_record(by_symbol[symbol]) for symbol in sorted(by_symbol)]
 
         _write_intraday_noop_report(
             run_id=run_id,
@@ -261,7 +295,7 @@ def _diag(
     *,
     stale: bool = False,
 ) -> dict[str, Any]:
-    return {
+    record = {
         "schema_version": "ir1.0",
         "run_id": run_id,
         "scan_mode": "intraday",
@@ -274,10 +308,10 @@ def _diag(
         "phase": {},
         "invalidation": {},
         "cycle": {},
-        "state": {},
+        "state": {"state_machine_state": None, "setup_cycle_id": None},
         "pattern": {},
-        "decision": {},
-        "reasons": {"reason": reason} if reason else {},
+        "decision": {"decision_bucket": None},
+        "reasons": {"intraday_skip_reason": reason} if reason else {},
         "execution_attempted": False,
         "execution_status_raw": None,
         "execution_reason_raw": None,
@@ -285,6 +319,55 @@ def _diag(
         "execution_grade_t16": None,
         "execution_fetch_duration_ms": None,
         "intraday_skipped_stale_4h": stale,
+    }
+    return validate_diagnostics_record(record)
+
+
+def _intraday_diag_from_row(
+    *,
+    run_id: str,
+    row: Mapping[str, Any],
+    daily_id: str,
+    intraday_id: str,
+) -> dict[str, Any]:
+    setup_cycle_id = row.get("setup_cycle_id")
+    current_setup_cycle_id = row.get("current_setup_cycle_id")
+    resolved_setup_cycle_id = row.get("resolved_setup_cycle_id")
+    has_cycle = any(value is not None for value in (setup_cycle_id, current_setup_cycle_id, resolved_setup_cycle_id))
+    return {
+        "schema_version": "ir1.0",
+        "run_id": run_id,
+        "scan_mode": "intraday",
+        "symbol": str(row["symbol"]),
+        "as_of_utc": _utc_now_iso(),
+        "daily_bar_id": daily_id,
+        "intraday_bar_id": intraday_id,
+        "data_4h_available": True,
+        "axes": {},
+        "phase": {
+            "market_phase": row.get("market_phase"),
+            "market_phase_confidence": row.get("market_phase_confidence"),
+        },
+        "invalidation": {},
+        "cycle": {"resolved_setup_cycle_id": row.get("resolved_setup_cycle_id")},
+        "state": {
+            "state_machine_state": row.get("state_machine_state") if has_cycle else None,
+            "setup_cycle_id": setup_cycle_id,
+            "current_setup_cycle_id": current_setup_cycle_id,
+        },
+        "pattern": {},
+        "decision": {
+            "decision_bucket": row.get("decision_bucket") if has_cycle else None,
+            "priority_score": row.get("priority_score") if has_cycle else None,
+        },
+        "reasons": {"intraday_skip_reason": "missing_cycle_context"} if not has_cycle else {},
+        "execution_attempted": False,
+        "execution_status_raw": None,
+        "execution_reason_raw": None,
+        "execution_pass": None,
+        "execution_grade_t16": None,
+        "execution_fetch_duration_ms": None,
+        "intraday_skipped_stale_4h": False,
     }
 
 
