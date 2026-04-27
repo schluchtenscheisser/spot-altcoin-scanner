@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-27 06:50 UTC  
+**Last Updated:** 2026-04-27 08:04 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -18,9 +18,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 101
+- **Total Modules:** 102
 - **Total Classes:** 61
-- **Total Functions:** 727
+- **Total Functions:** 739
 
 ---
 
@@ -304,7 +304,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `_bucket, _coalesce_none, _cycle_id, _extract, _finite_or_none, _iter_diag_records, _parse_ts, _resolve_diag_path, _run_paths, _state, reconstruct_event_timeline`
 
-**Module Variables:** `candidate, canonical, colocated, current_sig, cycle, daily, decision_root, diag_path, diagnostics, event_bar_id` _(+29 more)_
+**Module Variables:** `candidate, canonical, colocated, current_sig, cycle, cycle_nested, daily, decision_root, diag_path, diagnostics` _(+31 more)_
 
 **Imports:** `__future__, dataclasses, datetime, gzip, json, math, pathlib, typing`
 
@@ -430,6 +430,16 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ---
 
+### 📄 `scanner/output/diagnostics_serialization.py`
+
+**Functions:** `_dataclass_attr_map, _json_value, serialize_axes_block, serialize_cycle_block, serialize_decision_block, serialize_invalidation_block, serialize_pattern_block, serialize_phase_block, serialize_reasons_block, serialize_state_block`
+
+**Module Variables:** `bars_since_cycle_end, cycle_end_bar_index, cycle_end_timestamp, fields, key, out, patch, previous_setup_cycle_id, raw_candidates, t1_fields` _(+1 more)_
+
+**Imports:** `__future__, enum, math, scanner.axes.models, scanner.decision.models, scanner.entry.models, scanner.phase.models, scanner.state.models` _(+1 more)_
+
+---
+
 ### 📄 `scanner/output/report_builder.py`
 
 **Classes:** `ReportBuilder`
@@ -446,9 +456,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Classes:** `RunReport`
 
-**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_relative_path, normalize_counts_by_bucket, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
+**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, normalize_counts_by_bucket, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
 
-**Module Variables:** `COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, block, duration, grade, raw, scan_mode` _(+1 more)_
+**Module Variables:** `COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, block, current_setup_cycle_id, cycle, cycle_id_present, cycle_required_states` _(+12 more)_
 
 **Imports:** `__future__, dataclasses, datetime, re, typing`
 
@@ -776,19 +786,19 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 **Functions:** `_create_run_metadata, _default_ohlcv, _default_universe, _derive_runtime_context, _finish_run_metadata, _persist_run_manifest, _to_cycle_context, _utc_now_iso, _validate_as_of_date, run_daily_scan`
 
-**Module Variables:** `bar_clock_context, bars_1d, bars_4h, builder, conn, contract, current, current_bar_index, current_close, daily_id` _(+37 more)_
+**Module Variables:** `bar_clock_context, bars_1d, bars_4h, builder, conn, contract, current, current_bar_index, current_close, daily_id` _(+38 more)_
 
-**Imports:** `__future__, datetime, json, logging, pathlib, scanner.axes, scanner.config, scanner.data` _(+14 more)_
+**Imports:** `__future__, datetime, json, logging, pathlib, scanner.axes, scanner.config, scanner.data` _(+16 more)_
 
 ---
 
 ### 📄 `scanner/runners/intraday.py`
 
-**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _latest_completed_intraday_bar_id, _legacy_ms_intraday_id_to_canonical, _normalize_legacy_run_metadata_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _validate_runtime_intraday_bar_id, _write_intraday_manifest, _write_intraday_noop_report, run_intraday_scan`
+**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _intraday_diag_from_row, _latest_completed_intraday_bar_id, _legacy_ms_intraday_id_to_canonical, _normalize_legacy_run_metadata_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _validate_runtime_intraday_bar_id, _write_intraday_manifest, _write_intraday_noop_report, run_intraday_scan`
 
-**Module Variables:** `bucket, builder, cache_intraday, confidence, conn, context_provider, daily_cache_bar_id, daily_id, execution, final_status` _(+28 more)_
+**Module Variables:** `bucket, builder, by_symbol, cache_intraday, can_attach_execution, candidate, confidence, conn, context_provider, current_setup_cycle_id` _(+43 more)_
 
-**Imports:** `__future__, datetime, json, logging, pathlib, scanner.config, scanner.data.bar_clock, scanner.execution` _(+5 more)_
+**Imports:** `__future__, datetime, json, logging, pathlib, scanner.config, scanner.data.bar_clock, scanner.execution` _(+6 more)_
 
 ---
 
@@ -1366,7 +1376,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `_bucket` | `_extract` | `get` |
-| `_cycle_id` | `_extract` | `get` |
+| `_cycle_id` | — | `get` |
 | `_finite_or_none` | — | `isfinite` |
 | `_iter_diag_records` | — | `exists`, `loads`, `strip` |
 | `_parse_ts` | — | `ValueError`, `astimezone`, `fromisoformat`, `replace` |
@@ -1450,6 +1460,21 @@ _This section shows which functions call which other functions, helping identify
 | `serialize_diagnostics_jsonl_lines` | — | `append`, `dumps`, `validate_diagnostics_record` |
 | `write_symbol_diagnostics_jsonl_gz` | `_atomic_write_bytes`, `serialize_diagnostics_jsonl_lines` | `compress`, `encode`, `join` |
 
+### 📄 scanner/output/diagnostics_serialization.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_dataclass_attr_map` | `_json_value` | — |
+| `_json_value` | `_json_value` | `items` |
+| `serialize_axes_block` | `_dataclass_attr_map` | `update` |
+| `serialize_cycle_block` | `_dataclass_attr_map` | — |
+| `serialize_decision_block` | `_json_value` | — |
+| `serialize_invalidation_block` | `_dataclass_attr_map` | — |
+| `serialize_pattern_block` | `_json_value` | `isfinite`, `items` |
+| `serialize_phase_block` | `_dataclass_attr_map` | — |
+| `serialize_reasons_block` | `_json_value` | `get` |
+| `serialize_state_block` | `_json_value` | — |
+
 ### 📄 scanner/output/report_builder.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -1472,13 +1497,14 @@ _This section shows which functions call which other functions, helping identify
 | `_require_nullable_str` | — | `ValueError` |
 | `_require_symbol` | — | `ValueError` |
 | `_require_symbol_list` | — | `ValueError`, `append` |
+| `_validate_diagnostics_invariants` | — | `ValueError`, `append`, `get`, `join` |
 | `_validate_relative_path` | — | `ValueError`, `startswith` |
 | `normalize_counts_by_bucket` | — | `ValueError`, `get`, `keys` |
 | `normalize_symbol_lists` | `_require_symbol_list` | `ValueError`, `get`, `keys` |
 | `to_dict` | `_validate_relative_path`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | — |
 | `validate_as_of_utc` | — | `ValueError`, `match`, `strptime` |
 | `validate_daily_bar_id` | — | `ValueError`, `fromisoformat`, `match` |
-| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get` |
+| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `_validate_diagnostics_invariants`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get` |
 | `validate_intraday_bar_id` | — | `ValueError`, `match` |
 | `validate_run_id` | — | `ValueError`, `match`, `strip` |
 | `validate_scan_mode` | — | `ValueError` |
@@ -1855,15 +1881,16 @@ _This section shows which functions call which other functions, helping identify
 | `_to_cycle_context` | — | `PersistedStateCycleContext` |
 | `_utc_now_iso` | — | `now`, `strftime` |
 | `_validate_as_of_date` | — | `ValueError`, `compute_daily_bar_id`, `date`, `fromisoformat`, `isoformat`, `now` |
-| `run_daily_scan` | `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `split`, `universe_resolver`, `update`, `uuid4`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
+| `run_daily_scan` | `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
 
 ### 📄 scanner/runners/intraday.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `_create_run_metadata` | `_utc_now_iso` | `TypeError`, `commit`, `execute`, `has_new_intraday_bar` |
-| `_diag` | `_utc_now_iso` | — |
+| `_diag` | `_utc_now_iso` | `validate_diagnostics_record` |
 | `_finish_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
+| `_intraday_diag_from_row` | `_utc_now_iso` | `get` |
 | `_latest_completed_intraday_bar_id` | `_normalize_legacy_run_metadata_intraday_bar_id` | `execute`, `fetchone` |
 | `_legacy_ms_intraday_id_to_canonical` | — | `ValueError`, `fromtimestamp`, `strftime` |
 | `_normalize_legacy_run_metadata_intraday_bar_id` | `_legacy_ms_intraday_id_to_canonical` | `TypeError`, `has_new_intraday_bar`, `isdigit`, `strip` |
@@ -1872,7 +1899,7 @@ _This section shows which functions call which other functions, helping identify
 | `_validate_runtime_intraday_bar_id` | — | `TypeError`, `has_new_intraday_bar`, `strip` |
 | `_write_intraday_manifest` | — | `dumps`, `mkdir`, `write_text` |
 | `_write_intraday_noop_report` | `_utc_now_iso`, `_write_intraday_manifest` | `build_run_manifest_path`, `cwd`, `info`, `make_report_builder`, `write_run_report` |
-| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_validate_runtime_intraday_bar_id`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `add`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `uuid4`, `warning` |
+| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_intraday_diag_from_row`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_validate_runtime_intraday_bar_id`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `add`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `items`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `update`, `uuid4`, `validate_diagnostics_record`, `warning` |
 
 ### 📄 scanner/state/cycle.py
 
@@ -2126,16 +2153,16 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
-| `scanner/runners/daily.py` | 9 | 58 | 67 | 🔴 High |
-| `scanner/runners/intraday.py` | 14 | 50 | 64 | 🔴 High |
+| `scanner/runners/daily.py` | 9 | 67 | 76 | 🔴 High |
+| `scanner/runners/intraday.py` | 16 | 55 | 71 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
+| `scanner/output/schema.py` | 19 | 32 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
-| `scanner/output/schema.py` | 18 | 28 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
-| `scanner/evaluation/replay.py` | 13 | 28 | 41 | 🔴 High |
+| `scanner/evaluation/replay.py` | 12 | 28 | 40 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
@@ -2170,6 +2197,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/axes/tier2.py` | 9 | 6 | 15 | ⚠️ Medium |
+| `scanner/output/diagnostics_serialization.py` | 10 | 5 | 15 | ⚠️ Medium |
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
@@ -2218,4 +2246,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-27 06:50 UTC_
+_Generated by GitHub Actions • 2026-04-27 08:04 UTC_
