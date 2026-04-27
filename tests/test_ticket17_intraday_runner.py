@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import gzip
 import json
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +19,13 @@ def _cfg(raw: dict | None = None) -> ScannerConfig:
     if raw:
         merged["independence_release"].update(raw.get("independence_release", {}))
     return ScannerConfig(raw=merged)
+
+
+def _load_intraday_diagnostics(tmp_path: Path) -> list[dict]:
+    diag_paths = sorted((tmp_path / "reports" / "runs").glob("**/symbol_diagnostics.jsonl.gz"))
+    assert len(diag_paths) == 1
+    with gzip.open(diag_paths[0], "rt", encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
 
 
 def test_intraday_bar_clock_helpers() -> None:
@@ -84,19 +93,23 @@ def test_intraday_runner_safety_limit_hard_fails(tmp_path, monkeypatch) -> None:
             "symbol": "AAAUSDT",
             "state_machine_state": "early_ready",
             "decision_bucket": "watchlist",
+            "market_phase": "pressure_build",
             "market_phase_confidence": 70.0,
             "priority_score": 80.0,
             "daily_cache_bar_id": daily_id,
             "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "resolved_setup_cycle_id": 1,
         },
         {
             "symbol": "BBBUSDT",
             "state_machine_state": "confirmed_ready",
             "decision_bucket": "watchlist",
+            "market_phase": "pressure_build",
             "market_phase_confidence": 80.0,
             "priority_score": 70.0,
             "daily_cache_bar_id": daily_id,
             "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "resolved_setup_cycle_id": 2,
         },
     ]
 
@@ -240,3 +253,160 @@ def test_intraday_report_manifest_path_points_to_existing_snapshot_manifest(tmp_
     assert manifest_path.startswith("snapshots/runs/")
     assert "reports/runs" not in manifest_path
     assert (tmp_path / manifest_path).exists()
+
+
+def test_intraday_missing_cycle_context_is_not_executed(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: [  # type: ignore[attr-defined]
+        {
+            "symbol": "AAAUSDT",
+            "state_machine_state": "watch",
+            "decision_bucket": "watchlist",
+            "priority_score": 55.0,
+            "market_phase": "pressure_build",
+            "market_phase_confidence": 60.0,
+            "daily_cache_bar_id": "2026-04-23",
+            "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "setup_cycle_id": None,
+            "current_setup_cycle_id": None,
+            "resolved_setup_cycle_id": None,
+        }
+    ]
+    seen_subset_symbols: list[str] = []
+    monkeypatch.setattr(intraday_runner, "select_execution_subset", lambda rows, _execution: rows)
+    monkeypatch.setattr(
+        intraday_runner,
+        "evaluate_execution_subset",
+        lambda subset, _execution: (
+            seen_subset_symbols.extend(str(getattr(r, "symbol", "")) for r in subset) or type("E", (), {"contracts": {}, "diagnostics": {}})()
+        ),
+    )
+
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+    diagnostics = _load_intraday_diagnostics(tmp_path)
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["execution_attempted"] is False
+    assert diagnostics[0]["reasons"]["intraday_skip_reason"] == "missing_intraday_cycle_context"
+    assert seen_subset_symbols == []
+
+
+def test_intraday_missing_state_context_is_not_executed_and_non_discarded_decision_not_serialized(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: [  # type: ignore[attr-defined]
+        {
+            "symbol": "AAAUSDT",
+            "state_machine_state": None,
+            "decision_bucket": "watchlist",
+            "priority_score": 0.0,
+            "market_phase": "pressure_build",
+            "market_phase_confidence": 0.0,
+            "daily_cache_bar_id": "2026-04-23",
+            "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "resolved_setup_cycle_id": 5,
+        }
+    ]
+    seen_subset_symbols: list[str] = []
+    monkeypatch.setattr(intraday_runner, "select_execution_subset", lambda rows, _execution: rows)
+    monkeypatch.setattr(
+        intraday_runner,
+        "evaluate_execution_subset",
+        lambda subset, _execution: (
+            seen_subset_symbols.extend(str(getattr(r, "symbol", "")) for r in subset) or type("E", (), {"contracts": {}, "diagnostics": {}})()
+        ),
+    )
+
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+    diagnostics = _load_intraday_diagnostics(tmp_path)
+    assert diagnostics[0]["decision"]["decision_bucket"] is None
+    assert diagnostics[0]["execution_attempted"] is False
+    assert diagnostics[0]["reasons"]["intraday_skip_reason"] == "missing_intraday_state_context"
+    assert seen_subset_symbols == []
+
+
+def test_intraday_discarded_without_state_is_valid_but_not_executed(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: [  # type: ignore[attr-defined]
+        {
+            "symbol": "AAAUSDT",
+            "state_machine_state": None,
+            "decision_bucket": "discarded",
+            "priority_score": 0.0,
+            "market_phase": "none",
+            "market_phase_confidence": 60.0,
+            "daily_cache_bar_id": "2026-04-23",
+            "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "resolved_setup_cycle_id": 9,
+        }
+    ]
+    seen_subset_symbols: list[str] = []
+    monkeypatch.setattr(intraday_runner, "select_execution_subset", lambda rows, _execution: rows)
+    monkeypatch.setattr(
+        intraday_runner,
+        "evaluate_execution_subset",
+        lambda subset, _execution: (
+            seen_subset_symbols.extend(str(getattr(r, "symbol", "")) for r in subset) or type("E", (), {"contracts": {}, "diagnostics": {}})()
+        ),
+    )
+
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+    diagnostics = _load_intraday_diagnostics(tmp_path)
+    assert diagnostics[0]["decision"]["decision_bucket"] == "discarded"
+    assert diagnostics[0]["state"]["state_machine_state"] is None
+    assert diagnostics[0]["execution_attempted"] is False
+    assert diagnostics[0]["reasons"]["intraday_skip_reason"] == "missing_intraday_state_context"
+    assert seen_subset_symbols == []
+
+
+def test_intraday_complete_context_executes_and_attaches_execution_diagnostics(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: [  # type: ignore[attr-defined]
+        {
+            "symbol": "AAAUSDT",
+            "state_machine_state": "watch",
+            "decision_bucket": "watchlist",
+            "priority_score": 0.0,
+            "market_phase": "pressure_build",
+            "market_phase_confidence": 0.0,
+            "daily_cache_bar_id": "2026-04-23",
+            "intraday_cache_bar_id": "2026-04-24T08:00:00Z",
+            "resolved_setup_cycle_id": 1,
+        }
+    ]
+    seen_subset_symbols: list[str] = []
+    monkeypatch.setattr(intraday_runner, "select_execution_subset", lambda rows, _execution: rows)
+
+    def _fake_evaluate(subset, _execution):
+        seen_subset_symbols.extend(str(getattr(r, "symbol", "")) for r in subset)
+        return type(
+            "E",
+            (),
+            {
+                "contracts": {},
+                "diagnostics": {
+                    "AAAUSDT": {
+                        "execution_attempted": True,
+                        "execution_status_raw": "ok",
+                        "execution_reason_raw": None,
+                        "execution_pass": True,
+                        "execution_grade_t16": None,
+                        "execution_fetch_duration_ms": 1,
+                    }
+                },
+            },
+        )()
+
+    monkeypatch.setattr(intraday_runner, "evaluate_execution_subset", _fake_evaluate)
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+    diagnostics = _load_intraday_diagnostics(tmp_path)
+    assert seen_subset_symbols == ["AAAUSDT"]
+    assert diagnostics[0]["execution_attempted"] is True
+    assert diagnostics[0]["execution_status_raw"] == "ok"

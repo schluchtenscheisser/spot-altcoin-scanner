@@ -114,6 +114,29 @@ def _default_refresh_provider(_: str, __: str) -> dict[str, Any]:
     return {"ok": True, "data_4h_available": True}
 
 
+def _intraday_row_has_attachable_execution_context(row: Mapping[str, Any]) -> tuple[bool, str | None]:
+    has_state = row.get("state_machine_state") is not None
+    has_cycle = any(
+        value is not None
+        for value in (
+            row.get("setup_cycle_id"),
+            row.get("current_setup_cycle_id"),
+            row.get("resolved_setup_cycle_id"),
+        )
+    )
+    has_decision = row.get("decision_bucket") is not None and row.get("priority_score") is not None
+    has_phase = row.get("market_phase") is not None and row.get("market_phase_confidence") is not None
+    if has_state and has_cycle and has_decision and has_phase:
+        return True, None
+    if not has_state:
+        return False, "missing_intraday_state_context"
+    if not has_cycle:
+        return False, "missing_intraday_cycle_context"
+    if not has_decision:
+        return False, "missing_intraday_decision_context"
+    return False, "missing_intraday_phase_context"
+
+
 def _select_monitoring_universe(cfg: ScannerConfig, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     threshold = float(cfg.intraday["min_phase_confidence_for_monitoring"])
@@ -211,6 +234,20 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
                     diagnostics.append(_diag(run_id, symbol, daily_id, intraday_id, "STALE_4H_REFRESH_FAILED", stale=True))
                     continue
 
+            attachable_context, skip_reason = _intraday_row_has_attachable_execution_context(row)
+            diagnostics.append(
+                _intraday_diag_from_row(
+                    run_id=run_id,
+                    row=row,
+                    daily_id=daily_id,
+                    intraday_id=intraday_id,
+                    attachable_context=attachable_context,
+                    skip_reason=skip_reason,
+                )
+            )
+            if not attachable_context:
+                continue
+
             if predecision_provider is not None:
                 row_obj = predecision_provider(row)
             else:
@@ -226,7 +263,6 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
                     },
                 )()
             decision_rows.append(row_obj)
-            diagnostics.append(_intraday_diag_from_row(run_id=run_id, row=row, daily_id=daily_id, intraday_id=intraday_id))
 
         subset = select_execution_subset(decision_rows, cfg.execution)
         max_subset = intraday_cfg["max_execution_subset_size"]
@@ -259,8 +295,11 @@ def run_intraday_scan(cfg: ScannerConfig, now_utc: datetime | None = None) -> No
                     and phase.get("market_phase_confidence") is not None
                     and has_cycle
                 )
-                if can_attach_execution:
-                    candidate.update(execution_diag)
+                if not can_attach_execution:
+                    raise ValueError(
+                        f"execution diagnostics for symbol={symbol} cannot be attached due to incomplete diagnostics context"
+                    )
+                candidate.update(execution_diag)
 
         if postdecision_provider is not None:
             maybe_records = postdecision_provider(decision_rows, execution)
@@ -329,11 +368,14 @@ def _intraday_diag_from_row(
     row: Mapping[str, Any],
     daily_id: str,
     intraday_id: str,
+    attachable_context: bool,
+    skip_reason: str | None,
 ) -> dict[str, Any]:
-    setup_cycle_id = row.get("setup_cycle_id")
-    current_setup_cycle_id = row.get("current_setup_cycle_id")
-    resolved_setup_cycle_id = row.get("resolved_setup_cycle_id")
-    has_cycle = any(value is not None for value in (setup_cycle_id, current_setup_cycle_id, resolved_setup_cycle_id))
+    setup_cycle_id = row.get("setup_cycle_id") if attachable_context else None
+    current_setup_cycle_id = row.get("current_setup_cycle_id") if attachable_context else None
+    resolved_setup_cycle_id = row.get("resolved_setup_cycle_id") if attachable_context else None
+    decision_bucket = row.get("decision_bucket")
+    preserve_discarded = decision_bucket == "discarded" and not attachable_context
     return {
         "schema_version": "ir1.0",
         "run_id": run_id,
@@ -345,22 +387,22 @@ def _intraday_diag_from_row(
         "data_4h_available": True,
         "axes": {},
         "phase": {
-            "market_phase": row.get("market_phase"),
-            "market_phase_confidence": row.get("market_phase_confidence"),
+            "market_phase": row.get("market_phase") if attachable_context else None,
+            "market_phase_confidence": row.get("market_phase_confidence") if attachable_context else None,
         },
         "invalidation": {},
-        "cycle": {"resolved_setup_cycle_id": row.get("resolved_setup_cycle_id")},
+        "cycle": {"resolved_setup_cycle_id": resolved_setup_cycle_id},
         "state": {
-            "state_machine_state": row.get("state_machine_state") if has_cycle else None,
+            "state_machine_state": row.get("state_machine_state") if attachable_context else None,
             "setup_cycle_id": setup_cycle_id,
             "current_setup_cycle_id": current_setup_cycle_id,
         },
         "pattern": {},
         "decision": {
-            "decision_bucket": row.get("decision_bucket") if has_cycle else None,
-            "priority_score": row.get("priority_score") if has_cycle else None,
+            "decision_bucket": decision_bucket if attachable_context or preserve_discarded else None,
+            "priority_score": row.get("priority_score") if attachable_context or preserve_discarded else None,
         },
-        "reasons": {"intraday_skip_reason": "missing_cycle_context"} if not has_cycle else {},
+        "reasons": {"intraday_skip_reason": skip_reason} if skip_reason else {},
         "execution_attempted": False,
         "execution_status_raw": None,
         "execution_reason_raw": None,

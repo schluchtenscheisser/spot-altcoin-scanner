@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Canonical truth is under `docs/canonical/`.
+
 # Title
 [P0] Fix Intraday Execution Diagnostics Visibility and Discarded-State Invariant Documentation (Ticket 21.1)
 
