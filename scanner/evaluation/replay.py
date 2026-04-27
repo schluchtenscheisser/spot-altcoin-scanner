@@ -62,9 +62,19 @@ def _cycle_id(record: dict[str, Any]) -> Any:
     nested = record.get("state")
     if isinstance(nested, dict):
         for key in ("setup_cycle_id", "current_setup_cycle_id"):
-            if key in nested:
-                return nested[key]
-    return _extract(record, "setup_cycle_id", "current_setup_cycle_id")
+            value = nested.get(key)
+            if value is not None:
+                return value
+    for key in ("setup_cycle_id", "current_setup_cycle_id"):
+        value = record.get(key)
+        if value is not None:
+            return value
+    cycle_nested = record.get("cycle")
+    if isinstance(cycle_nested, dict):
+        value = cycle_nested.get("resolved_setup_cycle_id")
+        if value is not None:
+            return value
+    return None
 
 
 def _run_paths(manifest_path: Path) -> tuple[str, str]:
