@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import Any
+from typing import Any, Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -18,9 +18,12 @@ if str(REPO_ROOT) not in sys.path:
 import scanner.config as scanner_config_module
 from scanner.clients.mexc_client import MEXCClient
 from scanner.config import load_config
+from scanner.config import resolve_independence_ohlcv_fetch_config, resolve_independence_universe_config
 from scanner.data.bar_clock import daily_bar_id as compute_daily_bar_id
+from scanner.data.ohlcv_fetch import fetch_closed_bars
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id
 from scanner.evaluation.dataset_export import run_evaluation_export
+import scanner.runners.daily as daily_runner_module
 from scanner.runners.daily import run_daily_scan
 from scanner.runners.intraday import run_intraday_scan
 
@@ -85,6 +88,71 @@ def _load_diag_rows(path: Path) -> list[dict[str, Any]]:
 def _find_first(pattern: str, root: Path) -> Path | None:
     matches = sorted(root.glob(pattern))
     return matches[0] if matches else None
+
+
+def _require_report_relpath(report: Mapping[str, Any], key: str) -> Path:
+    value = report.get(key)
+    if not isinstance(value, str):
+        raise ValueError(f"invalid report field {key}: expected non-empty relative path string")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"invalid report field {key}: expected non-empty relative path string")
+    candidate = Path(normalized)
+    if candidate.is_absolute():
+        raise ValueError(f"invalid report field {key}: absolute paths are forbidden")
+    if any(part == ".." for part in candidate.parts):
+        raise ValueError(f"invalid report field {key}: path traversal is forbidden")
+    return candidate
+
+
+def _build_real_daily_providers(*, cfg: Any, now_utc: datetime) -> tuple[list[str], Any, Any]:
+    universe_cfg = resolve_independence_universe_config(cfg.raw)
+    ohlcv_cfg = resolve_independence_ohlcv_fetch_config(cfg.raw)
+    mexc_client = MEXCClient(
+        timeout=int(ohlcv_cfg["per_call_timeout_s"]),
+        max_retries=int(ohlcv_cfg["max_retries"]),
+    )
+    exchange_info = mexc_client.get_exchange_info(use_cache=False)
+    quote_assets = set(universe_cfg["quote_asset_allowed"])
+    tradeable_statuses = set(universe_cfg["mexc_tradeable_status_values"])
+
+    universe: list[str] = []
+    for symbol_info in exchange_info.get("symbols", []):
+        if not isinstance(symbol_info, dict):
+            continue
+        symbol = symbol_info.get("symbol")
+        if not isinstance(symbol, str) or not symbol:
+            continue
+        if symbol_info.get("quoteAsset") not in quote_assets:
+            continue
+        if symbol_info.get("status") not in tradeable_statuses:
+            continue
+        if not bool(symbol_info.get("isSpotTradingAllowed", False)):
+            continue
+        universe.append(symbol)
+    universe = sorted(set(universe))
+
+    def universe_provider(_cfg: Any, _daily_id: str) -> list[str]:
+        return list(universe)
+
+    def ohlcv_provider(symbol: str, timeframe: str) -> list[Any]:
+        if timeframe not in {"1d", "4h"}:
+            raise ValueError(f"unsupported timeframe: {timeframe}")
+        lookback_key = "lookback_bars_1d" if timeframe == "1d" else "lookback_bars_4h"
+        fetch = fetch_closed_bars(
+            symbol=symbol,
+            timeframe=timeframe,
+            now=now_utc,
+            lookback_bars=int(ohlcv_cfg[lookback_key]),
+        )
+        if str(getattr(fetch, "last_fetch_status", "unknown")) != "ok":
+            raise RuntimeError(
+                f"OHLCV fetch failed for {symbol} {timeframe}: status={getattr(fetch, 'last_fetch_status', 'unknown')}, "
+                f"code={getattr(fetch, 'last_error_code', None)}"
+            )
+        return list(fetch.bars)
+
+    return universe, universe_provider, ohlcv_provider
 
 
 def _collect_forbidden_writes(workdir: Path) -> list[str]:
@@ -163,13 +231,32 @@ def main() -> int:
     os.environ["SCANNER_CONFIG_PATH"] = config_path
     scanner_config_module.CONFIG_PATH = config_path
     cfg = load_config(config_path)
+    if cfg.run_mode == "standard" and not cfg.cmc_api_key:
+        summary["errors"].append("preflight: MISSING_REQUIRED_CREDENTIAL_CMC_API_KEY")
+
+    preflight_universe: list[str] = []
+    with suppress(Exception):
+        MEXCClient(timeout=20, max_retries=1).get_exchange_info(use_cache=False)
+    try:
+        preflight_universe, universe_provider, ohlcv_provider = _build_real_daily_providers(cfg=cfg, now_utc=now)
+        setattr(cfg, "daily_universe_provider", universe_provider)
+        setattr(cfg, "daily_ohlcv_provider", ohlcv_provider)
+        if getattr(cfg, "daily_universe_provider", None) is daily_runner_module._default_universe:
+            summary["errors"].append("preflight: daily_universe_provider resolved to default provider")
+        if getattr(cfg, "daily_ohlcv_provider", None) is daily_runner_module._default_ohlcv:
+            summary["errors"].append("preflight: daily_ohlcv_provider resolved to default provider")
+    except Exception as exc:
+        summary["errors"].append(f"preflight: provider wiring failed: {type(exc).__name__}: {exc}")
+
+    if not preflight_universe:
+        summary["errors"].append("preflight: EMPTY_REAL_DAILY_UNIVERSE")
 
     prev_cwd = Path.cwd()
     os.chdir(workdir)
 
     try:
-        with suppress(Exception):
-            MEXCClient(timeout=20, max_retries=1).get_exchange_info(use_cache=False)
+        if summary["errors"]:
+            raise RuntimeError("shadow-live preflight failed")
 
         run_daily_scan(cfg, as_of_date=daily)
 
@@ -178,44 +265,56 @@ def main() -> int:
             summary["errors"].append("daily: missing report.json")
         else:
             payload = _load_json(daily_report)
-            diagnostics_path = workdir / str(payload.get("diagnostics_path", ""))
-            manifest_path = workdir / str(payload.get("manifest_path", ""))
+            try:
+                diagnostics_rel = _require_report_relpath(payload, "diagnostics_path")
+                manifest_rel = _require_report_relpath(payload, "manifest_path")
+            except ValueError as exc:
+                summary["daily"]["status"] = "fail"
+                summary["errors"].append(f"daily: {exc}")
+                diagnostics_rel = None
+                manifest_rel = None
             summary["daily"].update(
                 {
                     "status": "pass",
                     "run_id": payload.get("run_id"),
                     "report_path": daily_report.relative_to(workdir).as_posix(),
-                    "diagnostics_path": payload.get("diagnostics_path"),
-                    "manifest_path": payload.get("manifest_path"),
+                    "diagnostics_path": diagnostics_rel.as_posix() if diagnostics_rel is not None else None,
+                    "manifest_path": manifest_rel.as_posix() if manifest_rel is not None else None,
                     "counts_by_bucket": payload.get("counts_by_bucket", {}),
                     "symbol_lists": payload.get("symbol_lists", {}),
                 }
             )
-            if not diagnostics_path.exists():
+            diagnostics_path = workdir / diagnostics_rel if diagnostics_rel is not None else None
+            manifest_path = workdir / manifest_rel if manifest_rel is not None else None
+            if diagnostics_path is None or not diagnostics_path.is_file():
                 summary["daily"]["status"] = "fail"
                 summary["errors"].append("daily: missing symbol_diagnostics.jsonl.gz")
-            if not manifest_path.exists():
+            if manifest_path is None or not manifest_path.is_file():
                 summary["daily"]["status"] = "fail"
                 summary["errors"].append("daily: missing run.manifest.json")
 
-        try:
-            run_evaluation_export(project_root=workdir, config=cfg.raw)
-            summary["evaluation_replay"]["status"] = "pass"
-        except Exception as exc:
-            summary["evaluation_replay"]["status"] = "fail"
-            summary["errors"].append(f"evaluation_replay: {type(exc).__name__}: {exc}")
+        if summary["daily"]["status"] == "pass":
+            try:
+                run_evaluation_export(project_root=workdir, config=cfg.raw)
+                summary["evaluation_replay"]["status"] = "pass"
+            except Exception as exc:
+                summary["evaluation_replay"]["status"] = "fail"
+                summary["errors"].append(f"evaluation_replay: {type(exc).__name__}: {exc}")
 
-        eval_summary_path = workdir / "evaluation" / "exports" / "evaluation_summary.json"
-        timeline_path = workdir / "evaluation" / "replay" / "event_timeline.jsonl"
-        if eval_summary_path.exists():
-            eval_summary = _load_json(eval_summary_path)
-            summary["evaluation_replay"]["event_count"] = int(eval_summary.get("cycle_count", 0))
-            summary["evaluation_replay"]["summary_path"] = eval_summary_path.relative_to(workdir).as_posix()
-            summary["evaluation_replay"]["timeline_path"] = timeline_path.relative_to(workdir).as_posix() if timeline_path.exists() else None
-            if summary["evaluation_replay"]["event_count"] == 0:
-                summary["warnings"].append("evaluation_replay: no events exported")
+            eval_summary_path = workdir / "evaluation" / "exports" / "evaluation_summary.json"
+            timeline_path = workdir / "evaluation" / "replay" / "event_timeline.jsonl"
+            if eval_summary_path.exists():
+                eval_summary = _load_json(eval_summary_path)
+                summary["evaluation_replay"]["event_count"] = int(eval_summary.get("cycle_count", 0))
+                summary["evaluation_replay"]["summary_path"] = eval_summary_path.relative_to(workdir).as_posix()
+                summary["evaluation_replay"]["timeline_path"] = timeline_path.relative_to(workdir).as_posix() if timeline_path.exists() else None
+                if summary["evaluation_replay"]["event_count"] == 0:
+                    summary["warnings"].append("evaluation_replay: no events exported")
+            else:
+                summary["errors"].append("evaluation_replay: missing evaluation_summary.json")
         else:
-            summary["errors"].append("evaluation_replay: missing evaluation_summary.json")
+            summary["evaluation_replay"]["status"] = "fail"
+            summary["errors"].append("evaluation_replay: skipped because daily stage failed")
 
         if not args.skip_intraday:
             intraday_dt = datetime.fromisoformat(intraday.replace("Z", "+00:00")) + timedelta(minutes=1)

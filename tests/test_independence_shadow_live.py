@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
+import scanner.runners.daily as daily_runner_module
 from scripts import run_independence_shadow_live as shadow
+
+
+@pytest.fixture(autouse=True)
+def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CMC_API_KEY", "dummy")
 
 
 def _write_gz_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -69,6 +75,15 @@ def test_shadow_live_main_writes_summary_with_non_blocking_intraday_state(
         (exports / "evaluation_summary.json").write_text(json.dumps({"cycle_count": 0}) + "\n", encoding="utf-8")
         return {"cycle_count": 0}
 
+    def fake_build_real_daily_providers(*, cfg, now_utc):
+        _ = (cfg, now_utc)
+        return (
+            ["SOLUSDT"],
+            lambda _cfg, _daily_id: ["SOLUSDT"],
+            lambda _symbol, _tf: [],
+        )
+
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", fake_build_real_daily_providers)
     monkeypatch.setattr(shadow, "run_daily_scan", fake_run_daily_scan)
     monkeypatch.setattr(shadow, "run_intraday_scan", fake_run_intraday_scan)
     monkeypatch.setattr(shadow, "run_evaluation_export", fake_run_eval)
@@ -97,6 +112,168 @@ def test_shadow_live_main_writes_summary_with_non_blocking_intraday_state(
     assert payload["evaluation_replay"]["status"] == "pass"
     assert payload["intraday"]["status"] == "non_blocking_warning"
     assert payload["intraday"]["known_state"] == "missing_intraday_cycle_context"
+
+
+def test_shadow_live_attaches_daily_providers_before_daily_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_build_real_daily_providers(*, cfg, now_utc):
+        _ = now_utc
+        return (
+            ["SOLUSDT"],
+            lambda _cfg, _daily_id: ["SOLUSDT"],
+            lambda _symbol, _tf: [],
+        )
+
+    def fake_run_daily_scan(cfg, as_of_date: str | None = None) -> None:
+        _ = as_of_date
+        assert getattr(cfg, "daily_universe_provider", None) is not None
+        assert getattr(cfg, "daily_ohlcv_provider", None) is not None
+        assert getattr(cfg, "daily_universe_provider") is not daily_runner_module._default_universe
+        assert getattr(cfg, "daily_ohlcv_provider") is not daily_runner_module._default_ohlcv
+        run_id = "daily-2026-04-24-fake"
+        run_dir = tmp_path / "shadow-workdir" / "reports" / "runs" / "2026" / "04" / "24" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        diag = run_dir / "symbol_diagnostics.jsonl.gz"
+        _write_gz_jsonl(diag, [{"symbol": "SOLUSDT"}])
+        manifest = tmp_path / "shadow-workdir" / "snapshots" / "runs" / "2026" / "04" / "24" / run_id / "run.manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text("{}\n", encoding="utf-8")
+        (run_dir / "report.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "diagnostics_path": "reports/runs/2026/04/24/daily-2026-04-24-fake/symbol_diagnostics.jsonl.gz",
+                    "manifest_path": "snapshots/runs/2026/04/24/daily-2026-04-24-fake/run.manifest.json",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def fake_eval(*, project_root: Path, config=None):
+        _ = config
+        (project_root / "evaluation" / "replay").mkdir(parents=True, exist_ok=True)
+        (project_root / "evaluation" / "exports").mkdir(parents=True, exist_ok=True)
+        (project_root / "evaluation" / "replay" / "event_timeline.jsonl").write_text("{}\n", encoding="utf-8")
+        (project_root / "evaluation" / "exports" / "evaluation_summary.json").write_text(json.dumps({"cycle_count": 1}) + "\n", encoding="utf-8")
+        return {"cycle_count": 1}
+
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", fake_build_real_daily_providers)
+    monkeypatch.setattr(shadow, "run_daily_scan", fake_run_daily_scan)
+    monkeypatch.setattr(shadow, "run_intraday_scan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(shadow, "run_evaluation_export", fake_eval)
+    monkeypatch.setattr(shadow, "MEXCClient", lambda *args, **kwargs: type("C", (), {"get_exchange_info": lambda self, **kw: {}})())
+
+    workdir = tmp_path / "shadow-workdir"
+    monkeypatch.setattr("sys.argv", ["run_independence_shadow_live.py", "--workdir", workdir.as_posix(), "--daily-bar-id", "2026-04-24", "--skip-intraday"])
+    rc = shadow.main()
+    assert rc == 0
+
+
+def test_shadow_live_fails_preflight_without_provider_wiring(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", lambda **kwargs: ([], daily_runner_module._default_universe, daily_runner_module._default_ohlcv))
+    monkeypatch.setattr(shadow, "run_daily_scan", lambda *_args, **_kwargs: pytest.fail("run_daily_scan should not be called when preflight fails"))
+    monkeypatch.setattr(shadow, "run_intraday_scan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(shadow, "run_evaluation_export", lambda **kwargs: {})
+    monkeypatch.setattr(shadow, "MEXCClient", lambda *args, **kwargs: type("C", (), {"get_exchange_info": lambda self, **kw: {}})())
+
+    workdir = tmp_path / "shadow-workdir"
+    monkeypatch.setattr("sys.argv", ["run_independence_shadow_live.py", "--workdir", workdir.as_posix(), "--daily-bar-id", "2026-04-24", "--skip-intraday"])
+    rc = shadow.main()
+    payload = json.loads((workdir / "shadow-live-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert any("EMPTY_REAL_DAILY_UNIVERSE" in err for err in payload["errors"])
+
+
+@pytest.mark.parametrize(
+    ("diag_value", "manifest_value"),
+    [
+        (None, "snapshots/runs/2026/04/24/daily-x/run.manifest.json"),
+        ("", "snapshots/runs/2026/04/24/daily-x/run.manifest.json"),
+        ("   ", "snapshots/runs/2026/04/24/daily-x/run.manifest.json"),
+        ("reports/runs/../../evil.json", "snapshots/runs/2026/04/24/daily-x/run.manifest.json"),
+        ("/tmp/absolute.json", "snapshots/runs/2026/04/24/daily-x/run.manifest.json"),
+        ("reports/runs/2026/04/24/daily-x/symbol_diagnostics.jsonl.gz", ""),
+    ],
+)
+def test_shadow_live_daily_report_path_validation_is_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, diag_value, manifest_value
+) -> None:
+    def fake_build_real_daily_providers(*, cfg, now_utc):
+        _ = (cfg, now_utc)
+        return (["SOLUSDT"], lambda _cfg, _daily_id: ["SOLUSDT"], lambda _symbol, _tf: [])
+
+    def fake_daily(_cfg, as_of_date: str | None = None) -> None:
+        _ = as_of_date
+        run_id = "daily-x"
+        run_dir = tmp_path / "shadow-workdir" / "reports" / "runs" / "2026" / "04" / "24" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        report = {"run_id": run_id}
+        if diag_value is not None:
+            report["diagnostics_path"] = diag_value
+        if manifest_value is not None:
+            report["manifest_path"] = manifest_value
+        (run_dir / "report.json").write_text(json.dumps(report) + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", fake_build_real_daily_providers)
+    monkeypatch.setattr(shadow, "run_daily_scan", fake_daily)
+    monkeypatch.setattr(shadow, "run_intraday_scan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(shadow, "run_evaluation_export", lambda **kwargs: (_ for _ in ()).throw(AssertionError("evaluation should not run on blocking daily failure")))
+    monkeypatch.setattr(shadow, "MEXCClient", lambda *args, **kwargs: type("C", (), {"get_exchange_info": lambda self, **kw: {}})())
+
+    workdir = tmp_path / "shadow-workdir"
+    monkeypatch.setattr("sys.argv", ["run_independence_shadow_live.py", "--workdir", workdir.as_posix(), "--daily-bar-id", "2026-04-24", "--skip-intraday"])
+    rc = shadow.main()
+    payload = json.loads((workdir / "shadow-live-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert payload["daily"]["status"] == "fail"
+
+
+def test_shadow_live_daily_report_paths_must_point_to_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_build_real_daily_providers(*, cfg, now_utc):
+        _ = (cfg, now_utc)
+        return (["SOLUSDT"], lambda _cfg, _daily_id: ["SOLUSDT"], lambda _symbol, _tf: [])
+
+    def fake_daily(_cfg, as_of_date: str | None = None) -> None:
+        _ = as_of_date
+        run_id = "daily-x"
+        run_dir = tmp_path / "shadow-workdir" / "reports" / "runs" / "2026" / "04" / "24" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        diagnostics_rel = "reports/runs/2026/04/24/daily-x"
+        manifest_rel = "snapshots/runs/2026/04/24/daily-x"
+        (tmp_path / "shadow-workdir" / diagnostics_rel).mkdir(parents=True, exist_ok=True)
+        (tmp_path / "shadow-workdir" / manifest_rel).mkdir(parents=True, exist_ok=True)
+        (run_dir / "report.json").write_text(
+            json.dumps({"run_id": run_id, "diagnostics_path": diagnostics_rel, "manifest_path": manifest_rel}) + "\n",
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", fake_build_real_daily_providers)
+    monkeypatch.setattr(shadow, "run_daily_scan", fake_daily)
+    monkeypatch.setattr(shadow, "run_intraday_scan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(shadow, "run_evaluation_export", lambda **kwargs: (_ for _ in ()).throw(AssertionError("evaluation should not run on blocking daily failure")))
+    monkeypatch.setattr(shadow, "MEXCClient", lambda *args, **kwargs: type("C", (), {"get_exchange_info": lambda self, **kw: {}})())
+
+    workdir = tmp_path / "shadow-workdir"
+    monkeypatch.setattr("sys.argv", ["run_independence_shadow_live.py", "--workdir", workdir.as_posix(), "--daily-bar-id", "2026-04-24", "--skip-intraday"])
+    rc = shadow.main()
+    payload = json.loads((workdir / "shadow-live-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert payload["daily"]["status"] == "fail"
+
+
+def test_shadow_live_empty_real_universe_is_blocking(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shadow, "_build_real_daily_providers", lambda **kwargs: ([], lambda *_a, **_k: [], lambda *_a, **_k: []))
+    monkeypatch.setattr(shadow, "run_daily_scan", lambda *_args, **_kwargs: pytest.fail("daily should not run on empty universe"))
+    monkeypatch.setattr(shadow, "run_intraday_scan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(shadow, "run_evaluation_export", lambda **kwargs: {})
+    monkeypatch.setattr(shadow, "MEXCClient", lambda *args, **kwargs: type("C", (), {"get_exchange_info": lambda self, **kw: {}})())
+
+    workdir = tmp_path / "shadow-workdir"
+    monkeypatch.setattr("sys.argv", ["run_independence_shadow_live.py", "--workdir", workdir.as_posix(), "--daily-bar-id", "2026-04-24", "--skip-intraday"])
+    rc = shadow.main()
+    payload = json.loads((workdir / "shadow-live-report.json").read_text(encoding="utf-8"))
+    assert rc == 1
+    assert any("EMPTY_REAL_DAILY_UNIVERSE" in err for err in payload["errors"])
 
 
 def test_shadow_live_workdir_disallows_reports_analysis(tmp_path: Path) -> None:
