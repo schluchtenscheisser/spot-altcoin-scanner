@@ -150,6 +150,23 @@ def test_validate_diagnostics_record_invariants_enforced() -> None:
         validate_diagnostics_record(bad)
 
 
+def test_validate_diagnostics_allows_discarded_without_state() -> None:
+    record = _base_record()
+    record["decision"] = {"decision_bucket": "discarded", "priority_score": 0.0}
+    record["state"] = {"state_machine_state": None}
+    validate_diagnostics_record(record)
+
+
+def test_validate_diagnostics_execution_attempted_still_requires_state_for_discarded() -> None:
+    record = _base_record()
+    record["execution_attempted"] = True
+    record["decision"] = {"decision_bucket": "discarded", "priority_score": 0.0}
+    record["state"] = {"state_machine_state": None, "setup_cycle_id": 1}
+    record["phase"] = {"market_phase": "none", "market_phase_confidence": 0.0}
+    with pytest.raises(ValueError, match="state.state_machine_state"):
+        validate_diagnostics_record(record)
+
+
 def test_replay_cycle_id_level4_fallback_from_cycle_block(tmp_path: Path) -> None:
     run = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r1"
     run.mkdir(parents=True, exist_ok=True)
@@ -170,3 +187,47 @@ def test_replay_cycle_id_level4_fallback_from_cycle_block(tmp_path: Path) -> Non
     events, _ = reconstruct_event_timeline(project_root=tmp_path)
     assert len(events) == 1
     assert events[0]["setup_cycle_id"] == 42
+
+
+def test_replay_cycle_id_level4_fallback_skips_null_nested_state_ids(tmp_path: Path) -> None:
+    run = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r2"
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "run.manifest.json").write_text(json.dumps({"run_id": "r2"}), encoding="utf-8")
+    diag = tmp_path / "reports" / "runs" / "2026" / "04" / "01" / "r2" / "symbol_diagnostics.jsonl.gz"
+    diag.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "symbol": "BBBUSDT",
+        "as_of_utc": "2026-04-01T00:00:00Z",
+        "state": {"state_machine_state": "watch", "setup_cycle_id": None, "current_setup_cycle_id": None},
+        "cycle": {"resolved_setup_cycle_id": 1},
+        "decision": {"decision_bucket": "watchlist"},
+        "daily_bar_id": "2026-04-01",
+    }
+    with gzip.open(diag, "wt", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload) + "\n")
+
+    events, _ = reconstruct_event_timeline(project_root=tmp_path)
+    assert len(events) == 1
+    assert events[0]["setup_cycle_id"] == 1
+
+
+def test_replay_cycle_id_prefers_state_setup_cycle_id_over_cycle_block(tmp_path: Path) -> None:
+    run = tmp_path / "snapshots" / "runs" / "2026" / "04" / "01" / "r3"
+    run.mkdir(parents=True, exist_ok=True)
+    (run / "run.manifest.json").write_text(json.dumps({"run_id": "r3"}), encoding="utf-8")
+    diag = tmp_path / "reports" / "runs" / "2026" / "04" / "01" / "r3" / "symbol_diagnostics.jsonl.gz"
+    diag.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "symbol": "CCCUSDT",
+        "as_of_utc": "2026-04-01T00:00:00Z",
+        "state": {"state_machine_state": "watch", "setup_cycle_id": 7},
+        "cycle": {"resolved_setup_cycle_id": 99},
+        "decision": {"decision_bucket": "watchlist"},
+        "daily_bar_id": "2026-04-01",
+    }
+    with gzip.open(diag, "wt", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload) + "\n")
+
+    events, _ = reconstruct_event_timeline(project_root=tmp_path)
+    assert len(events) == 1
+    assert events[0]["setup_cycle_id"] == 7

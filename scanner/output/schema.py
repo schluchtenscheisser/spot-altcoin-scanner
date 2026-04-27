@@ -236,7 +236,7 @@ def _validate_diagnostics_invariants(record: Mapping[str, Any]) -> None:
         if missing:
             raise ValueError(f"execution_attempted=true requires non-null fields: {', '.join(missing)}")
 
-    if decision_bucket is not None and state_machine_state is None:
+    if decision_bucket is not None and decision_bucket != "discarded" and state_machine_state is None:
         raise ValueError("decision.decision_bucket requires non-null state.state_machine_state")
 
     cycle_required_states = {"watch", "early_ready", "confirmed_ready", "late", "chased", "rejected"}
