@@ -1,3 +1,8 @@
+# Archived Legacy Daily Workflow
+
+> **Note:** This file archives the legacy daily scanner workflow and is kept for historical reference only. It is not part of Independence v2.1 pre-production or production, and it must not be moved back into `.github/workflows/` without an explicit architecture decision.
+
+```yaml
 name: Daily Scanner Run
 
 on:
@@ -41,3 +46,4 @@ jobs:
         git add reports/ snapshots/
         git diff --quiet && git diff --staged --quiet || git commit -m "Daily scan: $(date +'%Y-%m-%d')"
         git push
+```
