@@ -100,6 +100,40 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - Runtime logic for phase/state/entry remains deferred even though the operating model reserves those stages.
 - All future implementations must preserve the documented separation between daily discovery and intraday promotion scans.
 
+## Shadow-Live Daily Workflow Operations Contract (Ticket 22)
+
+- Workflow: `.github/workflows/independence-shadow-live.yml`
+- Triggers:
+  - manual `workflow_dispatch`
+  - scheduled UTC run (`cron`)
+- Permissions are read-only (`contents: read`).
+- Generated run artifacts are uploaded as Actions artifacts only (no repository writeback/commit of generated outputs).
+- This workflow is a diagnostic/research runtime (shadow-live), not trading automation.
+- Daily run is blocking and primary.
+- Evaluation replay/export is blocking and required after daily run artifacts are written.
+- Intraday is diagnostic and non-blocking in the known current architecture state.
+- Known non-blocking intraday state:
+  - `reasons.intraday_skip_reason=\"missing_intraday_cycle_context\"`
+  - `execution_attempted=false`
+- Forbidden runtime outputs remain forbidden:
+  - manifest bodies under `reports/runs/**.manifest.json`
+  - active writes under `reports/analysis/**`
+- Allowed shadow-live output roots are explicitly bounded to:
+  - `artifacts/`
+  - `data/`
+  - `evaluation/exports/`
+  - `evaluation/replay/`
+  - `logs/`
+  - `reports/runs/`
+  - `reports/daily/` (optional convenience copies)
+  - `reports/index/` (optional convenience/index copies)
+  - `snapshots/runs/`
+  - `snapshots/history/ohlcv/`
+- Node.js runtime stance for GitHub JavaScript actions in this workflow:
+  - prefer Node-24-compatible action versions;
+  - enforce Node 24 execution via `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=\"true\"`;
+  - do not use `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true`.
+
 
 ## Analysis Script Runner Operations Contract (Ticket 19)
 

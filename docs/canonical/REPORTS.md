@@ -131,3 +131,17 @@ Semantics:
 - Final artifacts use temp-file then atomic rename.
 - Index files are updated only after run artifacts are finalized successfully.
 - For identical input and config, report content and ordering are deterministic.
+
+## Shadow-Live reporting overlay (Ticket 22)
+- Shadow-live workflow emits one top-level workflow summary file:
+  - `shadow-live-report.json`
+- `shadow-live-report.json` is a workflow-orchestration summary (diagnostic/research) and does not replace canonical per-run `report.json` contracts.
+- Shadow-live artifact uploads must include:
+  - `shadow-live-report.json`
+  - `snapshots/runs/**`
+  - `reports/runs/**`
+  - `evaluation/exports/**`
+  - `evaluation/replay/**`
+- Optional convenience uploads (non-blocking if absent):
+  - `reports/daily/**`
+  - `reports/index/**`
