@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-27 08:29 UTC  
+**Last Updated:** 2026-04-27 08:42 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -20,7 +20,7 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 - **Total Modules:** 102
 - **Total Classes:** 61
-- **Total Functions:** 739
+- **Total Functions:** 740
 
 ---
 
@@ -794,9 +794,9 @@ This Code Map provides a comprehensive structural overview of the Spot Altcoin S
 
 ### 📄 `scanner/runners/intraday.py`
 
-**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _intraday_diag_from_row, _latest_completed_intraday_bar_id, _legacy_ms_intraday_id_to_canonical, _normalize_legacy_run_metadata_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _validate_runtime_intraday_bar_id, _write_intraday_manifest, _write_intraday_noop_report, run_intraday_scan`
+**Functions:** `_create_run_metadata, _default_context_provider, _default_refresh_provider, _diag, _finish_run_metadata, _intraday_diag_from_row, _intraday_row_has_attachable_execution_context, _latest_completed_intraday_bar_id, _legacy_ms_intraday_id_to_canonical, _normalize_legacy_run_metadata_intraday_bar_id, _select_monitoring_universe, _utc_now_iso, _validate_runtime_intraday_bar_id, _write_intraday_manifest, _write_intraday_noop_report, run_intraday_scan`
 
-**Module Variables:** `bucket, builder, by_symbol, cache_intraday, can_attach_execution, candidate, confidence, conn, context_provider, current_setup_cycle_id` _(+43 more)_
+**Module Variables:** `bucket, builder, by_symbol, cache_intraday, can_attach_execution, candidate, confidence, conn, context_provider, current_setup_cycle_id` _(+48 more)_
 
 **Imports:** `__future__, datetime, json, logging, pathlib, scanner.config, scanner.data.bar_clock, scanner.execution` _(+6 more)_
 
@@ -1891,6 +1891,7 @@ _This section shows which functions call which other functions, helping identify
 | `_diag` | `_utc_now_iso` | `validate_diagnostics_record` |
 | `_finish_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
 | `_intraday_diag_from_row` | `_utc_now_iso` | `get` |
+| `_intraday_row_has_attachable_execution_context` | — | `get` |
 | `_latest_completed_intraday_bar_id` | `_normalize_legacy_run_metadata_intraday_bar_id` | `execute`, `fetchone` |
 | `_legacy_ms_intraday_id_to_canonical` | — | `ValueError`, `fromtimestamp`, `strftime` |
 | `_normalize_legacy_run_metadata_intraday_bar_id` | `_legacy_ms_intraday_id_to_canonical` | `TypeError`, `has_new_intraday_bar`, `isdigit`, `strip` |
@@ -1899,7 +1900,7 @@ _This section shows which functions call which other functions, helping identify
 | `_validate_runtime_intraday_bar_id` | — | `TypeError`, `has_new_intraday_bar`, `strip` |
 | `_write_intraday_manifest` | — | `dumps`, `mkdir`, `write_text` |
 | `_write_intraday_noop_report` | `_utc_now_iso`, `_write_intraday_manifest` | `build_run_manifest_path`, `cwd`, `info`, `make_report_builder`, `write_run_report` |
-| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_intraday_diag_from_row`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_validate_runtime_intraday_bar_id`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `add`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `items`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `update`, `uuid4`, `validate_diagnostics_record`, `warning` |
+| `run_intraday_scan` | `_create_run_metadata`, `_diag`, `_finish_run_metadata`, `_intraday_diag_from_row`, `_intraday_row_has_attachable_execution_context`, `_latest_completed_intraday_bar_id`, `_select_monitoring_universe`, `_validate_runtime_intraday_bar_id`, `_write_intraday_noop_report` | `Path`, `RuntimeError`, `ValueError`, `add`, `append`, `close`, `compute_daily_bar_id`, `context_provider`, `evaluate_execution_subset`, `get`, `get_last_closed_intraday_bar_id`, `has_new_intraday_bar`, `init_db`, `items`, `now`, `postdecision_provider`, `predecision_provider`, `refresh_provider`, `select_execution_subset`, `update`, `uuid4`, `validate_diagnostics_record`, `warning` |
 
 ### 📄 scanner/state/cycle.py
 
@@ -2154,7 +2155,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/runners/daily.py` | 9 | 67 | 76 | 🔴 High |
-| `scanner/runners/intraday.py` | 16 | 55 | 71 | 🔴 High |
+| `scanner/runners/intraday.py` | 17 | 56 | 73 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
@@ -2246,4 +2247,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-27 08:29 UTC_
+_Generated by GitHub Actions • 2026-04-27 08:42 UTC_
