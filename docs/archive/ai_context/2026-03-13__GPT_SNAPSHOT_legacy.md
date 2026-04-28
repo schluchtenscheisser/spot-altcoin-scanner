@@ -1,3 +1,27 @@
+# SUPERSEDED — DO NOT USE AS CURRENT CONTEXT
+
+This file is a historical pre-Independence / early scanner GPT snapshot.
+
+It must not be used as current architecture, runtime, output, or implementation context for the Independence Release.
+
+Reason:
+- This snapshot describes the old scanner architecture before the completed Independence Release migration.
+- It contains stale assumptions about pipeline structure, scoring, ranking, CLI modes, output paths, and documentation authority.
+- The current repository has moved to the Independence Release architecture with Daily Discovery, Intraday Promotion, evaluation-ready diagnostics, and Shadow-Live workflows.
+
+Current AI context:
+- Use `docs/GPT_SNAPSHOT.md` for the current generated/current snapshot.
+- Use `docs/AI_CONTEXT_CURRENT.md` for active AI-context routing and authority guidance.
+- Use `docs/code_map.md` only as a generated structural map, not as authority.
+- Use the v2.1 section documents and `independence_release_gesamtkonzept_final.md` as historical build-spec authority until replaced by validated current-state canonical documentation.
+
+Historical archive location:
+`docs/archive/ai_context/2026-03-13__GPT_SNAPSHOT_legacy.md`
+
+Do not copy implementation assumptions from this file into new tickets, code changes, reviews, or AI prompts unless explicitly discussing legacy history.
+
+
+
 # Spot Altcoin Scanner • GPT Snapshot
 
 **Generated:** 2026-03-13 06:08 UTC  
