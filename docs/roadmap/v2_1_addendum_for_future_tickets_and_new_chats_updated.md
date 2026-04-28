@@ -1,3 +1,34 @@
+# SUPERSEDED — HISTORICAL WORKING CONTEXT ONLY
+
+This document is superseded as a current AI/chat onboarding context.
+
+It was created as supplemental working context for the Independence Release after the early implementation phase, especially around the state where Tickets 1–3 had been implemented.
+
+It must not be used as the current implementation status or current ticket-planning baseline.
+
+Reason:
+- The Independence Release implementation has progressed beyond the state described here.
+- T1–T22 and T21.1 are now implemented.
+- Shadow-Live Daily is active / available.
+- Diagnostics are evaluation-ready after T21 / T21.1.
+- T22 introduced the Shadow-Live workflow.
+- Several questions marked open in this document have since been resolved, narrowed, or moved into later implementation / roadmap context.
+
+Current use:
+- Historical build and planning context only.
+- Useful for understanding why certain architecture decisions were made.
+- Not sufficient as a current repository or runtime description.
+
+Current AI context:
+- Use `docs/AI_CONTEXT_CURRENT.md` for current AI-context routing.
+- Use `docs/GPT_SNAPSHOT.md` for the current GPT snapshot.
+- Use `docs/code_map.md` only as a generated structural map.
+- Use the v2.1 section documents and `independence_release_gesamtkonzept_final.md` as historical build-spec authority until replaced by validated current-state canonical documentation.
+
+Do not treat this document's implementation-status statements or open-question list as current without checking the latest repo state, tickets, and current AI context.
+
+---
+
 # v2.1 / Independence-Release — Zusatzkontext für weitere Ticket-Arbeit ab Status „Tickets 1–3 umgesetzt“
 
 ## Zweck dieses Dokuments
