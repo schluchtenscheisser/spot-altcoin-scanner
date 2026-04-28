@@ -154,15 +154,15 @@ Rules:
 ## 6) Canonical Mode and `scan_mode` Contracts
 
 ### SQLite / runner-level run metadata
-Valid `run_metadata.scan_mode` values:
+Canonical persisted/runtime `run_metadata.scan_mode` values in the current implementation:
 
 ```text
-daily_discovery
-intraday_promotion
+daily
+intraday
 ```
 
 ### Report / diagnostics output
-Valid report and diagnostics `scan_mode` values:
+Canonical report and diagnostics `scan_mode` values in the current implementation:
 
 ```text
 daily
@@ -170,8 +170,10 @@ intraday
 ```
 
 Rules:
+- `daily` and `intraday` are the canonical persisted/runtime/report/diagnostics scan_mode values in current repo reality.
+- `daily_discovery` and `intraday_promotion` may be used only as conceptual runner/workflow labels in docs/discussion.
+- Do not enforce `daily_discovery` or `intraday_promotion` as SQLite `run_metadata.scan_mode` values unless an explicit future migration updates schema, all writers, and tests.
 - Do not use `daily_discovery` or `intraday_promotion` as report/diagnostics output `scan_mode` values.
-- Do not use `daily` or `intraday` as SQLite `run_metadata.scan_mode` values.
 - Do not reintroduce legacy runtime modes as active Independence modes.
 
 Deprecated/legacy active-mode assumptions:
@@ -290,8 +292,8 @@ report-side run.manifest.json
 fast / standard / offline / backtest as active scanner modes
 report/diagnostics scan_mode = daily_discovery
 report/diagnostics scan_mode = intraday_promotion
-SQLite run_metadata.scan_mode = daily
-SQLite run_metadata.scan_mode = intraday
+SQLite run_metadata.scan_mode = daily_discovery
+SQLite run_metadata.scan_mode = intraday_promotion
 global_score as active decision contract
 GLOBAL_RANKING_TOP20 as active output contract
 legacy BTC-regime multiplier scoring
@@ -312,7 +314,7 @@ Stop before making changes if any applies:
 3. Ticket asks for active outputs in `reports/analysis/`.
 4. Ticket introduces or requires report-side manifest files.
 5. Ticket uses report/diagnostics `scan_mode = daily_discovery` or `intraday_promotion`.
-6. Ticket uses SQLite `run_metadata.scan_mode = daily` or `intraday`.
+6. Ticket introduces `daily_discovery` or `intraday_promotion` as persisted SQLite `run_metadata.scan_mode` values without explicit schema, writer, and test migration scope.
 7. Ticket edits `scanner/pipeline/*` as active architecture without explicit justification.
 8. Ticket reintroduces legacy global ranking, `global_score`, BTC-regime multipliers, or legacy base-score multipliers.
 9. Ticket relies on live SQLite as primary Evaluation Replay input.
