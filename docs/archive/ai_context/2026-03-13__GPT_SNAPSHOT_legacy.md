@@ -20,7 +20,7 @@ Historical archive location:
 
 Do not copy implementation assumptions from this file into new tickets, code changes, reviews, or AI prompts unless explicitly discussing legacy history.
 
-
+---
 
 # Spot Altcoin Scanner • GPT Snapshot
 
