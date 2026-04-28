@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # Ticket 0.1A — Replace stale Codex workflow with Independence-safe workflow
 
 ## Status
