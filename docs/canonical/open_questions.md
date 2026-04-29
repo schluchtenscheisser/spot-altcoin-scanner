@@ -104,4 +104,15 @@ Resolved Intraday rule:
 
 ### 5) Stablecoins are not filtered
 
-Question: is there a filter for stable coins? If yes, it might not work correctly.
+TUSDUSDT — Tag 2 confirmed, Tag 3 confirmed. Zwei aufeinanderfolgende Tage — aber TUSD ist ein Stablecoin. Das ist ein klarer False-Positive-Kandidat für die Eligibility. Stablecoins sollten eigentlich durch den Market-Cap- oder Listing-Age-Filter rausfallen, oder die Spec muss einen expliziten Stablecoin-Ausschluss vorsehen.
+
+---
+
+### 6) Intraday smoke test vs. Full-Universe
+
+Smoke-Test vs. Full-Universe zeigen unterschiedliches Intraday-Verhalten — wahrscheinlich kein Bug, aber Ursache noch nicht verifiziert.
+
+---
+
+### 7) Strukturelle Beobachtung Tag 2: Evaluation Replay akkumuliert nicht
+`run_count: 1` an beiden Tagen. Das ist korrekt nach T18-Design — der Replay liest aus dem Run-Artefakt der jeweiligen Sitzung, nicht aus einem persistenten Event-Store. Das bedeutet: Die Evaluation baut aktuell keine tagesübergreifende Event-Historie auf. Für echte Forward-Return-Auswertung (z.B. "Was hat TURTLEUSDT nach dem confirmed-Signal gemacht?") braucht es später entweder einen akkumulierenden Event-Store oder ein separates Analysis-Script, das mehrere Replay-Artefakte zusammenführt.
