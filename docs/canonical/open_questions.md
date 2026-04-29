@@ -99,3 +99,9 @@ Resolved Intraday rule:
 - Intraday execution subset selection follows Abschnitt 6 §8.2 inside the reduced intraday monitoring universe.
 - No fachlicher Top-N cap is applied.
 - Optional intraday execution-subset limits are technical safeguards only (hard-fail / run-incomplete guard), never silent ranking-based truncation.
+
+---
+
+### 5) Stablecoins are not filtered
+
+Question: is there a filter for stable coins? If yes, it might not work correctly.
