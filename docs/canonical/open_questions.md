@@ -116,3 +116,23 @@ Smoke-Test vs. Full-Universe zeigen unterschiedliches Intraday-Verhalten — wah
 
 ### 7) Strukturelle Beobachtung Tag 2: Evaluation Replay akkumuliert nicht
 `run_count: 1` an beiden Tagen. Das ist korrekt nach T18-Design — der Replay liest aus dem Run-Artefakt der jeweiligen Sitzung, nicht aus einem persistenten Event-Store. Das bedeutet: Die Evaluation baut aktuell keine tagesübergreifende Event-Historie auf. Für echte Forward-Return-Auswertung (z.B. "Was hat TURTLEUSDT nach dem confirmed-Signal gemacht?") braucht es später entweder einen akkumulierenden Event-Store oder ein separates Analysis-Script, das mehrere Replay-Artefakte zusammenführt.
+
+---
+
+### 8) Kleiner offener Punkt: reports/index/latest.json
+
+reports/index/latest_daily.json enthält die T23-Felder.
+reports/index/latest.json enthält sie nicht, weil latest.json nach dem Intraday-Run offenbar auf den letzten Gesamt-Run zeigt und damit aktuell den Intraday-Report repräsentiert.
+
+Das ist kein Blocker, solange eure Index-Semantik lautet:
+
+latest.json = latest run, egal ob daily oder intraday
+latest_daily.json = latest daily run
+
+Dann ist alles sauber.
+
+Falls das Review-Kommentar wörtlich meinte, dass auch reports/index/latest.json nach dem Daily-Step T23-Felder enthalten muss, kollidiert das mit der aktuellen Intraday-Overwrite-Semantik. Ich würde das nicht als T23-Fix behandeln, sondern höchstens später dokumentieren/klären:
+
+Index semantics: latest overall vs latest_daily
+
+Für T23 reicht aus meiner Sicht: latest_daily.json und canonical reports/runs/**/daily.../report.json enthalten die Classification.
