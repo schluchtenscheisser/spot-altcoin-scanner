@@ -188,6 +188,18 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
         if not isinstance(block, Mapping):
             raise ValueError(f"diagnostics.{block_key} must be object")
         out[block_key] = dict(block)
+    universe_block = record.get("universe")
+    if universe_block is None:
+        universe_block = {
+            "universe_category": "classic_crypto",
+            "universe_category_confidence": "low",
+            "universe_category_reason": "no_non_classic_rule_matched",
+            "candidate_excluded": False,
+            "candidate_exclusion_reason": None,
+        }
+    if not isinstance(universe_block, Mapping):
+        raise ValueError("diagnostics.universe must be object")
+    out["universe"] = dict(universe_block)
 
     out["execution_attempted"] = _require_bool("execution_attempted", record.get("execution_attempted", False))
     out["execution_status_raw"] = _require_nullable_str("execution_status_raw", record.get("execution_status_raw"))

@@ -33,6 +33,7 @@ from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
 from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
 from scanner.storage import apply_state_persistence_patch, init_db, load_persisted_state_machine_context
+from scanner.universe.classification import classify_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,58 @@ def _to_cycle_context(persisted: Any) -> PersistedStateCycleContext:
         reclaim_below_reset_floor_seen_since_cycle_end=getattr(persisted, "reclaim_below_reset_floor_seen_since_cycle_end"),
     )
 
+
+def _build_ticket23_report_payload(
+    *,
+    ranked: list[RankedDecision],
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    active_buckets = ("confirmed_candidates", "early_candidates", "watchlist", "late_monitor")
+    category_counts_total: dict[str, int] = {}
+    category_counts_by_bucket: dict[str, dict[str, int]] = {b: {} for b in active_buckets}
+    excluded_counts_by_bucket: dict[str, int] = {b: 0 for b in active_buckets}
+    segmented_tradable_buckets: dict[str, dict[str, list[dict[str, Any]]]] = {b: {} for b in active_buckets}
+    excluded_candidate_buckets: dict[str, list[dict[str, Any]]] = {b: [] for b in active_buckets}
+    tradable_buckets: dict[str, list[dict[str, Any]]] = {b: [] for b in active_buckets}
+    diag_by_symbol = {d["symbol"]: d for d in diagnostics}
+    bucket_by_symbol = {x.symbol: x.decision.decision_bucket.value for x in ranked}
+    for symbol, diag in diag_by_symbol.items():
+        bucket = bucket_by_symbol.get(symbol)
+        if bucket not in active_buckets:
+            continue
+        universe = diag["universe"]
+        cat = universe["universe_category"]
+        category_counts_total[cat] = category_counts_total.get(cat, 0) + 1
+        category_counts_by_bucket[bucket][cat] = category_counts_by_bucket[bucket].get(cat, 0) + 1
+        item = {
+            "symbol": symbol,
+            "decision_bucket": bucket,
+            "priority_score": diag.get("decision", {}).get("priority_score"),
+            "execution_status_raw": diag.get("execution_status_raw"),
+            "execution_pass": diag.get("execution_pass"),
+            **universe,
+        }
+        if universe["candidate_excluded"]:
+            excluded_counts_by_bucket[bucket] += 1
+            excluded_candidate_buckets[bucket].append(item)
+        else:
+            tradable_buckets[bucket].append(item)
+            segmented_tradable_buckets[bucket].setdefault(cat, []).append(item)
+
+    return {
+        "universe_classification": {
+            "category_counts_total": category_counts_total,
+            "category_counts_by_bucket": category_counts_by_bucket,
+            "candidate_exclusion_counts_by_bucket": excluded_counts_by_bucket,
+            "candidate_excluded_symbol_count": sum(excluded_counts_by_bucket.values()),
+        },
+        "candidate_segments": {
+            "tradable_buckets": tradable_buckets,
+            "excluded_candidate_buckets": excluded_candidate_buckets,
+            "segmented_tradable_buckets": segmented_tradable_buckets,
+        },
+    }
+
 def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     daily_id = _validate_as_of_date(as_of_date)
     run_id = f"daily-{daily_id}-{uuid.uuid4().hex[:12]}"
@@ -195,6 +248,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "market_phase_confidence": phase.market_phase_confidence,
                     "state_machine_state": state_bundle.state_machine_state,
                     "data_4h_available": bool(features.data_4h_available),
+                    "universe": classify_symbol(symbol),
                 }
                 ranked_inputs.append(
                     RankedDecision(
@@ -272,6 +326,13 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                         decision,
                         execution_diagnostics=execution_diag,
                     ),
+                    "universe": {
+                        "universe_category": ctx["universe"].universe_category,
+                        "universe_category_confidence": ctx["universe"].universe_category_confidence,
+                        "universe_category_reason": ctx["universe"].universe_category_reason,
+                        "candidate_excluded": ctx["universe"].candidate_excluded,
+                        "candidate_exclusion_reason": ctx["universe"].candidate_exclusion_reason,
+                    },
                     "execution_attempted": False,
                     "execution_status_raw": None,
                     "execution_reason_raw": None,
@@ -293,6 +354,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
         project_root = Path.cwd()
         manifest_path = _persist_run_manifest(project_root, daily_id, run_id, ranked)
         builder = make_report_builder(project_root=project_root, config=cfg.raw)
+        ticket23_payload = _build_ticket23_report_payload(ranked=ranked, diagnostics=diagnostics)
         report = builder.write_run_report(
             run_id=run_id,
             scan_mode="daily",
@@ -309,6 +371,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 "late_monitor": len(symbol_lists["late_monitor"]),
                 "discarded": max(0, len(ranked) - sum(len(v) for v in symbol_lists.values())),
             },
+            extra_report_fields=ticket23_payload,
         )
         builder.write_daily_report(report)
     except Exception:

@@ -58,3 +58,7 @@ Bootstrap placeholder text was `none yet` before deferred entries were added.
     - define a reusable canonical pattern for ranking-ready records
     - standardize which fields must be present for deterministic ranking
     - reduce repeated clarification effort in later tickets touching ranking or downstream reporting
+
+- **Meme/community-token classification (deferred)**
+  - Source context: Ticket 23 intentionally does not add `meme_or_community_token` due to missing deterministic in-repo taxonomy.
+  - Future enhancement scope: add deterministic/manual mapping or an approved external taxonomy with explicit confidence + fallback semantics before enabling.

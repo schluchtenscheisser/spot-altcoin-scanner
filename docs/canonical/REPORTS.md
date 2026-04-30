@@ -145,3 +145,9 @@ Semantics:
 - Optional convenience uploads (non-blocking if absent):
   - `reports/daily/**`
   - `reports/index/**`
+
+- **Universe classification + candidate segmentation (Ticket 23)**
+  - Adds additive report blocks `universe_classification` and `candidate_segments` while keeping existing raw `counts_by_bucket` and `symbol_lists` backward-compatible.
+  - Introduces deterministic categories: `classic_crypto`, `stable_or_cash_proxy`, `leveraged_or_margin_token`, `tokenized_stock_or_etf`, `commodity_or_index_proxy`, `wrapped_or_synthetic_btc`, `unknown`.
+  - Candidate-facing exclusion applies only to `stable_or_cash_proxy` and `leveraged_or_margin_token`; raw bucket outputs remain unchanged.
+  - Daily diagnostics include a mandatory `universe` block with `universe_category`, `universe_category_confidence`, `universe_category_reason`, `candidate_excluded`, `candidate_exclusion_reason`.
