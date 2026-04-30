@@ -30,6 +30,13 @@ def _stub_diag(symbol: str = "STUBUSDT") -> dict:
         "pattern": {},
         "decision": {},
         "reasons": {},
+        "universe": {
+            "universe_category": "classic_crypto",
+            "universe_category_confidence": "low",
+            "universe_category_reason": "no_non_classic_rule_matched",
+            "candidate_excluded": False,
+            "candidate_exclusion_reason": None,
+        },
     }
 
 
@@ -79,6 +86,10 @@ def test_write_run_report_and_indexes(tmp_path: Path) -> None:
         },
         manifest_path="snapshots/runs/2025/12/31/opaque-run-id/run.manifest.json",
         diagnostics_records=[_stub_diag("AAAUSDT"), _stub_diag("BBBUSDT")],
+        extra_report_fields={
+            "universe_classification": {"candidate_excluded_symbol_count": 1},
+            "candidate_segments": {"tradable_buckets": {"confirmed_candidates": []}},
+        },
     )
 
     assert report["schema_version"] == SCHEMA_VERSION
@@ -106,6 +117,9 @@ def test_write_run_report_and_indexes(tmp_path: Path) -> None:
     latest = json.loads((tmp_path / "reports" / "index" / "latest.json").read_text(encoding="utf-8"))
     persisted_report = json.loads(report_path.read_text(encoding="utf-8"))
     assert latest == persisted_report
+    assert "universe_classification" in persisted_report
+    assert "candidate_segments" in persisted_report
+    assert "universe_classification" in latest
 
     latest_confirmed = json.loads(
         (tmp_path / "reports" / "index" / "latest_confirmed_candidates.json").read_text(encoding="utf-8")
@@ -155,6 +169,10 @@ def test_write_daily_report_and_latest_daily(tmp_path: Path) -> None:
         symbol_lists={},
         manifest_path="snapshots/runs/2026/01/04/run-daily/run.manifest.json",
         diagnostics_records=[_stub_diag("AAAUSDT")],
+        extra_report_fields={
+            "universe_classification": {"candidate_excluded_symbol_count": 0},
+            "candidate_segments": {"tradable_buckets": {"confirmed_candidates": []}},
+        },
     )
 
     builder.write_daily_report(report)
@@ -163,6 +181,11 @@ def test_write_daily_report_and_latest_daily(tmp_path: Path) -> None:
     assert daily_path.exists()
     latest_daily = json.loads((tmp_path / "reports" / "index" / "latest_daily.json").read_text(encoding="utf-8"))
     assert latest_daily == json.loads(daily_path.read_text(encoding="utf-8"))
+    run_report_path = tmp_path / "reports" / "runs" / "2026" / "01" / "04" / "run-daily" / "report.json"
+    run_payload = json.loads(run_report_path.read_text(encoding="utf-8"))
+    daily_payload = json.loads(daily_path.read_text(encoding="utf-8"))
+    assert run_payload["universe_classification"] == daily_payload["universe_classification"]
+    assert run_payload["candidate_segments"] == daily_payload["candidate_segments"]
 
 
 def test_diagnostics_gzip_bytes_are_deterministic(tmp_path: Path) -> None:

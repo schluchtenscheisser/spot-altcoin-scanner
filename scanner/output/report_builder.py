@@ -67,6 +67,7 @@ class ReportBuilder:
         manifest_path: str,
         diagnostics_records: Iterable[Mapping[str, Any]],
         counts_by_bucket: Mapping[str, int] | None = None,
+        extra_report_fields: Mapping[str, Any] | None = None,
     ) -> Dict[str, Any]:
         symbol_lists_normalized = normalize_symbol_lists(symbol_lists)
         counts = normalize_counts_by_bucket(counts_by_bucket)
@@ -97,6 +98,9 @@ class ReportBuilder:
             manifest_path=manifest_path,
             diagnostics_path=diagnostics_path_rel.as_posix(),
         ).to_dict()
+        if extra_report_fields is not None:
+            for key, value in extra_report_fields.items():
+                report[str(key)] = value
         _atomic_write_json(self.project_root / report_path_rel, report)
 
         self._update_index_after_run(report=report, report_path=report_path_rel.as_posix())
