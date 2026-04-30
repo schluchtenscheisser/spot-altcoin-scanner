@@ -36,6 +36,13 @@ def _base_record() -> dict:
         "pattern": {},
         "decision": {},
         "reasons": {},
+        "universe": {
+            "universe_category": "classic_crypto",
+            "universe_category_confidence": "low",
+            "universe_category_reason": "no_non_classic_rule_matched",
+            "candidate_excluded": False,
+            "candidate_exclusion_reason": None,
+        },
         "execution_attempted": False,
         "execution_status_raw": None,
         "execution_reason_raw": None,

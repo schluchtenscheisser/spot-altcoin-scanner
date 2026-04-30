@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # Title
 [P1] Add Universe Classification and Backward-Compatible Candidate Segmentation (Ticket 23)
 
