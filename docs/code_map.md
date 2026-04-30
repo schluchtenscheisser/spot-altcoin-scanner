@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-04-30 12:39 UTC  
+**Last Updated:** 2026-04-30 13:58 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -65,9 +65,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 102
-- **Total Classes:** 61
-- **Total Functions:** 740
+- **Total Modules:** 103
+- **Total Classes:** 62
+- **Total Functions:** 743
 
 ---
 
@@ -505,7 +505,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, normalize_counts_by_bucket, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
 
-**Module Variables:** `COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, block, current_setup_cycle_id, cycle, cycle_id_present, cycle_required_states` _(+12 more)_
+**Module Variables:** `COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, block, current_setup_cycle_id, cycle, cycle_id_present, cycle_required_states` _(+13 more)_
 
 **Imports:** `__future__, dataclasses, datetime, re, typing`
 
@@ -831,11 +831,11 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ### 📄 `scanner/runners/daily.py`
 
-**Functions:** `_create_run_metadata, _default_ohlcv, _default_universe, _derive_runtime_context, _finish_run_metadata, _persist_run_manifest, _to_cycle_context, _utc_now_iso, _validate_as_of_date, run_daily_scan`
+**Functions:** `_build_ticket23_report_payload, _create_run_metadata, _default_ohlcv, _default_universe, _derive_runtime_context, _finish_run_metadata, _persist_run_manifest, _to_cycle_context, _utc_now_iso, _validate_as_of_date, run_daily_scan`
 
-**Module Variables:** `bar_clock_context, bars_1d, bars_4h, builder, conn, contract, current, current_bar_index, current_close, daily_id` _(+38 more)_
+**Module Variables:** `active_buckets, bar_clock_context, bars_1d, bars_4h, bucket, bucket_by_symbol, builder, cat, conn, contract` _(+46 more)_
 
-**Imports:** `__future__, datetime, json, logging, pathlib, scanner.axes, scanner.config, scanner.data` _(+16 more)_
+**Imports:** `__future__, datetime, json, logging, pathlib, scanner.axes, scanner.config, scanner.data` _(+17 more)_
 
 ---
 
@@ -1030,6 +1030,18 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 **Functions:** —
 
 **Imports:** `eligibility, market_data_budget`
+
+---
+
+### 📄 `scanner/universe/classification.py`
+
+**Classes:** `UniverseClassification`
+
+**Functions:** `_base_symbol, classify_symbol`
+
+**Module Variables:** `CANDIDATE_EXCLUDED_CATEGORIES, base, exact, excluded`
+
+**Imports:** `__future__, dataclasses, re`
 
 ---
 
@@ -1533,7 +1545,7 @@ _This section shows which functions call which other functions, helping identify
 | `_update_index_after_run` | `_atomic_write_json`, `_atomic_write_text`, `_sort_newest_first` | `exists`, `get`, `loads`, `mkdir`, `read_text` |
 | `make_report_builder` | — | `ReportBuilder` |
 | `write_daily_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id` | `mkdir` |
-| `write_run_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id`, `_update_index_after_run` | `RunReport`, `as_posix`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `relative_to`, `to_dict`, `write_symbol_diagnostics_jsonl_gz` |
+| `write_run_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id`, `_update_index_after_run` | `RunReport`, `as_posix`, `items`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `relative_to`, `to_dict`, `write_symbol_diagnostics_jsonl_gz` |
 
 ### 📄 scanner/output/schema.py
 
@@ -1921,6 +1933,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_build_ticket23_report_payload` | — | `append`, `get`, `items`, `setdefault`, `values` |
 | `_create_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
 | `_derive_runtime_context` | — | `StateRuntimeContext`, `ValueError` |
 | `_finish_run_metadata` | `_utc_now_iso` | `commit`, `execute` |
@@ -1928,7 +1941,7 @@ _This section shows which functions call which other functions, helping identify
 | `_to_cycle_context` | — | `PersistedStateCycleContext` |
 | `_utc_now_iso` | — | `now`, `strftime` |
 | `_validate_as_of_date` | — | `ValueError`, `compute_daily_bar_id`, `date`, `fromisoformat`, `isoformat`, `now` |
-| `run_daily_scan` | `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
+| `run_daily_scan` | `_build_ticket23_report_payload`, `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `classify_symbol`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
 
 ### 📄 scanner/runners/intraday.py
 
@@ -2120,6 +2133,13 @@ _This section shows which functions call which other functions, helping identify
 | `_emit` | — | `dumps` |
 | `validate_features` | `_emit`, `_error`, `_is_number` | `append`, `exists`, `get`, `items`, `load` |
 
+### 📄 scanner/universe/classification.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_base_symbol` | — | `endswith` |
+| `classify_symbol` | `_base_symbol` | `UniverseClassification`, `endswith`, `search` |
+
 ### 📄 scanner/universe/eligibility.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2199,9 +2219,9 @@ _Modules with high external call counts may benefit from refactoring._
 |--------|----------------|----------------|-------|----------|
 | `scanner/config.py` | 108 | 130 | 238 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
+| `scanner/runners/daily.py` | 10 | 73 | 83 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
-| `scanner/runners/daily.py` | 9 | 67 | 76 | 🔴 High |
 | `scanner/runners/intraday.py` | 17 | 56 | 73 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
@@ -2218,7 +2238,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/data/bar_clock.py` | 10 | 29 | 39 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/tools/backfill_btc_regime.py` | 11 | 27 | 38 | 🔴 High |
-| `scanner/output/report_builder.py` | 9 | 27 | 36 | 🔴 High |
+| `scanner/output/report_builder.py` | 9 | 28 | 37 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/pipeline/scoring/pullback.py` | 9 | 27 | 36 | 🔴 High |
 | `scanner/clients/mexc_client.py` | 7 | 28 | 35 | 🔴 High |
@@ -2272,6 +2292,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/universe/eligibility.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
+| `scanner/universe/classification.py` | 1 | 4 | 5 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
 | `scanner/decision/models.py` | 0 | 2 | 2 | 🔴 High |
 | `scanner/decision/reasons.py` | 0 | 2 | 2 | 🔴 High |
@@ -2297,4 +2318,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-04-30 12:39 UTC_
+_Generated by GitHub Actions • 2026-04-30 13:58 UTC_
