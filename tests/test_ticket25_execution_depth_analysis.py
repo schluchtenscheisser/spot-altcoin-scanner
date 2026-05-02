@@ -53,6 +53,7 @@ def test_script_aggregates_and_writes(tmp_path: Path) -> None:
     assert data["summary"]["total_structural"] == 4
     assert data["by_bucket"]["confirmed_candidates"]["failed"] == 2
     assert data["execution_reason_counts"]["depth_1pct_insufficient"] == 2
+    assert out_md.exists()
 
 
 def test_missing_t24_block_fails(tmp_path: Path) -> None:
@@ -62,3 +63,36 @@ def test_missing_t24_block_fails(tmp_path: Path) -> None:
     proc = subprocess.run([sys.executable, "scripts/analyze_execution_depth_shadow_live.py", "--run-dir", str(rd)], capture_output=True, text=True)
     assert proc.returncode != 0
     assert "T25 requires T24 execution-aware report fields" in (proc.stderr + proc.stdout)
+
+
+def test_empty_reports_root_fails_without_outputs(tmp_path: Path) -> None:
+    out_json = tmp_path / "reports" / "aux" / "none.json"
+    out_md = tmp_path / "reports" / "aux" / "none.md"
+    proc = subprocess.run([
+        sys.executable,
+        "scripts/analyze_execution_depth_shadow_live.py",
+        "--reports-root",
+        str(tmp_path / "reports" / "runs"),
+        "--output-json",
+        str(out_json),
+        "--output-md",
+        str(out_md),
+    ], capture_output=True, text=True)
+    assert proc.returncode != 0
+    assert "No analyzable T24 execution-aware reports were found." in (proc.stderr + proc.stdout)
+    assert not out_json.exists()
+    assert not out_md.exists()
+
+
+def test_discovery_only_non_daily_fails(tmp_path: Path) -> None:
+    run_dir = tmp_path / "reports" / "runs" / "2026" / "05" / "02" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "report.json").write_text(json.dumps(_report("r1", "2026-05-02", "2026-05-02T00:00:00Z", mode="intraday")), encoding="utf-8")
+    proc = subprocess.run([
+        sys.executable,
+        "scripts/analyze_execution_depth_shadow_live.py",
+        "--reports-root",
+        str(tmp_path / "reports" / "runs"),
+    ], capture_output=True, text=True)
+    assert proc.returncode != 0
+    assert "No analyzable T24 execution-aware reports were found." in (proc.stderr + proc.stdout)

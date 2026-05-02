@@ -13,6 +13,26 @@ OUTCOMES = ["direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution"
 TOP_SYMBOL_OUTCOMES = ["failed", "marginal", "unknown_execution", "direct_ok", "tranche_ok", "unexpected_execution_state"]
 COUNT_KEYS = ["structural", "execution_attempted", "executable", "direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "unexpected_execution_state", "not_attempted"]
 
+FORBIDDEN_OUTPUT_ROOTS = [
+    "reports/runs",
+    "reports/daily",
+    "reports/index",
+    "reports/archive",
+    "reports/analysis",
+    "snapshots/runs",
+    "snapshots/history",
+    "evaluation/replay",
+]
+
+
+def _normalized_repo_relative(path: Path, repo_root: Path) -> tuple[Path, Path | None]:
+    resolved = path.resolve()
+    try:
+        rel = resolved.relative_to(repo_root)
+    except ValueError:
+        rel = None
+    return resolved, rel
+
 
 def _counts() -> dict[str, int]:
     return {k: 0 for k in COUNT_KEYS}
@@ -36,11 +56,14 @@ def _require_count_block(block: dict[str, Any], where: str) -> dict[str, int]:
     return out
 
 
-def _check_output_path(path: Path) -> None:
-    p = path.as_posix()
-    for bad in ("reports/analysis", "reports/runs", "snapshots/runs"):
-        if p == bad or p.startswith(f"{bad}/"):
-            raise ValueError(f"Forbidden output path: {path}")
+def _check_output_path(path: Path, repo_root: Path) -> None:
+    _resolved, repo_relative = _normalized_repo_relative(path, repo_root)
+    if repo_relative is None:
+        return
+    rel_txt = repo_relative.as_posix()
+    for bad in FORBIDDEN_OUTPUT_ROOTS:
+        if rel_txt == bad or rel_txt.startswith(f"{bad}/"):
+            raise ValueError(f"Forbidden output path: {path} (normalized: {repo_relative})")
 
 
 def _discover_reports(reports_root: Path) -> list[Path]:
@@ -84,14 +107,17 @@ def main() -> None:
     if args.max_runs is not None and args.max_runs < 1:
         raise ValueError("--max-runs must be >= 1")
 
+    repo_root = Path.cwd().resolve()
     out_json = Path(args.output_json)
     out_md = Path(args.output_md)
-    _check_output_path(out_json)
-    _check_output_path(out_md)
+    _check_output_path(out_json, repo_root)
+    _check_output_path(out_md, repo_root)
 
     explicit = bool(args.run_dir)
     report_paths = [Path(d) / "report.json" for d in args.run_dir] if explicit else _discover_reports(Path(args.reports_root))
     rows = _load_reports(report_paths, explicit=explicit)
+    if not rows:
+        raise ValueError("No analyzable T24 execution-aware reports were found.")
 
     rows.sort(key=lambda r: (r["data"]["daily_bar_id"], r["data"]["as_of_utc"], r["data"]["run_id"]))
     if args.max_runs is not None:
