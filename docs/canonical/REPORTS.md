@@ -151,3 +151,11 @@ Semantics:
   - Introduces deterministic categories: `classic_crypto`, `stable_or_cash_proxy`, `leveraged_or_margin_token`, `tokenized_stock_or_etf`, `commodity_or_index_proxy`, `wrapped_or_synthetic_btc`, `unknown`.
   - Candidate-facing exclusion applies only to `stable_or_cash_proxy` and `leveraged_or_margin_token`; raw bucket outputs remain unchanged.
   - Daily diagnostics include a mandatory `universe` block with `universe_category`, `universe_category_confidence`, `universe_category_reason`, `candidate_excluded`, `candidate_exclusion_reason`.
+
+- **Execution-aware candidate segmentation (Ticket 24)**
+  - Adds additive daily report blocks only: `execution_aware_summary`, `execution_counts_by_bucket`, `execution_counts_by_universe_category`, `execution_counts_by_bucket_and_category`, `execution_aware_candidate_segments`.
+  - Existing `counts_by_bucket`, `symbol_lists`, `universe_classification`, and `candidate_segments` remain backward-compatible and unchanged in semantics.
+  - Execution-aware structural candidate views use Ticket 23 candidate-visible/tradable semantics (active candidate buckets with `candidate_excluded == false`), not raw bucket populations.
+  - Report-level recognized raw statuses are: `direct_ok`, `tranche_ok`, `marginal`, `fail`, `unknown`, and `null` for not-attempted symbols.
+  - Under valid current grader output, executable means `execution_pass == true` with `execution_status_raw` in `{direct_ok, tranche_ok}`. Contradictory combinations are surfaced as `unexpected_execution_state` and are not counted as executable.
+  - `marginal`, `failed`, `unknown_execution`, `not_attempted`, and `unexpected_execution_state` are always visible in counts/segments but non-executable.

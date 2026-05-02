@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import uuid
 from typing import Any
+from math import isfinite
 
 from scanner.axes import compute_tier1_axes, compute_tier2_axes
 from scanner.config import ScannerConfig
@@ -182,6 +183,163 @@ def _build_ticket23_report_payload(
         },
     }
 
+
+def _build_execution_aware_report_payload(
+    *,
+    ranked: list[RankedDecision],
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    active_buckets = ("confirmed_candidates", "early_candidates", "watchlist", "late_monitor")
+    metric_keys = (
+        "structural",
+        "execution_attempted",
+        "executable",
+        "unexpected_execution_state",
+        "direct_ok",
+        "tranche_ok",
+        "marginal",
+        "failed",
+        "unknown_execution",
+        "not_attempted",
+    )
+
+    def _empty_counts() -> dict[str, int]:
+        return {k: 0 for k in metric_keys}
+
+    def _segment_item(diag: dict[str, Any], *, bucket: str) -> dict[str, Any]:
+        universe = diag["universe"]
+        return {
+            "symbol": str(diag["symbol"]),
+            "decision_bucket": bucket,
+            "priority_score": diag.get("decision", {}).get("priority_score"),
+            "execution_status_raw": diag.get("execution_status_raw"),
+            "execution_reason_raw": diag.get("execution_reason_raw"),
+            "execution_pass": diag.get("execution_pass"),
+            "universe_category": universe.get("universe_category"),
+            "universe_category_confidence": universe.get("universe_category_confidence"),
+            "universe_category_reason": universe.get("universe_category_reason"),
+            "candidate_excluded": universe.get("candidate_excluded"),
+            "candidate_exclusion_reason": universe.get("candidate_exclusion_reason"),
+        }
+
+    def _item_sort_key(item: dict[str, Any]) -> tuple[int, float, str]:
+        raw = item.get("priority_score")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not isfinite(float(raw)):
+            return (1, 0.0, str(item.get("symbol", "")))
+        return (0, -float(raw), str(item.get("symbol", "")))
+
+    by_bucket = {bucket: _empty_counts() for bucket in active_buckets}
+    by_category: dict[str, dict[str, int]] = {}
+    by_bucket_category: dict[str, dict[str, dict[str, int]]] = {bucket: {} for bucket in active_buckets}
+    segments: dict[str, list[dict[str, Any]]] = {
+        "confirmed_structural": [],
+        "confirmed_executable": [],
+        "confirmed_unexpected_execution_state": [],
+        "confirmed_direct_ok": [],
+        "confirmed_tranche_ok": [],
+        "confirmed_marginal": [],
+        "confirmed_failed": [],
+        "confirmed_unknown_execution": [],
+        "confirmed_not_attempted": [],
+        "early_structural": [],
+        "early_executable": [],
+        "early_unexpected_execution_state": [],
+        "early_direct_ok": [],
+        "early_tranche_ok": [],
+        "early_marginal": [],
+        "early_failed": [],
+        "early_unknown_execution": [],
+        "early_not_attempted": [],
+        "watchlist_direct_ok": [],
+        "watchlist_tranche_ok": [],
+        "late_monitor_direct_ok": [],
+        "late_monitor_tranche_ok": [],
+    }
+    diag_by_symbol = {d["symbol"]: d for d in diagnostics}
+
+    def _inc(bucket: str, category: str, key: str) -> None:
+        by_bucket[bucket][key] += 1
+        by_category.setdefault(category, _empty_counts())[key] += 1
+        by_bucket_category[bucket].setdefault(category, _empty_counts())[key] += 1
+
+    for record in ranked:
+        symbol = record.symbol
+        bucket = record.decision.decision_bucket.value
+        if bucket not in active_buckets:
+            continue
+        diag = diag_by_symbol.get(symbol)
+        if diag is None:
+            continue
+        universe = diag["universe"]
+        if universe.get("candidate_excluded") is True:
+            continue
+        category = str(universe.get("universe_category"))
+        item = _segment_item(diag, bucket=bucket)
+        _inc(bucket, category, "structural")
+        status = diag.get("execution_status_raw")
+        attempted = bool(diag.get("execution_attempted"))
+        execution_pass = diag.get("execution_pass")
+
+        segment_prefix = "confirmed" if bucket == "confirmed_candidates" else "early" if bucket == "early_candidates" else None
+        if segment_prefix is not None:
+            segments[f"{segment_prefix}_structural"].append(item)
+
+        if attempted:
+            _inc(bucket, category, "execution_attempted")
+
+        classification = "unexpected_execution_state"
+        if not attempted:
+            classification = "not_attempted"
+        elif status is None:
+            classification = "unknown_execution"
+        elif status in {"direct_ok", "tranche_ok"}:
+            if execution_pass is True:
+                classification = status
+            else:
+                classification = "unexpected_execution_state"
+        elif status == "marginal":
+            classification = "marginal" if execution_pass is False else "unexpected_execution_state"
+        elif status == "fail":
+            classification = "failed"
+        elif status == "unknown":
+            classification = "unknown_execution"
+
+        _inc(bucket, category, classification)
+        if classification in {"direct_ok", "tranche_ok"}:
+            _inc(bucket, category, "executable")
+        if segment_prefix is not None and classification in {"executable", "unexpected_execution_state", "direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "not_attempted"}:
+            if classification in {"direct_ok", "tranche_ok"}:
+                segments[f"{segment_prefix}_executable"].append(item)
+            segments[f"{segment_prefix}_{classification}"].append(item)
+        if bucket in {"watchlist", "late_monitor"} and classification in {"direct_ok", "tranche_ok"}:
+            segments[f"{bucket}_{classification}"].append(item)
+
+    for value in segments.values():
+        value.sort(key=_item_sort_key)
+
+    summary = _empty_counts()
+    for counts in by_bucket.values():
+        for key in metric_keys:
+            summary[key] += counts[key]
+    return {
+        "execution_aware_summary": {
+            "total_structural_candidates": summary["structural"],
+            "total_execution_attempted": summary["execution_attempted"],
+            "total_executable": summary["executable"],
+            "total_unexpected_execution_state": summary["unexpected_execution_state"],
+            "total_direct_ok": summary["direct_ok"],
+            "total_tranche_ok": summary["tranche_ok"],
+            "total_marginal": summary["marginal"],
+            "total_failed": summary["failed"],
+            "total_unknown_execution": summary["unknown_execution"],
+            "total_not_attempted": summary["not_attempted"],
+        },
+        "execution_counts_by_bucket": by_bucket,
+        "execution_counts_by_universe_category": by_category,
+        "execution_counts_by_bucket_and_category": by_bucket_category,
+        "execution_aware_candidate_segments": segments,
+    }
+
 def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     daily_id = _validate_as_of_date(as_of_date)
     run_id = f"daily-{daily_id}-{uuid.uuid4().hex[:12]}"
@@ -355,6 +513,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
         manifest_path = _persist_run_manifest(project_root, daily_id, run_id, ranked)
         builder = make_report_builder(project_root=project_root, config=cfg.raw)
         ticket23_payload = _build_ticket23_report_payload(ranked=ranked, diagnostics=diagnostics)
+        execution_aware_payload = _build_execution_aware_report_payload(ranked=ranked, diagnostics=diagnostics)
         report = builder.write_run_report(
             run_id=run_id,
             scan_mode="daily",
@@ -371,7 +530,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 "late_monitor": len(symbol_lists["late_monitor"]),
                 "discarded": max(0, len(ranked) - sum(len(v) for v in symbol_lists.values())),
             },
-            extra_report_fields=ticket23_payload,
+            extra_report_fields={**ticket23_payload, **execution_aware_payload},
         )
         builder.write_daily_report(report)
     except Exception:
