@@ -208,10 +208,18 @@ def _build_execution_aware_report_payload(
 
     def _segment_item(diag: dict[str, Any], *, bucket: str) -> dict[str, Any]:
         universe = diag["universe"]
+        raw_priority_score = diag.get("decision", {}).get("priority_score")
+        priority_score: float | None = None
+        if (
+            isinstance(raw_priority_score, (int, float))
+            and not isinstance(raw_priority_score, bool)
+            and isfinite(float(raw_priority_score))
+        ):
+            priority_score = float(raw_priority_score)
         return {
             "symbol": str(diag["symbol"]),
             "decision_bucket": bucket,
-            "priority_score": diag.get("decision", {}).get("priority_score"),
+            "priority_score": priority_score,
             "execution_status_raw": diag.get("execution_status_raw"),
             "execution_reason_raw": diag.get("execution_reason_raw"),
             "execution_pass": diag.get("execution_pass"),
@@ -288,20 +296,17 @@ def _build_execution_aware_report_payload(
             _inc(bucket, category, "execution_attempted")
 
         classification = "unexpected_execution_state"
-        if not attempted:
+        if attempted is False and status is None and execution_pass is None:
             classification = "not_attempted"
-        elif status is None:
-            classification = "unknown_execution"
-        elif status in {"direct_ok", "tranche_ok"}:
-            if execution_pass is True:
-                classification = status
-            else:
-                classification = "unexpected_execution_state"
-        elif status == "marginal":
-            classification = "marginal" if execution_pass is False else "unexpected_execution_state"
-        elif status == "fail":
+        elif status == "direct_ok" and execution_pass is True:
+            classification = "direct_ok"
+        elif status == "tranche_ok" and execution_pass is True:
+            classification = "tranche_ok"
+        elif status == "marginal" and execution_pass is False:
+            classification = "marginal"
+        elif status == "fail" and execution_pass is False:
             classification = "failed"
-        elif status == "unknown":
+        elif status == "unknown" and execution_pass is None:
             classification = "unknown_execution"
 
         _inc(bucket, category, classification)
