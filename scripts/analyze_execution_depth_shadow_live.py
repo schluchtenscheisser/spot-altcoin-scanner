@@ -101,7 +101,7 @@ def _rank(symbol: str, items: list[dict[str, Any]], score_overrides: dict[str, f
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input-dir", required=True)
+    ap.add_argument("--input-dir", default="data/shadow-live-zips")
     ap.add_argument("--output-dir", default="reports/aux/execution_depth_analysis/2026-04-26_to_2026-05-03")
     args = ap.parse_args()
 
