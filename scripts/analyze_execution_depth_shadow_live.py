@@ -45,13 +45,25 @@ def _validate_output_dir(out: Path, repo_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def _decision(r: dict) -> dict:
-    return r.get("decision") or {}
+    out = dict(r.get("decision") or {})
+    for key in ("decision_bucket", "entry_pattern", "entry_pattern_score", "priority_score"):
+        if key not in out and key in r:
+            out[key] = r.get(key)
+    return out
 
 def _phase(r: dict) -> dict:
-    return r.get("phase") or {}
+    out = dict(r.get("phase") or {})
+    for key in ("market_phase", "market_phase_confidence"):
+        if key not in out and key in r:
+            out[key] = r.get(key)
+    return out
 
 def _state(r: dict) -> dict:
-    return r.get("state") or {}
+    out = dict(r.get("state") or {})
+    for key in ("state_machine_state", "state_confidence"):
+        if key not in out and key in r:
+            out[key] = r.get(key)
+    return out
 
 def _pattern(r: dict) -> dict:
     return r.get("pattern") or {}
