@@ -198,6 +198,9 @@ def _is_orderbook_stale(orderbook: Dict[str, Any]) -> bool:
 
 def _unknown_tradeability(reason: str) -> Dict[str, Any]:
     return {
+        "spread_pct": None,
+        "depth_bid_1pct_usd": None,
+        "depth_ask_1pct_usd": None,
         "slippage_bps_5k": None,
         "slippage_bps_20k": None,
         "tradeable_5k": None,
@@ -274,6 +277,9 @@ def compute_tradeability_metrics(orderbook: Dict[str, Any], config: Dict[str, An
         execution_mode = "none"
 
     return {
+        "spread_pct": spread_pct,
+        "depth_bid_1pct_usd": depth_bid,
+        "depth_ask_1pct_usd": depth_ask,
         "slippage_bps_5k": slippage_5k,
         "slippage_bps_20k": slippage_20k,
         "tradeable_5k": tradeable_5k,

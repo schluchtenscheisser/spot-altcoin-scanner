@@ -14,6 +14,7 @@ class ExecutionGradeResult:
     execution_status_raw: str
     execution_reason_raw: str | None
     execution_pass: bool | None
+    metrics: Mapping[str, Any] | None = None
 
 
 class _LegacyExecutionCfg:
@@ -73,15 +74,15 @@ def _map_reason(status: str, metrics: Mapping[str, Any]) -> str | None:
 
 def grade_execution_orderbook(orderbook: Mapping[str, Any], execution_cfg: Mapping[str, Any]) -> ExecutionGradeResult:
     if _has_invalid_levels(orderbook):
-        return ExecutionGradeResult(None, "unknown", "UNKNOWN_ORDERBOOK_MISSING", None)
+        return ExecutionGradeResult(None, "unknown", "UNKNOWN_ORDERBOOK_MISSING", None, None)
 
     if bool(orderbook.get("stale") or orderbook.get("is_stale")):
-        return ExecutionGradeResult(None, "unknown", "UNKNOWN_ORDERBOOK_STALE", None)
+        return ExecutionGradeResult(None, "unknown", "UNKNOWN_ORDERBOOK_STALE", None, None)
 
     try:
         metrics = compute_tradeability_metrics(dict(orderbook), _LegacyExecutionCfg(execution_cfg))
     except Exception:
-        return ExecutionGradeResult(None, "unknown", "UNKNOWN_FETCH_FAILED", None)
+        return ExecutionGradeResult(None, "unknown", "UNKNOWN_FETCH_FAILED", None, None)
 
     status_map = {
         "DIRECT_OK": "direct_ok",
@@ -97,7 +98,7 @@ def grade_execution_orderbook(orderbook: Mapping[str, Any], execution_cfg: Mappi
             "orderbook_data_stale": "UNKNOWN_ORDERBOOK_STALE",
             "orderbook_not_in_budget": "UNKNOWN_ORDERBOOK_MISSING",
         }
-        return ExecutionGradeResult(None, "unknown", reason_map.get(raw_reason, "UNKNOWN_FETCH_FAILED"), None)
+        return ExecutionGradeResult(None, "unknown", reason_map.get(raw_reason, "UNKNOWN_FETCH_FAILED"), None, metrics)
 
     status = status_map[raw_class]
     execution_pass = status in {"direct_ok", "tranche_ok"}
@@ -109,4 +110,4 @@ def grade_execution_orderbook(orderbook: Mapping[str, Any], execution_cfg: Mappi
     )
     raw_reasons = metrics.get("tradeability_reason_keys") or []
     raw_reason = raw_reasons[0] if raw_reasons else None
-    return ExecutionGradeResult(contract, status, raw_reason, execution_pass)
+    return ExecutionGradeResult(contract, status, raw_reason, execution_pass, metrics)

@@ -94,3 +94,46 @@ def test_evaluate_execution_subset_non_mapping_payload_is_unknown(payload) -> No
     assert result.diagnostics["AAA"]["execution_attempted"] is True
     assert result.diagnostics["AAA"]["execution_status_raw"] == "unknown"
     assert result.diagnostics["AAA"]["execution_reason_raw"] == "UNKNOWN_FETCH_FAILED"
+
+
+def test_t27_diagnostics_depth_ratio_derivable_for_valid_orderbook() -> None:
+    result = evaluate_execution_subset(
+        ["AAA"],
+        _cfg().execution,
+        client=_Client(
+            {
+                "AAA": {
+                    "bids": [[100.0, 3000.0], [99.5, 3000.0]],
+                    "asks": [[100.1, 3000.0], [100.2, 3000.0]],
+                }
+            }
+        ),
+    )
+    row = result.diagnostics["AAA"]
+    assert row["available_depth_1pct_usdt"] is not None
+    assert row["available_depth_ratio"] is not None and row["available_depth_ratio"] >= 1.0
+    assert row["depth_ratio_band"] == "full"
+    assert row["recommended_position_factor_preview"] == 1.0
+    assert row["spread_pct"] is not None
+    assert row["depth_side_used"] == "ask"
+
+
+def test_t27_diagnostics_depth_ratio_derivable_for_insufficient_depth() -> None:
+    result = evaluate_execution_subset(
+        ["AAA"],
+        _cfg().execution,
+        client=_Client(
+            {
+                "AAA": {
+                    "bids": [[100.0, 0.5]],
+                    "asks": [[100.2, 0.5]],
+                }
+            }
+        ),
+    )
+    row = result.diagnostics["AAA"]
+    assert row["execution_status_raw"] == "fail"
+    assert row["execution_reason_raw"] == "depth_1pct_insufficient"
+    assert row["available_depth_1pct_usdt"] is not None
+    assert row["available_depth_ratio"] is not None and row["available_depth_ratio"] < 1.0
+    assert row["depth_ratio_band"] in {"reduced_75", "reduced_50", "reduced_25", "below_min"}
