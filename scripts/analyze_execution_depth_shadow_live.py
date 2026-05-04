@@ -2,223 +2,162 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
-from collections import defaultdict
-from datetime import datetime, timezone
+import math
+import zipfile
 from pathlib import Path
 from typing import Any
 
-BUCKETS = ["confirmed_candidates", "early_candidates", "watchlist", "late_monitor"]
-OUTCOMES = ["direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "unexpected_execution_state", "not_attempted"]
-TOP_SYMBOL_OUTCOMES = ["failed", "marginal", "unknown_execution", "direct_ok", "tranche_ok", "unexpected_execution_state"]
-COUNT_KEYS = ["structural", "execution_attempted", "executable", "direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "unexpected_execution_state", "not_attempted"]
-
-FORBIDDEN_OUTPUT_ROOTS = [
-    "reports/runs",
-    "reports/daily",
-    "reports/index",
-    "reports/archive",
-    "reports/analysis",
-    "snapshots/runs",
-    "snapshots/history",
-    "evaluation/replay",
-]
+DATES = ["2026-04-26", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-03"]
+TOP_BUCKETS = {"confirmed_candidates", "early_candidates"}
+FORBIDDEN_OUTPUT_ROOTS = ["reports/runs", "reports/daily", "reports/index", "snapshots/runs", "reports/analysis"]
+DEFAULT_BUCKET_CFG = {"watchlist": 50.0, "early": 60.0, "confirmed": 65.0}
 
 
-def _normalized_repo_relative(path: Path, repo_root: Path) -> tuple[Path, Path | None]:
-    resolved = path.resolve()
+def _finite(v: Any) -> bool:
+    return isinstance(v, (int, float)) and math.isfinite(float(v))
+
+
+def _priority(mpc: float, sc: float, eps: float, grade: float) -> float:
+    return 0.30 * mpc + 0.35 * sc + 0.20 * eps + 0.15 * grade
+
+
+def _normalize(p: Path, repo_root: Path) -> Path | None:
     try:
-        rel = resolved.relative_to(repo_root)
+        return p.resolve().relative_to(repo_root)
     except ValueError:
-        rel = None
-    return resolved, rel
+        return None
 
 
-def _counts() -> dict[str, int]:
-    return {k: 0 for k in COUNT_KEYS}
-
-
-def _with_rates(c: dict[str, int]) -> dict[str, Any]:
-    d = dict(c)
-    denom = c["structural"]
-    for k in ["executable", "direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "unexpected_execution_state", "not_attempted"]:
-        d[f"{k}_rate"] = None if denom == 0 else c[k] / denom
-    return d
-
-
-def _require_count_block(block: dict[str, Any], where: str) -> dict[str, int]:
-    out = {}
-    for k in COUNT_KEYS:
-        v = block.get(k)
-        if type(v) is not int or v < 0:
-            raise ValueError(f"Invalid count {k} in {where}")
-        out[k] = v
-    return out
-
-
-def _check_output_path(path: Path, repo_root: Path) -> None:
-    _resolved, repo_relative = _normalized_repo_relative(path, repo_root)
-    if repo_relative is None:
+def _validate_output_dir(out: Path, repo_root: Path) -> None:
+    rel = _normalize(out, repo_root)
+    if rel is None:
         return
-    rel_txt = repo_relative.as_posix()
+    r = rel.as_posix()
     for bad in FORBIDDEN_OUTPUT_ROOTS:
-        if rel_txt == bad or rel_txt.startswith(f"{bad}/"):
-            raise ValueError(f"Forbidden output path: {path} (normalized: {repo_relative})")
+        if r == bad or r.startswith(f"{bad}/"):
+            raise ValueError(f"Forbidden output path: {out} (normalized: {rel})")
 
 
-def _discover_reports(reports_root: Path) -> list[Path]:
-    return sorted(reports_root.glob("**/report.json"))
+def _replay_bucket(record: dict[str, Any], cfg: dict[str, float]) -> str:
+    state = str(record.get("state_machine_state") or "")
+    phase = str(record.get("market_phase") or "")
+    entry = str(record.get("entry_pattern") or "none")
+    sc = record.get("state_confidence")
+    exec_status = "marginal"
+    if state in {"", "rejected"}:
+        return "discarded"
+    if phase == "none":
+        return "discarded"
+    c_gate = _finite(sc) and float(sc) >= cfg["confirmed"]
+    e_gate = _finite(sc) and float(sc) >= cfg["early"]
+    w_gate = _finite(sc) and float(sc) >= cfg["watchlist"]
+    if state == "confirmed_ready" and entry != "none" and c_gate and exec_status != "fail":
+        return "confirmed_candidates"
+    if state == "confirmed_ready" and entry == "none":
+        return "late_monitor"
+    if state == "early_ready" and entry != "none" and e_gate and exec_status != "fail":
+        return "early_candidates"
+    if state == "early_ready" and entry == "none":
+        return "watchlist"
+    if state == "watch" and w_gate:
+        return "watchlist"
+    if state in {"late", "chased"} and phase != "none":
+        return "late_monitor"
+    return "discarded"
 
 
-def _segment_to_outcome(segment_name: str) -> str | None:
-    for outcome in TOP_SYMBOL_OUTCOMES:
-        if segment_name.endswith(f"_{outcome}"):
-            return outcome
-    return None
+def _find_archives(inp: Path) -> dict[str, tuple[Path, str]]:
+    found = {}
+    for zp in sorted(inp.glob("*.zip")):
+        with zipfile.ZipFile(zp) as zf:
+            for name in zf.namelist():
+                if not name.endswith("symbol_diagnostics.jsonl.gz"):
+                    continue
+                for d in DATES:
+                    if f"/{d.replace('-', '/')}/" in name:
+                        found[d] = (zp, name)
+    missing = [d for d in DATES if d not in found]
+    if missing:
+        raise ValueError(f"Missing expected dates: {', '.join(missing)}")
+    return found
 
 
-def _load_reports(report_paths: list[Path], explicit: bool) -> list[dict[str, Any]]:
-    required = ["execution_aware_summary", "execution_counts_by_bucket", "execution_counts_by_universe_category", "execution_counts_by_bucket_and_category", "execution_aware_candidate_segments"]
-    rows = []
-    for p in report_paths:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        for k in required:
-            if k not in data:
-                raise ValueError(f"T25 requires T24 execution-aware report fields. Missing {k} in {p}.")
-        if data.get("scan_mode") != "daily":
-            if explicit:
-                raise ValueError(f"Non-daily report passed via --run-dir: {p}")
-            continue
-        rows.append({"path": p, "data": data})
-    return rows
+def _read_diag(zip_path: Path, member: str) -> list[dict[str, Any]]:
+    with zipfile.ZipFile(zip_path) as zf:
+        raw = zf.read(member)
+    return [json.loads(x) for x in gzip.decompress(raw).decode("utf-8").splitlines() if x.strip()]
+
+
+def _rank(symbol: str, items: list[dict[str, Any]], score_overrides: dict[str, float] | None = None) -> int:
+    score_overrides = score_overrides or {}
+    ranked = sorted(items, key=lambda r: (-(score_overrides.get(r.get("symbol"), r.get("priority_score", float("-inf")))), str(r.get("symbol") or "")))
+    for i, r in enumerate(ranked, 1):
+        if r.get("symbol") == symbol:
+            return i
+    return -1
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--reports-root", default="reports/runs")
-    ap.add_argument("--run-dir", action="append", default=[])
-    ap.add_argument("--output-json", default="reports/aux/execution_depth_analysis.json")
-    ap.add_argument("--output-md", default="reports/aux/execution_depth_analysis.md")
-    ap.add_argument("--max-runs", type=int)
-    ap.add_argument("--top-n", type=int, default=20)
+    ap.add_argument("--input-dir", required=True)
+    ap.add_argument("--output-dir", default="reports/aux/execution_depth_analysis/2026-04-26_to_2026-05-03")
     args = ap.parse_args()
-    if args.top_n < 1:
-        raise ValueError("--top-n must be >= 1")
-    if args.max_runs is not None and args.max_runs < 1:
-        raise ValueError("--max-runs must be >= 1")
 
     repo_root = Path.cwd().resolve()
-    out_json = Path(args.output_json)
-    out_md = Path(args.output_md)
-    _check_output_path(out_json, repo_root)
-    _check_output_path(out_md, repo_root)
+    out = Path(args.output_dir)
+    _validate_output_dir(out, repo_root)
 
-    explicit = bool(args.run_dir)
-    report_paths = [Path(d) / "report.json" for d in args.run_dir] if explicit else _discover_reports(Path(args.reports_root))
-    rows = _load_reports(report_paths, explicit=explicit)
-    if not rows:
-        raise ValueError("No analyzable T24 execution-aware reports were found.")
+    mapping = _find_archives(Path(args.input_dir))
+    all_records: list[dict[str, Any]] = []
+    spread_fields: set[str] = set()
+    for d, (zp, member) in mapping.items():
+        for rec in _read_diag(zp, member):
+            rec = dict(rec)
+            rec["_date"] = d
+            all_records.append(rec)
+            for k in rec:
+                lk = k.lower()
+                if "spread" in lk or "slippage" in lk:
+                    spread_fields.add(k)
 
-    rows.sort(key=lambda r: (r["data"]["daily_bar_id"], r["data"]["as_of_utc"], r["data"]["run_id"]))
-    if args.max_runs is not None:
-        rows = list(reversed(rows))[: args.max_runs]
-        rows.sort(key=lambda r: (r["data"]["daily_bar_id"], r["data"]["as_of_utc"], r["data"]["run_id"]))
+    bucket_pop: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for r in all_records:
+        b = r.get("decision_bucket")
+        if b in TOP_BUCKETS:
+            bucket_pop.setdefault((r["_date"], b), []).append(r)
 
-    summary = _counts()
-    by_run: dict[str, Any] = {}
-    by_bucket = {b: _counts() for b in BUCKETS}
-    by_cat: dict[str, dict[str, int]] = defaultdict(_counts)
-    by_bucket_cat: dict[str, dict[str, dict[str, int]]] = {b: defaultdict(_counts) for b in BUCKETS}
-    reason_counts: dict[str, int] = defaultdict(int)
-    reason_by_bucket: dict[str, dict[str, int]] = {b: defaultdict(int) for b in BUCKETS}
-    reason_by_cat: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    symbol_runs = {o: defaultdict(list) for o in TOP_SYMBOL_OUTCOMES}
-
-    for row in rows:
-        d = row["data"]
-        rid = d["run_id"]
-        rcounts = _require_count_block(d["execution_aware_summary"], f"{row['path']}::execution_aware_summary")
-        for k in COUNT_KEYS:
-            summary[k] += rcounts[k]
-        by_run[rid] = {
-            "daily_bar_id": d["daily_bar_id"], "as_of_utc": d["as_of_utc"], "report_path": row["path"].as_posix(), **_with_rates(rcounts)
-        }
-        for b in BUCKETS:
-            bc = _require_count_block(d["execution_counts_by_bucket"][b], f"{row['path']}::{b}")
-            for k in COUNT_KEYS:
-                by_bucket[b][k] += bc[k]
-
-            for cat, vals in d["execution_counts_by_bucket_and_category"].get(b, {}).items():
-                cc = _require_count_block(vals, f"{row['path']}::{b}::{cat}")
-                for k in COUNT_KEYS:
-                    by_bucket_cat[b][cat][k] += cc[k]
-        for cat, vals in d["execution_counts_by_universe_category"].items():
-            cc = _require_count_block(vals, f"{row['path']}::{cat}")
-            for k in COUNT_KEYS:
-                by_cat[cat][k] += cc[k]
-
-        for seg, items in d["execution_aware_candidate_segments"].items():
-            outcome = _segment_to_outcome(seg)
-            if not outcome:
+    fail_rows = []
+    marg_rows = []
+    for r in all_records:
+        st = r.get("execution_status_raw")
+        if st == "fail":
+            mpc, sc, eps = r.get("market_phase_confidence"), r.get("state_confidence"), r.get("entry_pattern_score")
+            replay_derivable = all(_finite(v) for v in (mpc, sc, eps))
+            ratio = None
+            if _finite(r.get("available_depth_usdt")) and _finite(r.get("depth_threshold_1pct_usdt")) and r.get("depth_threshold_1pct_usdt"):
+                ratio = float(r["available_depth_usdt"]) / float(r["depth_threshold_1pct_usdt"])
+            rec = None if ratio is None else (1.0 if ratio >= 1.0 else 0.75 if ratio >= 0.75 else 0.5 if ratio >= 0.5 else 0.25 if ratio >= 0.25 else 0.0)
+            bcf = _replay_bucket(r, DEFAULT_BUCKET_CFG) if replay_derivable else None
+            fail_rows.append({"symbol": r.get("symbol"), "date": r["_date"], "replay_derivable": replay_derivable, "decision_bucket_actual": r.get("decision_bucket"), "decision_bucket_without_execution_block": bcf, "structurally_actionable": bcf in TOP_BUCKETS if bcf else False, "state_machine_state": r.get("state_machine_state"), "market_phase": r.get("market_phase"), "market_phase_confidence": mpc, "entry_pattern": r.get("entry_pattern"), "entry_pattern_score": eps, "priority_score_actual": r.get("priority_score"), "priority_score_counterfactual_marginal": _priority(float(mpc), float(sc), float(eps), 40.0) if replay_derivable else None, "execution_status_raw": "fail", "execution_reason_raw": r.get("execution_reason_raw"), "available_depth_usdt": r.get("available_depth_usdt"), "depth_threshold_1pct_usdt": r.get("depth_threshold_1pct_usdt"), "available_depth_ratio": ratio, "clearing_notional_fraction": ratio, "recommended_position_factor": rec, "tradable_at_75pct": None if ratio is None else ratio >= 0.75, "tradable_at_50pct": None if ratio is None else ratio >= 0.50, "tradable_at_25pct": None if ratio is None else ratio >= 0.25, "depth_ratio_derivable": ratio is not None})
+        elif st == "marginal" and r.get("decision_bucket") in TOP_BUCKETS:
+            mpc, sc, eps = r.get("market_phase_confidence"), r.get("state_confidence"), r.get("entry_pattern_score")
+            if not all(_finite(v) for v in (mpc, sc, eps)):
                 continue
-            for it in items:
-                reason = it.get("execution_reason_raw")
-                rk = "__null__" if reason is None else str(reason)
-                reason_counts[rk] += 1
-                bucket = it.get("bucket")
-                if bucket in BUCKETS:
-                    reason_by_bucket[bucket][rk] += 1
-                cat = it.get("universe_category")
-                if cat is not None:
-                    reason_by_cat[str(cat)][rk] += 1
-                symbol = it.get("symbol")
-                if symbol:
-                    symbol_runs[outcome][symbol].append({"run_id": rid, "daily_bar_id": d["daily_bar_id"], "bucket": bucket, "universe_category": cat, "execution_reason_raw": reason})
+            symbol = r.get("symbol")
+            pop = bucket_pop[(r["_date"], r.get("decision_bucket"))]
+            cf = {50.0: _priority(float(mpc), float(sc), float(eps), 50.0), 60.0: _priority(float(mpc), float(sc), float(eps), 60.0), 75.0: _priority(float(mpc), float(sc), float(eps), 75.0), 100.0: _priority(float(mpc), float(sc), float(eps), 100.0)}
+            row = {"symbol": symbol, "date": r["_date"], "decision_bucket": r.get("decision_bucket"), "state_machine_state": r.get("state_machine_state"), "market_phase": r.get("market_phase"), "market_phase_confidence": mpc, "state_confidence": sc, "entry_pattern": r.get("entry_pattern"), "entry_pattern_score": eps, "priority_score_actual": r.get("priority_score"), "priority_score_cf_50": cf[50.0], "priority_score_cf_60": cf[60.0], "priority_score_cf_75": cf[75.0], "priority_score_cf_100": cf[100.0], "rank_actual": _rank(symbol, pop), "rank_cf_50": _rank(symbol, pop, {symbol: cf[50.0]}), "rank_cf_60": _rank(symbol, pop, {symbol: cf[60.0]}), "rank_cf_75": _rank(symbol, pop, {symbol: cf[75.0]}), "rank_cf_100": _rank(symbol, pop, {symbol: cf[100.0]})}
+            row["rank_displacement_cf_100"] = row["rank_cf_100"] - row["rank_actual"]
+            marg_rows.append(row)
 
-    over = {"confirmed_structural_vs_executable": [], "early_structural_vs_executable": []}
-    sorted_runs = sorted(rows, key=lambda r: (r["data"]["daily_bar_id"], r["data"]["as_of_utc"], r["data"]["run_id"]))
-    for r in sorted_runs:
-        d = r["data"]
-        for bucket, key in (("confirmed_candidates", "confirmed_structural_vs_executable"), ("early_candidates", "early_structural_vs_executable")):
-            c = _require_count_block(d["execution_counts_by_bucket"][bucket], "over_time")
-            over[key].append({"run_id": d["run_id"], "daily_bar_id": d["daily_bar_id"], "as_of_utc": d["as_of_utc"], **c, "executable_rate": None if c["structural"] == 0 else c["executable"] / c["structural"]})
-
-    top = {}
-    for outcome in TOP_SYMBOL_OUTCOMES:
-        entries = []
-        for symbol, runs in symbol_runs[outcome].items():
-            distinct = sorted({r["run_id"] for r in runs})
-            entries.append({"symbol": symbol, "run_count": len(distinct), "runs": sorted(runs, key=lambda x: (x["daily_bar_id"], x["run_id"], str(x.get("bucket") or "")))})
-        entries.sort(key=lambda x: (-x["run_count"], x["symbol"]))
-        top[outcome] = entries[: args.top_n]
-
-    result = {
-        "schema_version": "t25_execution_depth_analysis_v1",
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "input": {
-            "reports_root": args.reports_root,
-            "run_count": len(rows),
-            "run_ids": [r["data"]["run_id"] for r in sorted_runs],
-            "report_paths": [r["path"].as_posix() for r in sorted_runs],
-            "top_n": args.top_n,
-            "max_runs": args.max_runs,
-        },
-        "summary": {f"total_{k}": v for k, v in summary.items()} | {f"overall_{k}_rate": (None if summary['structural']==0 else summary[k]/summary['structural']) for k in ["executable","direct_ok","tranche_ok","marginal","failed","unknown_execution","unexpected_execution_state","not_attempted"]},
-        "by_run": {k: _with_rates({ck: by_run[k][ck] for ck in COUNT_KEYS}) | {"daily_bar_id": by_run[k]["daily_bar_id"], "as_of_utc": by_run[k]["as_of_utc"], "report_path": by_run[k]["report_path"]} for k in sorted(by_run, key=lambda x:(by_run[x]["daily_bar_id"],by_run[x]["as_of_utc"],x))},
-        "by_bucket": {b: _with_rates(by_bucket[b]) for b in BUCKETS},
-        "by_universe_category": {k: _with_rates(by_cat[k]) for k in sorted(by_cat)},
-        "by_bucket_and_category": {b: {k: _with_rates(v) for k, v in sorted(by_bucket_cat[b].items())} for b in BUCKETS},
-        "execution_reason_counts": {k: reason_counts[k] for k in sorted(reason_counts)},
-        "execution_reason_counts_by_bucket": {b: {k: reason_by_bucket[b][k] for k in sorted(reason_by_bucket[b])} for b in BUCKETS},
-        "execution_reason_counts_by_universe_category": {c: {k: reason_by_cat[c][k] for k in sorted(reason_by_cat[c])} for c in sorted(reason_by_cat)},
-        "over_time": over,
-        "top_repeated_symbols": top,
-    }
-
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_md.parent.mkdir(parents=True, exist_ok=True)
-    out_json.write_text(json.dumps(result, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-    out_md.write_text(f"# T25 Execution Depth Analysis\n\nAnalyzed runs: {len(rows)}\n", encoding="utf-8")
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "fail_cases_full.jsonl").write_text("\n".join(json.dumps(x) for x in fail_rows) + "\n", encoding="utf-8")
+    (out / "marginal_candidate_cases_full.jsonl").write_text("\n".join(json.dumps(x) for x in marg_rows) + "\n", encoding="utf-8")
+    (out / "summary_fail_depth_counterfactual.md").write_text(f"# Summary Fail\n\nTotal fail: {len(fail_rows)}\n", encoding="utf-8")
+    (out / "summary_marginal_priority_impact.md").write_text(f"# Summary Marginal\n\nTotal marginal top buckets: {len(marg_rows)}\n", encoding="utf-8")
+    (out / "analysis_report.md").write_text("# T26 Analysis Report\n\n## Replay logic\n\nAnalysis-only replay mirrors scanner/decision/buckets.py gating (entry pattern + confidence gates + fail-only execution block).\n\n## Spread/slippage availability\n\nFields found: " + (", ".join(sorted(spread_fields)) if spread_fields else "none") + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
