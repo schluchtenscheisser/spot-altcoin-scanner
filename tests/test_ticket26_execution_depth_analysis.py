@@ -6,12 +6,12 @@ DATES=["2026-04-26","2026-04-27","2026-04-28","2026-04-29","2026-04-30","2026-05
 
 def _zip_for_day(base:Path, d:str, rows:list[dict]):
     zp=base/f"run_{d}.zip"
-    inner=f"reports/runs/{d.replace('-', '/')}/rid/symbol_diagnostics.jsonl.gz"
+    inner=f"reports/runs/{d.replace('-', '/')}/daily-{d}/symbol_diagnostics.jsonl.gz"
     payload="\n".join(json.dumps(r) for r in rows).encode()
     with zipfile.ZipFile(zp,"w") as z: z.writestr(inner,gzip.compress(payload))
 
 def _row(sym,status,bucket="early_candidates",state="early_ready",sc=70.0,ep="breakout",ps=50.0):
-    return {"symbol":sym,"execution_status_raw":status,"decision_bucket":bucket,"state_machine_state":state,"market_phase":"bull","market_phase_confidence":80.0,"state_confidence":sc,"entry_pattern":ep,"entry_pattern_score":60.0,"priority_score":ps,"available_depth_usdt":500.0,"depth_threshold_1pct_usdt":1000.0}
+    return {"symbol":sym,"execution_status_raw":status,"decision_bucket":bucket,"state_machine_state":state,"market_phase":"bull","market_phase_confidence":80.0,"state_confidence":sc,"entry_pattern":ep,"entry_pattern_score":60.0,"priority_score":ps,"available_depth_1pct_usdt":500.0,"depth_threshold_1pct_usdt":1000.0}
 
 def _run(inp:Path,out:Path):
     subprocess.run([sys.executable,"scripts/analyze_execution_depth_shadow_live.py","--input-dir",str(inp),"--output-dir",str(out)],check=True)

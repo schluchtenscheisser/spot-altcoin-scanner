@@ -209,6 +209,19 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     if grade is not None:
         raise ValueError("execution_grade_t16 must be null")
     out["execution_grade_t16"] = None
+    for key in ("available_depth_1pct_usdt","depth_threshold_1pct_usdt","available_depth_ratio","recommended_position_factor_preview","spread_pct","estimated_slippage_bps","bid_depth_1pct_usdt","ask_depth_1pct_usdt"):
+        value = record.get(key)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+            raise ValueError(f"{key} must be number or null")
+        out[key] = float(value) if value is not None else None
+    out["depth_ratio_band"] = _require_nullable_str("depth_ratio_band", record.get("depth_ratio_band"))
+    out["execution_limiting_metric"] = _require_nullable_str("execution_limiting_metric", record.get("execution_limiting_metric"))
+    side = _require_nullable_str("depth_side_used", record.get("depth_side_used"))
+    out["depth_side_used"] = side
+    age = record.get("orderbook_snapshot_age_ms")
+    if age is not None and (isinstance(age, bool) or not isinstance(age, int) or age < 0):
+        raise ValueError("orderbook_snapshot_age_ms must be int >= 0 or null")
+    out["orderbook_snapshot_age_ms"] = age
     duration = record.get("execution_fetch_duration_ms")
     if duration is not None and (isinstance(duration, bool) or not isinstance(duration, int) or duration < 0):
         raise ValueError("execution_fetch_duration_ms must be int >= 0 or null")

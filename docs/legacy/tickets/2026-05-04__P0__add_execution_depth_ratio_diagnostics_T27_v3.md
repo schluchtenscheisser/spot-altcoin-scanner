@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # T27: Add Execution Depth Ratio Diagnostics for Position-Size Policy Calibration
 
 ## Metadata

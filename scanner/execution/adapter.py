@@ -13,6 +13,51 @@ _HARD_EXCLUDED_STATES = {"rejected", "chased"}
 _UNKNOWN_NON_MAPPING_PAYLOAD_REASON = "UNKNOWN_FETCH_FAILED"
 
 
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    v = float(value)
+    from math import isfinite
+    return v if isfinite(v) else None
+
+
+def _depth_band(ratio: float | None) -> str:
+    if ratio is None:
+        return "not_evaluable"
+    if ratio >= 1.0:
+        return "full"
+    if ratio >= 0.75:
+        return "reduced_75"
+    if ratio >= 0.5:
+        return "reduced_50"
+    if ratio >= 0.25:
+        return "reduced_25"
+    return "below_min"
+
+
+def _factor_preview(band: str) -> float | None:
+    return {"full":1.0,"reduced_75":0.75,"reduced_50":0.5,"reduced_25":0.25,"below_min":0.0}.get(band)
+
+
+def _limiting_metric(execution_status_raw: str, execution_reason_raw: str | None, attempted: bool) -> str:
+    if not attempted:
+        return "not_evaluated"
+    reason = str(execution_reason_raw or "").lower()
+    if "stale" in reason:
+        return "stale_orderbook"
+    if "missing" in reason:
+        return "missing_orderbook"
+    if "depth" in reason:
+        return "depth_1pct"
+    if "spread" in reason:
+        return "spread"
+    if "slippage" in reason:
+        return "slippage"
+    if execution_status_raw == "unknown":
+        return "unknown"
+    return "none"
+
+
 @dataclass(frozen=True)
 class ExecutionEvaluationResult:
     contracts: dict[str, ExecutionInputContract]
@@ -71,6 +116,18 @@ def evaluate_execution_subset(
                 "execution_pass": None,
                 "execution_grade_t16": None,
                 "execution_fetch_duration_ms": duration_ms,
+                "available_depth_1pct_usdt": None,
+                "depth_threshold_1pct_usdt": _finite_number(execution_cfg.get("min_depth_1pct_usd")),
+                "available_depth_ratio": None,
+                "depth_ratio_band": "not_evaluable",
+                "recommended_position_factor_preview": None,
+                "execution_limiting_metric": "unknown",
+                "spread_pct": None,
+                "estimated_slippage_bps": None,
+                "orderbook_snapshot_age_ms": None,
+                "bid_depth_1pct_usdt": None,
+                "ask_depth_1pct_usdt": None,
+                "depth_side_used": "unknown",
             }
             continue
 
@@ -85,6 +142,18 @@ def evaluate_execution_subset(
                 "execution_pass": None,
                 "execution_grade_t16": None,
                 "execution_fetch_duration_ms": duration_ms,
+                "available_depth_1pct_usdt": None,
+                "depth_threshold_1pct_usdt": _finite_number(execution_cfg.get("min_depth_1pct_usd")),
+                "available_depth_ratio": None,
+                "depth_ratio_band": "not_evaluable",
+                "recommended_position_factor_preview": None,
+                "execution_limiting_metric": "unknown",
+                "spread_pct": None,
+                "estimated_slippage_bps": None,
+                "orderbook_snapshot_age_ms": None,
+                "bid_depth_1pct_usdt": None,
+                "ask_depth_1pct_usdt": None,
+                "depth_side_used": "unknown",
             }
             continue
 
@@ -101,6 +170,22 @@ def evaluate_execution_subset(
         duration_ms = max(0, int((perf_counter() - t0) * 1000))
         if graded.contract is not None:
             contracts[symbol] = graded.contract
+        metrics = dict(graded.metrics or {})
+        depth_threshold = _finite_number(execution_cfg.get("min_depth_1pct_usd"))
+        bid_depth = _finite_number(metrics.get("depth_bid_1pct_usd"))
+        ask_depth = _finite_number(metrics.get("depth_ask_1pct_usd"))
+        available_depth = ask_depth
+        depth_side_used = "ask" if available_depth is not None else ("not_evaluated" if graded.execution_status_raw == "unknown" and graded.execution_reason_raw == "UNKNOWN_ORDERBOOK_MISSING" else "unknown")
+        ratio = (available_depth / depth_threshold) if (available_depth is not None and depth_threshold is not None and depth_threshold > 0) else None
+        band = _depth_band(ratio)
+        ts = orderbook.get("timestamp") or orderbook.get("ts")
+        age_ms = None
+        if isinstance(ts, (int, float)):
+            from time import time
+            tsv = float(ts)
+            ts_sec = tsv / 1000.0 if tsv > 10_000_000_000 else tsv
+            age_calc = int((time() - ts_sec) * 1000)
+            age_ms = age_calc if age_calc >= 0 else None
         diagnostics[symbol] = {
             "execution_attempted": True,
             "execution_status_raw": graded.execution_status_raw,
@@ -108,6 +193,18 @@ def evaluate_execution_subset(
             "execution_pass": graded.execution_pass,
             "execution_grade_t16": None,
             "execution_fetch_duration_ms": duration_ms,
+            "available_depth_1pct_usdt": available_depth,
+            "depth_threshold_1pct_usdt": depth_threshold,
+            "available_depth_ratio": ratio,
+            "depth_ratio_band": band,
+            "recommended_position_factor_preview": _factor_preview(band),
+            "execution_limiting_metric": _limiting_metric(graded.execution_status_raw, graded.execution_reason_raw, True),
+            "spread_pct": _finite_number(metrics.get("spread_pct")),
+            "estimated_slippage_bps": _finite_number(metrics.get("slippage_bps_20k")),
+            "orderbook_snapshot_age_ms": age_ms,
+            "bid_depth_1pct_usdt": bid_depth,
+            "ask_depth_1pct_usdt": ask_depth,
+            "depth_side_used": depth_side_used,
         }
 
     return ExecutionEvaluationResult(contracts=contracts, diagnostics=diagnostics)

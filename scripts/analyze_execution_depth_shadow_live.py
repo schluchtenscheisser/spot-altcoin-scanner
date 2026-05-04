@@ -186,7 +186,9 @@ def main() -> None:
             replay_derivable = all(_finite(v) for v in (mpc, sc, eps))
 
             # Depth ratio — these fields don't exist in pre-T24 diagnostics; will be None
-            avail  = r.get("available_depth_usdt")
+            avail = r.get("available_depth_1pct_usdt")
+            if avail is None:
+                avail = r.get("available_depth_usdt")
             thresh = r.get("depth_threshold_1pct_usdt")
             depth_ratio_derivable = _finite(avail) and _finite(thresh) and thresh
             ratio = (float(avail) / float(thresh)) if depth_ratio_derivable else None
@@ -371,7 +373,7 @@ def main() -> None:
         f"- Total fail cases:                  {len(fail_rows)}",
         f"- Total marginal in top buckets:     {len(marg_rows)}",
         f"- Structurally actionable fail cases: {len(actionable)}",
-        f"- depth_ratio_derivable:             {len(depth_derivable)} (0 expected — available_depth_usdt absent in pre-T24 diagnostics)",
+        f"- depth_ratio_derivable:             {len(depth_derivable)} (0 expected — available_depth_1pct_usdt absent in pre-T27 diagnostics)",
         "",
         "## Limitations",
         "1. Profitability not assessed — T26 quantifies bottleneck size only.",
