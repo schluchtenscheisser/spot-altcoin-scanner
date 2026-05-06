@@ -245,7 +245,7 @@ def _populations(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]
             rec
             for rec in records
             if _decision(rec).get("decision_bucket") == "early_candidates"
-            and _state(rec).get("bars_since_early_entered") == 0
+            and _state(rec).get("bars_since_state_entered") == 0
         ],
     }
 

@@ -23,6 +23,7 @@ def _row(
     bucket: str = "confirmed_candidates",
     bars_confirmed: int | None = 0,
     bars_early: int | None = None,
+    bars_state: int | None = None,
     data_4h_available: bool = True,
     execution_status_raw: str = "direct_ok",
     pattern: str = "early_reversal_break",
@@ -54,7 +55,7 @@ def _row(
             "state_machine_state": "confirmed_ready" if bucket == "confirmed_candidates" else "early_ready",
             "bars_since_confirmed_entered": bars_confirmed,
             "bars_since_early_entered": bars_early,
-            "bars_since_state_entered": bars_confirmed if bucket == "confirmed_candidates" else bars_early,
+            "bars_since_state_entered": bars_confirmed if bucket == "confirmed_candidates" else (bars_early if bars_state is None else bars_state),
             "close_at_confirmed_entry_bar": 1.0 if bars_confirmed is not None else None,
             "distance_from_ideal_entry_after_confirmed": None,
             "freshness_distance_state_confirmed": None,
@@ -86,6 +87,7 @@ def test_step_a_outputs_preserve_nulls_nested_fields_and_skip_step_b(tmp_path: P
             _row("RENDERUSDT", proxies={"pullback_quality_simplified": None}),
             _row("DOTUSDT", bars_confirmed=2, execution_status_raw="marginal"),
             _row("AVAXUSDT", bucket="early_candidates", bars_confirmed=None, bars_early=0),
+            _row("PEPEUSDT", bucket="early_candidates", bars_confirmed=None, bars_early=3, bars_state=0),
             _row("NO4H", data_4h_available=False),
             {
                 **_row("TOPLEVEL_TRAP"),
@@ -124,6 +126,7 @@ def test_step_a_outputs_preserve_nulls_nested_fields_and_skip_step_b(tmp_path: P
     assert "`distance_to_last_structural_anchor_pct_abs`" in findings
     assert "`distance_to_range_high_pct_abs`" in findings
     assert "`bars_since_last_structural_break_4h`" in findings
+    assert "Population 3 (Day-0 early) contains 2 records." in findings
 
 
 def test_step_b_runs_when_direct_fields_are_present(tmp_path: Path) -> None:
