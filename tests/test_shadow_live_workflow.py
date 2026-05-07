@@ -11,5 +11,11 @@ def test_shadow_live_workflow_exists_and_has_required_contract() -> None:
     assert 'schedule:' in text
     assert 'evaluation/exports/**' in text
     assert 'evaluation/replay/**' in text
+    assert 'actions: read' in text
+    assert 'Restore shadow-live SQLite state' in text
+    assert '--current-run-id "${{ github.run_id }}"' in text
+    assert 'Checkpoint and stage shadow-live SQLite state' in text
+    assert 'name: shadow-live-state' in text
+    assert 'shadow-live-state-upload/independence_release.sqlite' in text
     assert 'FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"' in text
     assert 'ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION' not in text
