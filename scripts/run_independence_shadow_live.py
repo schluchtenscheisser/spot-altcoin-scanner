@@ -11,9 +11,12 @@ import re
 import sys
 from typing import Any, Mapping
 
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.shadow_live_state import VALID_RESTORE_STATUSES
 
 import scanner.config as scanner_config_module
 from scanner.clients.mexc_client import MEXCClient
@@ -155,6 +158,19 @@ def _build_real_daily_providers(*, cfg: Any, now_utc: datetime) -> tuple[list[st
     return universe, universe_provider, ohlcv_provider
 
 
+def _state_restore_status_from_env() -> str:
+    value = os.environ.get("STATE_RESTORE_STATUS", "cold_start").strip()
+    return value if value in VALID_RESTORE_STATUSES else "restore_failed"
+
+
+def _annotate_manifest_state_restore_status(manifest_path: Path, status: str) -> None:
+    payload = _load_json(manifest_path) if manifest_path.exists() else {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"invalid manifest payload: expected JSON object at {manifest_path}")
+    payload["state_restore_status"] = status
+    manifest_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _collect_forbidden_writes(workdir: Path) -> list[str]:
     forbidden: list[str] = []
     for path in sorted(workdir.rglob("*")):
@@ -195,12 +211,14 @@ def main() -> int:
     config_path = _resolve_config_path()
     workdir = Path(args.workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
+    state_restore_status = _state_restore_status_from_env()
 
     summary: dict[str, Any] = {
         "workflow_mode": "shadow_live",
         "status": "fail",
         "run_started_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "run_finished_at_utc": None,
+        "state_restore_status": state_restore_status,
         "daily": {
             "status": "fail",
             "run_id": None,
@@ -292,6 +310,12 @@ def main() -> int:
             if manifest_path is None or not manifest_path.is_file():
                 summary["daily"]["status"] = "fail"
                 summary["errors"].append("daily: missing run.manifest.json")
+            else:
+                try:
+                    _annotate_manifest_state_restore_status(manifest_path, state_restore_status)
+                except Exception as exc:
+                    summary["daily"]["status"] = "fail"
+                    summary["errors"].append(f"daily: failed to annotate run.manifest.json state_restore_status: {type(exc).__name__}: {exc}")
 
         if summary["daily"]["status"] == "pass":
             try:

@@ -103,8 +103,15 @@ def test_shadow_live_main_writes_summary_with_non_blocking_intraday_state(
         ],
     )
 
+    monkeypatch.setenv("STATE_RESTORE_STATUS", "restored")
+
     rc = shadow.main()
     payload = json.loads((workdir / "shadow-live-report.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads(
+        (workdir / "snapshots" / "runs" / "2026" / "04" / "24" / "daily-2026-04-24-fake" / "run.manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
 
     assert rc == 0
     assert payload["status"] == "pass"
@@ -112,6 +119,8 @@ def test_shadow_live_main_writes_summary_with_non_blocking_intraday_state(
     assert payload["evaluation_replay"]["status"] == "pass"
     assert payload["intraday"]["status"] == "non_blocking_warning"
     assert payload["intraday"]["known_state"] == "missing_intraday_cycle_context"
+    assert payload["state_restore_status"] == "restored"
+    assert manifest_payload["state_restore_status"] == "restored"
 
 
 def test_shadow_live_attaches_daily_providers_before_daily_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

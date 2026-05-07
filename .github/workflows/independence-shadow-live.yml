@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -37,6 +38,21 @@ jobs:
           echo "SHADOW_LIVE_WORKDIR=${{ runner.temp }}/ir-shadow-live-workdir" >> "$GITHUB_ENV"
           echo "SCANNER_CONFIG_PATH=${{ github.workspace }}/config/config.yml" >> "$GITHUB_ENV"
           mkdir -p "${{ runner.temp }}/ir-shadow-live-workdir/artifacts"
+
+      - name: Restore shadow-live SQLite state
+        id: restore_state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          STATE_RESTORE_STATUS=$(python scripts/shadow_live_state.py restore \
+            --workdir "$SHADOW_LIVE_WORKDIR" \
+            --repo "${{ github.repository }}" \
+            --workflow independence-shadow-live.yml \
+            --branch main \
+            --current-run-id "${{ github.run_id }}" \
+            --restore-dir "${{ runner.temp }}/shadow-live-state-restore")
+          echo "state_restore_status=$STATE_RESTORE_STATUS" >> "$GITHUB_OUTPUT"
+          echo "STATE_RESTORE_STATUS=$STATE_RESTORE_STATUS" >> "$GITHUB_ENV"
 
       - name: Credential preflight
         run: |
@@ -86,6 +102,22 @@ jobs:
           [ -d "$SHADOW_LIVE_WORKDIR/evaluation/exports" ] || { echo "FAIL: evaluation/exports missing"; exit 1; }
           [ -d "$SHADOW_LIVE_WORKDIR/evaluation/replay" ] || { echo "FAIL: evaluation/replay missing"; exit 1; }
           echo "PASS: required artifact roots present"
+
+      - name: Checkpoint and stage shadow-live SQLite state
+        if: success()
+        run: |
+          python scripts/shadow_live_state.py checkpoint-stage \
+            --workdir "$SHADOW_LIVE_WORKDIR" \
+            --upload-dir "${{ runner.temp }}/shadow-live-state-upload"
+
+      - name: Upload shadow-live-state
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-live-state
+          path: ${{ runner.temp }}/shadow-live-state-upload/independence_release.sqlite
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Disk usage visibility
         if: always()
