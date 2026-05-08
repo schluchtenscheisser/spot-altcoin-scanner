@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from math import isfinite
 from typing import Any
@@ -8,6 +9,68 @@ from typing import Any
 TRADEABLE_SIZE_CLASSES = {"full", "reduced_75", "reduced_50", "reduced_25"}
 TRADEABLE_STATUSES = {"direct_ok", "tranche_ok", "marginal"}
 TOP_TRADEABLE_BUCKETS = {"confirmed_candidates", "early_candidates"}
+
+ALLOWED_REDUCED_SIZE_CAPACITY_REASON_KEYS = {
+    "depth_1pct_insufficient",
+    # Current tradeability metrics add this when tranche feasibility fails.
+    # It is only accepted together with explicit clean spread/slippage gates;
+    # spread/slippage reason keys still block eligibility.
+    "tranche_execution_not_feasible",
+}
+
+
+def _normalize_reason_keys(reason_keys: Collection[str] | None) -> set[str] | None:
+    if reason_keys is None:
+        return None
+    normalized: set[str] = set()
+    for reason in reason_keys:
+        if reason is None:
+            continue
+        value = str(reason).strip().lower()
+        if value:
+            normalized.add(value)
+    return normalized
+
+
+def has_non_depth_blocking_reason(reason_keys: Collection[str]) -> bool:
+    normalized = _normalize_reason_keys(reason_keys)
+    if normalized is None or not normalized:
+        return False
+    return any(reason not in ALLOWED_REDUCED_SIZE_CAPACITY_REASON_KEYS for reason in normalized)
+
+
+def _nullable_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def passes_reduced_size_non_depth_gates(
+    *,
+    reason_keys: Collection[str] | None,
+    gate_flags: Mapping[str, Any] | None = None,
+) -> bool:
+    normalized = _normalize_reason_keys(reason_keys)
+    gates = gate_flags or {}
+    orderbook_available = _nullable_bool(gates.get("orderbook_available"))
+    orderbook_stale = _nullable_bool(gates.get("orderbook_stale"))
+    spread_gate_pass = _nullable_bool(gates.get("spread_gate_pass"))
+    slippage_gate_pass = _nullable_bool(gates.get("slippage_gate_pass"))
+    has_explicit_gate_state = all(
+        value is not None
+        for value in (orderbook_available, orderbook_stale, spread_gate_pass, slippage_gate_pass)
+    )
+
+    if has_explicit_gate_state:
+        if not orderbook_available or orderbook_stale or not spread_gate_pass or not slippage_gate_pass:
+            return False
+        if normalized:
+            return not has_non_depth_blocking_reason(normalized)
+        return True
+
+    if not normalized:
+        return False
+    return not has_non_depth_blocking_reason(normalized)
 
 
 @dataclass(frozen=True)
@@ -78,16 +141,16 @@ def is_reduced_size_eligible(
     *,
     execution_status_raw: str | None,
     execution_size_class: str | None,
-    execution_reason_raw: str | None = None,
+    reason_keys: Collection[str] | None = None,
+    gate_flags: Mapping[str, Any] | None = None,
 ) -> bool:
     if execution_status_raw not in TRADEABLE_STATUSES:
         return False
     if execution_size_class not in TRADEABLE_SIZE_CLASSES:
         return False
-    reason = str(execution_reason_raw or "").lower()
-    if "spread" in reason or "slippage" in reason:
-        return False
-    return True
+    if execution_status_raw in {"direct_ok", "tranche_ok"}:
+        return True
+    return passes_reduced_size_non_depth_gates(reason_keys=reason_keys, gate_flags=gate_flags)
 
 
 def is_tradeable_candidate(*, decision_bucket: str | None, is_reduced_size_eligible_value: bool) -> bool:

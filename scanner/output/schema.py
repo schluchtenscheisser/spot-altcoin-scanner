@@ -6,7 +6,8 @@ import math
 import re
 from typing import Any, Dict, Mapping, Literal
 
-SCHEMA_VERSION = "ir1.0"
+SCHEMA_VERSION = "ir1.1"
+ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", SCHEMA_VERSION}
 
 ScanMode = Literal["daily", "intraday"]
 
@@ -179,9 +180,10 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
         "data_4h_available": _require_bool("data_4h_available", record.get("data_4h_available")),
     }
 
-    if out["schema_version"] != SCHEMA_VERSION:
+    if out["schema_version"] not in ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS:
         raise ValueError(
-            f"diagnostics.schema_version must be {SCHEMA_VERSION!r}, got {out['schema_version']!r}"
+            "diagnostics.schema_version must be one of "
+            f"{sorted(ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS)!r}, got {out['schema_version']!r}"
         )
 
     for block_key in REQUIRED_DIAGNOSTIC_BLOCKS:
@@ -230,6 +232,12 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
         out[key] = float(value) if value is not None else None
     out["depth_ratio_band"] = _require_nullable_str("depth_ratio_band", record.get("depth_ratio_band"))
     out["execution_size_class"] = _require_nullable_str("execution_size_class", record.get("execution_size_class"))
+    reason_keys = record.get("tradeability_reason_keys", [])
+    if reason_keys is None:
+        reason_keys = []
+    if not isinstance(reason_keys, list) or any(not isinstance(reason, str) for reason in reason_keys):
+        raise ValueError("tradeability_reason_keys must be list[str]")
+    out["tradeability_reason_keys"] = list(reason_keys)
     out["is_reduced_size_eligible"] = _require_bool("is_reduced_size_eligible", record.get("is_reduced_size_eligible", False))
     out["is_tradeable_candidate"] = _require_bool("is_tradeable_candidate", record.get("is_tradeable_candidate", False))
     out["execution_limiting_metric"] = _require_nullable_str("execution_limiting_metric", record.get("execution_limiting_metric"))

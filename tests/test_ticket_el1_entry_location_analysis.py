@@ -42,7 +42,7 @@ def _row(
     if proxies:
         axes.update(proxies)
     row = {
-        "schema_version": "ir1.0",
+        "schema_version": "ir1.1",
         "run_id": f"run-{symbol}",
         "scan_mode": "daily",
         "symbol": symbol,

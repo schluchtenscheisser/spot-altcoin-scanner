@@ -233,6 +233,7 @@ def _build_execution_aware_report_payload(
             "estimated_slippage_bps": diag.get("estimated_slippage_bps"),
             "is_reduced_size_eligible": diag.get("is_reduced_size_eligible"),
             "is_tradeable_candidate": diag.get("is_tradeable_candidate"),
+            "tradeability_reason_keys": diag.get("tradeability_reason_keys", []),
             "universe_category": universe.get("universe_category"),
             "universe_category_confidence": universe.get("universe_category_confidence"),
             "universe_category_reason": universe.get("universe_category_reason"),
@@ -517,7 +518,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     )
                 )
                 diag = {
-                    "schema_version": "ir1.0",
+                    "schema_version": "ir1.1",
                     "run_id": run_id,
                     "scan_mode": "daily",
                     "symbol": symbol,
@@ -567,7 +568,13 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     is_reduced_size_eligible(
                         execution_status_raw=diag.get("execution_status_raw"),
                         execution_size_class=diag.get("execution_size_class"),
-                        execution_reason_raw=diag.get("execution_reason_raw"),
+                        reason_keys=diag.get("tradeability_reason_keys"),
+                        gate_flags={
+                            "orderbook_available": diag.get("orderbook_available"),
+                            "orderbook_stale": diag.get("orderbook_stale"),
+                            "spread_gate_pass": diag.get("spread_gate_pass"),
+                            "slippage_gate_pass": diag.get("slippage_gate_pass"),
+                        },
                     ),
                 )
                 diag["is_tradeable_candidate"] = is_tradeable_candidate(
