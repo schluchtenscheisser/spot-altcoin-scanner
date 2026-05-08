@@ -357,6 +357,11 @@ def _diag(
         "execution_pass": None,
         "execution_grade_t16": None,
         "execution_fetch_duration_ms": None,
+        "execution_size_class": "not_evaluated",
+        "recommended_position_factor": None,
+        "execution_grade_effective": None,
+        "is_reduced_size_eligible": False,
+        "is_tradeable_candidate": False,
         "intraday_skipped_stale_4h": stale,
     }
     return validate_diagnostics_record(record)
@@ -409,6 +414,11 @@ def _intraday_diag_from_row(
         "execution_pass": None,
         "execution_grade_t16": None,
         "execution_fetch_duration_ms": None,
+        "execution_size_class": "not_evaluated",
+        "recommended_position_factor": None,
+        "execution_grade_effective": None,
+        "is_reduced_size_eligible": False,
+        "is_tradeable_candidate": False,
         "intraday_skipped_stale_4h": False,
     }
 

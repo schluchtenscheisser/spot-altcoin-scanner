@@ -77,16 +77,16 @@ def _tradeability_params(config: Dict[str, Any]) -> Dict[str, float]:
     tradeability_cfg = root.get("tradeability", {})
     return {
         "notional_total_usdt": float(
-            config.tradeability_notional_total_usdt if hasattr(config, "tradeability_notional_total_usdt") else tradeability_cfg.get("notional_total_usdt", 20_000)
+            config.tradeability_notional_total_usdt if hasattr(config, "tradeability_notional_total_usdt") else tradeability_cfg.get("notional_total_usdt", 10_000)
         ),
         "notional_chunk_usdt": float(
             config.tradeability_notional_chunk_usdt if hasattr(config, "tradeability_notional_chunk_usdt") else tradeability_cfg.get("notional_chunk_usdt", 5_000)
         ),
-        "max_tranches": int(config.tradeability_max_tranches if hasattr(config, "tradeability_max_tranches") else tradeability_cfg.get("max_tranches", 4)),
+        "max_tranches": int(config.tradeability_max_tranches if hasattr(config, "tradeability_max_tranches") else tradeability_cfg.get("max_tranches", 2)),
         "band_pct": float(config.tradeability_band_pct if hasattr(config, "tradeability_band_pct") else tradeability_cfg.get("band_pct", 1.0)),
         "max_spread_pct": float(config.tradeability_max_spread_pct if hasattr(config, "tradeability_max_spread_pct") else tradeability_cfg.get("max_spread_pct", 0.15)),
         "min_depth_1pct_usd": float(
-            config.tradeability_min_depth_1pct_usd if hasattr(config, "tradeability_min_depth_1pct_usd") else tradeability_cfg.get("min_depth_1pct_usd", 200_000)
+            config.tradeability_min_depth_1pct_usd if hasattr(config, "tradeability_min_depth_1pct_usd") else tradeability_cfg.get("min_depth_1pct_usd", 100_000)
         ),
         "direct_ok_max_slippage_bps": direct_max,
         "tranche_ok_max_slippage_bps": tranche_max,
