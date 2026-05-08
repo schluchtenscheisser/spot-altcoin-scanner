@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-08 06:50 UTC  
+**Last Updated:** 2026-05-08 11:31 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -901,7 +901,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_confirmed_ready_admitted, _derive_data_resolution_class, _early_ready_admitted, _meets_max, _meets_min, _require, compute_state_machine`
 
-**Module Variables:** `bars_confirmed, bars_early, bars_since_cycle_end, bars_since_state_entered, base, close_confirmed, close_early, confidence, confirmed_ok, cycle_end_bar_index` _(+21 more)_
+**Module Variables:** `bars_confirmed, bars_early, bars_since_cycle_end, bars_since_state_entered, base, close_confirmed, close_early, confidence, confirmed_ok, cycle_end_bar_index` _(+22 more)_
 
 **Imports:** `__future__, scanner.axes.models, scanner.config, scanner.phase.models, scanner.state.freshness, scanner.state.models`
 
@@ -915,7 +915,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Module Variables:** `bootstrap_none, non_bootstrap_fields_present, value`
 
-**Imports:** `__future__, dataclasses, math`
+**Imports:** `__future__, dataclasses, math, re`
 
 ---
 
@@ -943,7 +943,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_migrate_run_metadata_scan_mode_constraint, _run_metadata_needs_scan_mode_migration, _run_metadata_sql, apply_schema, get_schema_version`
 
-**Module Variables:** `cols, columns, create_new_sql, current_version, distinct, insert_columns, mapped_case, missing_required, normalized, prior_fk_state` _(+5 more)_
+**Module Variables:** `cols, columns, create_new_sql, current_version, distinct, insert_columns, mapped_case, missing_required, normalized, prior_fk_state` _(+6 more)_
 
 **Imports:** `__future__, sqlite3, typing`
 
@@ -2000,13 +2000,13 @@ _This section shows which functions call which other functions, helping identify
 | `_derive_data_resolution_class` | — | `append`, `extend` |
 | `_early_ready_admitted` | `_meets_max`, `_meets_min` | — |
 | `_require` | — | `ValueError` |
-| `compute_state_machine` | `_confirmed_ready_admitted`, `_derive_data_resolution_class`, `_early_ready_admitted`, `_require` | `StateEvaluationDisposition`, `StateMachineBundle`, `StatePersistencePatch`, `TypeError`, `ValueError`, `compute_state_freshness` |
+| `compute_state_machine` | `_confirmed_ready_admitted`, `_derive_data_resolution_class`, `_early_ready_admitted`, `_require` | `StateEvaluationDisposition`, `StateFreshnessBundle`, `StateMachineBundle`, `StatePersistencePatch`, `TypeError`, `ValueError`, `compute_state_freshness` |
 
 ### 📄 scanner/state/models.py
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `__post_init__` | `_is_finite_0_100`, `_validate_cycle_id`, `_validate_finite`, `_validate_non_negative_int`, `_validate_positive_price` | `ValueError` |
+| `__post_init__` | `_is_finite_0_100`, `_validate_cycle_id`, `_validate_finite`, `_validate_non_negative_int`, `_validate_positive_price` | `ValueError`, `fullmatch` |
 | `_is_finite_0_100` | — | `isfinite` |
 | `_validate_cycle_id` | — | `ValueError` |
 | `_validate_finite` | — | `ValueError`, `isfinite` |
@@ -2267,8 +2267,8 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/axes/tier1.py` | 7 | 11 | 18 | 🔴 High |
+| `scanner/state/machine.py` | 8 | 10 | 18 | ⚠️ Medium |
 | `scanner/output/diagnostics.py` | 2 | 15 | 17 | 🔴 High |
-| `scanner/state/machine.py` | 8 | 9 | 17 | ⚠️ Medium |
 | `scanner/execution/adapter.py` | 4 | 12 | 16 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
@@ -2277,12 +2277,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
+| `scanner/state/models.py` | 5 | 9 | 14 | 🔴 High |
 | `scanner/decision/buckets.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/entry/patterns.py` | 7 | 6 | 13 | ⚠️ Medium |
 | `scanner/evaluation/dataset_export.py` | 0 | 13 | 13 | 🔴 High |
 | `scanner/features/bundle.py` | 3 | 10 | 13 | 🔴 High |
 | `scanner/state/invalidation.py` | 6 | 7 | 13 | ⚠️ Medium |
-| `scanner/state/models.py` | 5 | 8 | 13 | 🔴 High |
 | `scanner/axes/normalization.py` | 4 | 8 | 12 | 🔴 High |
 | `scanner/decision/ranking.py` | 3 | 9 | 12 | 🔴 High |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
@@ -2325,4 +2325,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-08 06:50 UTC_
+_Generated by GitHub Actions • 2026-05-08 11:31 UTC_
