@@ -54,6 +54,42 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-05-08 — SQLite schema_version 4 → 5 — Daily state-aging idempotency marker
+**PR:** (branch-local, T28-pre-2)
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `state_machine_context.last_aging_daily_bar_id` wurde als nullable `TEXT`-Spalte ergänzt.
+- Der Wert speichert den Daily-Bar-Identifier (`YYYY-MM-DD`), für den die Persistenz-Aging-Felder eines Symbols zuletzt fortgeschrieben wurden.
+- Shadow-Live-Run-Manifeste akzeptieren zusätzlich `state_restore_status = cold_start_reset` für manuelle Reset-Läufe.
+
+#### Warum?
+- Wiederholte Shadow-Live-Läufe auf demselben `daily_bar_id` dürfen `bars_since_*`-Zähler und `freshness_distance_state_*` nicht mehrfach altern lassen.
+- Der Reset-Status dokumentiert bewusst gestartete Kaltstarts nach kontaminierter State-Persistenz.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja.
+- Bestehende SQLite-State-Datenbanken werden idempotent migriert; bestehende Zeilen erhalten `last_aging_daily_bar_id = null` und altern beim ersten Lauf nach Migration normal.
+
+#### Migration / Vorgehen
+- `apply_schema()` ergänzt die Spalte, falls sie fehlt, und setzt `PRAGMA user_version = 5`.
+- Für bereinigte Shadow-Live-Baselines den Workflow manuell mit `reset_state = true` starten; der Manifeststatus lautet dann `cold_start_reset`.
+
+#### Beispiel (gekürzt)
+```json
+{
+  "schema_version": 5,
+  "state_machine_context": {
+    "symbol": "SOLUSDT",
+    "last_aging_daily_bar_id": "2026-05-08"
+  },
+  "run_manifest": {
+    "state_restore_status": "cold_start_reset"
+  }
+}
+```
+
+
 ### 2026-03-09 — schema_version v1.16 → v1.17 — Canonical TP10/TP20 als Entry-orientierte RR-Ziele (semantisch)
 **PR:** (branch-local, ticket/2026-03-09__P1__canonical_tp10_tp20_rr_orientation_fix)
 

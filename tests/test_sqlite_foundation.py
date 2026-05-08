@@ -236,3 +236,56 @@ def test_run_metadata_scan_mode_migration_is_idempotent(tmp_path) -> None:
     count = connection.execute("SELECT COUNT(*) FROM run_metadata").fetchone()[0]
     assert count == 1
     connection.close()
+
+def test_state_machine_context_last_aging_daily_bar_migration_is_idempotent(tmp_path) -> None:
+    db_path = tmp_path / "legacy-state.sqlite"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        """
+        CREATE TABLE state_machine_context (
+            symbol TEXT PRIMARY KEY,
+            setup_cycle_id INTEGER NOT NULL,
+            previous_setup_cycle_id INTEGER,
+            state_recorded_in_cycle_id INTEGER NOT NULL,
+            state_machine_state TEXT NOT NULL,
+            state_confidence REAL NOT NULL,
+            state_transition_reason TEXT NOT NULL,
+            bars_since_state_entered INTEGER NOT NULL,
+            bars_since_early_entered INTEGER,
+            bars_since_confirmed_entered INTEGER,
+            bars_since_cycle_end INTEGER,
+            close_at_early_entry_bar REAL,
+            close_at_confirmed_entry_bar REAL,
+            distance_from_ideal_entry_after_early REAL,
+            distance_from_ideal_entry_after_confirmed REAL,
+            freshness_distance_state_early REAL,
+            freshness_distance_state_confirmed REAL,
+            cycle_end_bar_index INTEGER,
+            cycle_end_timestamp INTEGER,
+            reclaim_below_reset_floor_seen_since_cycle_end INTEGER,
+            data_resolution_class TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO state_machine_context (
+            symbol, setup_cycle_id, previous_setup_cycle_id, state_recorded_in_cycle_id,
+            state_machine_state, state_confidence, state_transition_reason,
+            bars_since_state_entered, data_resolution_class
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        ("TESTUSDT", 1, None, 1, "watch", 75.0, "STATE_HOLD", 0, "full_1d_4h"),
+    )
+    connection.execute("PRAGMA user_version = 4")
+    connection.commit()
+
+    apply_schema(connection)
+    apply_schema(connection)
+
+    cols = {row[1] for row in connection.execute("PRAGMA table_info(state_machine_context)")}
+    row = connection.execute("SELECT last_aging_daily_bar_id, state_machine_state FROM state_machine_context WHERE symbol=?", ("TESTUSDT",)).fetchone()
+    assert "last_aging_daily_bar_id" in cols
+    assert row == (None, "watch")
+    assert get_schema_version(connection) == SCHEMA_VERSION
+    connection.close()

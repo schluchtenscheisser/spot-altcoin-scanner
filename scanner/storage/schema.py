@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Final
 
-SCHEMA_VERSION: Final[int] = 4
+SCHEMA_VERSION: Final[int] = 5
 RUN_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id          TEXT PRIMARY KEY,
@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS state_machine_context (
     cycle_end_bar_index INTEGER,
     cycle_end_timestamp INTEGER,
     reclaim_below_reset_floor_seen_since_cycle_end INTEGER,
-    data_resolution_class TEXT NOT NULL
+    data_resolution_class TEXT NOT NULL,
+    last_aging_daily_bar_id TEXT
 );
 """.strip()
 
@@ -260,6 +261,9 @@ def apply_schema(connection: sqlite3.Connection) -> int:
         connection.execute(OHLCV_BARS_INDEX_SQL)
         connection.execute(OHLCV_CACHE_META_TABLE_SQL)
         connection.execute(STATE_MACHINE_CONTEXT_TABLE_SQL)
+        state_cols = {row[1] for row in connection.execute("PRAGMA table_info(state_machine_context)").fetchall()}
+        if "last_aging_daily_bar_id" not in state_cols:
+            connection.execute("ALTER TABLE state_machine_context ADD COLUMN last_aging_daily_bar_id TEXT")
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
 
     return SCHEMA_VERSION

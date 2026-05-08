@@ -2,6 +2,12 @@ name: Independence Shadow Live
 
 on:
   workflow_dispatch:
+    inputs:
+      reset_state:
+        description: "Skip prior shadow-live SQLite restore and start with empty state"
+        required: false
+        default: false
+        type: boolean
   schedule:
     # 01:30 UTC daily; chosen to run after typical UTC daily-close settlement.
     - cron: "30 1 * * *"
@@ -40,6 +46,7 @@ jobs:
           mkdir -p "${{ runner.temp }}/ir-shadow-live-workdir/artifacts"
 
       - name: Restore shadow-live SQLite state
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.reset_state }}
         id: restore_state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,6 +60,13 @@ jobs:
             --restore-dir "${{ runner.temp }}/shadow-live-state-restore")
           echo "state_restore_status=$STATE_RESTORE_STATUS" >> "$GITHUB_OUTPUT"
           echo "STATE_RESTORE_STATUS=$STATE_RESTORE_STATUS" >> "$GITHUB_ENV"
+
+      - name: Initialize reset shadow-live SQLite state
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_state }}
+        run: |
+          rm -f "$SHADOW_LIVE_WORKDIR/data/independence_release.sqlite"
+          echo "STATE_RESTORE_STATUS=cold_start_reset" >> "$GITHUB_ENV"
+          echo "PASS: reset_state requested; prior shadow-live SQLite restore skipped"
 
       - name: Credential preflight
         run: |

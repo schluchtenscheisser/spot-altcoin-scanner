@@ -12,7 +12,7 @@ from typing import Any, Sequence
 STATE_ARTIFACT_NAME = "shadow-live-state"
 STATE_DB_NAME = "independence_release.sqlite"
 STATE_DB_RELATIVE_PATH = Path("data") / STATE_DB_NAME
-VALID_RESTORE_STATUSES = {"cold_start", "restored", "restore_failed"}
+VALID_RESTORE_STATUSES = {"cold_start", "cold_start_reset", "restored", "restore_failed"}
 
 
 def _run_command(args: Sequence[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
