@@ -228,7 +228,7 @@ def load_persisted_state_machine_context(connection: sqlite3.Connection, symbol:
             bars_since_early_entered, bars_since_confirmed_entered, bars_since_cycle_end,
             reclaim_below_reset_floor_seen_since_cycle_end, close_at_early_entry_bar, close_at_confirmed_entry_bar,
             distance_from_ideal_entry_after_early, distance_from_ideal_entry_after_confirmed,
-            cycle_end_bar_index, cycle_end_timestamp
+            cycle_end_bar_index, cycle_end_timestamp, last_aging_daily_bar_id
         FROM state_machine_context
         WHERE symbol = ?
         """,
@@ -254,6 +254,7 @@ def load_persisted_state_machine_context(connection: sqlite3.Connection, symbol:
             distance_from_ideal_entry_after_confirmed=None,
             cycle_end_bar_index=None,
             cycle_end_timestamp=None,
+            last_aging_daily_bar_id=None,
         )
     flag = row["reclaim_below_reset_floor_seen_since_cycle_end"]
     return PersistedStateMachineContext(
@@ -275,6 +276,7 @@ def load_persisted_state_machine_context(connection: sqlite3.Connection, symbol:
         distance_from_ideal_entry_after_confirmed=row["distance_from_ideal_entry_after_confirmed"],
         cycle_end_bar_index=row["cycle_end_bar_index"],
         cycle_end_timestamp=row["cycle_end_timestamp"],
+        last_aging_daily_bar_id=row["last_aging_daily_bar_id"],
     )
 
 
@@ -289,8 +291,8 @@ def apply_state_persistence_patch(connection: sqlite3.Connection, patch: StatePe
                 close_at_confirmed_entry_bar, distance_from_ideal_entry_after_early,
                 distance_from_ideal_entry_after_confirmed, freshness_distance_state_early,
                 freshness_distance_state_confirmed, cycle_end_bar_index, cycle_end_timestamp,
-                reclaim_below_reset_floor_seen_since_cycle_end, data_resolution_class
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                reclaim_below_reset_floor_seen_since_cycle_end, data_resolution_class, last_aging_daily_bar_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(symbol) DO UPDATE SET
                 setup_cycle_id=excluded.setup_cycle_id,
                 previous_setup_cycle_id=excluded.previous_setup_cycle_id,
@@ -311,7 +313,8 @@ def apply_state_persistence_patch(connection: sqlite3.Connection, patch: StatePe
                 cycle_end_bar_index=excluded.cycle_end_bar_index,
                 cycle_end_timestamp=excluded.cycle_end_timestamp,
                 reclaim_below_reset_floor_seen_since_cycle_end=excluded.reclaim_below_reset_floor_seen_since_cycle_end,
-                data_resolution_class=excluded.data_resolution_class
+                data_resolution_class=excluded.data_resolution_class,
+                last_aging_daily_bar_id=excluded.last_aging_daily_bar_id
             """,
             (
                 patch.symbol,
@@ -335,5 +338,6 @@ def apply_state_persistence_patch(connection: sqlite3.Connection, patch: StatePe
                 patch.cycle_end_timestamp,
                 None if patch.reclaim_below_reset_floor_seen_since_cycle_end is None else int(patch.reclaim_below_reset_floor_seen_since_cycle_end),
                 patch.data_resolution_class,
+                patch.last_aging_daily_bar_id,
             ),
         )

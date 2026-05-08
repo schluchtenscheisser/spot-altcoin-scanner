@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 
 _ALLOWED_STATES = {"watch", "early_ready", "confirmed_ready", "late", "chased", "rejected"}
@@ -53,6 +54,7 @@ _ALLOWED_TRANSITION_REASONS = {
     "STATE_DEMOTED_TO_WATCH",
 }
 _ALLOWED_RESOLUTION_CLASSES = {"full_1d_4h", "reduced_1d_4h", "daily_only"}
+_DAILY_BAR_ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _is_finite_0_100(value: object) -> bool:
@@ -235,6 +237,7 @@ class PersistedStateMachineContext:
     distance_from_ideal_entry_after_confirmed: float | None
     cycle_end_bar_index: int | None
     cycle_end_timestamp: int | None
+    last_aging_daily_bar_id: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol, str) or not self.symbol:
@@ -258,6 +261,8 @@ class PersistedStateMachineContext:
         _validate_finite("distance_from_ideal_entry_after_confirmed", self.distance_from_ideal_entry_after_confirmed)
         _validate_non_negative_int("cycle_end_bar_index", self.cycle_end_bar_index)
         _validate_non_negative_int("cycle_end_timestamp", self.cycle_end_timestamp)
+        if self.last_aging_daily_bar_id is not None and _DAILY_BAR_ID_RE.fullmatch(self.last_aging_daily_bar_id) is None:
+            raise ValueError("last_aging_daily_bar_id must match YYYY-MM-DD or None")
         if self.reclaim_below_reset_floor_seen_since_cycle_end not in {True, False, None}:
             raise ValueError("reclaim_below_reset_floor_seen_since_cycle_end must be bool or None")
 
@@ -307,6 +312,7 @@ class StatePersistencePatch:
     cycle_end_timestamp: int | None
     reclaim_below_reset_floor_seen_since_cycle_end: bool | None
     data_resolution_class: str
+    last_aging_daily_bar_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.state_machine_state not in _ALLOWED_STATES:
@@ -315,6 +321,8 @@ class StatePersistencePatch:
             raise ValueError("invalid state_transition_reason")
         if self.data_resolution_class not in _ALLOWED_RESOLUTION_CLASSES:
             raise ValueError("invalid data_resolution_class")
+        if self.last_aging_daily_bar_id is not None and _DAILY_BAR_ID_RE.fullmatch(self.last_aging_daily_bar_id) is None:
+            raise ValueError("last_aging_daily_bar_id must match YYYY-MM-DD or None")
 
 
 @dataclass(frozen=True)

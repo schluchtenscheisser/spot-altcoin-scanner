@@ -8,6 +8,7 @@ from scanner.state.models import (
     InvalidationCycleBundle,
     PersistedStateMachineContext,
     StateEvaluationDisposition,
+    StateFreshnessBundle,
     StateMachineBundle,
     StatePersistencePatch,
     StateRuntimeContext,
@@ -150,7 +151,15 @@ def compute_state_machine(
             persistence_patch=None,
         )
 
+    same_aging_daily_bar = persisted_context.last_aging_daily_bar_id == phase_bundle.daily_bar_id
     freshness = compute_state_freshness(invalidation_cycle_bundle, persisted_context, runtime_context, cfg)
+    if same_aging_daily_bar:
+        freshness = StateFreshnessBundle(
+            freshness_distance_state_early=persisted_context.freshness_distance_state_early,
+            freshness_distance_state_confirmed=persisted_context.freshness_distance_state_confirmed,
+            distance_from_ideal_entry_after_early=persisted_context.distance_from_ideal_entry_after_early,
+            distance_from_ideal_entry_after_confirmed=persisted_context.distance_from_ideal_entry_after_confirmed,
+        )
     prev_state = persisted_context.prev_state_machine_state or "watch"
 
     if invalidation_cycle_bundle.new_cycle_detected:
@@ -196,7 +205,7 @@ def compute_state_machine(
     if prev_state == "rejected" and not invalidation_cycle_bundle.new_cycle_detected:
         state = "rejected"
 
-    delta = runtime_context.delta_closed_bars_relevant
+    delta = 0 if same_aging_daily_bar else runtime_context.delta_closed_bars_relevant
     bars_since_state_entered = 0 if state != prev_state else (persisted_context.bars_since_state_entered or 0) + delta
 
     close_early = persisted_context.close_at_early_entry_bar
@@ -278,6 +287,7 @@ def compute_state_machine(
         cycle_end_timestamp=cycle_end_timestamp,
         reclaim_below_reset_floor_seen_since_cycle_end=reclaim_seen,
         data_resolution_class=data_resolution_class,
+        last_aging_daily_bar_id=phase_bundle.daily_bar_id,
     )
 
     return StateMachineBundle(
