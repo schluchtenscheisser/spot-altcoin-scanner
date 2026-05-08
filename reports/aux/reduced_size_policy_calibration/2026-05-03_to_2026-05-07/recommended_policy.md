@@ -36,7 +36,9 @@ Use the existing full-trade slippage threshold for reduced-size candidates unles
 
 Recommended grade mapping for T29: balanced, because it preserves tradeable-class differentiation while keeping reduced_25 conservative and observe_only penalized.
 
-Based on the five T27-capable runs, fail remains out of scope for reduced-size execution and should stay hard-blocked in the T29 policy proposal. This is because no fail record reaches reduced_25 under the target 10k scenario.
+## Fail policy evidence
+
+Based on the five T27-capable runs, no fail record reaches reduced_25 under the target 10k scenario. Fail remains out of scope for reduced-size execution and should stay hard no-trade in the T29 policy proposal.
 
 ## Limitations
 

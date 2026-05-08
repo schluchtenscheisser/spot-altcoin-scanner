@@ -25,6 +25,7 @@ GRADE_MAPPINGS = {
     "strict_tradeable_only": {"full": 85.0, "reduced_75": 75.0, "reduced_50": 60.0, "reduced_25": 40.0, "observe_only": 0.0, "not_evaluable": 0.0},
 }
 SPREAD_THRESHOLDS = [0.05, 0.10, 0.15, 0.20, 0.30]
+BAND_ORDER = {"not_evaluable": 0, "below_min": 1, "reduced_25": 2, "reduced_50": 3, "reduced_75": 4, "full": 5}
 
 
 def finite(value: Any) -> bool:
@@ -121,6 +122,18 @@ def scenario_band(available_depth: Any, scenario_id: str) -> tuple[float | None,
 
 def eligible(cls: str) -> bool:
     return cls in {"full", "reduced_75", "reduced_50", "reduced_25"}
+
+
+def best_band(bands: Iterable[Any]) -> str:
+    return max((str(b) for b in bands), key=lambda b: (BAND_ORDER.get(b, -1), b), default="not_evaluable")
+
+
+def joined_seen(values: Iterable[Any]) -> str:
+    return ", ".join(sorted({str(v) for v in values if v is not None}))
+
+
+def recurrence_bucket(day_count: int) -> str:
+    return f"{min(day_count, 5)}_day"
 
 
 def normalize_path(path: Path, repo_root: Path) -> Path | None:
@@ -402,15 +415,75 @@ def main() -> None:
             availability_rows.append(row)
     (out / "candidate_availability_by_day.md").write_text("# Candidate Availability by Day\n\n" + md_table(["date", "scenario", "direct_ok_top_bucket_count", "marginal_reduced_eligible_top_bucket_count", "combined_tradeable_top_bucket_count", "after_spread_0.05", "after_spread_0.10", "after_spread_0.15", "after_spread_0.20", "after_spread_0.30", "weak_day_lt5", "unknown_count", "unknown_bucket_distribution"], availability_rows), encoding="utf-8")
 
-    recur_rows = []
+    recur_summary_rows = []
+    recur_detail_rows = []
     for scenario_id in SCENARIOS:
-        sym_days = defaultdict(set)
+        by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for r in marginal_full:
             if r["scenario_id"] == scenario_id and r["reduced_size_eligible"]:
-                sym_days[r["symbol"]].add(r["date"])
-        for sym in sorted(sym_days):
-            recur_rows.append([scenario_id, sym, len(sym_days[sym]), ", ".join(sorted(sym_days[sym]))])
-    (out / "recurring_symbols.md").write_text("# Recurring Eligible Symbols\n\n" + md_table(["scenario", "symbol", "eligible_days", "dates"], [r for r in recur_rows if r[2] >= 2]), encoding="utf-8")
+                by_symbol[str(r["symbol"])].append(r)
+
+        recurring_day_counts: list[int] = []
+        for sym in sorted(by_symbol):
+            rows = by_symbol[sym]
+            dates = sorted({str(r["date"]) for r in rows})
+            eligible_days = len(dates)
+            if eligible_days < 2:
+                continue
+            recurring_day_counts.append(eligible_days)
+            depth_ratios = [r["scenario_available_depth_ratio"] for r in rows if r["scenario_available_depth_ratio"] is not None]
+            spreads = [r["spread_pct"] for r in rows if r["spread_pct"] is not None]
+            recur_detail_rows.append([
+                scenario_id,
+                sym,
+                eligible_days,
+                ", ".join(dates),
+                joined_seen(r["decision_bucket"] for r in rows),
+                statistics.median(depth_ratios) if depth_ratios else None,
+                best_band(r["scenario_depth_ratio_band"] for r in rows),
+                statistics.median(spreads) if spreads else None,
+                joined_seen(r["market_phase"] for r in rows),
+                joined_seen(r["entry_pattern"] for r in rows),
+                recurrence_bucket(eligible_days),
+            ])
+        recur_summary_rows.append([
+            scenario_id,
+            sum(1 for day_count in recurring_day_counts if day_count >= 2),
+            sum(1 for day_count in recurring_day_counts if day_count >= 3),
+            sum(1 for day_count in recurring_day_counts if day_count >= 4),
+            sum(1 for day_count in recurring_day_counts if day_count >= 5),
+        ])
+
+    (out / "recurring_symbols.md").write_text(
+        "# Recurring Eligible Symbols\n\n"
+        + "## Summary Counts\n\n"
+        + md_table(["scenario", "symbols_recurring_2plus_days", "symbols_recurring_3plus_days", "symbols_recurring_4plus_days", "symbols_recurring_5_days"], recur_summary_rows)
+        + "\n## Recurring Symbol Diagnostics\n\n"
+        + md_table(["scenario", "symbol", "eligible_days", "dates", "buckets_seen", "median_scenario_depth_ratio", "best_scenario_depth_ratio_band", "median_spread_pct", "phases_seen", "patterns_seen", "recurrence_bucket"], recur_detail_rows),
+        encoding="utf-8",
+    )
+
+    fail_policy_recommendation = (
+        "Based on the five T27-capable runs, no fail record reaches reduced_25 under the target 10k scenario. "
+        "Fail remains out of scope for reduced-size execution and should stay hard no-trade in the T29 policy proposal."
+        if not fail_manual_review
+        else (
+            "At least one fail record reaches or exceeds the reduced_25 threshold under the target 10k scenario. "
+            f"Fail policy is manual-review-required: {len(fail_target_reachers)} fail record(s) reach reduced_25 and "
+            f"the maximum target_10k fail ratio is {q(fail_ratios_target, 1.0)}. "
+            "T29 must not implement fail-based reduced-size eligibility until this exception is manually reviewed."
+        )
+    )
+    fail_runtime_semantics = (
+        "fail: hard no-trade."
+        if not fail_manual_review
+        else "fail: manual-review-required for T29; no fail-based reduced-size eligibility may be implemented until the exception evidence is manually reviewed."
+    )
+    fail_limitation = (
+        "4. No fail policy generalization beyond current evidence. Fail remains hard-blocked for T29 based on current evidence; future materially different liquidity regimes may warrant re-analysis.\n"
+        if not fail_manual_review
+        else "4. No fail policy generalization beyond current evidence. The fail-policy exception evidence is manual-review-required before T29 may define any fail-based reduced-size eligibility.\n"
+    )
 
     policy = "manual-review-required" if fail_manual_review else "recommended"
     (out / "recommended_policy.md").write_text(
@@ -419,18 +492,21 @@ def main() -> None:
         "## Target 10k config values\n\n"
         + md_table(["key", "value"], [["notional_total_usdt", 10000], ["notional_chunk_usdt", 5000], ["max_tranches", 2], ["depth_buffer_multiple", 10], ["derived_min_depth_1pct_usdt", 100000]])
         + "\n## Runtime status semantics\n\n"
-        "direct_ok: full-size tradeable.\n\ntranche_ok: existing behavior unchanged; no order-splitting extension in T29.\n\nmarginal: split by execution_size_class / recommended_position_factor.\n\nfail: hard no-trade.\n\nunknown: no trade / not safely evaluable.\n\n"
+        "direct_ok: full-size tradeable.\n\ntranche_ok: existing behavior unchanged; no order-splitting extension in T29.\n\nmarginal: split by execution_size_class / recommended_position_factor.\n\n"
+        f"{fail_runtime_semantics}\n\n"
+        "unknown: no trade / not safely evaluable.\n\n"
         "## Recommended fields\n\nexecution_size_class values: full, reduced_75, reduced_50, reduced_25, observe_only, blocked, not_evaluable.\n\n"
         "recommended_position_factor mapping: full=1.00, reduced_75=0.75, reduced_50=0.50, reduced_25=0.25, observe_only=0.00, blocked=0.00, not_evaluable=null.\n\n"
         "Do not remove marginal + below_min from structural buckets in T29. Keep them visible in reports, but clearly mark them as execution_size_class = observe_only and not tradeable.\n\n"
         "Use the existing full-trade slippage threshold for reduced-size candidates unless T29 has stronger evidence. Slippage data is only partially available. T28 does not justify loosening slippage thresholds for reduced-size candidates.\n\n"
         "Recommended grade mapping for T29: balanced, because it preserves tradeable-class differentiation while keeping reduced_25 conservative and observe_only penalized.\n\n"
-        "Based on the five T27-capable runs, fail remains out of scope for reduced-size execution and should stay hard-blocked in the T29 policy proposal. This is because no fail record reaches reduced_25 under the target 10k scenario.\n\n"
+        "## Fail policy evidence\n\n"
+        f"{fail_policy_recommendation}\n\n"
         "## Limitations\n\n"
         "1. No profitability conclusion. T28 does not evaluate forward returns, MFE, MAE, or realized trade performance.\n"
         "2. Five-run sample. The analysis uses five T27-capable Shadow-Live Daily runs. It is sufficient for first policy calibration but should be revisited after more runs.\n"
         "3. Slippage partial availability. Slippage is not available for all records. Missing slippage must not be interpreted as good execution.\n"
-        "4. No fail policy generalization beyond current evidence. Fail remains hard-blocked for T29 based on current evidence; future materially different liquidity regimes may warrant re-analysis.\n"
+        f"{fail_limitation}"
         "5. No order-splitting change. T28 does not evaluate or modify tranche_ok or order-splitting behavior.\n",
         encoding="utf-8",
     )

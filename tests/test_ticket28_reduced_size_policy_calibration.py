@@ -26,7 +26,18 @@ def _zip_for_day(base: Path, day: str, rows: list[dict], *, daily: bool = True, 
             zf.writestr(inner, gzip.compress(payload))
 
 
-def _row(symbol: str, status: str, *, bucket: str = "confirmed_candidates", depth: float | None = 50_000.0, spread: float | None = 0.1, slippage: float | None = None, score: float = 50.0) -> dict:
+def _row(
+    symbol: str,
+    status: str,
+    *,
+    bucket: str = "confirmed_candidates",
+    depth: float | None = 50_000.0,
+    spread: float | None = 0.1,
+    slippage: float | None = None,
+    score: float = 50.0,
+    phase: str = "bull",
+    pattern: str = "breakout",
+) -> dict:
     return {
         "symbol": symbol,
         "execution_attempted": True,
@@ -49,11 +60,11 @@ def _row(symbol: str, status: str, *, bucket: str = "confirmed_candidates", dept
         "decision": {
             "decision_bucket": bucket,
             "priority_score": score,
-            "entry_pattern": "breakout",
+            "entry_pattern": pattern,
             "entry_pattern_score": 60.0,
         },
         "state": {"state_machine_state": "confirmed_ready", "state_confidence": 70.0},
-        "phase": {"market_phase": "bull", "market_phase_confidence": 80.0},
+        "phase": {"market_phase": phase, "market_phase_confidence": 80.0},
     }
 
 
@@ -121,6 +132,23 @@ def test_fail_sanity_manual_review_threshold(tmp_path: Path) -> None:
     assert "fail_count_reaching_reduced_25_target_10k: 5" in report
     assert "Manual review required" in report
     assert "Fail policy status: manual-review-required" in policy
+    assert "At least one fail record reaches or exceeds the reduced_25 threshold" in policy
+    assert "T29 must not implement fail-based reduced-size eligibility" in policy
+    assert "no fail record reaches reduced_25" not in policy
+    assert "should stay hard no-trade" not in policy
+
+
+def test_fail_policy_normal_case_allows_hard_block_recommendation(tmp_path: Path) -> None:
+    inp = tmp_path / "in"
+    inp.mkdir()
+    _complete_input(inp, [_row("FAIL_LOW", "fail", depth=24_999.0)])
+    out = tmp_path / "reports" / "aux" / "out"
+    proc = _run(inp, out)
+    assert proc.returncode == 0, proc.stderr
+    policy = (out / "recommended_policy.md").read_text()
+    assert "Fail policy status: recommended" in policy
+    assert "no fail record reaches reduced_25 under the target 10k scenario" in policy
+    assert "should stay hard no-trade in the T29 policy proposal" in policy
 
 
 def test_marginal_unknown_spread_slippage_and_ranking(tmp_path: Path) -> None:
@@ -156,6 +184,55 @@ def test_marginal_unknown_spread_slippage_and_ranking(tmp_path: Path) -> None:
     availability = (out / "candidate_availability_by_day.md").read_text()
     assert "unknown_bucket_distribution" in availability
 
+
+
+def test_recurring_symbols_include_required_diagnostics(tmp_path: Path) -> None:
+    inp = tmp_path / "in"
+    inp.mkdir()
+    day_rows = {
+        DATES[0]: [
+            _row("TWO", "marginal", depth=50_000, spread=0.10, bucket="early_candidates", phase="alpha", pattern="breakout"),
+            _row("THREE", "marginal", depth=100_000, spread=0.30),
+            _row("FOUR", "marginal", depth=150_000, spread=0.40),
+            _row("FIVE", "marginal", depth=50_000, spread=0.50),
+        ],
+        DATES[1]: [
+            _row("TWO", "marginal", depth=200_000, spread=0.20, bucket="confirmed_candidates", phase="beta", pattern="reclaim"),
+            _row("THREE", "marginal", depth=100_000, spread=0.30),
+            _row("FOUR", "marginal", depth=150_000, spread=0.40),
+            _row("FIVE", "marginal", depth=50_000, spread=0.50),
+        ],
+        DATES[2]: [
+            _row("THREE", "marginal", depth=100_000, spread=0.30),
+            _row("FOUR", "marginal", depth=150_000, spread=0.40),
+            _row("FIVE", "marginal", depth=50_000, spread=0.50),
+        ],
+        DATES[3]: [
+            _row("FOUR", "marginal", depth=150_000, spread=0.40),
+            _row("FIVE", "marginal", depth=50_000, spread=0.50),
+        ],
+        DATES[4]: [
+            _row("FIVE", "marginal", depth=50_000, spread=None),
+        ],
+    }
+    for day in DATES:
+        _zip_for_day(inp, day, day_rows[day])
+
+    out = tmp_path / "reports" / "aux" / "out"
+    proc = _run(inp, out)
+    assert proc.returncode == 0, proc.stderr
+    recurring = (out / "recurring_symbols.md").read_text()
+    assert "symbols_recurring_2plus_days" in recurring
+    assert "| target_10k | 4 | 3 | 2 | 1 |" in recurring
+    assert "| current_20k | 4 | 3 | 2 | 1 |" in recurring
+    assert "buckets_seen" in recurring
+    assert "phases_seen" in recurring
+    assert "patterns_seen" in recurring
+    assert "| target_10k | TWO | 2 | 2026-05-03, 2026-05-04 | confirmed_candidates, early_candidates | 1.25 | full | 0.15 | alpha, beta | breakout, reclaim | 2_day |" in recurring
+    assert "| current_20k | TWO | 2 | 2026-05-03, 2026-05-04 | confirmed_candidates, early_candidates | 0.625 | full | 0.15 | alpha, beta | breakout, reclaim | 2_day |" in recurring
+    assert "| target_10k | THREE | 3 |" in recurring and "| 3_day |" in recurring
+    assert "| target_10k | FOUR | 4 |" in recurring and "| 4_day |" in recurring
+    assert "| target_10k | FIVE | 5 |" in recurring and "| 5_day |" in recurring
 
 def test_output_path_safety(tmp_path: Path) -> None:
     inp = tmp_path / "in"
