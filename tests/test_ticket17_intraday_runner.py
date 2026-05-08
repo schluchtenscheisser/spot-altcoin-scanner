@@ -11,7 +11,7 @@ from scanner.config import ScannerConfig, resolve_independence_intraday_config
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intraday_bar
 import scanner.runners.intraday as intraday_runner
 from scanner.runners.intraday import run_intraday_scan
-from scanner.storage import init_db
+from scanner.storage import SCHEMA_VERSION, init_db
 
 
 def _cfg(raw: dict | None = None) -> ScannerConfig:
@@ -81,6 +81,23 @@ def test_intraday_runner_no_new_bar_noop_when_no_refresh_required(tmp_path, monk
     conn.close()
 
     run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+
+def test_intraday_run_metadata_schema_version_uses_storage_schema_version(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(parents=True, exist_ok=True)
+    cfg = _cfg()
+    cfg.intraday_context_provider = lambda _cfg, _daily: []  # type: ignore[attr-defined]
+
+    run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
+
+    conn = init_db("data/independence_release.sqlite")
+    row = conn.execute(
+        "SELECT schema_version FROM run_metadata WHERE scan_mode='intraday' ORDER BY started_at_utc DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    assert row is not None
+    assert row[0] == SCHEMA_VERSION
 
 
 def test_intraday_runner_safety_limit_hard_fails(tmp_path, monkeypatch) -> None:
