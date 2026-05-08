@@ -208,6 +208,7 @@ def test_state_persistence_repository_roundtrip():
     loaded = load_persisted_state_machine_context(conn, "TESTUSDT")
     assert loaded.current_setup_cycle_id == out.persistence_patch.setup_cycle_id
     assert loaded.prev_state_machine_state == out.persistence_patch.state_machine_state
+    assert loaded.last_aging_daily_bar_id == out.persistence_patch.last_aging_daily_bar_id
 
 
 def test_compute_state_freshness_type_validation():
@@ -295,3 +296,66 @@ def test_new_cycle_resets_freshness_distance_fields_and_reclaim_flag():
     assert patch.bars_since_early_entered is None
     assert patch.bars_since_confirmed_entered is None
     assert patch.reclaim_below_reset_floor_seen_since_cycle_end is None
+
+def test_same_daily_bar_rerun_does_not_age_state_fields():
+    out = compute_state_machine(
+        _phase(daily_bar_id="2026-01-02"),
+        _tier1(daily_bar_id="2026-01-02"),
+        _tier2(daily_bar_id="2026-01-02"),
+        _inv(daily_bar_id="2026-01-02"),
+        _ctx(
+            prev_state_machine_state="confirmed_ready",
+            bars_since_state_entered=8,
+            bars_since_early_entered=7,
+            bars_since_confirmed_entered=6,
+            close_at_early_entry_bar=100.0,
+            close_at_confirmed_entry_bar=101.0,
+            freshness_distance_state_early=15.0,
+            freshness_distance_state_confirmed=20.0,
+            distance_from_ideal_entry_after_early=1.0,
+            distance_from_ideal_entry_after_confirmed=2.0,
+            last_aging_daily_bar_id="2026-01-02",
+        ),
+        StateRuntimeContext(current_close=130.0, current_bar_index=99, delta_closed_bars_relevant=6),
+        ScannerConfig(raw={}),
+    )
+
+    assert out.state_machine_state == "confirmed_ready"
+    assert out.persistence_patch is not None
+    assert out.persistence_patch.bars_since_state_entered == 8
+    assert out.persistence_patch.bars_since_early_entered == 7
+    assert out.persistence_patch.bars_since_confirmed_entered == 6
+    assert out.persistence_patch.close_at_early_entry_bar == 100.0
+    assert out.persistence_patch.close_at_confirmed_entry_bar == 101.0
+    assert out.persistence_patch.freshness_distance_state_early == 15.0
+    assert out.persistence_patch.freshness_distance_state_confirmed == 20.0
+    assert out.persistence_patch.distance_from_ideal_entry_after_early == 1.0
+    assert out.persistence_patch.distance_from_ideal_entry_after_confirmed == 2.0
+    assert out.persistence_patch.last_aging_daily_bar_id == "2026-01-02"
+
+
+def test_new_daily_bar_ages_state_once_and_updates_aging_marker():
+    out = compute_state_machine(
+        _phase(daily_bar_id="2026-01-03"),
+        _tier1(daily_bar_id="2026-01-03"),
+        _tier2(daily_bar_id="2026-01-03"),
+        _inv(daily_bar_id="2026-01-03"),
+        _ctx(
+            prev_state_machine_state="confirmed_ready",
+            bars_since_state_entered=8,
+            bars_since_early_entered=0,
+            bars_since_confirmed_entered=0,
+            close_at_early_entry_bar=102.0,
+            close_at_confirmed_entry_bar=102.0,
+            last_aging_daily_bar_id="2026-01-02",
+        ),
+        StateRuntimeContext(current_close=102.0, current_bar_index=105, delta_closed_bars_relevant=6),
+        ScannerConfig(raw={"state": {"late": {"min_state_freshness": 100.0}, "chased": {"min_state_freshness": 100.0}}}),
+    )
+
+    assert out.state_machine_state == "confirmed_ready"
+    assert out.persistence_patch is not None
+    assert out.persistence_patch.bars_since_state_entered == 14
+    assert out.persistence_patch.bars_since_early_entered == 6
+    assert out.persistence_patch.bars_since_confirmed_entered == 6
+    assert out.persistence_patch.last_aging_daily_bar_id == "2026-01-03"

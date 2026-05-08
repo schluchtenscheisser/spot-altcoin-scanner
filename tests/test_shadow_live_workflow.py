@@ -13,6 +13,9 @@ def test_shadow_live_workflow_exists_and_has_required_contract() -> None:
     assert 'evaluation/replay/**' in text
     assert 'actions: read' in text
     assert 'Restore shadow-live SQLite state' in text
+    assert 'reset_state:' in text
+    assert 'cold_start_reset' in text
+    assert "github.event_name != 'workflow_dispatch' || !inputs.reset_state" in text
     assert '--current-run-id "${{ github.run_id }}"' in text
     assert 'Checkpoint and stage shadow-live SQLite state' in text
     assert 'name: shadow-live-state' in text

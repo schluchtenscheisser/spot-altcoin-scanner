@@ -293,3 +293,13 @@ def test_shadow_live_workdir_disallows_reports_analysis(tmp_path: Path) -> None:
 
     forbidden = shadow._collect_forbidden_writes(workdir)
     assert "reports/analysis/x.json" in forbidden
+
+
+def test_shadow_live_accepts_cold_start_reset_restore_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("STATE_RESTORE_STATUS", "cold_start_reset")
+    assert shadow._state_restore_status_from_env() == "cold_start_reset"
+
+    manifest = tmp_path / "run.manifest.json"
+    manifest.write_text("{}\n", encoding="utf-8")
+    shadow._annotate_manifest_state_restore_status(manifest, "cold_start_reset")
+    assert json.loads(manifest.read_text(encoding="utf-8"))["state_restore_status"] == "cold_start_reset"

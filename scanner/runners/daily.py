@@ -33,7 +33,7 @@ from scanner.output.schema import validate_diagnostics_record
 from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
 from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
-from scanner.storage import apply_state_persistence_patch, init_db, load_persisted_state_machine_context
+from scanner.storage import SCHEMA_VERSION, apply_state_persistence_patch, init_db, load_persisted_state_machine_context
 from scanner.universe.classification import classify_symbol
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def _create_run_metadata(conn: sqlite3.Connection, *, run_id: str, daily_id: str
             daily_bar_id, intraday_bar_id, schema_version, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (run_id, scan_mode, _utc_now_iso(), None, daily_id, None, 4, "running"),
+        (run_id, scan_mode, _utc_now_iso(), None, daily_id, None, SCHEMA_VERSION, "running"),
     )
     conn.commit()
 
