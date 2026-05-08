@@ -14,7 +14,7 @@ from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intr
 from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.output import make_report_builder
 from scanner.output.schema import validate_diagnostics_record
-from scanner.storage import build_run_manifest_path, init_db
+from scanner.storage import SCHEMA_VERSION, build_run_manifest_path, init_db
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def _create_run_metadata(
             daily_bar_id, intraday_bar_id, schema_version, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (run_id, scan_mode, _utc_now_iso(), None, daily_id, intraday_id, 4, "running"),
+        (run_id, scan_mode, _utc_now_iso(), None, daily_id, intraday_id, SCHEMA_VERSION, "running"),
     )
     conn.commit()
 
