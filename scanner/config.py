@@ -107,10 +107,11 @@ _INDEPENDENCE_EXECUTION_DEFAULTS = {
     "fetch_timeout_seconds": 10,
     "fetch_max_retries": 2,
     "max_spread_pct": 0.15,
-    "min_depth_1pct_usd": 200_000.0,
-    "notional_total_usdt": 20_000.0,
+    "min_depth_1pct_usd": 100_000.0,
+    "notional_total_usdt": 10_000.0,
     "notional_chunk_usdt": 5_000.0,
-    "max_tranches": 4,
+    "max_tranches": 2,
+    "depth_buffer_multiple": 10.0,
     "direct_ok_max_slippage_bps": 50.0,
     "tranche_ok_max_slippage_bps": 100.0,
     "marginal_max_slippage_bps": 150.0,
@@ -1186,11 +1187,28 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
         "notional_total_usdt": _float_pos("notional_total_usdt"),
         "notional_chunk_usdt": _float_pos("notional_chunk_usdt"),
         "max_tranches": _int_pos("max_tranches"),
+        "depth_buffer_multiple": _float_pos("depth_buffer_multiple"),
         "direct_ok_max_slippage_bps": _float_pos("direct_ok_max_slippage_bps"),
         "tranche_ok_max_slippage_bps": _float_pos("tranche_ok_max_slippage_bps"),
         "marginal_max_slippage_bps": _float_pos("marginal_max_slippage_bps"),
         "execution_safety_limit": None,
     }
+    derived_depth_threshold = out["notional_total_usdt"] * out["depth_buffer_multiple"]
+    # T29 keeps the buffer relationship explicit and fail-fast: threshold = notional * buffer.
+    # This preserves partial override semantics while preventing silent divergence.
+    if not math.isclose(out["min_depth_1pct_usd"], derived_depth_threshold, rel_tol=1e-9, abs_tol=1e-9):
+        _raise_invalid(
+            "independence_release.execution.min_depth_1pct_usd",
+            out["min_depth_1pct_usd"],
+            "must equal notional_total_usdt * depth_buffer_multiple",
+        )
+    tranche_total = out["notional_chunk_usdt"] * out["max_tranches"]
+    if not math.isclose(out["notional_total_usdt"], tranche_total, rel_tol=1e-9, abs_tol=1e-9):
+        _raise_invalid(
+            "independence_release.execution.notional_total_usdt",
+            out["notional_total_usdt"],
+            "must equal notional_chunk_usdt * max_tranches",
+        )
     raw_limit = resolved.get("execution_safety_limit")
     if raw_limit is not None:
         if isinstance(raw_limit, bool) or not isinstance(raw_limit, int) or raw_limit <= 0:
@@ -1619,7 +1637,7 @@ class ScannerConfig:
 
     @property
     def tradeability_notional_total_usdt(self) -> float:
-        return float(self.raw.get("tradeability", {}).get("notional_total_usdt", 20_000))
+        return float(self.raw.get("tradeability", {}).get("notional_total_usdt", 10_000))
 
     @property
     def tradeability_notional_chunk_usdt(self) -> float:
@@ -1627,7 +1645,7 @@ class ScannerConfig:
 
     @property
     def tradeability_max_tranches(self) -> int:
-        return int(self.raw.get("tradeability", {}).get("max_tranches", 4))
+        return int(self.raw.get("tradeability", {}).get("max_tranches", 2))
 
     @property
     def tradeability_band_pct(self) -> float:
@@ -1639,7 +1657,7 @@ class ScannerConfig:
 
     @property
     def tradeability_min_depth_1pct_usd(self) -> float:
-        return float(self.raw.get("tradeability", {}).get("min_depth_1pct_usd", 200_000))
+        return float(self.raw.get("tradeability", {}).get("min_depth_1pct_usd", 100_000))
 
     @property
     def tradeability_class_thresholds(self) -> Dict[str, Any]:
@@ -1931,12 +1949,12 @@ def validate_config(config: ScannerConfig) -> List[str]:
     tradeability_cfg = config.raw.get("tradeability", {})
     if "enabled" in tradeability_cfg and not isinstance(tradeability_cfg.get("enabled"), bool):
         errors.append("tradeability.enabled must be boolean")
-    _expect_number(errors, tradeability_cfg.get("notional_total_usdt", 20_000), "tradeability.notional_total_usdt", minimum=0)
+    _expect_number(errors, tradeability_cfg.get("notional_total_usdt", 10_000), "tradeability.notional_total_usdt", minimum=0)
     _expect_number(errors, tradeability_cfg.get("notional_chunk_usdt", 5_000), "tradeability.notional_chunk_usdt", minimum=0)
-    _expect_number(errors, tradeability_cfg.get("max_tranches", 4), "tradeability.max_tranches", minimum=1)
+    _expect_number(errors, tradeability_cfg.get("max_tranches", 2), "tradeability.max_tranches", minimum=1)
     _expect_number(errors, tradeability_cfg.get("band_pct", 1.0), "tradeability.band_pct", minimum=0)
     _expect_number(errors, tradeability_cfg.get("max_spread_pct", 0.15), "tradeability.max_spread_pct", minimum=0)
-    _expect_number(errors, tradeability_cfg.get("min_depth_1pct_usd", 200_000), "tradeability.min_depth_1pct_usd", minimum=0)
+    _expect_number(errors, tradeability_cfg.get("min_depth_1pct_usd", 100_000), "tradeability.min_depth_1pct_usd", minimum=0)
 
     class_thresholds = tradeability_cfg.get("class_thresholds")
     if class_thresholds is None:

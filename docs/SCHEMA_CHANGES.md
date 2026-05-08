@@ -54,6 +54,33 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-05-08 — diagnostics schema_version ir1.0 → ir1.1 — T29 tradeability reason set for reduced-size gating
+**PR:** (branch-local, T29 review fix)  
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `symbol_diagnostics.jsonl.gz` enthält zusätzlich das top-level Feld `tradeability_reason_keys` als vollständige Liste der Execution-/Tradeability-Gründe.
+- T29 nutzt diese vollständige Reason-Liste zusammen mit expliziten Non-Depth-Gate-Bools intern, damit Reduced-Size-Eligibility nicht nur vom primären `execution_reason_raw` abhängt.
+
+#### Warum?
+- Reduced-Size-Eligibility darf Spread-/Slippage-/Orderbook-Verletzungen nicht übersehen, wenn `execution_reason_raw` nur den ersten Grund enthält.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja. Das Feld ist additiv; alte Diagnostics ohne `tradeability_reason_keys` werden konservativ als leere Liste gelesen.
+
+#### Migration / Vorgehen
+- Consumer sollten `tradeability_reason_keys` für vollständige Execution-Gate-Analysen verwenden und `execution_reason_raw` nur als Primär-/Audit-Grund behandeln.
+
+#### Beispiel (gekürzt)
+```json
+{
+  "schema_version": "ir1.1",
+  "execution_reason_raw": "depth_1pct_insufficient",
+  "tradeability_reason_keys": ["depth_1pct_insufficient", "slippage_5k_too_high"],
+  "is_reduced_size_eligible": false
+}
+```
+
 ### 2026-05-08 — SQLite schema_version 4 → 5 — Daily state-aging idempotency marker
 **PR:** (branch-local, T28-pre-2)
 **Typ:** additiv

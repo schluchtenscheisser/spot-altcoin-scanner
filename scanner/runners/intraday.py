@@ -335,7 +335,7 @@ def _diag(
     stale: bool = False,
 ) -> dict[str, Any]:
     record = {
-        "schema_version": "ir1.0",
+        "schema_version": "ir1.1",
         "run_id": run_id,
         "scan_mode": "intraday",
         "symbol": symbol,
@@ -357,6 +357,11 @@ def _diag(
         "execution_pass": None,
         "execution_grade_t16": None,
         "execution_fetch_duration_ms": None,
+        "execution_size_class": "not_evaluated",
+        "recommended_position_factor": None,
+        "execution_grade_effective": None,
+        "is_reduced_size_eligible": False,
+        "is_tradeable_candidate": False,
         "intraday_skipped_stale_4h": stale,
     }
     return validate_diagnostics_record(record)
@@ -377,7 +382,7 @@ def _intraday_diag_from_row(
     decision_bucket = row.get("decision_bucket")
     preserve_discarded = decision_bucket == "discarded" and not attachable_context
     return {
-        "schema_version": "ir1.0",
+        "schema_version": "ir1.1",
         "run_id": run_id,
         "scan_mode": "intraday",
         "symbol": str(row["symbol"]),
@@ -409,6 +414,11 @@ def _intraday_diag_from_row(
         "execution_pass": None,
         "execution_grade_t16": None,
         "execution_fetch_duration_ms": None,
+        "execution_size_class": "not_evaluated",
+        "recommended_position_factor": None,
+        "execution_grade_effective": None,
+        "is_reduced_size_eligible": False,
+        "is_tradeable_candidate": False,
         "intraday_skipped_stale_4h": False,
     }
 

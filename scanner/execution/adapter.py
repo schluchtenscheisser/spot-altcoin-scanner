@@ -7,6 +7,12 @@ from typing import Any, Iterable, Mapping
 from scanner.clients.mexc_client import MEXCClient
 from scanner.decision.models import ExecutionInputContract, RankedDecision
 from scanner.execution.grading import grade_execution_orderbook
+from scanner.execution.policy import (
+    classify_execution_size,
+    depth_ratio_band,
+    finite_float_or_none,
+    is_reduced_size_eligible,
+)
 
 _ACTIVE_BUCKETS = {"early_candidates", "confirmed_candidates", "late_monitor"}
 _HARD_EXCLUDED_STATES = {"rejected", "chased"}
@@ -14,29 +20,35 @@ _UNKNOWN_NON_MAPPING_PAYLOAD_REASON = "UNKNOWN_FETCH_FAILED"
 
 
 def _finite_number(value: Any) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    v = float(value)
-    from math import isfinite
-    return v if isfinite(v) else None
-
-
-def _depth_band(ratio: float | None) -> str:
-    if ratio is None:
-        return "not_evaluable"
-    if ratio >= 1.0:
-        return "full"
-    if ratio >= 0.75:
-        return "reduced_75"
-    if ratio >= 0.5:
-        return "reduced_50"
-    if ratio >= 0.25:
-        return "reduced_25"
-    return "below_min"
+    return finite_float_or_none(value)
 
 
 def _factor_preview(band: str) -> float | None:
-    return {"full":1.0,"reduced_75":0.75,"reduced_50":0.5,"reduced_25":0.25,"below_min":0.0}.get(band)
+    return {"full": 1.0, "reduced_75": 0.75, "reduced_50": 0.5, "reduced_25": 0.25, "below_min": 0.0}.get(band)
+
+
+def _apply_policy_fields(diag: dict[str, Any]) -> dict[str, Any]:
+    policy = classify_execution_size(
+        execution_attempted=bool(diag.get("execution_attempted")),
+        execution_status_raw=diag.get("execution_status_raw"),
+        depth_ratio_band_value=diag.get("depth_ratio_band"),
+    )
+    diag["execution_size_class"] = policy.execution_size_class
+    diag["recommended_position_factor"] = policy.recommended_position_factor
+    diag["execution_grade_effective"] = policy.execution_grade_effective
+    diag["is_reduced_size_eligible"] = is_reduced_size_eligible(
+        execution_status_raw=diag.get("execution_status_raw"),
+        execution_size_class=policy.execution_size_class,
+        reason_keys=diag.get("tradeability_reason_keys"),
+        gate_flags={
+            "orderbook_available": diag.get("orderbook_available"),
+            "orderbook_stale": diag.get("orderbook_stale"),
+            "spread_gate_pass": diag.get("spread_gate_pass"),
+            "slippage_gate_pass": diag.get("slippage_gate_pass"),
+        },
+    )
+    diag["is_tradeable_candidate"] = False
+    return diag
 
 
 def _limiting_metric(execution_status_raw: str, execution_reason_raw: str | None, attempted: bool) -> str:
@@ -109,7 +121,7 @@ def evaluate_execution_subset(
             orderbook = api.get_orderbook(symbol=symbol, limit=int(execution_cfg["orderbook_depth_levels"]))
         except Exception:
             duration_ms = max(0, int((perf_counter() - t0) * 1000))
-            diagnostics[symbol] = {
+            diagnostics[symbol] = _apply_policy_fields({
                 "execution_attempted": True,
                 "execution_status_raw": "unknown",
                 "execution_reason_raw": "UNKNOWN_FETCH_FAILED",
@@ -128,14 +140,19 @@ def evaluate_execution_subset(
                 "bid_depth_1pct_usdt": None,
                 "ask_depth_1pct_usdt": None,
                 "depth_side_used": "unknown",
-            }
+                "tradeability_reason_keys": ["UNKNOWN_FETCH_FAILED"],
+                "orderbook_available": False,
+                "orderbook_stale": False,
+                "spread_gate_pass": False,
+                "slippage_gate_pass": False,
+            })
             continue
 
         if not isinstance(orderbook, Mapping):
             # Re-use existing UNKNOWN_* taxonomy without schema expansion:
             # non-mapping payloads are treated as fetch/transport-level invalid responses.
             duration_ms = max(0, int((perf_counter() - t0) * 1000))
-            diagnostics[symbol] = {
+            diagnostics[symbol] = _apply_policy_fields({
                 "execution_attempted": True,
                 "execution_status_raw": "unknown",
                 "execution_reason_raw": _UNKNOWN_NON_MAPPING_PAYLOAD_REASON,
@@ -154,7 +171,12 @@ def evaluate_execution_subset(
                 "bid_depth_1pct_usdt": None,
                 "ask_depth_1pct_usdt": None,
                 "depth_side_used": "unknown",
-            }
+                "tradeability_reason_keys": [_UNKNOWN_NON_MAPPING_PAYLOAD_REASON],
+                "orderbook_available": False,
+                "orderbook_stale": False,
+                "spread_gate_pass": False,
+                "slippage_gate_pass": False,
+            })
             continue
 
         freshness = int(execution_cfg["orderbook_freshness_max_seconds"])
@@ -168,8 +190,6 @@ def evaluate_execution_subset(
 
         graded = grade_execution_orderbook(orderbook, execution_cfg)
         duration_ms = max(0, int((perf_counter() - t0) * 1000))
-        if graded.contract is not None:
-            contracts[symbol] = graded.contract
         metrics = dict(graded.metrics or {})
         depth_threshold = _finite_number(execution_cfg.get("min_depth_1pct_usd"))
         bid_depth = _finite_number(metrics.get("depth_bid_1pct_usd"))
@@ -177,7 +197,26 @@ def evaluate_execution_subset(
         available_depth = ask_depth
         depth_side_used = "ask" if available_depth is not None else ("not_evaluated" if graded.execution_status_raw == "unknown" and graded.execution_reason_raw == "UNKNOWN_ORDERBOOK_MISSING" else "unknown")
         ratio = (available_depth / depth_threshold) if (available_depth is not None and depth_threshold is not None and depth_threshold > 0) else None
-        band = _depth_band(ratio)
+        band = depth_ratio_band(ratio)
+        spread_pct = _finite_number(metrics.get("spread_pct"))
+        slippage_5k = _finite_number(metrics.get("slippage_bps_5k"))
+        max_spread_pct = _finite_number(execution_cfg.get("max_spread_pct"))
+        tranche_slippage_limit = _finite_number(execution_cfg.get("tranche_ok_max_slippage_bps"))
+        spread_gate_pass = (
+            spread_pct is not None
+            and max_spread_pct is not None
+            and spread_pct <= max_spread_pct
+        )
+        slippage_gate_pass = (
+            slippage_5k is not None
+            and tranche_slippage_limit is not None
+            and slippage_5k <= tranche_slippage_limit
+        )
+        reason_keys = metrics.get("tradeability_reason_keys")
+        if not isinstance(reason_keys, list):
+            reason_keys = []
+        else:
+            reason_keys = [str(reason) for reason in reason_keys if reason is not None]
         ts = orderbook.get("timestamp") or orderbook.get("ts")
         age_ms = None
         if isinstance(ts, (int, float)):
@@ -186,7 +225,7 @@ def evaluate_execution_subset(
             ts_sec = tsv / 1000.0 if tsv > 10_000_000_000 else tsv
             age_calc = int((time() - ts_sec) * 1000)
             age_ms = age_calc if age_calc >= 0 else None
-        diagnostics[symbol] = {
+        diag = {
             "execution_attempted": True,
             "execution_status_raw": graded.execution_status_raw,
             "execution_reason_raw": graded.execution_reason_raw,
@@ -199,12 +238,26 @@ def evaluate_execution_subset(
             "depth_ratio_band": band,
             "recommended_position_factor_preview": _factor_preview(band),
             "execution_limiting_metric": _limiting_metric(graded.execution_status_raw, graded.execution_reason_raw, True),
-            "spread_pct": _finite_number(metrics.get("spread_pct")),
+            "spread_pct": spread_pct,
             "estimated_slippage_bps": _finite_number(metrics.get("slippage_bps_20k")),
             "orderbook_snapshot_age_ms": age_ms,
             "bid_depth_1pct_usdt": bid_depth,
             "ask_depth_1pct_usdt": ask_depth,
             "depth_side_used": depth_side_used,
+            "tradeability_reason_keys": reason_keys,
+            "orderbook_available": graded.execution_status_raw != "unknown",
+            "orderbook_stale": graded.execution_reason_raw == "UNKNOWN_ORDERBOOK_STALE",
+            "spread_gate_pass": spread_gate_pass,
+            "slippage_gate_pass": slippage_gate_pass,
         }
+        _apply_policy_fields(diag)
+        if graded.contract is not None:
+            contracts[symbol] = ExecutionInputContract(
+                execution_status=graded.contract.execution_status,
+                execution_grade=diag["execution_grade_effective"],
+                execution_pass=graded.contract.execution_pass,
+                execution_reason=graded.contract.execution_reason,
+            )
+        diagnostics[symbol] = diag
 
     return ExecutionEvaluationResult(contracts=contracts, diagnostics=diagnostics)

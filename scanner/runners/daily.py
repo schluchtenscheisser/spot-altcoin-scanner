@@ -17,6 +17,7 @@ from scanner.decision.models import RankedDecision
 from scanner.decision.ranking import rank_coins
 from scanner.entry.patterns import resolve_entry_pattern
 from scanner.execution import evaluate_execution_subset, select_execution_subset
+from scanner.execution.policy import classify_execution_size, is_reduced_size_eligible, is_tradeable_candidate
 from scanner.features.bundle import build_feature_bundle
 from scanner.output import make_report_builder
 from scanner.output.diagnostics_serialization import (
@@ -223,6 +224,16 @@ def _build_execution_aware_report_payload(
             "execution_status_raw": diag.get("execution_status_raw"),
             "execution_reason_raw": diag.get("execution_reason_raw"),
             "execution_pass": diag.get("execution_pass"),
+            "execution_size_class": diag.get("execution_size_class"),
+            "recommended_position_factor": diag.get("recommended_position_factor"),
+            "execution_grade_effective": diag.get("execution_grade_effective"),
+            "available_depth_ratio": diag.get("available_depth_ratio"),
+            "depth_ratio_band": diag.get("depth_ratio_band"),
+            "spread_pct": diag.get("spread_pct"),
+            "estimated_slippage_bps": diag.get("estimated_slippage_bps"),
+            "is_reduced_size_eligible": diag.get("is_reduced_size_eligible"),
+            "is_tradeable_candidate": diag.get("is_tradeable_candidate"),
+            "tradeability_reason_keys": diag.get("tradeability_reason_keys", []),
             "universe_category": universe.get("universe_category"),
             "universe_category_confidence": universe.get("universe_category_confidence"),
             "universe_category_reason": universe.get("universe_category_reason"),
@@ -287,7 +298,6 @@ def _build_execution_aware_report_payload(
         status = diag.get("execution_status_raw")
         attempted = bool(diag.get("execution_attempted"))
         execution_pass = diag.get("execution_pass")
-
         segment_prefix = "confirmed" if bucket == "confirmed_candidates" else "early" if bucket == "early_candidates" else None
         if segment_prefix is not None:
             segments[f"{segment_prefix}_structural"].append(item)
@@ -309,8 +319,20 @@ def _build_execution_aware_report_payload(
         elif status == "unknown" and execution_pass is None:
             classification = "unknown_execution"
 
+        reduced_size_eligible = diag.get("is_reduced_size_eligible")
+        if reduced_size_eligible is None:
+            reduced_size_eligible = classification in {"direct_ok", "tranche_ok"}
+            diag["is_reduced_size_eligible"] = bool(reduced_size_eligible)
+            item["is_reduced_size_eligible"] = bool(reduced_size_eligible)
+        if is_tradeable_candidate(
+            decision_bucket=bucket,
+            is_reduced_size_eligible_value=bool(reduced_size_eligible),
+        ):
+            diag["is_tradeable_candidate"] = True
+            item["is_tradeable_candidate"] = True
+
         _inc(bucket, category, classification)
-        if classification in {"direct_ok", "tranche_ok"}:
+        if bool(diag.get("is_tradeable_candidate")) or classification in {"direct_ok", "tranche_ok"}:
             _inc(bucket, category, "executable")
         if segment_prefix is not None and classification in {"executable", "unexpected_execution_state", "direct_ok", "tranche_ok", "marginal", "failed", "unknown_execution", "not_attempted"}:
             if classification in {"direct_ok", "tranche_ok"}:
@@ -326,6 +348,33 @@ def _build_execution_aware_report_payload(
     for counts in by_bucket.values():
         for key in metric_keys:
             summary[key] += counts[key]
+
+    def _bucket_diags(bucket_name: str) -> list[dict[str, Any]]:
+        return [
+            d
+            for d in diagnostics
+            if diag_by_symbol.get(str(d.get("symbol"))) is d
+            and any(r.symbol == d.get("symbol") and r.decision.decision_bucket.value == bucket_name for r in ranked)
+            and d.get("universe", {}).get("candidate_excluded") is not True
+        ]
+
+    confirmed_diags = _bucket_diags("confirmed_candidates")
+    early_diags = _bucket_diags("early_candidates")
+    all_visible = confirmed_diags + early_diags
+    t29_summary = {
+        "confirmed_candidates_total": len(confirmed_diags),
+        "confirmed_tradeable_candidates": sum(1 for d in confirmed_diags if d.get("is_tradeable_candidate") is True),
+        "confirmed_observe_only_candidates": sum(1 for d in confirmed_diags if d.get("execution_size_class") == "observe_only"),
+        "early_candidates_total": len(early_diags),
+        "early_tradeable_candidates": sum(1 for d in early_diags if d.get("is_tradeable_candidate") is True),
+        "early_observe_only_candidates": sum(1 for d in early_diags if d.get("execution_size_class") == "observe_only"),
+        "marginal_reduced_75_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "reduced_75"),
+        "marginal_reduced_50_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "reduced_50"),
+        "marginal_reduced_25_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "reduced_25"),
+        "marginal_observe_only_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "observe_only"),
+        "fail_blocked_count": sum(1 for d in all_visible if d.get("execution_size_class") == "blocked"),
+        "unknown_not_evaluable_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "unknown" and d.get("execution_size_class") == "not_evaluable"),
+    }
     return {
         "execution_aware_summary": {
             "total_structural_candidates": summary["structural"],
@@ -343,6 +392,7 @@ def _build_execution_aware_report_payload(
         "execution_counts_by_universe_category": by_category,
         "execution_counts_by_bucket_and_category": by_bucket_category,
         "execution_aware_candidate_segments": segments,
+        "reduced_size_policy_summary": t29_summary,
     }
 
 def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
@@ -468,7 +518,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     )
                 )
                 diag = {
-                    "schema_version": "ir1.0",
+                    "schema_version": "ir1.1",
                     "run_id": run_id,
                     "scan_mode": "daily",
                     "symbol": symbol,
@@ -505,6 +555,32 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 }
                 if execution_diag:
                     diag.update(execution_diag)
+                policy = classify_execution_size(
+                    execution_attempted=bool(diag.get("execution_attempted")),
+                    execution_status_raw=diag.get("execution_status_raw"),
+                    depth_ratio_band_value=diag.get("depth_ratio_band"),
+                )
+                diag.setdefault("execution_size_class", policy.execution_size_class)
+                diag.setdefault("recommended_position_factor", policy.recommended_position_factor)
+                diag.setdefault("execution_grade_effective", policy.execution_grade_effective)
+                diag.setdefault(
+                    "is_reduced_size_eligible",
+                    is_reduced_size_eligible(
+                        execution_status_raw=diag.get("execution_status_raw"),
+                        execution_size_class=diag.get("execution_size_class"),
+                        reason_keys=diag.get("tradeability_reason_keys"),
+                        gate_flags={
+                            "orderbook_available": diag.get("orderbook_available"),
+                            "orderbook_stale": diag.get("orderbook_stale"),
+                            "spread_gate_pass": diag.get("spread_gate_pass"),
+                            "slippage_gate_pass": diag.get("slippage_gate_pass"),
+                        },
+                    ),
+                )
+                diag["is_tradeable_candidate"] = is_tradeable_candidate(
+                    decision_bucket=decision.decision_bucket.value,
+                    is_reduced_size_eligible_value=bool(diag.get("is_reduced_size_eligible")),
+                )
                 diagnostics.append(validate_diagnostics_record(diag))
 
         ranked = rank_coins(ranked_inputs, cfg)

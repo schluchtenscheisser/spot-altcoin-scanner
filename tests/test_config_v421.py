@@ -16,12 +16,12 @@ def test_v421_defaults_are_applied_when_new_blocks_missing() -> None:
     assert cfg.pre_shortlist_market_cap_floor_usd == 25_000_000
 
     assert cfg.tradeability_enabled is True
-    assert cfg.tradeability_notional_total_usdt == 20_000
+    assert cfg.tradeability_notional_total_usdt == 10_000
     assert cfg.tradeability_notional_chunk_usdt == 5_000
-    assert cfg.tradeability_max_tranches == 4
+    assert cfg.tradeability_max_tranches == 2
     assert cfg.tradeability_band_pct == 1.0
     assert cfg.tradeability_max_spread_pct == 0.15
-    assert cfg.tradeability_min_depth_1pct_usd == 200_000
+    assert cfg.tradeability_min_depth_1pct_usd == 100_000
     assert cfg.tradeability_class_thresholds["direct_ok_max_slippage_bps"] == 50
     assert cfg.tradeability_class_thresholds["tranche_ok_max_slippage_bps"] == 100
     assert cfg.tradeability_class_thresholds["marginal_max_slippage_bps"] == 150
