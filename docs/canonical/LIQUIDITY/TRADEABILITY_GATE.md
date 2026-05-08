@@ -60,3 +60,112 @@ These reasons MUST remain distinguishable in outputs and diagnostics.
 ## Determinism
 - Tradeability class assignment order and tie-breaking must be deterministic.
 - Null/missing fields must not be bool-coerced into a pass/fail class.
+
+## T29 Diagnostics Field Semantics
+T29 introduced five new top-level fields in `symbol_diagnostics.jsonl.gz`.
+This section documents their intended meaning to prevent misinterpretation.
+
+### Field overview
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `execution_size_class` | string enum | Depth-derived position size classification |
+| `recommended_position_factor` | float or null | Operative position size factor (0.00–1.00) |
+| `execution_grade_effective` | float or null | Final execution grade used by decision/ranking |
+| `is_reduced_size_eligible` | bool | Tradeable at any policy-allowed position size |
+| `is_tradeable_candidate` | bool | In a top bucket and tradeable |
+
+### `execution_size_class` is a depth classification, not a final tradeability verdict
+`execution_size_class` reflects only the orderbook depth dimension:
+
+```text
+full           depth >= 100% of threshold; full position supportable by depth alone
+reduced_75     depth >= 75% of threshold
+reduced_50     depth >= 50% of threshold
+reduced_25     depth >= 25% of threshold
+observe_only   depth < 25% of threshold; not tradeable at minimum size
+blocked        execution_status_raw = fail; hard no-trade
+not_evaluable  execution attempted but orderbook evidence insufficient
+not_evaluated  execution not attempted for this symbol
+```
+
+`execution_size_class` does not replace `execution_status_raw`. Both fields must be read together:
+
+- `execution_status_raw` is the canonical execution outcome (`direct_ok`, `tranche_ok`, `marginal`, `fail`, `unknown`).
+- `execution_size_class` is the depth-derived position size classification.
+
+Critical: `execution_size_class = "full"` does not imply `execution_status_raw = "direct_ok"`.
+A marginal record with sufficient depth can also receive `execution_size_class = "full"`.
+
+| `execution_status_raw` | `execution_size_class` | Meaning |
+| --- | --- | --- |
+| `direct_ok` | `full` | All execution metrics passed; full position |
+| `marginal` | `full` | Depth sufficient; another metric kept execution below `direct_ok` |
+| `marginal` | `reduced_25` | Depth at 25–50% of threshold; reduced position |
+
+Always read both fields when making tradeability decisions.
+
+### `is_reduced_size_eligible` covers full and reduced positions
+Despite its name, `is_reduced_size_eligible` is true for `direct_ok` records as well as for reduced-size marginal records.
+
+Its intended meaning is:
+
+```text
+is_reduced_size_eligible = true
+iff execution_size_class in {full, reduced_75, reduced_50, reduced_25}
+and execution_status_raw in {direct_ok, tranche_ok, marginal}
+and, for marginal records, tradeability_reason_keys contains no non-depth blocking reason
+and spread/slippage/orderbook-validity gates pass if evaluated
+```
+
+For `marginal` records, depth insufficiency can be handled by reduced sizing only when the depth-derived `execution_size_class` is at least `reduced_25`. Reduced-size eligibility does not override any non-depth execution blocker. Consumers must inspect the full `tradeability_reason_keys` set, not only `execution_reason_raw`, because `execution_reason_raw` may contain only the primary/first reason. Any non-depth reason key, including spread/slippage/orderbook-staleness or invalid-orderbook reasons, makes the record not eligible. If full reason/gate evidence is missing for a marginal record, eligibility must be treated conservatively as false.
+
+| `execution_status_raw` | `execution_size_class` | `tradeability_reason_keys` | `is_reduced_size_eligible` | Reason |
+| --- | --- | --- | --- | --- |
+| `direct_ok` | `full` | `[]` | `true` | Full-size tradeable |
+| `marginal` | `reduced_50` | [`depth_1pct_insufficient`] | `true` | Depth issue handled by reduced sizing |
+| `marginal` | `reduced_50` | [`depth_1pct_insufficient`, `slippage_5k_too_high`] | `false` | Non-depth blocker remains |
+| `marginal` | `reduced_75` | [`spread_too_wide`] | `false` | Spread gate remains blocking |
+| `marginal` | `observe_only` | [`depth_1pct_insufficient`] | `false` | Depth below minimum reduced size |
+| `fail` | `blocked` | any | `false` | Fail remains hard no-trade |
+| `unknown` | `not_evaluable` | any/null | `false` | Not safely evaluable |
+
+The field answers:
+
+```text
+Is this symbol tradeable at the policy-permitted position size, whether full or reduced?
+```
+
+It does not mean:
+
+```text
+Only suitable for a reduced position.
+```
+
+A future rename to `is_execution_eligible` or `is_policy_tradeable` would be more precise, but no rename is implemented in T29.
+
+### `execution_grade_effective` is the ranking input
+`execution_grade_effective` is the grade injected into the T12 priority-score formula. It reflects the T29 size-class mapping:
+
+```text
+direct_ok                    -> 100.0
+tranche_ok                   -> 75.0
+marginal + full              -> 75.0
+marginal + reduced_75        -> 75.0
+marginal + reduced_50        -> 60.0
+marginal + reduced_25        -> 40.0
+marginal + below_min         -> 0.0
+fail                         -> 0.0
+unknown / not_evaluable      -> null
+```
+
+Do not use `execution_grade_t16` for ranking. That field is a raw T16 audit field and is currently null because T16 does not emit a fine-grained grade.
+
+`execution_grade_effective` is the authoritative execution-grade input for T12 ranking/decision.
+
+### `not_evaluable` vs. `not_evaluated`
+These two `execution_size_class` values are semantically distinct and must not be collapsed:
+
+```text
+not_evaluated   execution was not attempted (`execution_attempted = false`)
+not_evaluable   execution was attempted but required metrics are missing, stale, or invalid
+```
