@@ -113,8 +113,21 @@ Its intended meaning is:
 is_reduced_size_eligible = true
 iff execution_size_class in {full, reduced_75, reduced_50, reduced_25}
 and execution_status_raw in {direct_ok, tranche_ok, marginal}
-and spread/slippage gates pass if evaluated
+and, for marginal records, tradeability_reason_keys contains no non-depth blocking reason
+and spread/slippage/orderbook-validity gates pass if evaluated
 ```
+
+For `marginal` records, depth insufficiency can be handled by reduced sizing only when the depth-derived `execution_size_class` is at least `reduced_25`. Reduced-size eligibility does not override any non-depth execution blocker. Consumers must inspect the full `tradeability_reason_keys` set, not only `execution_reason_raw`, because `execution_reason_raw` may contain only the primary/first reason. Any non-depth reason key, including spread/slippage/orderbook-staleness or invalid-orderbook reasons, makes the record not eligible. If full reason/gate evidence is missing for a marginal record, eligibility must be treated conservatively as false.
+
+| `execution_status_raw` | `execution_size_class` | `tradeability_reason_keys` | `is_reduced_size_eligible` | Reason |
+| --- | --- | --- | --- | --- |
+| `direct_ok` | `full` | `[]` | `true` | Full-size tradeable |
+| `marginal` | `reduced_50` | [`depth_1pct_insufficient`] | `true` | Depth issue handled by reduced sizing |
+| `marginal` | `reduced_50` | [`depth_1pct_insufficient`, `slippage_5k_too_high`] | `false` | Non-depth blocker remains |
+| `marginal` | `reduced_75` | [`spread_too_wide`] | `false` | Spread gate remains blocking |
+| `marginal` | `observe_only` | [`depth_1pct_insufficient`] | `false` | Depth below minimum reduced size |
+| `fail` | `blocked` | any | `false` | Fail remains hard no-trade |
+| `unknown` | `not_evaluable` | any/null | `false` | Not safely evaluable |
 
 The field answers:
 
