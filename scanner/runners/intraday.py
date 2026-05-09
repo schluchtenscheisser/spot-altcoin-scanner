@@ -13,7 +13,7 @@ from scanner.data.bar_clock import daily_bar_id as compute_daily_bar_id
 from scanner.data.bar_clock import get_last_closed_intraday_bar_id, has_new_intraday_bar
 from scanner.execution import evaluate_execution_subset, select_execution_subset
 from scanner.output import make_report_builder
-from scanner.output.schema import validate_diagnostics_record
+from scanner.output.schema import SCHEMA_VERSION as DIAGNOSTICS_SCHEMA_VERSION, validate_diagnostics_record
 from scanner.storage import SCHEMA_VERSION, build_run_manifest_path, init_db
 
 logger = logging.getLogger(__name__)
@@ -335,7 +335,7 @@ def _diag(
     stale: bool = False,
 ) -> dict[str, Any]:
     record = {
-        "schema_version": "ir1.1",
+        "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
         "run_id": run_id,
         "scan_mode": "intraday",
         "symbol": symbol,
@@ -382,7 +382,7 @@ def _intraday_diag_from_row(
     decision_bucket = row.get("decision_bucket")
     preserve_discarded = decision_bucket == "discarded" and not attachable_context
     return {
-        "schema_version": "ir1.1",
+        "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
         "run_id": run_id,
         "scan_mode": "intraday",
         "symbol": str(row["symbol"]),

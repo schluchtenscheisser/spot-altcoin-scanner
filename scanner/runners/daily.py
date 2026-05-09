@@ -24,13 +24,14 @@ from scanner.output.diagnostics_serialization import (
     serialize_axes_block,
     serialize_cycle_block,
     serialize_decision_block,
+    serialize_entry_location_inputs,
     serialize_invalidation_block,
     serialize_pattern_block,
     serialize_phase_block,
     serialize_reasons_block,
     serialize_state_block,
 )
-from scanner.output.schema import validate_diagnostics_record
+from scanner.output.schema import SCHEMA_VERSION as DIAGNOSTICS_SCHEMA_VERSION, validate_diagnostics_record
 from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
 from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
@@ -462,6 +463,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "state_machine_state": state_bundle.state_machine_state,
                     "data_4h_available": bool(features.data_4h_available),
                     "universe": classify_symbol(symbol),
+                    "features": features,
                 }
                 ranked_inputs.append(
                     RankedDecision(
@@ -518,7 +520,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     )
                 )
                 diag = {
-                    "schema_version": "ir1.1",
+                    "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
                     "run_id": run_id,
                     "scan_mode": "daily",
                     "symbol": symbol,
@@ -526,6 +528,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     "daily_bar_id": daily_id,
                     "intraday_bar_id": None,
                     "data_4h_available": bool(ctx["data_4h_available"]),
+                    "entry_location_inputs": serialize_entry_location_inputs(ctx["features"]),
                     "axes": serialize_axes_block(ctx["t1"], ctx["t2"]),
                     "phase": serialize_phase_block(ctx["phase"]),
                     "invalidation": serialize_invalidation_block(ctx["invalidation"]),

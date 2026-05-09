@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from enum import Enum
 from typing import Any, Mapping
@@ -7,8 +8,20 @@ from typing import Any, Mapping
 from scanner.axes.models import Tier1AxisBundle, Tier2AxisBundle
 from scanner.decision.models import DecisionBundle
 from scanner.entry.models import EntryPatternBundle
+from scanner.features.models import FeatureBundle
 from scanner.phase.models import PhaseInterpretationBundle
 from scanner.state.models import InvalidationCycleBundle, PersistedStateMachineContext, StateMachineBundle
+
+logger = logging.getLogger(__name__)
+
+_ENTRY_LOCATION_FIELDS = (
+    "close_vs_ema20_4h_pct",
+    "bars_above_ema20_4h",
+    "dist_to_ema20_4h_pct_abs",
+    "distance_to_last_structural_anchor_pct_abs",
+    "distance_to_range_high_pct_abs",
+    "bars_since_last_structural_break_4h",
+)
 
 
 def _json_value(value: Any) -> Any:
@@ -23,6 +36,36 @@ def _json_value(value: Any) -> Any:
 
 def _dataclass_attr_map(obj: Any, *, field_names: tuple[str, ...]) -> dict[str, Any]:
     return {name: _json_value(getattr(obj, name, None)) for name in field_names}
+
+
+def _raw_4h_ok_value(feature_bundle: FeatureBundle, field: str) -> float | int | None:
+    raw_4h = getattr(feature_bundle, "raw_4h", None)
+    if not feature_bundle.data_4h_available or raw_4h is None:
+        return None
+    if not hasattr(raw_4h, field):
+        return None
+    value = getattr(raw_4h, field)
+    status = getattr(raw_4h, f"{field}_status", None)
+    if value is None or status != "ok":
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(float(value)):
+        logger.warning(
+            "non-finite entry-location feature serialized as null",
+            extra={"symbol": feature_bundle.symbol, "field": field},
+        )
+        return None
+    if field in {"bars_above_ema20_4h", "bars_since_last_structural_break_4h"}:
+        return int(value)
+    return float(value)
+
+
+def serialize_entry_location_inputs(feature_bundle: FeatureBundle) -> dict[str, float | int | None]:
+    if not feature_bundle.data_4h_available:
+        # T_EL1b is diagnostics-only and must not synthesize daily fallbacks for 4h entry-location inputs.
+        return {field: None for field in _ENTRY_LOCATION_FIELDS}
+    return {field: _raw_4h_ok_value(feature_bundle, field) for field in _ENTRY_LOCATION_FIELDS}
 
 
 def serialize_axes_block(t1: Tier1AxisBundle, t2: Tier2AxisBundle) -> dict[str, Any]:

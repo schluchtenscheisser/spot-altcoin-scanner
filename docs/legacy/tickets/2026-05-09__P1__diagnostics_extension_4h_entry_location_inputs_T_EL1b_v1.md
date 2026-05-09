@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # T_EL1b: Add 4h Entry-Location Feature Fields to Symbol Diagnostics
 
 ## Metadata
