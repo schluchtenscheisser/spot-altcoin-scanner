@@ -63,7 +63,7 @@ def _row(
         "execution_status_raw": execution_status_raw,
     }
     if direct_4h:
-        row.update(direct_4h)
+        row["entry_location_inputs"] = direct_4h
     return row
 
 
@@ -129,7 +129,7 @@ def test_step_a_outputs_preserve_nulls_nested_fields_and_skip_step_b(tmp_path: P
     assert "Population 3 (Day-0 early) contains 2 records." in findings
 
 
-def test_step_b_runs_when_direct_fields_are_present(tmp_path: Path) -> None:
+def test_step_b_runs_when_entry_location_inputs_are_present(tmp_path: Path) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "out"
     input_dir.mkdir()

@@ -238,3 +238,106 @@ def test_replay_cycle_id_prefers_state_setup_cycle_id_over_cycle_block(tmp_path:
     events, _ = reconstruct_event_timeline(project_root=tmp_path)
     assert len(events) == 1
     assert events[0]["setup_cycle_id"] == 7
+
+
+def test_entry_location_inputs_are_normalized_with_schema_ir12() -> None:
+    record = _base_record()
+    record["entry_location_inputs"] = {
+        "close_vs_ema20_4h_pct": 6.14,
+        "bars_above_ema20_4h": 4,
+        "dist_to_ema20_4h_pct_abs": 6.14,
+        "distance_to_last_structural_anchor_pct_abs": 8.32,
+        "distance_to_range_high_pct_abs": None,
+        "bars_since_last_structural_break_4h": 3,
+    }
+
+    out = validate_diagnostics_record(record)
+
+    assert out["schema_version"] == "ir1.2"
+    assert out["entry_location_inputs"] == {
+        "close_vs_ema20_4h_pct": 6.14,
+        "bars_above_ema20_4h": 4,
+        "dist_to_ema20_4h_pct_abs": 6.14,
+        "distance_to_last_structural_anchor_pct_abs": 8.32,
+        "distance_to_range_high_pct_abs": None,
+        "bars_since_last_structural_break_4h": 3,
+    }
+
+
+def test_entry_location_inputs_null_when_4h_unavailable() -> None:
+    record = _base_record()
+    record["data_4h_available"] = False
+    record["entry_location_inputs"] = {
+        "close_vs_ema20_4h_pct": 6.14,
+        "bars_above_ema20_4h": 4,
+        "dist_to_ema20_4h_pct_abs": 6.14,
+        "distance_to_last_structural_anchor_pct_abs": 8.32,
+        "distance_to_range_high_pct_abs": 1.2,
+        "bars_since_last_structural_break_4h": 3,
+    }
+
+    out = validate_diagnostics_record(record)
+
+    assert set(out["entry_location_inputs"]) == {
+        "close_vs_ema20_4h_pct",
+        "bars_above_ema20_4h",
+        "dist_to_ema20_4h_pct_abs",
+        "distance_to_last_structural_anchor_pct_abs",
+        "distance_to_range_high_pct_abs",
+        "bars_since_last_structural_break_4h",
+    }
+    assert all(value is None for value in out["entry_location_inputs"].values())
+
+
+def test_entry_location_inputs_non_finite_values_serialize_as_null() -> None:
+    record = _base_record()
+    record["entry_location_inputs"] = {
+        "close_vs_ema20_4h_pct": float("nan"),
+        "bars_above_ema20_4h": 4,
+        "dist_to_ema20_4h_pct_abs": float("inf"),
+        "distance_to_last_structural_anchor_pct_abs": float("-inf"),
+        "distance_to_range_high_pct_abs": None,
+        "bars_since_last_structural_break_4h": 3,
+    }
+
+    out = validate_diagnostics_record(record)
+
+    assert out["entry_location_inputs"]["close_vs_ema20_4h_pct"] is None
+    assert out["entry_location_inputs"]["dist_to_ema20_4h_pct_abs"] is None
+    assert out["entry_location_inputs"]["distance_to_last_structural_anchor_pct_abs"] is None
+    assert out["entry_location_inputs"]["bars_above_ema20_4h"] == 4
+
+
+def test_serialize_entry_location_inputs_reads_current_t5_raw_4h_names() -> None:
+    from types import SimpleNamespace
+
+    from scanner.output.diagnostics_serialization import serialize_entry_location_inputs
+
+    raw_4h = SimpleNamespace(
+        close_vs_ema20_4h_pct=6.14,
+        close_vs_ema20_4h_pct_status="ok",
+        bars_above_ema20_4h=4,
+        bars_above_ema20_4h_status="ok",
+        dist_to_ema20_4h_pct_abs=6.14,
+        dist_to_ema20_4h_pct_abs_status="ok",
+        distance_to_last_structural_anchor_pct_abs=8.32,
+        distance_to_last_structural_anchor_pct_abs_status="ok",
+        distance_to_range_high_pct_abs=2.5,
+        distance_to_range_high_pct_abs_status="ok",
+        bars_since_last_structural_break_4h=3,
+        bars_since_last_structural_break_4h_status="ok",
+    )
+    feature_bundle = SimpleNamespace(
+        symbol="ASTERUSDT",
+        data_4h_available=True,
+        raw_4h=raw_4h,
+    )
+
+    assert serialize_entry_location_inputs(feature_bundle) == {
+        "close_vs_ema20_4h_pct": 6.14,
+        "bars_above_ema20_4h": 4,
+        "dist_to_ema20_4h_pct_abs": 6.14,
+        "distance_to_last_structural_anchor_pct_abs": 8.32,
+        "distance_to_range_high_pct_abs": 2.5,
+        "bars_since_last_structural_break_4h": 3,
+    }

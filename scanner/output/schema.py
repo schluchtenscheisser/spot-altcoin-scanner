@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+import logging
 import math
 import re
 from typing import Any, Dict, Mapping, Literal
 
-SCHEMA_VERSION = "ir1.1"
-ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", SCHEMA_VERSION}
+SCHEMA_VERSION = "ir1.2"
+ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", SCHEMA_VERSION}
+
+logger = logging.getLogger(__name__)
 
 ScanMode = Literal["daily", "intraday"]
 
@@ -24,6 +27,15 @@ SYMBOL_LIST_BUCKET_KEYS = (
     "early_candidates",
     "watchlist",
     "late_monitor",
+)
+
+ENTRY_LOCATION_INPUT_KEYS = (
+    "close_vs_ema20_4h_pct",
+    "bars_above_ema20_4h",
+    "dist_to_ema20_4h_pct_abs",
+    "distance_to_last_structural_anchor_pct_abs",
+    "distance_to_range_high_pct_abs",
+    "bars_since_last_structural_break_4h",
 )
 
 REQUIRED_DIAGNOSTIC_BLOCKS = (
@@ -203,6 +215,11 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     if not isinstance(universe_block, Mapping):
         raise ValueError("diagnostics.universe must be object")
     out["universe"] = dict(universe_block)
+    out["entry_location_inputs"] = normalize_entry_location_inputs(
+        record.get("entry_location_inputs"),
+        data_4h_available=out["data_4h_available"],
+        symbol=out["symbol"],
+    )
 
     out["execution_attempted"] = _require_bool("execution_attempted", record.get("execution_attempted", False))
     out["execution_status_raw"] = _require_nullable_str("execution_status_raw", record.get("execution_status_raw"))
@@ -253,6 +270,42 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     out["execution_fetch_duration_ms"] = duration
     _validate_diagnostics_invariants(out)
 
+    return out
+
+
+def normalize_entry_location_inputs(
+    value: Mapping[str, Any] | None,
+    *,
+    data_4h_available: bool,
+    symbol: str | None = None,
+) -> Dict[str, float | int | None]:
+    source: Mapping[str, Any] = value or {}
+    unknown = set(source.keys()) - set(ENTRY_LOCATION_INPUT_KEYS)
+    if unknown:
+        raise ValueError(f"entry_location_inputs contains unsupported keys: {sorted(unknown)}")
+
+    out: Dict[str, float | int | None] = {}
+    for key in ENTRY_LOCATION_INPUT_KEYS:
+        if not data_4h_available:
+            out[key] = None
+            continue
+        raw = source.get(key)
+        if raw is None:
+            out[key] = None
+            continue
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError(f"entry_location_inputs.{key} must be number or null")
+        if not math.isfinite(float(raw)):
+            logger.warning(
+                "non-finite entry_location_inputs value serialized as null",
+                extra={"symbol": symbol, "field": key},
+            )
+            out[key] = None
+            continue
+        if key in {"bars_above_ema20_4h", "bars_since_last_structural_break_4h"}:
+            out[key] = int(raw)
+        else:
+            out[key] = float(raw)
     return out
 
 

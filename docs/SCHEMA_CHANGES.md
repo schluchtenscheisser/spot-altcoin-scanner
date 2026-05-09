@@ -54,6 +54,41 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+### 2026-05-09 — diagnostics schema_version ir1.1 → ir1.2 — T_EL1b entry-location diagnostics inputs
+**PR:** (branch-local, T_EL1b)
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `symbol_diagnostics.jsonl.gz` enthält zusätzlich den Top-Level-Block `entry_location_inputs`.
+- Der Block enthält die sechs 4h-Entry-Location-Rohfelder `close_vs_ema20_4h_pct`, `bars_above_ema20_4h`, `dist_to_ema20_4h_pct_abs`, `distance_to_last_structural_anchor_pct_abs`, `distance_to_range_high_pct_abs` und `bars_since_last_structural_break_4h`.
+- Nicht berechenbare, fehlende oder nicht-finite Werte werden als `null` serialisiert; bei `data_4h_available == false` sind alle sechs Felder `null`.
+
+#### Warum?
+- Die geplante Entry-Location-Auswertung benötigt die bereits durch T5 berechneten 4h-Rohfeatures direkt in den Symbol-Diagnostics.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja. Der Block ist additiv; ältere Artefakte mit `ir1.1` bleiben gültig und können ohne `entry_location_inputs` als all-null gelesen werden.
+
+#### Migration / Vorgehen
+- Consumer sollten `entry_location_inputs` optional lesen und fehlende Blocks/Felder als `null` behandeln.
+- Neue Diagnostics-Artefakte tragen `schema_version = "ir1.2"`.
+
+#### Beispiel (gekürzt)
+```json
+{
+  "schema_version": "ir1.2",
+  "entry_location_inputs": {
+    "close_vs_ema20_4h_pct": 6.14,
+    "bars_above_ema20_4h": 4,
+    "dist_to_ema20_4h_pct_abs": 6.14,
+    "distance_to_last_structural_anchor_pct_abs": 8.32,
+    "distance_to_range_high_pct_abs": null,
+    "bars_since_last_structural_break_4h": 3
+  }
+}
+```
+
+
 ### 2026-05-08 — diagnostics schema_version ir1.0 → ir1.1 — T29 tradeability reason set for reduced-size gating
 **PR:** (branch-local, T29 review fix)  
 **Typ:** additiv
