@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-09 09:44 UTC  
+**Last Updated:** 2026-05-09 10:18 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -67,7 +67,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 - **Total Modules:** 104
 - **Total Classes:** 63
-- **Total Functions:** 762
+- **Total Functions:** 765
 
 ---
 
@@ -491,11 +491,11 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ### 📄 `scanner/output/diagnostics_serialization.py`
 
-**Functions:** `_dataclass_attr_map, _json_value, serialize_axes_block, serialize_cycle_block, serialize_decision_block, serialize_invalidation_block, serialize_pattern_block, serialize_phase_block, serialize_reasons_block, serialize_state_block`
+**Functions:** `_dataclass_attr_map, _json_value, _raw_4h_ok_value, serialize_axes_block, serialize_cycle_block, serialize_decision_block, serialize_entry_location_inputs, serialize_invalidation_block, serialize_pattern_block, serialize_phase_block, serialize_reasons_block, serialize_state_block`
 
-**Module Variables:** `bars_since_cycle_end, cycle_end_bar_index, cycle_end_timestamp, fields, key, out, patch, previous_setup_cycle_id, raw_candidates, t1_fields` _(+1 more)_
+**Module Variables:** `bars_since_cycle_end, cycle_end_bar_index, cycle_end_timestamp, fields, key, logger, out, patch, previous_setup_cycle_id, raw_4h` _(+5 more)_
 
-**Imports:** `__future__, enum, math, scanner.axes.models, scanner.decision.models, scanner.entry.models, scanner.phase.models, scanner.state.models` _(+1 more)_
+**Imports:** `__future__, enum, logging, math, scanner.axes.models, scanner.decision.models, scanner.entry.models, scanner.features.models` _(+3 more)_
 
 ---
 
@@ -515,11 +515,11 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Classes:** `RunReport`
 
-**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, normalize_counts_by_bucket, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
+**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, normalize_counts_by_bucket, normalize_entry_location_inputs, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
 
-**Module Variables:** `ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS, COUNTS_BUCKET_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, age, block, current_setup_cycle_id, cycle` _(+18 more)_
+**Module Variables:** `ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS, COUNTS_BUCKET_KEYS, ENTRY_LOCATION_INPUT_KEYS, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, age, block, current_setup_cycle_id` _(+20 more)_
 
-**Imports:** `__future__, dataclasses, datetime, math, re, typing`
+**Imports:** `__future__, dataclasses, datetime, logging, math, re, typing`
 
 ---
 
@@ -1553,9 +1553,11 @@ _This section shows which functions call which other functions, helping identify
 |------------------|----------------|----------------|
 | `_dataclass_attr_map` | `_json_value` | — |
 | `_json_value` | `_json_value` | `items` |
+| `_raw_4h_ok_value` | — | `isfinite`, `warning` |
 | `serialize_axes_block` | `_dataclass_attr_map` | `update` |
 | `serialize_cycle_block` | `_dataclass_attr_map` | — |
 | `serialize_decision_block` | `_json_value` | — |
+| `serialize_entry_location_inputs` | `_raw_4h_ok_value` | — |
 | `serialize_invalidation_block` | `_dataclass_attr_map` | — |
 | `serialize_pattern_block` | `_json_value` | `isfinite`, `items` |
 | `serialize_phase_block` | `_dataclass_attr_map` | — |
@@ -1587,11 +1589,12 @@ _This section shows which functions call which other functions, helping identify
 | `_validate_diagnostics_invariants` | — | `ValueError`, `append`, `get`, `join` |
 | `_validate_relative_path` | — | `ValueError`, `startswith` |
 | `normalize_counts_by_bucket` | — | `ValueError`, `get`, `keys` |
+| `normalize_entry_location_inputs` | — | `ValueError`, `get`, `isfinite`, `keys`, `warning` |
 | `normalize_symbol_lists` | `_require_symbol_list` | `ValueError`, `get`, `keys` |
 | `to_dict` | `_validate_relative_path`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | — |
 | `validate_as_of_utc` | — | `ValueError`, `match`, `strptime` |
 | `validate_daily_bar_id` | — | `ValueError`, `fromisoformat`, `match` |
-| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `_validate_diagnostics_invariants`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get`, `isfinite` |
+| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `_validate_diagnostics_invariants`, `normalize_entry_location_inputs`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get`, `isfinite` |
 | `validate_intraday_bar_id` | — | `ValueError`, `match` |
 | `validate_run_id` | — | `ValueError`, `match`, `strip` |
 | `validate_scan_mode` | — | `ValueError` |
@@ -1974,7 +1977,7 @@ _This section shows which functions call which other functions, helping identify
 | `_to_cycle_context` | — | `PersistedStateCycleContext` |
 | `_utc_now_iso` | — | `now`, `strftime` |
 | `_validate_as_of_date` | — | `ValueError`, `compute_daily_bar_id`, `date`, `fromisoformat`, `isoformat`, `now` |
-| `run_daily_scan` | `_build_execution_aware_report_payload`, `_build_ticket23_report_payload`, `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `classify_execution_size`, `classify_symbol`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `is_reduced_size_eligible`, `is_tradeable_candidate`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `setdefault`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
+| `run_daily_scan` | `_build_execution_aware_report_payload`, `_build_ticket23_report_payload`, `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `build_feature_bundle`, `classify_execution_size`, `classify_symbol`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `is_reduced_size_eligible`, `is_tradeable_candidate`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_entry_location_inputs`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `setdefault`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
 
 ### 📄 scanner/runners/intraday.py
 
@@ -2252,13 +2255,13 @@ _Modules with high external call counts may benefit from refactoring._
 |--------|----------------|----------------|-------|----------|
 | `scanner/config.py` | 108 | 131 | 239 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/runners/daily.py` | 16 | 88 | 104 | 🔴 High |
+| `scanner/runners/daily.py` | 16 | 89 | 105 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/runners/intraday.py` | 17 | 56 | 73 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
+| `scanner/output/schema.py` | 20 | 38 | 58 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
-| `scanner/output/schema.py` | 19 | 33 | 52 | 🔴 High |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
@@ -2294,12 +2297,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/axes/tier1.py` | 7 | 11 | 18 | 🔴 High |
+| `scanner/output/diagnostics_serialization.py` | 11 | 7 | 18 | ⚠️ Medium |
 | `scanner/state/machine.py` | 8 | 10 | 18 | ⚠️ Medium |
 | `scanner/output/diagnostics.py` | 2 | 15 | 17 | 🔴 High |
 | `scanner/pipeline/global_ranking.py` | 5 | 11 | 16 | 🔴 High |
 | `scanner/pipeline/ohlcv.py` | 1 | 15 | 16 | 🔴 High |
 | `scanner/axes/tier2.py` | 9 | 6 | 15 | ⚠️ Medium |
-| `scanner/output/diagnostics_serialization.py` | 10 | 5 | 15 | ⚠️ Medium |
 | `scanner/pipeline/pre_top20_snapshot.py` | 3 | 12 | 15 | 🔴 High |
 | `scanner/utils/io_utils.py` | 5 | 10 | 15 | 🔴 High |
 | `scanner/utils/logging_utils.py` | 1 | 14 | 15 | 🔴 High |
@@ -2352,4 +2355,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-09 09:44 UTC_
+_Generated by GitHub Actions • 2026-05-09 10:18 UTC_
