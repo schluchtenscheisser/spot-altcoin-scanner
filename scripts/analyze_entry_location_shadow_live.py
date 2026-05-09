@@ -409,18 +409,18 @@ def _write_findings(out: Path, populations: dict[str, list[dict[str, Any]]], dat
 
 
 def _direct_field(rec: dict[str, Any], field: str) -> Any:
-    for block_name in ("features", "raw_features", "raw_features_4h", "raw_4h"):
-        block = rec.get(block_name)
-        if isinstance(block, dict) and field in block:
-            return block.get(field)
-    return rec.get(field)
+    eli = rec.get("entry_location_inputs") or {}
+    if not isinstance(eli, dict):
+        return None
+    return eli.get(field)
 
 
 def _has_step_b_data(records: list[dict[str, Any]]) -> bool:
-    for field in STEP_B_FIELDS:
-        if not any(_direct_field(rec, field) is not None for rec in records):
-            return False
-    return True
+    return any(
+        isinstance(rec.get("entry_location_inputs"), dict)
+        and rec["entry_location_inputs"].get("close_vs_ema20_4h_pct") is not None
+        for rec in records
+    )
 
 
 def _direct_stats(records: list[dict[str, Any]], field: str) -> dict[str, Any]:
