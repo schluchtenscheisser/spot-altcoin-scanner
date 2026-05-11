@@ -550,6 +550,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                         "candidate_excluded": ctx["universe"].candidate_excluded,
                         "candidate_exclusion_reason": ctx["universe"].candidate_exclusion_reason,
                     },
+                    "candidate_excluded": ctx["universe"].candidate_excluded,
                     "execution_attempted": False,
                     "execution_status_raw": None,
                     "execution_reason_raw": None,

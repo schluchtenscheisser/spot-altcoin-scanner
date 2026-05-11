@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from scanner.axes.models import Tier1AxisBundle, Tier2AxisBundle
+from scanner.config import resolve_independence_entry_location_config
+from scanner.decision.entry_location import build_entry_location_report_segments, evaluate_entry_location
 from scanner.decision.models import DecisionBucket
 from scanner.evaluation.replay import reconstruct_event_timeline
 from scanner.output.diagnostics_serialization import (
@@ -43,6 +45,7 @@ def _base_record() -> dict:
             "candidate_excluded": False,
             "candidate_exclusion_reason": None,
         },
+        "candidate_excluded": False,
         "execution_attempted": False,
         "execution_status_raw": None,
         "execution_reason_raw": None,
@@ -272,6 +275,69 @@ def test_ir12_diagnostics_without_entry_location_block_remain_valid() -> None:
 
     assert out["schema_version"] == "ir1.2"
     assert "entry_location" not in out
+
+
+@pytest.mark.parametrize("legacy_nested_value", [True, False])
+def test_validate_diagnostics_backfills_legacy_universe_candidate_excluded(legacy_nested_value: bool) -> None:
+    record = _base_record()
+    del record["candidate_excluded"]
+    record["universe"]["candidate_excluded"] = legacy_nested_value
+
+    out = validate_diagnostics_record(record)
+
+    assert out["candidate_excluded"] is legacy_nested_value
+
+
+@pytest.mark.parametrize(("top_level_value", "nested_value"), [(True, False), (False, True)])
+def test_validate_diagnostics_preserves_top_level_candidate_excluded(
+    top_level_value: bool, nested_value: bool
+) -> None:
+    record = _base_record()
+    record["candidate_excluded"] = top_level_value
+    record["universe"]["candidate_excluded"] = nested_value
+
+    out = validate_diagnostics_record(record)
+
+    assert out["candidate_excluded"] is top_level_value
+
+
+def test_validate_diagnostics_defaults_candidate_excluded_false_when_both_locations_absent() -> None:
+    record = _base_record()
+    del record["candidate_excluded"]
+    del record["universe"]["candidate_excluded"]
+
+    out = validate_diagnostics_record(record)
+
+    assert out["candidate_excluded"] is False
+
+
+def test_legacy_backfilled_candidate_excluded_keeps_entry_location_out_of_actionable_segments() -> None:
+    record = _base_record()
+    del record["candidate_excluded"]
+    record["universe"]["candidate_excluded"] = True
+    record["entry_location_inputs"] = {
+        "close_vs_ema20_4h_pct": 1.0,
+        "dist_to_ema20_4h_pct_abs": 1.0,
+        "bars_above_ema20_4h": 3,
+        "distance_to_last_structural_anchor_pct_abs": 1.0,
+        "bars_since_last_structural_break_4h": 1,
+        "distance_to_range_high_pct_abs": 2.0,
+    }
+    record["pattern"] = {"entry_pattern": "ema_reclaim"}
+    record["decision"] = {"decision_bucket": "confirmed_candidates", "priority_score": 1.0}
+    record["state"] = {"state_machine_state": "watch", "setup_cycle_id": 1}
+    record["execution_size_class"] = "full"
+    record["is_tradeable_candidate"] = True
+    cfg = resolve_independence_entry_location_config({})
+
+    normalized = validate_diagnostics_record(record)
+    normalized["entry_location"] = evaluate_entry_location(normalized, cfg).to_dict()
+    segments = build_entry_location_report_segments([normalized])
+
+    assert normalized["candidate_excluded"] is True
+    assert normalized["entry_location"]["entry_action_hint"] == "monitor_only"
+    assert segments["buy_now_candidates"] == []
+    assert segments["wait_pullback_candidates"] == []
 
 
 def test_entry_location_inputs_null_when_4h_unavailable() -> None:

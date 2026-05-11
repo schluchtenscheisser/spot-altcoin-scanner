@@ -44,7 +44,8 @@ def _record(
         "entry_location_inputs": inputs,
         "pattern": {"entry_pattern": pattern},
         "decision": {"decision_bucket": bucket, "priority_score": priority},
-        "universe": {"candidate_excluded": excluded},
+        "candidate_excluded": excluded,
+        "universe": {"candidate_excluded": not excluded},
         "is_tradeable_candidate": tradeable,
         "execution_size_class": size,
     }
@@ -163,6 +164,27 @@ def test_action_hint_ordered_matrix(kwargs, hint) -> None:
     assert result.entry_action_hint == hint
     if kwargs.get("size") == "surprise":
         assert "unhandled_action_hint_combination" in result.entry_location_reason_codes
+
+
+def test_action_hint_uses_top_level_candidate_excluded_over_universe_block() -> None:
+    record = _record(excluded=True, tradeable=True)
+    record["universe"]["candidate_excluded"] = False
+
+    result = evaluate_entry_location(record, _cfg())
+
+    assert result.entry_action_hint == "monitor_only"
+    assert "candidate_excluded_monitor_only" in result.entry_location_reason_codes
+
+
+def test_report_segments_use_top_level_candidate_excluded_over_universe_block() -> None:
+    record = _record(symbol="EXCLUDED", excluded=True, tradeable=False)
+    record["universe"]["candidate_excluded"] = False
+    record["entry_location"] = evaluate_entry_location(record, _cfg()).to_dict()
+
+    segments = build_entry_location_report_segments([record])
+
+    assert segments["good_location_but_not_tradeable"] == []
+    assert segments["early_watch_candidates"] == []
 
 
 def test_report_segments_and_sorting() -> None:

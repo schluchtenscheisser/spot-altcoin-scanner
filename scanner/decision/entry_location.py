@@ -171,7 +171,6 @@ def evaluate_entry_location(record: Mapping[str, Any], cfg: Mapping[str, Any]) -
     inputs = record.get("entry_location_inputs")
     pattern_block = record.get("pattern") if isinstance(record.get("pattern"), Mapping) else {}
     decision_block = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
-    universe_block = record.get("universe") if isinstance(record.get("universe"), Mapping) else {}
     entry_pattern = pattern_block.get("entry_pattern")
 
     status, primary, threshold_source, _dist = _classify_status(
@@ -195,7 +194,7 @@ def evaluate_entry_location(record: Mapping[str, Any], cfg: Mapping[str, Any]) -
     hint, hint_reason = _resolve_action_hint(
         status=status,
         decision_bucket=decision_block.get("decision_bucket"),
-        candidate_excluded=universe_block.get("candidate_excluded"),
+        candidate_excluded=record.get("candidate_excluded"),
         is_tradeable_candidate=record.get("is_tradeable_candidate"),
         execution_size_class=record.get("execution_size_class"),
     )
@@ -226,7 +225,6 @@ def _priority_sort_key(record: Mapping[str, Any]) -> tuple[int, float, str]:
 
 def _segment_item(record: Mapping[str, Any]) -> dict[str, Any]:
     decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
-    universe = record.get("universe") if isinstance(record.get("universe"), Mapping) else {}
     entry_location = record.get("entry_location") if isinstance(record.get("entry_location"), Mapping) else {}
     priority = decision.get("priority_score")
     if isinstance(priority, bool) or not isinstance(priority, (int, float)) or not math.isfinite(float(priority)):
@@ -242,7 +240,7 @@ def _segment_item(record: Mapping[str, Any]) -> dict[str, Any]:
         "range_high_proximity_warning": entry_location.get("range_high_proximity_warning"),
         "execution_size_class": record.get("execution_size_class"),
         "is_tradeable_candidate": record.get("is_tradeable_candidate"),
-        "candidate_excluded": universe.get("candidate_excluded"),
+        "candidate_excluded": record.get("candidate_excluded"),
     }
 
 
@@ -257,11 +255,10 @@ def build_entry_location_report_segments(records: list[Mapping[str, Any]]) -> di
     for record in records:
         entry_location = record.get("entry_location") if isinstance(record.get("entry_location"), Mapping) else {}
         decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
-        universe = record.get("universe") if isinstance(record.get("universe"), Mapping) else {}
         status = entry_location.get("entry_location_status")
         hint = entry_location.get("entry_action_hint")
         bucket = decision.get("decision_bucket")
-        excluded = universe.get("candidate_excluded") is True
+        excluded = record.get("candidate_excluded") is True
         tradeable = record.get("is_tradeable_candidate") is True
         item = _segment_item(record)
         if hint == "buy_now_candidate":
