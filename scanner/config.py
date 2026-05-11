@@ -29,6 +29,7 @@ _INDEPENDENCE_RELEASE_SECTION_DEFAULTS = {
     "state": {},
     "invalidation": {},
     "entry": {},
+    "entry_location": {},
     "execution": {},
     "reports": {},
     "snapshots": {},
@@ -117,6 +118,37 @@ _INDEPENDENCE_EXECUTION_DEFAULTS = {
     "marginal_max_slippage_bps": 150.0,
     "execution_safety_limit": None,
 }
+_INDEPENDENCE_ENTRY_LOCATION_DEFAULTS = {
+    "enabled": True,
+    "version": "v1",
+    "thresholds": {
+        "default": {
+            "dist_to_ema20_4h_pct_abs": {
+                "fresh_max": 2.5,
+                "acceptable_max": 5.5,
+                "extended_max": 8.5,
+            }
+        },
+        "pattern_overrides": {
+            "continuation_breakout": {
+                "dist_to_ema20_4h_pct_abs": {
+                    "fresh_max": 3.5,
+                    "acceptable_max": 7.0,
+                    "extended_max": 10.0,
+                }
+            }
+        },
+    },
+    "auxiliary": {
+        "distance_to_range_high_pct_abs": {
+            "enabled": True,
+            "proximity_warning_max_pct": 0.5,
+            "usage": "diagnostic_warning_only",
+        }
+    },
+    "guards": {"extreme_value_not_evaluable_pct": 50.0},
+}
+
 
 _INDEPENDENCE_INTRADAY_DEFAULTS = {
     "frequency_hours": 4,
@@ -1217,6 +1249,118 @@ def resolve_independence_execution_config(raw: Mapping[str, Any]) -> Dict[str, A
     return out
 
 
+def resolve_independence_entry_location_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
+    independence_release = raw.get("independence_release", {})
+    if independence_release is None:
+        independence_release = {}
+    if not isinstance(independence_release, Mapping):
+        _raise_invalid("independence_release", independence_release, "must be an object")
+
+    configured = independence_release.get("entry_location", {})
+    if configured is None:
+        configured = {}
+    if not isinstance(configured, Mapping):
+        _raise_invalid("independence_release.entry_location", configured, "must be an object")
+
+    merged = _deep_merge_dicts(_INDEPENDENCE_ENTRY_LOCATION_DEFAULTS, configured)
+    if not isinstance(merged.get("enabled"), bool):
+        _raise_invalid("independence_release.entry_location.enabled", merged.get("enabled"), "must be bool")
+    if merged.get("version") != "v1":
+        _raise_invalid("independence_release.entry_location.version", merged.get("version"), "must be 'v1'")
+
+    def _finite(path: str, value: Any, *, minimum: float | None = None) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            _raise_invalid(path, value, "must be finite number")
+        number = float(value)
+        if not math.isfinite(number):
+            _raise_invalid(path, value, "must be finite number")
+        if minimum is not None and number < minimum:
+            _raise_invalid(path, value, f"must be >= {minimum}")
+        return number
+
+    thresholds = merged.get("thresholds")
+    if not isinstance(thresholds, Mapping):
+        _raise_invalid("independence_release.entry_location.thresholds", thresholds, "must be an object")
+
+    max_extended = float("-inf")
+
+    def _resolve_thresholds(path: str, block: Any) -> Dict[str, float]:
+        if not isinstance(block, Mapping):
+            _raise_invalid(path, block, "must be an object")
+        values = block.get("dist_to_ema20_4h_pct_abs")
+        if not isinstance(values, Mapping):
+            _raise_invalid(f"{path}.dist_to_ema20_4h_pct_abs", values, "must be an object")
+        fresh = _finite(f"{path}.dist_to_ema20_4h_pct_abs.fresh_max", values.get("fresh_max"))
+        acceptable = _finite(f"{path}.dist_to_ema20_4h_pct_abs.acceptable_max", values.get("acceptable_max"))
+        extended = _finite(f"{path}.dist_to_ema20_4h_pct_abs.extended_max", values.get("extended_max"))
+        if not (fresh < acceptable < extended):
+            _raise_invalid(f"{path}.dist_to_ema20_4h_pct_abs", values, "must satisfy fresh_max < acceptable_max < extended_max")
+        return {"fresh_max": fresh, "acceptable_max": acceptable, "extended_max": extended}
+
+    default_thresholds = _resolve_thresholds(
+        "independence_release.entry_location.thresholds.default",
+        thresholds.get("default"),
+    )
+    max_extended = max(max_extended, default_thresholds["extended_max"])
+    overrides_in = thresholds.get("pattern_overrides", {})
+    if overrides_in is None:
+        overrides_in = {}
+    if not isinstance(overrides_in, Mapping):
+        _raise_invalid("independence_release.entry_location.thresholds.pattern_overrides", overrides_in, "must be an object")
+    overrides: Dict[str, Any] = {}
+    for name, block in overrides_in.items():
+        resolved = _resolve_thresholds(
+            f"independence_release.entry_location.thresholds.pattern_overrides.{name}",
+            block,
+        )
+        max_extended = max(max_extended, resolved["extended_max"])
+        overrides[str(name)] = {"dist_to_ema20_4h_pct_abs": resolved}
+
+    guards = merged.get("guards")
+    if not isinstance(guards, Mapping):
+        _raise_invalid("independence_release.entry_location.guards", guards, "must be an object")
+    extreme = _finite(
+        "independence_release.entry_location.guards.extreme_value_not_evaluable_pct",
+        guards.get("extreme_value_not_evaluable_pct"),
+    )
+    if extreme <= max_extended:
+        _raise_invalid(
+            "independence_release.entry_location.guards.extreme_value_not_evaluable_pct",
+            extreme,
+            "must be greater than all configured extended_max values",
+        )
+
+    auxiliary = merged.get("auxiliary")
+    if not isinstance(auxiliary, Mapping):
+        _raise_invalid("independence_release.entry_location.auxiliary", auxiliary, "must be an object")
+    range_cfg = auxiliary.get("distance_to_range_high_pct_abs")
+    if not isinstance(range_cfg, Mapping):
+        _raise_invalid("independence_release.entry_location.auxiliary.distance_to_range_high_pct_abs", range_cfg, "must be an object")
+    if not isinstance(range_cfg.get("enabled"), bool):
+        _raise_invalid("independence_release.entry_location.auxiliary.distance_to_range_high_pct_abs.enabled", range_cfg.get("enabled"), "must be bool")
+    proximity = _finite(
+        "independence_release.entry_location.auxiliary.distance_to_range_high_pct_abs.proximity_warning_max_pct",
+        range_cfg.get("proximity_warning_max_pct"),
+        minimum=0.0,
+    )
+
+    return {
+        "enabled": bool(merged["enabled"]),
+        "version": "v1",
+        "thresholds": {
+            "default": {"dist_to_ema20_4h_pct_abs": default_thresholds},
+            "pattern_overrides": overrides,
+        },
+        "auxiliary": {
+            "distance_to_range_high_pct_abs": {
+                "enabled": bool(range_cfg["enabled"]),
+                "proximity_warning_max_pct": proximity,
+                "usage": str(range_cfg.get("usage", "diagnostic_warning_only")),
+            }
+        },
+        "guards": {"extreme_value_not_evaluable_pct": extreme},
+    }
+
 def resolve_independence_intraday_config(raw: Mapping[str, Any]) -> Dict[str, Any]:
     independence_release = raw.get("independence_release", {})
     if independence_release is None:
@@ -1504,6 +1648,10 @@ class ScannerConfig:
     @property
     def entry(self) -> Dict[str, Any]:
         return resolve_entry_config(self.raw)
+
+    @property
+    def entry_location(self) -> Dict[str, Any]:
+        return resolve_independence_entry_location_config(self.raw)
 
     @property
     def bucket(self) -> Dict[str, Any]:
@@ -1818,6 +1966,7 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     raw["independence_release"] = _normalize_independence_release_config(raw)
     resolve_independence_ohlcv_fetch_config(raw)
     resolve_independence_intraday_config(raw)
+    resolve_independence_entry_location_config(raw)
     resolve_axes_config(raw)
     resolve_bucket_config(raw)
     resolve_priority_config(raw)
@@ -2074,6 +2223,10 @@ def validate_config(config: ScannerConfig) -> List[str]:
         errors.append(str(exc))
     try:
         resolve_runner_config(config.raw)
+    except ValueError as exc:
+        errors.append(str(exc))
+    try:
+        resolve_independence_entry_location_config(config.raw)
     except ValueError as exc:
         errors.append(str(exc))
 

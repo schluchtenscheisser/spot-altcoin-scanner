@@ -7,40 +7,40 @@ status: canonical
 ```
 
 ## Purpose
-This file lists **deliberately deferred topics** for the Independence-Release architecture. New entries are added only when a future ticket explicitly defers an enhancement instead of implementing it, or when a finding from Shadow-Live analysis is logged here for later action.
+This file lists **deliberately deferred topics** (bewusst verschobene Themen) for the Independence-Release architecture. New entries are added only when a future ticket explicitly defers an enhancement instead of implementing it, or when a finding from Shadow-Live analysis is logged here for later action.
 
 ---
 
 ## Deferred enhancements
 
+Bootstrap marker: `none yet` is retained for compatibility with the original Independence-Release bootstrap check, even though deferred topics are now tracked below.
+
 *Sorted by impact on investment-signal correctness. Items marked **Low Hanging Fruit** can be inserted as quick parallel fixes without a full ticket cycle.*
 
 ---
 
-### 1) Entry-Location / Chase-Risk Layer (T_EL2)
+### 1) Entry-Location / Action-Hint Layer (T_EL2 v1 implemented)
 
-**Source context:** T_EL1b exposed `entry_location_inputs` fields in `symbol_diagnostics.jsonl.gz` (Schema `ir1.2`). Shadow-Live analysis shows that multiple high-scoring, fully-tradeable candidates are already significantly extended above 4h EMA20 at the time of scan:
+**Source context:** T_EL1b exposed `entry_location_inputs` fields in `symbol_diagnostics.jsonl.gz` (Schema `ir1.2`). T_EL2 v1 adds an informational layer that classifies current entry location separately from the operational display hint.
 
-```text
-ASTERUSDT: close_vs_ema20_4h_pct ~ +5.5%
-ENAUSDT:   close_vs_ema20_4h_pct ~ +7.8%
-TERRAUSDT: close_vs_ema20_4h_pct ~ +11.1%
-KISHUUSDT: close_vs_ema20_4h_pct ~ +17.2%
-```
+**Implemented v1 scope:**
 
-The scanner currently outputs these as actionable with no overextension signal.
+- `scanner/decision/entry_location.py` resolves `entry_location_status` with enum values `fresh_entry`, `acceptable_entry`, `extended_entry`, `chased_entry`, and `not_evaluable`.
+- The same layer resolves `entry_action_hint` with enum values `buy_now_candidate`, `acceptable_if_strategy_allows`, `wait_for_pullback`, `avoid_chasing`, `monitor_only`, and `not_evaluable`.
+- Status is based on `entry_location_inputs.dist_to_ema20_4h_pct_abs`, the optional `continuation_breakout` EMA20-distance override, and the extreme-distance guard only.
+- Default EMA20 thresholds are `2.5 / 5.5 / 8.5`; the `continuation_breakout` override uses `3.5 / 7.0 / 10.0`; `dist_to_ema20_4h_pct_abs > 50.0` is `not_evaluable`.
+- Ordered action-hint overrides are: not-evaluable status, chased status, `candidate_excluded is True`, `is_tradeable_candidate is not True`, `early_candidates`, then the confirmed/tradeable execution-size matrix.
+- Report segments are emitted under `entry_location_candidate_segments`: `buy_now_candidates`, `wait_pullback_candidates`, `early_watch_candidates`, `good_location_but_not_tradeable`, and `tradeable_but_extended`.
+- `distance_to_range_high_pct_abs` is used only for nullable `range_high_proximity_warning` with default warning threshold `<= 0.5`; it does not change v1 status or action hint.
+- T_EL2 v1 is informational only: it does not change `priority_score`, bucket membership, the Tradeability Gate, execution grading, or order execution.
 
-**Reason for deferral:** T_EL2 requires empirical threshold calibration (T_EL1 Step B) to run first. Thresholds must not be hard-coded.
+**Remaining enhancement scope:**
 
-**Future enhancement scope:**
+- Recalibrate thresholds after at least 10 Shadow-Live runs.
+- Decide whether and how range-high proximity should become a primary status/action dimension in a future T_EL2 version.
+- Consider later complementary overextension metrics only after v1 has been evaluated.
 
-- Implement `scanner/decision/entry_location.py` with fields `entry_location_status` and `entry_action_hint`.
-- Add report segments: `buy_now_candidates`, `wait_pullback_candidates`, `early_watch_candidates`.
-- Thresholds from Step B, provisional, config-parametrised — no hard-coding.
-- Phase 1: no impact on `priority_score`, bucket membership, or Tradeability Gate.
-- `entry_location_inputs` is the canonical namespace for all Entry-Location input fields (since T_EL1b, `ir1.2`).
-
-**Prerequisite:** T_EL1 Step B must complete first.
+**Prerequisite status:** T_EL1 Step B completed for the provisional v1 calibration basis.
 
 ---
 
@@ -63,7 +63,7 @@ The scanner currently outputs these as actionable with no overextension signal.
 - The gap between "good entry-location but non-tradeable" and "tradeable but overextended" is particularly valuable for T_EL2 threshold design.
 - Derive provisional thresholds separating `fresh_entry / acceptable_entry / extended_entry / chased_entry`.
 - Validate pattern-specific differentiation (especially `early_reversal_break` vs. `shallow_pullback`).
-- Explicitly document the `distance_to_range_high_pct_abs` dimension as not calibrated (field is `null` in all current artifacts; see Q3).
+- Explicitly document the `distance_to_range_high_pct_abs` dimension as not calibrated (field is numerically present in current `ir1.2` artifacts but remains only auxiliary-warning calibrated; see Q3).
 - Output: provisional threshold candidates for T_EL2 config.
 
 ---

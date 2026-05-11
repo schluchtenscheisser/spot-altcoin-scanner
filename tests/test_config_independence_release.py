@@ -59,6 +59,7 @@ def test_load_config_adds_independence_release_defaults(tmp_path) -> None:
         "state": {},
         "invalidation": {},
         "entry": {},
+        "entry_location": {},
         "execution": {},
         "reports": {},
         "snapshots": {},
