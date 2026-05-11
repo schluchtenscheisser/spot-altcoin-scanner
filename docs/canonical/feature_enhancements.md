@@ -53,9 +53,17 @@ The scanner currently outputs these as actionable with no overextension signal.
 **Future enhancement scope:**
 
 - Run Step B analysis script against accumulated `ir1.2` artifacts.
-- Analyse `close_vs_ema20_4h_pct`, `dist_to_ema20_4h_pct_abs`, `bars_above_ema20_4h` per bucket, entry pattern, and state.
+- Analyse `close_vs_ema20_4h_pct`, `dist_to_ema20_4h_pct_abs`, `bars_above_ema20_4h` across all relevant segments — not only `confirmed/tradeable`, but at minimum:
+  - `confirmed direct_ok full`
+  - `early direct_ok full`
+  - `marginal reduced-size eligible`
+  - `observe_only`
+  - `unknown / not_evaluable`
+  - high-score but non-tradeable
+- The gap between "good entry-location but non-tradeable" and "tradeable but overextended" is particularly valuable for T_EL2 threshold design.
 - Derive provisional thresholds separating `fresh_entry / acceptable_entry / extended_entry / chased_entry`.
 - Validate pattern-specific differentiation (especially `early_reversal_break` vs. `shallow_pullback`).
+- Explicitly document the `distance_to_range_high_pct_abs` dimension as not calibrated (field is `null` in all current artifacts; see Q3).
 - Output: provisional threshold candidates for T_EL2 config.
 
 ---
@@ -81,7 +89,7 @@ The scanner currently outputs these as actionable with no overextension signal.
 
 **Source context:** Several candidates were output as `confirmed / direct_ok / full` despite strong recent price appreciation visible on the 7-day chart (e.g. TONUSDT +100% in 7 days, ASTERUSDT breakout after an already extended prior move). The 4h EMA20 distance (T_EL2) captures the intraday overextension perspective; short-term raw returns capture the broader trend-exhaustion perspective.
 
-**Reason for deferral:** T_EL2 (enhancement 1) should be implemented and validated before adding another overextension dimension to avoid over-filtering.
+**Reason for deferral:** T_EL2 (enhancement 1) should be implemented and validated before adding a second overextension dimension to avoid over-filtering. This marker addresses the broader trend-exhaustion perspective (raw short-term returns); it is a complement to T_EL2's 4h EMA20 analysis, not a replacement for it.
 
 **Future enhancement scope:**
 
@@ -97,6 +105,8 @@ The scanner currently outputs these as actionable with no overextension signal.
 
 **Reason for deferral:** Not blocking current Shadow-Live data collection; manual downloads have been sufficient for T25–T27 analysis.
 
+**Priority note:** Although this is not a signal-quality feature itself, it is a direct enabler for T30. If manual artifact handling becomes a bottleneck during T30 preparation, this should be implemented first — not deferred until after T30 is designed.
+
 **Future enhancement scope:**
 
 - After each Daily Run, commit small plaintext files to the repository: `report.json` family, index files, manifest files.
@@ -111,6 +121,8 @@ The scanner currently outputs these as actionable with no overextension signal.
 **Source context:** See open question Q1 (`is_tradeable_candidate` vs. `candidate_excluded`). If Q1 is resolved with Option B (separate fields rather than overwriting), this enhancement becomes the implementation vehicle.
 
 **Reason for deferral:** Blocked by Q1 — the semantic decision must be made first.
+
+**Timing note:** If Q1 is resolved with Option B, implement this field before T30 is executed. Otherwise T30 evaluation scripts will require ad-hoc filters (`is_tradeable_candidate == true AND candidate_excluded != true`) — exactly the kind of implicit logic the architecture is designed to avoid.
 
 **Future enhancement scope:**
 
