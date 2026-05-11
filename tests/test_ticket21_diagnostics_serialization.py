@@ -43,6 +43,7 @@ def _base_record() -> dict:
             "candidate_excluded": False,
             "candidate_exclusion_reason": None,
         },
+        "candidate_excluded": False,
         "execution_attempted": False,
         "execution_status_raw": None,
         "execution_reason_raw": None,
@@ -272,6 +273,16 @@ def test_ir12_diagnostics_without_entry_location_block_remain_valid() -> None:
 
     assert out["schema_version"] == "ir1.2"
     assert "entry_location" not in out
+
+
+def test_validate_diagnostics_preserves_top_level_candidate_excluded() -> None:
+    record = _base_record()
+    record["candidate_excluded"] = True
+    record["universe"]["candidate_excluded"] = False
+
+    out = validate_diagnostics_record(record)
+
+    assert out["candidate_excluded"] is True
 
 
 def test_entry_location_inputs_null_when_4h_unavailable() -> None:
