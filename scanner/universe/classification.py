@@ -13,6 +13,7 @@ EXACT_OVERRIDES: dict[str, tuple[str, str, str]] = {
     "ABBVONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
     "ADBEONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
     "AMZNONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
+    "TSLAONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
     "ARMONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
     "AVGOONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
     "CEGONUSDT": ("tokenized_stock_or_etf", "high", "exact_override_tokenized_stock"),
