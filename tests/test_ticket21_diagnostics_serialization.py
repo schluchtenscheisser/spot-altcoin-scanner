@@ -240,7 +240,7 @@ def test_replay_cycle_id_prefers_state_setup_cycle_id_over_cycle_block(tmp_path:
     assert events[0]["setup_cycle_id"] == 7
 
 
-def test_entry_location_inputs_are_normalized_with_schema_ir12() -> None:
+def test_entry_location_inputs_are_normalized_with_current_schema() -> None:
     record = _base_record()
     record["entry_location_inputs"] = {
         "close_vs_ema20_4h_pct": 6.14,
@@ -253,7 +253,7 @@ def test_entry_location_inputs_are_normalized_with_schema_ir12() -> None:
 
     out = validate_diagnostics_record(record)
 
-    assert out["schema_version"] == "ir1.2"
+    assert out["schema_version"] == "ir1.3"
     assert out["entry_location_inputs"] == {
         "close_vs_ema20_4h_pct": 6.14,
         "bars_above_ema20_4h": 4,
@@ -262,6 +262,16 @@ def test_entry_location_inputs_are_normalized_with_schema_ir12() -> None:
         "distance_to_range_high_pct_abs": None,
         "bars_since_last_structural_break_4h": 3,
     }
+
+
+def test_ir12_diagnostics_without_entry_location_block_remain_valid() -> None:
+    record = _base_record()
+    record["schema_version"] = "ir1.2"
+
+    out = validate_diagnostics_record(record)
+
+    assert out["schema_version"] == "ir1.2"
+    assert "entry_location" not in out
 
 
 def test_entry_location_inputs_null_when_4h_unavailable() -> None:
