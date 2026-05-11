@@ -45,7 +45,11 @@ The report summary correctly excludes such symbols from tradeable counts, but at
 
 The semantics of `is_tradeable_candidate` must be decided canonically first. A fix ticket without this decision risks either breaking downstream consumers of the current field or producing an inconsistent second field.
 
-**Related:** See Q5 (Stablecoin filter) for the root cause; Q14 (operational tradeability field) for the Option B enhancement.
+This must be resolved before T30 consumes row-level diagnostics as authoritative tradeable labels. Otherwise T30 and all forward-return evaluation scripts will need ad-hoc filters (`is_tradeable_candidate == true AND candidate_excluded != true`) — exactly the kind of implicit logic the architecture is designed to avoid.
+
+**Relationship to Q2:** Q1 is the downstream diagnostics/reporting symptom. Q2 is the upstream universe/eligibility root cause. Both must be resolved before production-grade tradeable candidate reporting. Resolving Q1 alone does not remove false positives from the universe; resolving Q2 alone does not fix the row-level labeling gap.
+
+**Related:** See Q2 (Stablecoin filter) for the upstream root cause; feature enhancement 6 (operational tradeability field) for the Option B implementation path.
 
 ---
 
@@ -66,6 +70,8 @@ Stablecoins should be caught by market-cap or price-stability filters, but no ex
 2. Candidate rule: `universe_category in {stable_or_cash_proxy, fiat_proxy, wrapped_cash}` → hard exclude before decision/tradeability evaluation.
 3. Which module owns enforcement?
 
+**Relationship to Q1:** Q2 is the upstream universe/eligibility root cause. Q1 is the downstream diagnostics/reporting symptom. Resolving Q2 removes false positives from the universe; resolving Q1 fixes row-level labeling. Both must be resolved before production-grade tradeable candidate reporting.
+
 ---
 
 ### 3) `distance_to_range_high_pct_abs` has no canonical formula — T_EL2 input missing
@@ -78,13 +84,17 @@ The field exists in T5 as a `FeatureBundle` attribute but is not implemented. T_
 
 This is one of the six planned T_EL2 input fields. Until a canonical formula exists, T_EL2 operates with five inputs instead of six, and any threshold calibration in Step B cannot include this dimension.
 
+**Staging note**
+
+T_EL2 v1 may proceed without this field provided that Step B explicitly documents the missing calibration dimension. Full T_EL2 calibration with all six input fields requires resolution of this question first. This must be addressed before a "complete" T_EL2 v2 is authored.
+
 **Still to decide**
 
 1. What exactly is the "Range High" — swing high over what lookback?
 2. Which historical bars or anchors define the range?
 3. Is a configurable lookback parameter involved?
 4. Which module owns the computation?
-5. How does this field differ from `dist_to_base_mid_pct` (Q8)? The distinction must remain explicit.
+5. How does this field differ from `dist_to_base_mid_pct` (Q13)? The distinction must remain explicit.
 
 ---
 
@@ -187,9 +197,10 @@ A symbol containing Chinese characters appeared as a Confirmed Candidate in a Sh
 
 **Still to decide**
 
-1. Should the Eligibility layer apply an explicit ASCII / Latin-character filter on symbol names?
-2. Or is this handled canonically via the Override Map (explicit inclusion/exclusion)?
-3. If neither, document that non-ASCII symbols are intentionally allowed through and will appear in output.
+1. Should the Eligibility or Universe Classification layer flag non-Latin/non-ASCII symbol names with lower confidence rather than hard-excluding them? A hard ASCII filter risks rejecting legitimate MEXC-listed assets without evidence; a flag-first approach is more consistent with the diagnostic-before-config principle.
+2. Alternatively: is the canonical path an explicit Override Map entry (include or exclude) for any non-ASCII symbol that surfaces in Shadow-Live runs?
+3. If flagging: which confidence level and which reason code?
+4. Document the decision explicitly so future Classification rules do not silently guess.
 
 ---
 
