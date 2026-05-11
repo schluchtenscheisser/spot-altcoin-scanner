@@ -17,6 +17,8 @@ Until an open question listed here is resolved in canonical documentation, later
 
 ## Open questions
 
+Compatibility note: cache-role ambiguity was resolved by Ticket 14; Canonical OHLCV long-term storage remains the active storage contract.
+
 *Sorted by impact on investment-signal correctness. Items at the top affect which candidates are shown as actionable; items further down are architectural quality concerns.*
 
 ---
@@ -74,19 +76,19 @@ Stablecoins should be caught by market-cap or price-stability filters, but no ex
 
 ---
 
-### 3) `distance_to_range_high_pct_abs` has no canonical formula — T_EL2 input missing
+### 3) `distance_to_range_high_pct_abs` primary calibration remains open — auxiliary T_EL2 v1 usage allowed
 
 **Context**
 
-The field exists in T5 as a `FeatureBundle` attribute but is not implemented. T_EL1b (Schema `ir1.2`) correctly emits it as `null` in `entry_location_inputs` for all symbols, with a code comment referencing this open question. Codex was explicitly instructed not to implement it.
+The field exists in T5 as a `FeatureBundle` attribute and is present in the `entry_location_inputs` namespace. Current `ir1.2` observations supersede the earlier blanket statement that it is universally `null`: when valid 4h feature input exists, the field can be numeric.
 
 **Why this matters**
 
-This is one of the six planned T_EL2 input fields. Until a canonical formula exists, T_EL2 operates with five inputs instead of six, and any threshold calibration in Step B cannot include this dimension.
+T_EL2 v1 uses this field only as an auxiliary nullable warning (`range_high_proximity_warning`) with the provisional threshold `distance_to_range_high_pct_abs <= 0.5`. It is not a primary `entry_location_status` dimension and must not alter `entry_action_hint` in v1.
 
 **Staging note**
 
-T_EL2 v1 may proceed without this field provided that Step B explicitly documents the missing calibration dimension. Full T_EL2 calibration with all six input fields requires resolution of this question first. This must be addressed before a "complete" T_EL2 v2 is authored.
+Q3 is partially superseded by `ir1.2` observation: auxiliary diagnostic usage is allowed, but primary calibration is still deferred. Full range-high calibration requires resolution of this question before a future T_EL2 version can use the field as a status or action modifier.
 
 **Still to decide**
 

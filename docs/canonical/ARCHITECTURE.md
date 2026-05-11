@@ -89,7 +89,7 @@ Provides the schema-version contract and idempotent migration entrypoint for the
 Owns deterministic output artifact generation for Independence-Release.
 
 Binding module responsibilities:
-- `scanner/output/schema.py`: canonical typed models, enums, `SCHEMA_VERSION = "ir1.0"`.
+- `scanner/output/schema.py`: canonical typed models, enums, `SCHEMA_VERSION = "ir1.3"`.
 - `scanner/output/diagnostics.py`: diagnostics validation and `symbol_diagnostics.jsonl.gz` serialization.
 - `scanner/output/report_builder.py`: canonical pathing + writer orchestration for run reports, daily reports, and index artifacts.
 

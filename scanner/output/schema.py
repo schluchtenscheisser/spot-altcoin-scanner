@@ -7,8 +7,8 @@ import math
 import re
 from typing import Any, Dict, Mapping, Literal
 
-SCHEMA_VERSION = "ir1.2"
-ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", SCHEMA_VERSION}
+SCHEMA_VERSION = "ir1.3"
+ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", "ir1.2", SCHEMA_VERSION}
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,9 @@ SYMBOL_LIST_BUCKET_KEYS = (
     "watchlist",
     "late_monitor",
 )
+
+ENTRY_LOCATION_STATUS_VALUES = {"fresh_entry", "acceptable_entry", "extended_entry", "chased_entry", "not_evaluable"}
+ENTRY_ACTION_HINT_VALUES = {"buy_now_candidate", "acceptable_if_strategy_allows", "wait_for_pullback", "avoid_chasing", "monitor_only", "not_evaluable"}
 
 ENTRY_LOCATION_INPUT_KEYS = (
     "close_vs_ema20_4h_pct",
@@ -215,11 +218,14 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     if not isinstance(universe_block, Mapping):
         raise ValueError("diagnostics.universe must be object")
     out["universe"] = dict(universe_block)
+    out["candidate_excluded"] = _require_bool("candidate_excluded", record.get("candidate_excluded", False))
     out["entry_location_inputs"] = normalize_entry_location_inputs(
         record.get("entry_location_inputs"),
         data_4h_available=out["data_4h_available"],
         symbol=out["symbol"],
     )
+    if "entry_location" in record:
+        out["entry_location"] = normalize_entry_location_block(record.get("entry_location"))
 
     out["execution_attempted"] = _require_bool("execution_attempted", record.get("execution_attempted", False))
     out["execution_status_raw"] = _require_nullable_str("execution_status_raw", record.get("execution_status_raw"))
@@ -272,6 +278,53 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
 
     return out
 
+
+def normalize_entry_location_block(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("diagnostics.entry_location must be object")
+    status = _require_nullable_str("entry_location.entry_location_status", value.get("entry_location_status"))
+    if status is not None and status not in ENTRY_LOCATION_STATUS_VALUES:
+        raise ValueError(f"entry_location.entry_location_status must be one of {sorted(ENTRY_LOCATION_STATUS_VALUES)}, got {status!r}")
+    hint = _require_nullable_str("entry_location.entry_action_hint", value.get("entry_action_hint"))
+    if hint is not None and hint not in ENTRY_ACTION_HINT_VALUES:
+        raise ValueError(f"entry_location.entry_action_hint must be one of {sorted(ENTRY_ACTION_HINT_VALUES)}, got {hint!r}")
+    reason_primary = _require_nullable_str("entry_location.entry_location_reason_primary", value.get("entry_location_reason_primary"))
+    reason_codes = value.get("entry_location_reason_codes", [])
+    if not isinstance(reason_codes, list) or any(not isinstance(reason, str) for reason in reason_codes):
+        raise ValueError("entry_location.entry_location_reason_codes must be list[str]")
+    warning = _require_nullable_bool("entry_location.range_high_proximity_warning", value.get("range_high_proximity_warning"))
+    inputs_used = value.get("entry_location_inputs_used", {})
+    if not isinstance(inputs_used, Mapping):
+        raise ValueError("entry_location.entry_location_inputs_used must be object")
+    sanitized_inputs: Dict[str, Any] = {}
+    allowed_inputs = set(ENTRY_LOCATION_INPUT_KEYS) | {"entry_pattern", "threshold_source", "range_high_proximity_warning"}
+    unknown = set(inputs_used.keys()) - allowed_inputs
+    if unknown:
+        raise ValueError(f"entry_location.entry_location_inputs_used contains unsupported keys: {sorted(unknown)}")
+    for key in ENTRY_LOCATION_INPUT_KEYS:
+        raw = inputs_used.get(key)
+        if raw is None:
+            sanitized_inputs[key] = None
+        elif isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(float(raw)):
+            raise ValueError(f"entry_location.entry_location_inputs_used.{key} must be finite number or null")
+        elif key in {"bars_above_ema20_4h", "bars_since_last_structural_break_4h"}:
+            sanitized_inputs[key] = int(raw)
+        else:
+            sanitized_inputs[key] = float(raw)
+    sanitized_inputs["entry_pattern"] = _require_nullable_str("entry_location.entry_location_inputs_used.entry_pattern", inputs_used.get("entry_pattern"))
+    sanitized_inputs["threshold_source"] = _require_nullable_str("entry_location.entry_location_inputs_used.threshold_source", inputs_used.get("threshold_source"))
+    sanitized_inputs["range_high_proximity_warning"] = _require_nullable_bool(
+        "entry_location.entry_location_inputs_used.range_high_proximity_warning",
+        inputs_used.get("range_high_proximity_warning"),
+    )
+    return {
+        "entry_location_status": status,
+        "entry_action_hint": hint,
+        "entry_location_reason_primary": reason_primary,
+        "entry_location_reason_codes": list(reason_codes),
+        "range_high_proximity_warning": warning,
+        "entry_location_inputs_used": sanitized_inputs,
+    }
 
 def normalize_entry_location_inputs(
     value: Mapping[str, Any] | None,

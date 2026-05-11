@@ -39,7 +39,7 @@ Die Independence-Release Reports-Struktur enthält verbindliche maschinenlesbare
 Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) existieren, sie sind aber nicht die Canonical-Truth-Ebene.
 
 ## Canonical schema and ownership
-- `schema_version` is fixed to `ir1.0`.
+- `schema_version` is currently `ir1.3` for newly emitted report/diagnostics artifacts.
 - The output layer owns report/diagnostics/index writers in `scanner/output/`.
 - `scan_mode` values are exactly `daily` or `intraday`.
 - `run_id` is a non-empty opaque string (format not constrained here).

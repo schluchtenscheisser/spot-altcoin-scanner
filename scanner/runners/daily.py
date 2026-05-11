@@ -13,6 +13,7 @@ from scanner.axes import compute_tier1_axes, compute_tier2_axes
 from scanner.config import ScannerConfig
 from scanner.data import DAILY_SCAN_DELTA_BARS, daily_bar_id as compute_daily_bar_id
 from scanner.decision.buckets import assign_bucket
+from scanner.decision.entry_location import attach_entry_location, build_entry_location_report_segments
 from scanner.decision.models import RankedDecision
 from scanner.decision.ranking import rank_coins
 from scanner.entry.patterns import resolve_entry_pattern
@@ -549,6 +550,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                         "candidate_excluded": ctx["universe"].candidate_excluded,
                         "candidate_exclusion_reason": ctx["universe"].candidate_exclusion_reason,
                     },
+                    "candidate_excluded": ctx["universe"].candidate_excluded,
                     "execution_attempted": False,
                     "execution_status_raw": None,
                     "execution_reason_raw": None,
@@ -584,6 +586,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     decision_bucket=decision.decision_bucket.value,
                     is_reduced_size_eligible_value=bool(diag.get("is_reduced_size_eligible")),
                 )
+                diag = attach_entry_location(diag, cfg.entry_location)
                 diagnostics.append(validate_diagnostics_record(diag))
 
         ranked = rank_coins(ranked_inputs, cfg)
@@ -598,6 +601,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
         builder = make_report_builder(project_root=project_root, config=cfg.raw)
         ticket23_payload = _build_ticket23_report_payload(ranked=ranked, diagnostics=diagnostics)
         execution_aware_payload = _build_execution_aware_report_payload(ranked=ranked, diagnostics=diagnostics)
+        entry_location_payload = {"entry_location_candidate_segments": build_entry_location_report_segments(diagnostics)}
         report = builder.write_run_report(
             run_id=run_id,
             scan_mode="daily",
@@ -614,7 +618,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 "late_monitor": len(symbol_lists["late_monitor"]),
                 "discarded": max(0, len(ranked) - sum(len(v) for v in symbol_lists.values())),
             },
-            extra_report_fields={**ticket23_payload, **execution_aware_payload},
+            extra_report_fields={**ticket23_payload, **execution_aware_payload, **entry_location_payload},
         )
         builder.write_daily_report(report)
     except Exception:
