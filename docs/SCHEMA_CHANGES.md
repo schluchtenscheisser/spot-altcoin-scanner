@@ -54,6 +54,45 @@ Dieses Dokument protokolliert alle Änderungen an:
 ## Historie
 *(Neue Einträge kommen hier darunter)*
 
+
+### 2026-05-11 — diagnostics schema_version ir1.2 → ir1.3 — T_EL2 entry-location diagnostics block
+**PR:** (branch-local, T_EL2 review fix)
+**Ticket:** T_EL2
+**Version:** ir1.3
+**Typ:** additiv
+
+#### Was hat sich geändert?
+- `symbol_diagnostics.jsonl.gz` enthält zusätzlich den verschachtelten Block `entry_location` (Change: added new nested `entry_location` block).
+- Der Block enthält die Felder `entry_location_status`, `entry_action_hint`, `entry_location_reason_primary`, `entry_location_reason_codes`, `entry_location_inputs_used` und `range_high_proximity_warning`.
+
+#### Warum?
+- T_EL2 ergänzt eine rein informative Entry-Location-/Action-Hint-Schicht, damit neue Diagnostik-Artefakte eindeutig von älteren `ir1.2`-Artefakten mit nur `entry_location_inputs` unterscheidbar sind.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja. `ir1.2`-Artefakte enthalten den `entry_location`-Block nicht. Version-gated Reader müssen diese Abwesenheit als `not_evaluated` behandeln, nicht als Fehler.
+
+#### Migration / Vorgehen
+- Neue Diagnostics-Artefakte tragen `schema_version = "ir1.3"`.
+- Consumer sollen `ir1.2` weiterhin akzeptieren und fehlende `entry_location`-Blöcke als nicht bewertet interpretieren.
+
+#### Beispiel (gekürzt)
+```json
+{
+  "schema_version": "ir1.3",
+  "entry_location": {
+    "entry_location_status": "fresh_entry",
+    "entry_action_hint": "buy_now_candidate",
+    "entry_location_reason_primary": "fresh_by_default_ema20_distance",
+    "entry_location_reason_codes": ["fresh_by_default_ema20_distance", "fresh_full_buy_now_candidate"],
+    "entry_location_inputs_used": {
+      "dist_to_ema20_4h_pct_abs": 1.27,
+      "threshold_source": "default"
+    },
+    "range_high_proximity_warning": false
+  }
+}
+```
+
 ### 2026-05-09 — diagnostics schema_version ir1.1 → ir1.2 — T_EL1b entry-location diagnostics inputs
 **PR:** (branch-local, T_EL1b)
 **Typ:** additiv

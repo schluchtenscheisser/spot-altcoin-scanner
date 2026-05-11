@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # T_EL2: Implement Entry-Location / Action-Hint Layer v1
 
 ## Metadata
