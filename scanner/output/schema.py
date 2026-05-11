@@ -218,10 +218,14 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
     if not isinstance(universe_block, Mapping):
         raise ValueError("diagnostics.universe must be object")
     out["universe"] = dict(universe_block)
-    out["candidate_excluded"] = _require_bool(
-        "candidate_excluded",
-        record.get("candidate_excluded", False),
-    )
+    if "candidate_excluded" in record:
+        candidate_excluded = record.get("candidate_excluded")
+    else:
+        # Backward-compatible normalization for legacy diagnostics emitted before
+        # the canonical top-level field existed. If neither location is present,
+        # keep the historical validator default of False.
+        candidate_excluded = universe_block.get("candidate_excluded", False)
+    out["candidate_excluded"] = _require_bool("candidate_excluded", candidate_excluded)
     out["entry_location_inputs"] = normalize_entry_location_inputs(
         record.get("entry_location_inputs"),
         data_4h_available=out["data_4h_available"],
