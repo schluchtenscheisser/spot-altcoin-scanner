@@ -1,0 +1,10 @@
+{
+  "as_of_utc": "2026-05-12T16:27:19Z",
+  "daily_bar_id": "2026-05-11",
+  "diagnostics_path": "reports/runs/2026/05/11/intraday-2026-05-11-195ce05eff0f/symbol_diagnostics.jsonl.gz",
+  "intraday_bar_id": "2026-05-12T16:00:00Z",
+  "manifest_path": "snapshots/runs/2026/05/11/intraday-2026-05-11-195ce05eff0f/run.manifest.json",
+  "report_path": "reports/runs/2026/05/11/intraday-2026-05-11-195ce05eff0f/report.json",
+  "run_id": "intraday-2026-05-11-195ce05eff0f",
+  "scan_mode": "intraday"
+}
