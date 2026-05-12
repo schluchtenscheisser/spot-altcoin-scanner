@@ -373,7 +373,8 @@ Do not introduce or assume:
 
 ## Current diagnostics and report schema
 
-Current schema version: ir1.3 as of T_EL2 and report persistence.
+Current schema version: ir1.4 as of T_EL2, report persistence,
+and the intraday/latest index semantics fix.
 
 Diagnostics top-level fields include, among others:
 - execution_size_class
