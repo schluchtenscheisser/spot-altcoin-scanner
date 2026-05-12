@@ -7,8 +7,8 @@ import math
 import re
 from typing import Any, Dict, Mapping, Literal
 
-SCHEMA_VERSION = "ir1.3"
-ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", "ir1.2", SCHEMA_VERSION}
+SCHEMA_VERSION = "ir1.4"
+ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", "ir1.2", "ir1.3", SCHEMA_VERSION}
 
 logger = logging.getLogger(__name__)
 

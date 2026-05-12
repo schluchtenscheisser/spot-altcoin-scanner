@@ -82,6 +82,12 @@ def test_intraday_runner_no_new_bar_noop_when_no_refresh_required(tmp_path, monk
 
     run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
 
+    reports = sorted((tmp_path / "reports" / "runs").glob("**/report.json"))
+    assert len(reports) == 1
+    report = json.loads(reports[0].read_text(encoding="utf-8"))
+    assert report["no_op"] is True
+    assert report["no_op_reason"] == "no_new_4h_bar"
+
 
 def test_intraday_run_metadata_schema_version_uses_storage_schema_version(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
@@ -166,6 +172,7 @@ def test_intraday_noop_report_uses_active_config(tmp_path, monkeypatch) -> None:
     assert manifest_path.endswith("/run.manifest.json")
     assert manifest_path.startswith("snapshots/runs/")
     assert "reports/runs" not in manifest_path
+    assert kwargs["extra_report_fields"] == {"no_op": True, "no_op_reason": "empty_monitoring_universe"}
     manifest_file = tmp_path / manifest_path
     assert manifest_file.exists()
     reports_manifests = list((tmp_path / "reports" / "runs").glob("**/*.manifest.json"))

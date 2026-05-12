@@ -444,6 +444,10 @@ def _write_intraday_noop_report(
         symbol_lists={"confirmed_candidates": [], "early_candidates": [], "watchlist": [], "late_monitor": []},
         manifest_path=manifest_path,
         diagnostics_records=diagnostics or [],
+        extra_report_fields={
+            "no_op": diagnostics is None or len(diagnostics) == 0,
+            "no_op_reason": skip_reason if diagnostics is None or len(diagnostics) == 0 else None,
+        },
     )
     logger.info("intraday noop run", extra={"run_id": run_id, "skip_reason": skip_reason})
 
