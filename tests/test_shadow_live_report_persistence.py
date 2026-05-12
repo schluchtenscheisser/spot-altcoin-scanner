@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -8,7 +9,12 @@ from pathlib import Path
 SCRIPT = Path("scripts/persist_shadow_live_reports.py").resolve()
 
 
-def _run(args: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+def _run(
+    args: list[str],
+    cwd: Path,
+    check: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
         cwd=cwd,
@@ -16,6 +22,7 @@ def _run(args: list[str], cwd: Path, check: bool = True) -> subprocess.Completed
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        env=env,
     )
 
 
@@ -48,12 +55,15 @@ def _latest_daily(run_id: str = "daily-2026-05-12") -> dict[str, object]:
 def _populate_source(source: Path) -> None:
     daily = _latest_daily()
     intraday = {**daily, "run_id": "intraday-2026-05-12T04", "scan_mode": "intraday", "intraday_bar_id": "2026-05-12T04:00:00Z"}
+    (source / "reports" / "index").mkdir(parents=True, exist_ok=True)
+    (source / "reports" / "index" / "latest_run.txt").write_text("intraday-2026-05-12T04\n", encoding="utf-8")
     _write_json(source / "reports" / "index" / "latest_daily.json", daily)
     _write_json(source / "reports" / "index" / "latest.json", intraday)
     _write_json(source / "reports" / "index" / "latest_confirmed_candidates.json", ["AAAUSDT"])
     _write_json(source / "reports" / "index" / "latest_watchlist.json", ["BBBUSDT"])
     _write_json(source / "reports" / "index" / "latest_paths.json", {"report_path": "reports/runs/2026/05/12/intraday-2026-05-12T04/report.json"})
     _write_json(source / "reports" / "index" / "recent_runs.json", [intraday, daily])
+    _write_json(source / "reports" / "index" / "latest_intraday.json", intraday)
     _write_json(source / "reports" / "daily" / "2026" / "05" / "12" / "report.json", daily)
     _write_json(source / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json", daily)
     _write_json(source / "reports" / "runs" / "2026" / "05" / "12" / "intraday-2026-05-12T04" / "report.json", intraday)
@@ -70,12 +80,16 @@ def test_persistence_commits_only_allowlisted_report_files(tmp_path: Path) -> No
     _init_repo(repo)
     _populate_source(source)
 
-    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo)
+    github_output = tmp_path / "github-output.txt"
+    env = {**os.environ, "GITHUB_OUTPUT": str(github_output)}
+    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo, env=env)
 
     assert "Persisted shadow-live reports for daily-2026-05-12." in result.stdout
+    assert "created_commit=true" in github_output.read_text(encoding="utf-8")
     show = _run(["git", "show", "--name-only", "--format="], cwd=repo).stdout.splitlines()
     changed = {line for line in show if line}
     assert changed == {
+        "reports/index/latest_run.txt",
         "reports/index/latest.json",
         "reports/index/latest_daily.json",
         "reports/index/latest_confirmed_candidates.json",
@@ -87,6 +101,7 @@ def test_persistence_commits_only_allowlisted_report_files(tmp_path: Path) -> No
         "reports/runs/2026/05/12/intraday-2026-05-12T04/report.json",
     }
     tree = _run(["git", "ls-tree", "-r", "--name-only", "HEAD"], cwd=repo).stdout
+    assert "reports/index/latest_intraday.json" not in tree
     assert "symbol_diagnostics.jsonl.gz" not in tree
     assert ".xlsx" not in tree
     assert ".parquet" not in tree
@@ -105,9 +120,12 @@ def test_persistence_skips_when_daily_anchor_already_exists(tmp_path: Path) -> N
     _run(["git", "commit", "-m", "persisted already"], cwd=repo)
     before = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
 
-    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo)
+    github_output = tmp_path / "github-output-skip.txt"
+    env = {**os.environ, "GITHUB_OUTPUT": str(github_output)}
+    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo, env=env)
 
     assert "report persistence skipped because daily run report already exists." in result.stdout
+    assert "created_commit=false" in github_output.read_text(encoding="utf-8")
     after = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
     assert after == before
     assert _run(["git", "status", "--short"], cwd=repo).stdout == ""
@@ -125,9 +143,12 @@ def test_persistence_exits_without_commit_when_allowed_files_have_no_diff(tmp_pa
     _run(["git", "commit", "-m", "existing index"], cwd=repo)
     before = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
 
-    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo)
+    github_output = tmp_path / "github-output-no-diff.txt"
+    env = {**os.environ, "GITHUB_OUTPUT": str(github_output)}
+    result = _run([sys.executable, str(SCRIPT), "--repo-root", str(repo), "--source-root", str(source)], cwd=repo, env=env)
 
     assert "No report persistence changes to commit." in result.stdout
+    assert "created_commit=false" in github_output.read_text(encoding="utf-8")
     after = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
     assert after == before
 

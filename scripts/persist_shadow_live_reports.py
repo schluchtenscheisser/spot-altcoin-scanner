@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 INDEX_ALLOWLIST = (
+    "latest_run.txt",
     "latest.json",
     "latest_daily.json",
     "latest_confirmed_candidates.json",
@@ -21,6 +23,14 @@ BOT_NAME = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 SKIP_MESSAGE = "report persistence skipped because daily run report already exists."
 NO_CHANGES_MESSAGE = "No report persistence changes to commit."
+
+
+def _emit_created_commit(created_commit: bool) -> None:
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if not github_output:
+        return
+    with open(github_output, "a", encoding="utf-8") as handle:
+        handle.write(f"created_commit={'true' if created_commit else 'false'}\n")
 
 
 def _run_git(repo_root: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -114,6 +124,7 @@ def persist_reports(repo_root: Path, source_root: Path, push: bool = False) -> i
     daily_run_id, daily_anchor = _daily_anchor_from_source(source_root)
 
     if (repo_root / daily_anchor).exists():
+        _emit_created_commit(False)
         print(SKIP_MESSAGE)
         return 0
 
@@ -123,6 +134,7 @@ def persist_reports(repo_root: Path, source_root: Path, push: bool = False) -> i
             copied.append(rel_path)
 
     if not copied:
+        _emit_created_commit(False)
         print(NO_CHANGES_MESSAGE)
         return 0
 
@@ -136,12 +148,14 @@ def persist_reports(repo_root: Path, source_root: Path, push: bool = False) -> i
         check=False,
     )
     if diff.returncode == 0:
+        _emit_created_commit(False)
         print(NO_CHANGES_MESSAGE)
         return 0
     if diff.returncode != 1:
         raise RuntimeError(f"git diff --cached --quiet failed with exit code {diff.returncode}")
 
     _run_git(repo_root, ["commit", "-m", f"Persist shadow-live reports for {daily_run_id}"])
+    _emit_created_commit(True)
     if push:
         _run_git(repo_root, ["push"])
     print(f"Persisted shadow-live reports for {daily_run_id}.")

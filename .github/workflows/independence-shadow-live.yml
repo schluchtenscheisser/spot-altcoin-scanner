@@ -193,11 +193,13 @@ jobs:
           path: ${{ runner.temp }}/shadow-live-report-persistence
 
       - name: Persist allowed shadow-live reports
+        id: persist_reports
         run: |
           python scripts/persist_shadow_live_reports.py \
             --repo-root . \
             --source-root "${{ runner.temp }}/shadow-live-report-persistence"
 
       - name: Push report persistence commit
+        if: steps.persist_reports.outputs.created_commit == 'true'
         run: git push origin HEAD:${{ github.ref_name }}
 

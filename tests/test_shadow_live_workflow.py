@@ -36,7 +36,9 @@ def test_shadow_live_workflow_separates_report_persistence_permissions_and_artif
     assert 'actions/upload-artifact@v4' in text
     assert 'Download report persistence artifact' in text
     assert 'actions/download-artifact@v4' in text
+    assert 'id: persist_reports' in text
     assert 'scripts/persist_shadow_live_reports.py' in text
+    assert "if: steps.persist_reports.outputs.created_commit == 'true'" in text
     assert 'git push origin HEAD:${{ github.ref_name }}' in text
     assert 'git add reports/' not in text
     assert 'git add .' not in text
