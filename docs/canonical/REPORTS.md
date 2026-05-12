@@ -130,6 +130,14 @@ Semantics:
 - `recent_runs.json` is newest-first and bounded (`recent_runs_limit`, default `30`).
 - All path fields are repository-root-relative.
 
+
+## Shadow-Live repository persistence
+- After a successful Shadow-Live report generation, the workflow may persist only small plaintext report/index artifacts to the repository.
+- Persisted allowlist: `reports/index/latest_run.txt`, `reports/index/latest.json`, `reports/index/latest_daily.json`, `reports/index/latest_confirmed_candidates.json`, `reports/index/latest_watchlist.json`, `reports/index/latest_paths.json`, `reports/index/recent_runs.json`, `reports/daily/YYYY/MM/DD/report.json`, and `reports/runs/YYYY/MM/DD/<run_id>/report.json`.
+- Full diagnostics and large/generated data remain Actions-artifact-only and are intentionally excluded from repository commits, including `symbol_diagnostics.jsonl.gz`, Excel reports, Parquet files, ZIP archives, snapshots, and raw market data.
+- Workflow retry idempotency is anchored on the daily run report: if `reports/runs/YYYY/MM/DD/<run_id>/report.json` for the daily run already exists in the checked-out repository, report persistence is skipped without creating another commit.
+- Candidate-specific latest files remain candidate-effective outputs: no-op or diagnostics-only intraday runs must not clear `latest_confirmed_candidates.json` or `latest_watchlist.json`.
+
 ## Writer determinism and atomicity
 - Final artifacts use temp-file then atomic rename.
 - Index files are updated only after run artifacts are finalized successfully.

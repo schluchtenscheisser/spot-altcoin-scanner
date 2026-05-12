@@ -35,3 +35,12 @@ Thumbs.db
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !logs/.gitkeep
+
+# Large Shadow-Live / scanner artifacts must remain artifact-only
+reports/**/*.jsonl.gz
+reports/**/*.xlsx
+reports/**/*.parquet
+reports/**/*.zip
+reports/**/symbol_diagnostics.jsonl.gz
+snapshots/**/*.parquet
+snapshots/**/*.jsonl.gz
