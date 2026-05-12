@@ -39,7 +39,7 @@ Die Independence-Release Reports-Struktur enthält verbindliche maschinenlesbare
 Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) existieren, sie sind aber nicht die Canonical-Truth-Ebene.
 
 ## Canonical schema and ownership
-- `schema_version` is currently `ir1.3` for newly emitted report/diagnostics artifacts.
+- `schema_version` is currently `ir1.4` for newly emitted report/diagnostics artifacts.
 - The output layer owns report/diagnostics/index writers in `scanner/output/`.
 - `scan_mode` values are exactly `daily` or `intraday`.
 - `run_id` is a non-empty opaque string (format not constrained here).
@@ -121,9 +121,12 @@ This contract does not introduce `data_resolution_class`.
 - `reports/index/recent_runs.json`
 
 Semantics:
-- `latest.json` is content-identical to latest run `report.json`.
-- `latest_daily.json` is content-identical to latest daily `report.json`.
-- `latest_confirmed_candidates.json` and `latest_watchlist.json` are JSON arrays of plain symbol strings.
+- `latest.json` is content-identical to the latest run `report.json` for any scan mode, including no-op intraday runs.
+- `latest_daily.json` is content-identical to the latest daily discovery run `report.json`.
+- `latest_confirmed_candidates.json` and `latest_watchlist.json` are JSON arrays of plain symbol strings from the latest candidate-producing report for that list. Daily runs are authoritative candidate-producing reports even when a candidate list is present and empty. Intraday reports update a candidate-specific latest file only when that candidate-list key was actually produced by the report.
+- Diagnostics-only intraday runs, even with diagnostics records, must not clear candidate-oriented latest files. A present-but-empty candidate list means “candidate-producing run with zero candidates”; an absent candidate-list key means “this report did not produce that candidate list.”
+- Consumers that need daily candidates should read `latest_daily.json` or the candidate-specific latest files, not assume `latest.json` always points to a candidate-producing run.
+- Intraday no-op reports set `no_op=true`; `no_op_reason` reuses the existing intraday `skip_reason` string values such as `no_new_4h_bar` and `empty_monitoring_universe`. Non-no-op reports set `no_op=false` and `no_op_reason=null`.
 - `recent_runs.json` is newest-first and bounded (`recent_runs_limit`, default `30`).
 - All path fields are repository-root-relative.
 

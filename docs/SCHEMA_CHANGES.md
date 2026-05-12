@@ -55,6 +55,37 @@ Dieses Dokument protokolliert alle Änderungen an:
 *(Neue Einträge kommen hier darunter)*
 
 
+### 2026-05-12 — report/diagnostics schema_version ir1.3 → ir1.4 — Intraday no-op report metadata and candidate-effective latest indexes
+**PR:** (branch-local, no-op intraday latest-index fix)
+**Typ:** additiv | semantisch
+
+#### Was hat sich geändert?
+- `report.json` enthält jetzt die Top-Level-Felder `no_op` und `no_op_reason`.
+- Intraday no-op reports setzen `no_op=true` und übernehmen `no_op_reason` direkt aus dem bestehenden Intraday-`skip_reason`-Wert.
+- Nicht-No-op-Reports setzen `no_op=false` und `no_op_reason=null`.
+- `latest_confirmed_candidates.json` und `latest_watchlist.json` werden nur noch von Reports aktualisiert, die die jeweilige Candidate-Liste tatsächlich produziert haben; Diagnostics-only-Intraday-Runs leeren diese Dateien auch mit Diagnostics-Records nicht.
+
+#### Warum?
+- `latest.json` darf weiterhin auf den neuesten Intraday-Run zeigen, aber Intraday-Runs ohne produzierte Candidate-Listen dürfen gültige Daily-Kandidatenlisten nicht überschreiben.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja. Die neuen Report-Felder sind additiv; ältere Reports ohne diese Felder sind als vor-`ir1.4` zu behandeln. Diagnostics-Inhalte ändern sich nicht, tragen aber wegen der gemeinsamen Output-Version bei neuen Artefakten ebenfalls `ir1.4`.
+
+#### Migration / Vorgehen
+- Consumer, die candidate-producing Ergebnisse benötigen, sollen `latest_daily.json` oder die candidate-spezifischen Latest-Dateien lesen.
+- Consumer, die `latest.json` lesen, müssen `no_op` beachten, weil `latest.json` auch auf no-op Intraday-Runs zeigen kann.
+
+#### Beispiel (gekürzt)
+```json
+{
+  "schema_version": "ir1.4",
+  "scan_mode": "intraday",
+  "no_op": true,
+  "no_op_reason": "no_new_4h_bar"
+}
+```
+
+
 ### 2026-05-11 — diagnostics schema_version ir1.2 → ir1.3 — T_EL2 entry-location diagnostics block
 **PR:** (branch-local, T_EL2 review fix)
 **Ticket:** T_EL2

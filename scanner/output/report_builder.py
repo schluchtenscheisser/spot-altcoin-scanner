@@ -69,6 +69,7 @@ class ReportBuilder:
         counts_by_bucket: Mapping[str, int] | None = None,
         extra_report_fields: Mapping[str, Any] | None = None,
     ) -> Dict[str, Any]:
+        produced_symbol_list_keys = set((symbol_lists or {}).keys())
         symbol_lists_normalized = normalize_symbol_lists(symbol_lists)
         counts = normalize_counts_by_bucket(counts_by_bucket)
         if counts_by_bucket is None:
@@ -85,7 +86,11 @@ class ReportBuilder:
         diagnostics_path_rel = run_dir.relative_to(self.project_root) / "symbol_diagnostics.jsonl.gz"
         report_path_rel = run_dir.relative_to(self.project_root) / "report.json"
 
-        write_symbol_diagnostics_jsonl_gz(self.project_root / diagnostics_path_rel, diagnostics_records)
+        # Materialize once so the writer and index semantics use the same
+        # diagnostics record count without adding another persisted report field.
+        diagnostics_records_list = list(diagnostics_records)
+        diagnostics_record_count = len(diagnostics_records_list)
+        write_symbol_diagnostics_jsonl_gz(self.project_root / diagnostics_path_rel, diagnostics_records_list)
 
         report = RunReport(
             run_id=run_id,
@@ -98,12 +103,19 @@ class ReportBuilder:
             manifest_path=manifest_path,
             diagnostics_path=diagnostics_path_rel.as_posix(),
         ).to_dict()
+        is_intraday_noop = scan_mode == "intraday" and diagnostics_record_count == 0
+        report["no_op"] = is_intraday_noop
+        report["no_op_reason"] = None
         if extra_report_fields is not None:
             for key, value in extra_report_fields.items():
                 report[str(key)] = value
         _atomic_write_json(self.project_root / report_path_rel, report)
 
-        self._update_index_after_run(report=report, report_path=report_path_rel.as_posix())
+        self._update_index_after_run(
+            report=report,
+            report_path=report_path_rel.as_posix(),
+            produced_symbol_list_keys=produced_symbol_list_keys,
+        )
         return report
 
     def write_daily_report(self, report: Mapping[str, Any]) -> Dict[str, Any]:
@@ -115,7 +127,13 @@ class ReportBuilder:
         _atomic_write_json(self.index_root / "latest_daily.json", report)
         return dict(report)
 
-    def _update_index_after_run(self, *, report: Mapping[str, Any], report_path: str) -> None:
+    def _update_index_after_run(
+        self,
+        *,
+        report: Mapping[str, Any],
+        report_path: str,
+        produced_symbol_list_keys: set[str],
+    ) -> None:
         self.index_root.mkdir(parents=True, exist_ok=True)
 
         run_id = report["run_id"]
@@ -133,17 +151,30 @@ class ReportBuilder:
         _atomic_write_text(self.index_root / "latest_run.txt", f"{run_id}\n")
         _atomic_write_json(self.index_root / "latest_paths.json", latest_paths)
         _atomic_write_json(self.index_root / "latest.json", report)
-        if report["scan_mode"] == "daily":
+        if report["scan_mode"] == "intraday":
+            _atomic_write_json(self.index_root / "latest_intraday.json", report)
+
+        # Candidate-oriented latest files track reports that intentionally
+        # produced each candidate list. Daily runs are authoritative even when
+        # a list is empty. Intraday reports must provide the relevant input key;
+        # diagnostics records alone never imply candidate-list availability.
+        should_update_confirmed_candidates = (
+            report["scan_mode"] == "daily"
+            or "confirmed_candidates" in produced_symbol_list_keys
+        )
+        should_update_watchlist = (
+            report["scan_mode"] == "daily" or "watchlist" in produced_symbol_list_keys
+        )
+        if should_update_confirmed_candidates:
             _atomic_write_json(
                 self.index_root / "latest_confirmed_candidates.json",
                 list(report["symbol_lists"]["confirmed_candidates"]),
             )
+        if should_update_watchlist:
             _atomic_write_json(
                 self.index_root / "latest_watchlist.json",
                 list(report["symbol_lists"]["watchlist"]),
             )
-        else:
-            _atomic_write_json(self.index_root / "latest_intraday.json", report)
 
         recent_runs_path = self.index_root / "recent_runs.json"
         existing: list[Dict[str, Any]] = []

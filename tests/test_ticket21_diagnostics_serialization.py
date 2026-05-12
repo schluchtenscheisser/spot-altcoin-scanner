@@ -256,7 +256,7 @@ def test_entry_location_inputs_are_normalized_with_current_schema() -> None:
 
     out = validate_diagnostics_record(record)
 
-    assert out["schema_version"] == "ir1.3"
+    assert out["schema_version"] == SCHEMA_VERSION
     assert out["entry_location_inputs"] == {
         "close_vs_ema20_4h_pct": 6.14,
         "bars_above_ema20_4h": 4,
