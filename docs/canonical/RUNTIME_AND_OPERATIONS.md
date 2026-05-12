@@ -106,8 +106,8 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - Triggers:
   - manual `workflow_dispatch`
   - scheduled UTC run (`cron`)
-- Permissions are read-only (`contents: read`).
-- Generated run artifacts are uploaded as Actions artifacts only (no repository writeback/commit of generated outputs).
+- The scan job remains read-only (`contents: read`) and does not receive repository write permission.
+- A downstream `persist-reports` job may use narrowly scoped `contents: write` permission after a successful scan to commit only allowlisted small plaintext report/index artifacts.
 - This workflow is a diagnostic/research runtime (shadow-live), not trading automation.
 - Daily run is blocking and primary.
 - Evaluation replay/export is blocking and required after daily run artifacts are written.
@@ -118,6 +118,11 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - Forbidden runtime outputs remain forbidden:
   - manifest bodies under `reports/runs/**.manifest.json`
   - active writes under `reports/analysis/**`
+
+- The scan job uploads a dedicated `shadow-live-reports` artifact containing `reports/index/`, `reports/daily/`, and `reports/runs/` so the persistence job does not rely on cross-job filesystem state.
+- The persistence job downloads that artifact and uses the daily run report as its idempotency anchor: when `reports/runs/YYYY/MM/DD/<daily_run_id>/report.json` already exists in the checkout, it skips commit creation successfully.
+- Persisted report paths are allowlisted to index JSON plus `report.json` files under `reports/daily/YYYY/MM/DD/` and `reports/runs/YYYY/MM/DD/<run_id>/`; full diagnostics remain artifact-only.
+- Forbidden repository-persisted outputs include `symbol_diagnostics.jsonl.gz`, Excel reports, Parquet files, ZIP files, snapshots, raw market data, and large debug/profiling artifacts.
 - Allowed shadow-live output roots are explicitly bounded to:
   - `artifacts/`
   - `data/`

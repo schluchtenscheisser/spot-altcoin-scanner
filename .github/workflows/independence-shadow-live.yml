@@ -117,6 +117,18 @@ jobs:
           [ -d "$SHADOW_LIVE_WORKDIR/evaluation/replay" ] || { echo "FAIL: evaluation/replay missing"; exit 1; }
           echo "PASS: required artifact roots present"
 
+      - name: Upload report persistence artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-live-reports
+          path: |
+            ${{ runner.temp }}/ir-shadow-live-workdir/reports/index/
+            ${{ runner.temp }}/ir-shadow-live-workdir/reports/daily/
+            ${{ runner.temp }}/ir-shadow-live-workdir/reports/runs/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Checkpoint and stage shadow-live SQLite state
         if: success()
         run: |
@@ -158,3 +170,34 @@ jobs:
       - name: Cleanup shadow-live workdir
         if: always()
         run: rm -rf "${{ runner.temp }}/ir-shadow-live-workdir"
+
+  persist-reports:
+    needs: shadow-live
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Download report persistence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: shadow-live-reports
+          path: ${{ runner.temp }}/shadow-live-report-persistence
+
+      - name: Persist allowed shadow-live reports
+        run: |
+          python scripts/persist_shadow_live_reports.py \
+            --repo-root . \
+            --source-root "${{ runner.temp }}/shadow-live-report-persistence"
+
+      - name: Push report persistence commit
+        run: git push origin HEAD:${{ github.ref_name }}
+
