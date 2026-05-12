@@ -37,24 +37,29 @@ If there is a conflict, flag it explicitly. Do not silently choose one source.
 The repository is now in the post-Independence-Release implementation phase.
 
 Current implementation status:
-- T1–T22 are implemented.
-- T21.1 is implemented.
-- Shadow-Live Daily is active / available.
-- Daily Discovery and Intraday Promotion are the active scanner modes.
-- T20 Smoke Test verifies technical executability.
-- T21 / T21.1 make diagnostics evaluation-ready.
-- T22 introduces the Shadow-Live workflow.
+
+```text
+Implemented tickets: T1–T29, T21.1, T_EL1b, T_EL2
+
+Shadow-Live is operational:
+- Daily Discovery runs automatically via GitHub Actions at 01:30 UTC.
+- Shadow-Live report persistence is automated for small plaintext report/index files.
+- Persistence uses the daily run report as idempotency anchor.
+- symbol_diagnostics.jsonl.gz, Excel, Parquet, ZIPs, raw OHLCV, snapshots,
+  and other large artifacts remain artifact-only and are not committed.
+- Current diagnostics/report schema version: ir1.3.
 
 Current operational focus:
-- Collect Shadow-Live Daily data.
-- Review diagnostics.
-- Validate evaluation-readiness.
-- Do not create or assume new tickets unless Martin explicitly approves.
+- Shadow-Live data accumulation with automated report/index persistence.
+- T_EL2 Calibration Note after sufficient accumulated runs.
+- Q1/Q2 decision: is_tradeable_candidate vs candidate_excluded semantics
+  and stablecoin/cash-proxy handling.
+- AI context hygiene before T30.
+- T30 Forward-Return Evaluation planned, not started.
+```
 
 Known non-blocking state:
-- `missing_intraday_cycle_context`
-
-This state is currently known and non-blocking because Intraday Carry-Forward is not yet final productive behavior.
+- `missing_intraday_cycle_context` — current status unverified after T_EL2 / ir1.3
 
 ---
 
@@ -102,10 +107,14 @@ Future current-state documentation note:
 ### Level 3 — Implementation history
 
 Includes:
-- tickets T1–T22,
+- tickets T1–T29,
 - T21.1,
+- T_EL1b,
+- T_EL2,
 - review notes,
 - implementation rationale.
+
+Implementation history now includes T1–T29, T21.1, T_EL1b, T_EL2, the intraday/latest index semantics fix, and automated Shadow-Live report persistence. These tickets document implemented repo reality but do not supersede the v2.1 section files or Gesamtkonzept.
 
 Use these to understand how and why the current repo reached its present state.
 
@@ -141,6 +150,7 @@ scanner/axes/
 scanner/clients/
 scanner/data/
 scanner/decision/
+scanner/decision/entry_location.py
 scanner/entry/
 scanner/evaluation/
 scanner/execution/
@@ -234,6 +244,9 @@ intraday
 Rules:
 - Do not use `daily_discovery` or `intraday_promotion` as values in report/diagnostics output `scan_mode`.
 - Do not use `daily` or `intraday` as runner-level / SQLite `run_metadata.scan_mode` values.
+- `latest.json` may point to the latest run of any scan mode.
+- `latest_daily.json` points to the latest Daily Discovery run.
+- Candidate latest files point to latest candidate-producing outputs.
 - Always check which context a `scan_mode` field belongs to before changing code, schema, tests, or documentation.
 
 Deprecated / legacy active-mode assumptions:
@@ -323,7 +336,8 @@ Rules:
 - The canonical manifest is only under `snapshots/runs/...`.
 - `reports/analysis/` is deprecated and must not be used as an active output path.
 - Script and analysis outputs must not be written to `reports/analysis/`; use `evaluation/exports/`, `artifacts/`, or `reports/aux/` depending on artifact class.
-- Shadow-Live writes artifacts as GitHub Actions artifacts, not as committed repository outputs.
+- Shadow-Live persists small plaintext report/index files to the repository after automated daily runs.
+- Shadow-Live keeps `symbol_diagnostics.jsonl.gz`, Excel, Parquet, ZIPs, raw OHLCV, snapshots, and other large artifacts artifact-only.
 
 ---
 
@@ -356,6 +370,57 @@ Do not introduce or assume:
 
 ---
 
+
+## Current diagnostics and report schema
+
+Current schema version: ir1.4 as of T_EL2, report persistence,
+and the intraday/latest index semantics fix.
+
+Diagnostics top-level fields include, among others:
+- execution_size_class
+- is_tradeable_candidate
+- is_reduced_size_eligible
+- recommended_position_factor
+- execution_grade_effective
+- candidate_excluded
+- available_depth_ratio
+- depth_ratio_band
+
+Current ir1.3 diagnostics read `candidate_excluded` as a top-level field.
+Do not read it from `universe.candidate_excluded` unless a future schema
+explicitly changes this. Older conceptual documentation may reference
+`universe.candidate_excluded`; treat that as historical only.
+
+Report/index metadata fields include:
+- no_op
+- no_op_reason
+
+`no_op` and `no_op_reason` are report-level metadata for no-op intraday runs.
+They reuse existing intraday skip_reason values and are not general per-symbol
+decision fields. Do not treat them as diagnostics top-level fields.
+
+Nested diagnostics blocks:
+- decision: decision_bucket, priority_score, candidate_segment, ...
+- phase: market_phase, market_phase_confidence, ...
+- state: state_machine_state, bars_since_confirmed_entered,
+  bars_since_state_entered, ...
+- pattern: entry_pattern, ...
+- axes: tier-1 and tier-2 axis scores
+- invalidation: invalidation state and anchors
+- universe: universe classification fields
+- entry_location_inputs: close_vs_ema20_4h_pct, dist_to_ema20_4h_pct_abs,
+  bars_above_ema20_4h, distance_to_last_structural_anchor_pct_abs,
+  bars_since_last_structural_break_4h, distance_to_range_high_pct_abs
+- entry_location: entry_location_status, entry_action_hint,
+  entry_location_reason_primary, entry_location_reason_codes,
+  entry_location_inputs_used, range_high_proximity_warning
+
+Critical access rule:
+All nested fields must be accessed through their parent block.
+Do not access decision, phase, state, pattern, axes, invalidation, universe,
+entry_location_inputs, or entry_location fields at top level.
+Top-level fields listed above are explicit schema exceptions.
+
 ## 11. Deprecated paths and forbidden active assumptions
 
 Do not use the following as active Independence Release contracts:
@@ -375,7 +440,19 @@ legacy BTC-regime multiplier scoring
 legacy base_score + multiplier scoring
 legacy scanner pipeline as target architecture
 automatic order execution
+no-op or diagnostics-only intraday runs may overwrite latest_confirmed_candidates.json or latest_watchlist.json
+latest.json always points to a candidate-producing run
+latest.json is the correct daily-candidate consumer entry point
+manual ZIP artifact download is required for ordinary report/index access after report persistence
+diagnostics_record_count > 0 means an intraday report produced candidate lists
 ```
+
+Correct current report/index rules:
+- `latest.json` = latest run of any scan mode; it may point to no-op or diagnostics-only intraday runs.
+- `latest_daily.json` = canonical latest daily discovery run entry point.
+- `latest_confirmed_candidates.json` and `latest_watchlist.json` = latest candidate-producing outputs; no-op and diagnostics-only intraday runs must not clear them.
+- A present but empty candidate list means a candidate-producing run with zero candidates.
+- An absent candidate-list key means that report did not produce that candidate list.
 
 Use these instead for script / analysis outputs when appropriate:
 
@@ -416,6 +493,10 @@ Update or review this document after any change to:
 - runner-level / SQLite `run_metadata.scan_mode`,
 - report/diagnostics output `scan_mode`,
 - report/diagnostics schema,
+- diagnostics schema changes,
+- report/index schema changes,
+- report persistence policy changes,
+- scan_mode / no-op semantics changes,
 - artifact paths,
 - manifest policy,
 - evaluation replay inputs,
