@@ -69,6 +69,7 @@ class ReportBuilder:
         counts_by_bucket: Mapping[str, int] | None = None,
         extra_report_fields: Mapping[str, Any] | None = None,
     ) -> Dict[str, Any]:
+        produced_symbol_list_keys = set((symbol_lists or {}).keys())
         symbol_lists_normalized = normalize_symbol_lists(symbol_lists)
         counts = normalize_counts_by_bucket(counts_by_bucket)
         if counts_by_bucket is None:
@@ -113,7 +114,7 @@ class ReportBuilder:
         self._update_index_after_run(
             report=report,
             report_path=report_path_rel.as_posix(),
-            diagnostics_record_count=diagnostics_record_count,
+            produced_symbol_list_keys=produced_symbol_list_keys,
         )
         return report
 
@@ -131,7 +132,7 @@ class ReportBuilder:
         *,
         report: Mapping[str, Any],
         report_path: str,
-        diagnostics_record_count: int,
+        produced_symbol_list_keys: set[str],
     ) -> None:
         self.index_root.mkdir(parents=True, exist_ok=True)
 
@@ -150,19 +151,26 @@ class ReportBuilder:
         _atomic_write_text(self.index_root / "latest_run.txt", f"{run_id}\n")
         _atomic_write_json(self.index_root / "latest_paths.json", latest_paths)
         _atomic_write_json(self.index_root / "latest.json", report)
-        is_intraday_noop = report["scan_mode"] == "intraday" and diagnostics_record_count == 0
         if report["scan_mode"] == "intraday":
             _atomic_write_json(self.index_root / "latest_intraday.json", report)
 
-        # Candidate-oriented latest files track the latest candidate-effective
-        # output.  The diagnostics_record_count value is the existing internal
-        # count of records written to symbol_diagnostics.jsonl.gz; intraday
-        # runs with zero records are no-ops and must not clear prior candidates.
-        if not is_intraday_noop:
+        # Candidate-oriented latest files track reports that intentionally
+        # produced each candidate list. Daily runs are authoritative even when
+        # a list is empty. Intraday reports must provide the relevant input key;
+        # diagnostics records alone never imply candidate-list availability.
+        should_update_confirmed_candidates = (
+            report["scan_mode"] == "daily"
+            or "confirmed_candidates" in produced_symbol_list_keys
+        )
+        should_update_watchlist = (
+            report["scan_mode"] == "daily" or "watchlist" in produced_symbol_list_keys
+        )
+        if should_update_confirmed_candidates:
             _atomic_write_json(
                 self.index_root / "latest_confirmed_candidates.json",
                 list(report["symbol_lists"]["confirmed_candidates"]),
             )
+        if should_update_watchlist:
             _atomic_write_json(
                 self.index_root / "latest_watchlist.json",
                 list(report["symbol_lists"]["watchlist"]),

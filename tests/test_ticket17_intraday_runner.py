@@ -172,6 +172,7 @@ def test_intraday_noop_report_uses_active_config(tmp_path, monkeypatch) -> None:
     assert manifest_path.endswith("/run.manifest.json")
     assert manifest_path.startswith("snapshots/runs/")
     assert "reports/runs" not in manifest_path
+    assert kwargs["symbol_lists"] == {}
     assert kwargs["extra_report_fields"] == {"no_op": True, "no_op_reason": "empty_monitoring_universe"}
     manifest_file = tmp_path / manifest_path
     assert manifest_file.exists()

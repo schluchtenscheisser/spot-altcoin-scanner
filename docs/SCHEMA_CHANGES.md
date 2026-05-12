@@ -63,10 +63,10 @@ Dieses Dokument protokolliert alle Änderungen an:
 - `report.json` enthält jetzt die Top-Level-Felder `no_op` und `no_op_reason`.
 - Intraday no-op reports setzen `no_op=true` und übernehmen `no_op_reason` direkt aus dem bestehenden Intraday-`skip_reason`-Wert.
 - Nicht-No-op-Reports setzen `no_op=false` und `no_op_reason=null`.
-- `latest_confirmed_candidates.json` und `latest_watchlist.json` werden nur noch von candidate-effective Runs aktualisiert; Intraday-Runs mit null Diagnostics-Records leeren diese Dateien nicht mehr.
+- `latest_confirmed_candidates.json` und `latest_watchlist.json` werden nur noch von Reports aktualisiert, die die jeweilige Candidate-Liste tatsächlich produziert haben; Diagnostics-only-Intraday-Runs leeren diese Dateien auch mit Diagnostics-Records nicht.
 
 #### Warum?
-- `latest.json` darf weiterhin auf den neuesten Intraday-Run zeigen, aber no-op Intraday-Runs dürfen gültige Daily-Kandidatenlisten nicht überschreiben.
+- `latest.json` darf weiterhin auf den neuesten Intraday-Run zeigen, aber Intraday-Runs ohne produzierte Candidate-Listen dürfen gültige Daily-Kandidatenlisten nicht überschreiben.
 
 #### Kompatibilität
 - **Rückwärtskompatibel?** Ja. Die neuen Report-Felder sind additiv; ältere Reports ohne diese Felder sind als vor-`ir1.4` zu behandeln. Diagnostics-Inhalte ändern sich nicht, tragen aber wegen der gemeinsamen Output-Version bei neuen Artefakten ebenfalls `ir1.4`.

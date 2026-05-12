@@ -186,7 +186,7 @@ def test_intraday_noop_does_not_clear_daily_or_candidate_indexes(tmp_path: Path)
         as_of_utc="2026-01-02T04:00:00Z",
         daily_bar_id="2026-01-01",
         intraday_bar_id="2026-01-02T04:00:00Z",
-        symbol_lists={"confirmed_candidates": [], "early_candidates": [], "watchlist": [], "late_monitor": []},
+        symbol_lists={},
         manifest_path="snapshots/runs/2026/01/01/intraday-noop/run.manifest.json",
         diagnostics_records=[],
         extra_report_fields={"no_op_reason": "no_new_4h_bar"},
@@ -199,6 +199,80 @@ def test_intraday_noop_does_not_clear_daily_or_candidate_indexes(tmp_path: Path)
     assert json.loads((index_root / "latest_watchlist.json").read_text(encoding="utf-8")) == ["BBBUSDT"]
     assert intraday_report["no_op"] is True
     assert intraday_report["no_op_reason"] == "no_new_4h_bar"
+
+
+def test_daily_report_with_empty_candidate_lists_updates_candidate_indexes(tmp_path: Path) -> None:
+    builder = ReportBuilder(project_root=tmp_path)
+    report = builder.write_run_report(
+        run_id="daily-empty-candidates",
+        scan_mode="daily",
+        as_of_utc="2026-01-03T00:00:00Z",
+        daily_bar_id="2026-01-02",
+        intraday_bar_id=None,
+        symbol_lists={
+            "confirmed_candidates": [],
+            "early_candidates": [],
+            "watchlist": [],
+            "late_monitor": [],
+        },
+        manifest_path="snapshots/runs/2026/01/02/daily-empty-candidates/run.manifest.json",
+        diagnostics_records=[_stub_diag("AAAUSDT")],
+    )
+    builder.write_daily_report(report)
+
+    index_root = tmp_path / "reports" / "index"
+    assert json.loads((index_root / "latest.json").read_text(encoding="utf-8"))["run_id"] == "daily-empty-candidates"
+    assert json.loads((index_root / "latest_daily.json").read_text(encoding="utf-8"))["run_id"] == "daily-empty-candidates"
+    assert json.loads((index_root / "latest_confirmed_candidates.json").read_text(encoding="utf-8")) == []
+    assert json.loads((index_root / "latest_watchlist.json").read_text(encoding="utf-8")) == []
+
+
+def test_intraday_diagnostics_only_does_not_clear_candidate_indexes(tmp_path: Path) -> None:
+    builder = ReportBuilder(project_root=tmp_path)
+    daily_report = builder.write_run_report(
+        run_id="daily-before-diagnostics",
+        scan_mode="daily",
+        as_of_utc="2026-01-02T00:00:00Z",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id=None,
+        symbol_lists={
+            "confirmed_candidates": ["AAAUSDT"],
+            "early_candidates": [],
+            "watchlist": ["BBBUSDT"],
+            "late_monitor": [],
+        },
+        manifest_path="snapshots/runs/2026/01/01/daily-before-diagnostics/run.manifest.json",
+        diagnostics_records=[_stub_diag("AAAUSDT")],
+    )
+    builder.write_daily_report(daily_report)
+
+    intraday_diag = _stub_diag("REFRESHUSDT")
+    intraday_diag.update(
+        {
+            "run_id": "intraday-diagnostics-only",
+            "scan_mode": "intraday",
+            "intraday_bar_id": "2026-01-02T04:00:00Z",
+            "data_4h_available": True,
+        }
+    )
+    intraday_report = builder.write_run_report(
+        run_id="intraday-diagnostics-only",
+        scan_mode="intraday",
+        as_of_utc="2026-01-02T04:00:00Z",
+        daily_bar_id="2026-01-01",
+        intraday_bar_id="2026-01-02T04:00:00Z",
+        symbol_lists={},
+        manifest_path="snapshots/runs/2026/01/01/intraday-diagnostics-only/run.manifest.json",
+        diagnostics_records=[intraday_diag],
+    )
+
+    index_root = tmp_path / "reports" / "index"
+    assert json.loads((index_root / "latest.json").read_text(encoding="utf-8"))["run_id"] == "intraday-diagnostics-only"
+    assert json.loads((index_root / "latest_daily.json").read_text(encoding="utf-8"))["run_id"] == "daily-before-diagnostics"
+    assert json.loads((index_root / "latest_confirmed_candidates.json").read_text(encoding="utf-8")) == ["AAAUSDT"]
+    assert json.loads((index_root / "latest_watchlist.json").read_text(encoding="utf-8")) == ["BBBUSDT"]
+    assert intraday_report["no_op"] is False
+    assert intraday_report["no_op_reason"] is None
 
 
 def test_candidate_effective_intraday_updates_candidate_indexes(tmp_path: Path) -> None:

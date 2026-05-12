@@ -441,7 +441,7 @@ def _write_intraday_noop_report(
         as_of_utc=_utc_now_iso(),
         daily_bar_id=daily_id,
         intraday_bar_id=intraday_id,
-        symbol_lists={"confirmed_candidates": [], "early_candidates": [], "watchlist": [], "late_monitor": []},
+        symbol_lists={},
         manifest_path=manifest_path,
         diagnostics_records=diagnostics or [],
         extra_report_fields={
