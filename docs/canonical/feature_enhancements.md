@@ -116,19 +116,21 @@ Bootstrap marker: `none yet` is retained for compatibility with the original Ind
 
 ---
 
-### 6) Operational tradeability field (`is_operational_trade_candidate`)
+### 6) Operational tradeability field (`is_operational_trade_candidate`) — IMPLEMENTED
+
+**Implementation status (2026-05-13, T_Q1_Q2_OPERATIONAL_TRADEABILITY):** Implemented in schema `ir1.5`. Diagnostics emit top-level `is_operational_trade_candidate = (is_tradeable_candidate is True AND candidate_excluded is not True)`. T30 and operative consumers must use this field as the final row-level tradeability label.
 
 **Source context:** See open question Q1 (`is_tradeable_candidate` vs. `candidate_excluded`). If Q1 is resolved with Option B (separate fields rather than overwriting), this enhancement becomes the implementation vehicle.
 
-**Reason for deferral:** Blocked by Q1 — the semantic decision must be made first.
+**Resolution note:** Q1 was resolved with Option B by `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md`; this enhancement is no longer deferred.
 
-**Timing note:** If Q1 is resolved with Option B, implement this field before T30 is executed. Otherwise T30 evaluation scripts will require ad-hoc filters (`is_tradeable_candidate == true AND candidate_excluded != true`) — exactly the kind of implicit logic the architecture is designed to avoid.
+**Historical timing note:** If Q1 is resolved with Option B, implement this field before T30 is executed. Otherwise T30 evaluation scripts will require ad-hoc filters (`is_tradeable_candidate == true AND candidate_excluded != true`) — exactly the kind of implicit logic the architecture is designed to avoid.
 
-**Future enhancement scope:**
+**Implemented scope:**
 
-- Add field `is_operational_trade_candidate = is_tradeable_candidate AND NOT candidate_excluded`.
+- Added field `is_operational_trade_candidate = (is_tradeable_candidate is True AND candidate_excluded is not True)`.
 - This field is the final-operative signal for analysis scripts, T30, and any execution-adjacent tooling.
-- Schema version bump required.
+- Schema version bumped to `ir1.5`.
 
 ---
 

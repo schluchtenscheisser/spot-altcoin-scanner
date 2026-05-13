@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-CANDIDATE_EXCLUDED_CATEGORIES = {"stable_or_cash_proxy", "leveraged_or_margin_token"}
+CANDIDATE_EXCLUDED_CATEGORIES = {"stable_or_cash_proxy", "fiat_proxy", "wrapped_cash", "leveraged_or_margin_token"}
+ACTIONABLE_CANDIDATE_EXCLUDED_CATEGORIES = {"stable_or_cash_proxy", "fiat_proxy", "wrapped_cash"}
 
 EXACT_OVERRIDES: dict[str, tuple[str, str, str]] = {
     "TUSDUSDT": ("stable_or_cash_proxy", "high", "exact_override_stable"),
@@ -74,8 +75,14 @@ def classify_symbol(symbol: str) -> UniverseClassification:
         return UniverseClassification(cat, conf, reason, excluded, cat if excluded else None)
 
     base = _base_symbol(symbol)
-    if base in {"TUSD", "USDP", "FDUSD", "USD1", "USDM"}:
+    if base in {"TUSD", "USDP", "FDUSD", "USD1", "USDM", "USDC", "USDD", "USDE", "DAI", "FRAX"}:
         return UniverseClassification("stable_or_cash_proxy", "high", "base_symbol_stable_cash", True, "stable_or_cash_proxy")
+
+    if base in {"USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "TRY", "BRL"}:
+        return UniverseClassification("fiat_proxy", "high", "base_symbol_fiat_proxy", True, "fiat_proxy")
+
+    if base in {"WUSDC", "WUSDT", "WUSD", "WEUR", "WDAI"}:
+        return UniverseClassification("wrapped_cash", "high", "base_symbol_wrapped_cash", True, "wrapped_cash")
 
     if any(re.search(p, base) for p in (r"^3K", r"^3L", r"^3S", r"BULL", r"BEAR")):
         return UniverseClassification("leveraged_or_margin_token", "high", "leveraged_or_margin_pattern", True, "leveraged_or_margin_token")
