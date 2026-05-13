@@ -55,6 +55,40 @@ Dieses Dokument protokolliert alle Änderungen an:
 *(Neue Einträge kommen hier darunter)*
 
 
+### 2026-05-13 — report/diagnostics schema_version ir1.4 → ir1.5 — Operational tradeability and stable/cash candidate exclusion
+
+**Version:** ir1.5
+
+**Changed artifacts:**
+- `symbol_diagnostics.jsonl.gz`
+- `reports/runs/.../report.json`
+- `reports/daily/.../report.json`
+- candidate-oriented latest indexes (`latest_confirmed_candidates.json`, `latest_watchlist.json`)
+
+**Changes:**
+- Diagnostics now emit top-level boolean `is_operational_trade_candidate` for every symbol.
+- Formula: `is_tradeable_candidate is True AND candidate_excluded is not True`. Existing `is_tradeable_candidate` remains the bucket-/execution-scoped audit field.
+- Universe categories `stable_or_cash_proxy`, `fiat_proxy`, and `wrapped_cash` are candidate-excluded before final actionable candidate output. They remain visible in diagnostics with `candidate_excluded = true`.
+- Final actionable candidate lists (`confirmed_candidates`, `early_candidates`, `watchlist`) and candidate-oriented latest files exclude `candidate_excluded = true` symbols.
+- Report summaries add operational tradeability counts alongside existing `is_tradeable_candidate`-based counts.
+
+**Consumer impact:**
+- T30 and operative consumers must use `is_operational_trade_candidate` as the final row-level tradeability label for `ir1.5+`.
+- Consumers that need the legacy bucket-/execution-scoped audit signal may continue reading `is_tradeable_candidate`.
+- T_EL2 Rule 3 remains keyed to top-level `candidate_excluded`, not to `is_operational_trade_candidate`.
+
+**Example:**
+```json
+{
+  "schema_version": "ir1.5",
+  "is_tradeable_candidate": true,
+  "candidate_excluded": true,
+  "is_operational_trade_candidate": false
+}
+```
+
+---
+
 ### 2026-05-12 — report/diagnostics schema_version ir1.3 → ir1.4 — Intraday no-op report metadata and candidate-effective latest indexes
 **PR:** (branch-local, no-op intraday latest-index fix)
 **Typ:** additiv | semantisch

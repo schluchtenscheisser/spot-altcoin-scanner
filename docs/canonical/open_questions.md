@@ -23,7 +23,9 @@ Compatibility note: cache-role ambiguity was resolved by Ticket 14; Canonical OH
 
 ---
 
-### 1) `is_tradeable_candidate` does not account for `candidate_excluded` / universe exclusion
+### 1) `is_tradeable_candidate` does not account for `candidate_excluded` / universe exclusion — RESOLVED
+
+**Resolution (2026-05-13, T_Q1_Q2_OPERATIONAL_TRADEABILITY):** `is_tradeable_candidate` remains bucket-/execution-scoped. New top-level diagnostics field `is_operational_trade_candidate` is the final operational tradeability label for T30 and execution-adjacent consumers. See `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md`.
 
 **Context**
 
@@ -38,7 +40,7 @@ universe_category = stable_or_cash_proxy
 
 The report summary correctly excludes such symbols from tradeable counts, but at the row level `is_tradeable_candidate` remains `true`. Any consumer reading the diagnostics directly (analysis scripts, T30 evaluation) sees a false positive.
 
-**Still to decide**
+**Historical options considered**
 
 - **Option A:** `candidate_excluded = true` forces `is_tradeable_candidate = false`. The field is final-operative.
 - **Option B:** `is_tradeable_candidate` remains execution-/bucket-scoped. A separate field (e.g. `is_operational_trade_candidate`) additionally respects `candidate_excluded`.
@@ -55,7 +57,9 @@ This must be resolved before T30 consumes row-level diagnostics as authoritative
 
 ---
 
-### 2) Stablecoin / cash-proxy exclusion is incomplete
+### 2) Stablecoin / cash-proxy exclusion is incomplete — RESOLVED
+
+**Resolution (2026-05-13, T_Q1_Q2_OPERATIONAL_TRADEABILITY):** `stable_or_cash_proxy`, `fiat_proxy`, and `wrapped_cash` are hard-excluded in the Universe-Classification-to-Decision path while remaining visible in diagnostics. See `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md`.
 
 **Context**
 
@@ -66,7 +70,7 @@ Multiple Shadow-Live runs have produced stablecoin/cash-proxy candidates that pa
 
 Stablecoins should be caught by market-cap or price-stability filters, but no explicit categorical exclusion exists in the spec.
 
-**Still to decide**
+**Historical decision surface**
 
 1. Should an explicit stablecoin/cash-proxy hard exclusion be added to the Eligibility layer (pre-decision), the Universe Classification layer, or both?
 2. Candidate rule: `universe_category in {stable_or_cash_proxy, fiat_proxy, wrapped_cash}` → hard exclude before decision/tradeability evaluation.

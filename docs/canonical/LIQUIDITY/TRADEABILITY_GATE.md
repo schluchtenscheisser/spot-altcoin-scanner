@@ -72,7 +72,15 @@ This section documents their intended meaning to prevent misinterpretation.
 | `recommended_position_factor` | float or null | Operative position size factor (0.00–1.00) |
 | `execution_grade_effective` | float or null | Final execution grade used by decision/ranking |
 | `is_reduced_size_eligible` | bool | Tradeable at any policy-allowed position size |
-| `is_tradeable_candidate` | bool | In a top bucket and tradeable |
+| `is_tradeable_candidate` | bool/null | Bucket-/execution-scoped audit field: in a top bucket and tradeable before universe exclusion |
+| `is_operational_trade_candidate` | bool | Final row-level operational label for T30 and operative consumers; `is_tradeable_candidate is True AND candidate_excluded is not True` |
+
+
+### Operational tradeability after ir1.5
+
+From schema `ir1.5` onward, consumers that need the final operative tradeability label must use `is_operational_trade_candidate`, not `is_tradeable_candidate` alone. `is_tradeable_candidate` intentionally remains bucket-/execution-scoped for auditability. Stable/cash-proxy universe exclusions therefore keep diagnostics visible while setting `is_operational_trade_candidate = false`.
+
+T_EL2 Rule 3 remains unchanged: it checks the top-level `candidate_excluded` field directly and does not check `is_operational_trade_candidate`.
 
 ### `execution_size_class` is a depth classification, not a final tradeability verdict
 `execution_size_class` reflects only the orderbook depth dimension:

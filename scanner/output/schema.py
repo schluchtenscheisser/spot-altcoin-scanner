@@ -7,8 +7,8 @@ import math
 import re
 from typing import Any, Dict, Mapping, Literal
 
-SCHEMA_VERSION = "ir1.4"
-ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", "ir1.2", "ir1.3", SCHEMA_VERSION}
+SCHEMA_VERSION = "ir1.5"
+ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS = {"ir1.0", "ir1.1", "ir1.2", "ir1.3", "ir1.4", SCHEMA_VERSION}
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,14 @@ def normalize_symbol_lists(value: Mapping[str, Any] | None) -> Dict[str, list[st
         raise ValueError(f"symbol_lists contains unsupported keys: {sorted(unknown)}")
 
     return {k: _require_symbol_list(k, source.get(k, [])) for k in SYMBOL_LIST_BUCKET_KEYS}
+
+
+def is_operational_trade_candidate(
+    *,
+    is_tradeable_candidate_value: Any,
+    candidate_excluded_value: Any,
+) -> bool:
+    return is_tradeable_candidate_value is True and candidate_excluded_value is not True
 
 
 def normalize_counts_by_bucket(value: Mapping[str, Any] | None) -> Dict[str, int]:
@@ -269,7 +277,11 @@ def validate_diagnostics_record(record: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError("tradeability_reason_keys must be list[str]")
     out["tradeability_reason_keys"] = list(reason_keys)
     out["is_reduced_size_eligible"] = _require_bool("is_reduced_size_eligible", record.get("is_reduced_size_eligible", False))
-    out["is_tradeable_candidate"] = _require_bool("is_tradeable_candidate", record.get("is_tradeable_candidate", False))
+    out["is_tradeable_candidate"] = _require_nullable_bool("is_tradeable_candidate", record.get("is_tradeable_candidate", False))
+    out["is_operational_trade_candidate"] = is_operational_trade_candidate(
+        is_tradeable_candidate_value=out["is_tradeable_candidate"],
+        candidate_excluded_value=out["candidate_excluded"],
+    )
     out["execution_limiting_metric"] = _require_nullable_str("execution_limiting_metric", record.get("execution_limiting_metric"))
     side = _require_nullable_str("depth_side_used", record.get("depth_side_used"))
     out["depth_side_used"] = side

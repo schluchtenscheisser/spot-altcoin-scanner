@@ -47,12 +47,12 @@ Shadow-Live is operational:
 - Persistence uses the daily run report as idempotency anchor.
 - symbol_diagnostics.jsonl.gz, Excel, Parquet, ZIPs, raw OHLCV, snapshots,
   and other large artifacts remain artifact-only and are not committed.
-- Current diagnostics/report schema version: ir1.3.
+- Current diagnostics/report schema version: ir1.5.
 
 Current operational focus:
 - Shadow-Live data accumulation with automated report/index persistence.
 - T_EL2 Calibration Note after sufficient accumulated runs.
-- Q1/Q2 decision: is_tradeable_candidate vs candidate_excluded semantics
+- Q1/Q2 decision implemented: use is_operational_trade_candidate for final row-level tradeability; stable/cash proxies are excluded from actionable candidate lists
   and stablecoin/cash-proxy handling.
 - AI context hygiene before T30.
 - T30 Forward-Return Evaluation planned, not started.
@@ -373,12 +373,13 @@ Do not introduce or assume:
 
 ## Current diagnostics and report schema
 
-Current schema version: ir1.4 as of T_EL2, report persistence,
+Current schema version: ir1.5 as of Q1/Q2 operational tradeability, stable/cash candidate exclusion, T_EL2, report persistence,
 and the intraday/latest index semantics fix.
 
 Diagnostics top-level fields include, among others:
 - execution_size_class
-- is_tradeable_candidate
+- is_tradeable_candidate (bucket-/execution-scoped audit field)
+- is_operational_trade_candidate (final operative label from ir1.5 onward)
 - is_reduced_size_eligible
 - recommended_position_factor
 - execution_grade_effective
@@ -386,7 +387,7 @@ Diagnostics top-level fields include, among others:
 - available_depth_ratio
 - depth_ratio_band
 
-Current ir1.3 diagnostics read `candidate_excluded` as a top-level field.
+Current ir1.5 diagnostics read `candidate_excluded` as a top-level field.
 Do not read it from `universe.candidate_excluded` unless a future schema
 explicitly changes this. Older conceptual documentation may reference
 `universe.candidate_excluded`; treat that as historical only.

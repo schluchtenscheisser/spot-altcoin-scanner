@@ -32,12 +32,16 @@ from scanner.output.diagnostics_serialization import (
     serialize_reasons_block,
     serialize_state_block,
 )
-from scanner.output.schema import SCHEMA_VERSION as DIAGNOSTICS_SCHEMA_VERSION, validate_diagnostics_record
+from scanner.output.schema import (
+    SCHEMA_VERSION as DIAGNOSTICS_SCHEMA_VERSION,
+    is_operational_trade_candidate,
+    validate_diagnostics_record,
+)
 from scanner.phase import compute_phase_interpretation
 from scanner.state import compute_invalidation_and_cycle, compute_state_machine
 from scanner.state.models import PersistedStateCycleContext, StateRuntimeContext
 from scanner.storage import SCHEMA_VERSION, apply_state_persistence_patch, init_db, load_persisted_state_machine_context
-from scanner.universe.classification import classify_symbol
+from scanner.universe.classification import ACTIONABLE_CANDIDATE_EXCLUDED_CATEGORIES, classify_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +156,8 @@ def _build_ticket23_report_payload(
     for symbol, diag in diag_by_symbol.items():
         bucket = bucket_by_symbol.get(symbol)
         if bucket not in active_buckets:
+            bucket = diag.get("decision", {}).get("decision_bucket")
+        if bucket not in active_buckets:
             continue
         universe = diag["universe"]
         cat = universe["universe_category"]
@@ -235,6 +241,7 @@ def _build_execution_aware_report_payload(
             "estimated_slippage_bps": diag.get("estimated_slippage_bps"),
             "is_reduced_size_eligible": diag.get("is_reduced_size_eligible"),
             "is_tradeable_candidate": diag.get("is_tradeable_candidate"),
+            "is_operational_trade_candidate": diag.get("is_operational_trade_candidate"),
             "tradeability_reason_keys": diag.get("tradeability_reason_keys", []),
             "universe_category": universe.get("universe_category"),
             "universe_category_confidence": universe.get("universe_category_confidence"),
@@ -366,9 +373,11 @@ def _build_execution_aware_report_payload(
     t29_summary = {
         "confirmed_candidates_total": len(confirmed_diags),
         "confirmed_tradeable_candidates": sum(1 for d in confirmed_diags if d.get("is_tradeable_candidate") is True),
+        "confirmed_operational_trade_candidate_count": sum(1 for d in confirmed_diags if d.get("is_operational_trade_candidate") is True),
         "confirmed_observe_only_candidates": sum(1 for d in confirmed_diags if d.get("execution_size_class") == "observe_only"),
         "early_candidates_total": len(early_diags),
         "early_tradeable_candidates": sum(1 for d in early_diags if d.get("is_tradeable_candidate") is True),
+        "early_operational_trade_candidate_count": sum(1 for d in early_diags if d.get("is_operational_trade_candidate") is True),
         "early_observe_only_candidates": sum(1 for d in early_diags if d.get("execution_size_class") == "observe_only"),
         "marginal_reduced_75_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "reduced_75"),
         "marginal_reduced_50_count": sum(1 for d in all_visible if d.get("execution_status_raw") == "marginal" and d.get("execution_size_class") == "reduced_50"),
@@ -379,6 +388,9 @@ def _build_execution_aware_report_payload(
     }
     return {
         "execution_aware_summary": {
+            "operational_trade_candidate_count": sum(
+                1 for d in diagnostics if d.get("is_operational_trade_candidate") is True
+            ),
             "total_structural_candidates": summary["structural"],
             "total_execution_attempted": summary["execution_attempted"],
             "total_executable": summary["executable"],
@@ -493,6 +505,12 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                 )()
                 for symbol, ctx in decision_context.items()
             ]
+            selection_rows = [
+                row
+                for row in selection_rows
+                if decision_context[row.symbol]["universe"].candidate_excluded is not True
+                or decision_context[row.symbol]["universe"].universe_category not in ACTIONABLE_CANDIDATE_EXCLUDED_CATEGORIES
+            ]
             execution_subset = select_execution_subset(selection_rows, cfg.execution)
             safety_limit = cfg.execution.get("execution_safety_limit")
             if safety_limit is not None and len(execution_subset) > int(safety_limit):
@@ -586,9 +604,19 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
                     decision_bucket=decision.decision_bucket.value,
                     is_reduced_size_eligible_value=bool(diag.get("is_reduced_size_eligible")),
                 )
+                diag["is_operational_trade_candidate"] = is_operational_trade_candidate(
+                    is_tradeable_candidate_value=diag.get("is_tradeable_candidate"),
+                    candidate_excluded_value=diag.get("candidate_excluded"),
+                )
                 diag = attach_entry_location(diag, cfg.entry_location)
                 diagnostics.append(validate_diagnostics_record(diag))
 
+        ranked_inputs = [
+            item
+            for item in ranked_inputs
+            if decision_context[item.symbol]["universe"].candidate_excluded is not True
+            or decision_context[item.symbol]["universe"].universe_category not in ACTIONABLE_CANDIDATE_EXCLUDED_CATEGORIES
+        ]
         ranked = rank_coins(ranked_inputs, cfg)
         symbol_lists = {
             "confirmed_candidates": [x.symbol for x in ranked if x.decision.decision_bucket.value == "confirmed_candidates"],

@@ -14,6 +14,7 @@ from .schema import (
     normalize_symbol_lists,
     normalize_counts_by_bucket,
     validate_daily_bar_id,
+    validate_diagnostics_record,
 )
 
 
@@ -88,8 +89,19 @@ class ReportBuilder:
 
         # Materialize once so the writer and index semantics use the same
         # diagnostics record count without adding another persisted report field.
-        diagnostics_records_list = list(diagnostics_records)
+        diagnostics_records_list = [validate_diagnostics_record(record) for record in diagnostics_records]
         diagnostics_record_count = len(diagnostics_records_list)
+        excluded_symbols = {
+            str(record["symbol"])
+            for record in diagnostics_records_list
+            if record.get("candidate_excluded") is True
+        }
+        for key in ("confirmed_candidates", "early_candidates", "watchlist"):
+            symbol_lists_normalized[key] = [
+                symbol for symbol in symbol_lists_normalized[key] if symbol not in excluded_symbols
+            ]
+        for key in ("confirmed_candidates", "early_candidates", "watchlist"):
+            counts[key] = len(symbol_lists_normalized[key])
         write_symbol_diagnostics_jsonl_gz(self.project_root / diagnostics_path_rel, diagnostics_records_list)
 
         report = RunReport(
