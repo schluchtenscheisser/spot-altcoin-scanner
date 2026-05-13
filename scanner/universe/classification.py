@@ -75,7 +75,7 @@ def classify_symbol(symbol: str) -> UniverseClassification:
         return UniverseClassification(cat, conf, reason, excluded, cat if excluded else None)
 
     base = _base_symbol(symbol)
-    if base in {"TUSD", "USDP", "FDUSD", "USD1", "USDM", "USDC", "USDD", "USDE", "DAI", "FRAX"}:
+    if base in {"TUSD", "USDP", "FDUSD", "USD1", "USDM", "BUSD", "USDC", "USDD", "USDE", "DAI", "FRAX"}:
         return UniverseClassification("stable_or_cash_proxy", "high", "base_symbol_stable_cash", True, "stable_or_cash_proxy")
 
     if base in {"USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "TRY", "BRL"}:

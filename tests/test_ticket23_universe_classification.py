@@ -3,8 +3,10 @@ import pytest
 from scanner.universe.classification import classify_symbol
 
 
-def test_classification_stable_and_leveraged_excluded() -> None:
-    stable = classify_symbol("TUSDUSDT")
+@pytest.mark.parametrize("symbol", ["TUSDUSDT", "BUSDUSDT"])
+def test_classification_stable_and_leveraged_excluded(symbol: str) -> None:
+    stable = classify_symbol(symbol)
+    assert stable.universe_category == "stable_or_cash_proxy"
     assert stable.candidate_excluded is True
     assert stable.candidate_exclusion_reason == "stable_or_cash_proxy"
 
