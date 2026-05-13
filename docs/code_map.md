@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-13 04:52 UTC  
+**Last Updated:** 2026-05-13 06:06 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -67,7 +67,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 - **Total Modules:** 105
 - **Total Classes:** 64
-- **Total Functions:** 782
+- **Total Functions:** 783
 
 ---
 
@@ -517,7 +517,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `__init__, _atomic_write_json, _atomic_write_text, _date_parts_from_daily_bar_id, _sort_newest_first, _update_index_after_run, make_report_builder, write_daily_report, write_run_report`
 
-**Module Variables:** `counts, daily_bar_id, daily_report_path, diagnostics_path_rel, diagnostics_record_count, diagnostics_records_list, existing, existing_payload, is_intraday_noop, latest_paths` _(+13 more)_
+**Module Variables:** `counts, daily_bar_id, daily_report_path, diagnostics_path_rel, diagnostics_record_count, diagnostics_records_list, excluded_symbols, existing, existing_payload, is_intraday_noop` _(+14 more)_
 
 **Imports:** `__future__, datetime, diagnostics, json, os, pathlib, scanner.config, schema` _(+2 more)_
 
@@ -527,7 +527,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Classes:** `RunReport`
 
-**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, normalize_counts_by_bucket, normalize_entry_location_block, normalize_entry_location_inputs, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
+**Functions:** `_require_bool, _require_nullable_bool, _require_nullable_str, _require_symbol, _require_symbol_list, _validate_diagnostics_invariants, _validate_relative_path, is_operational_trade_candidate, normalize_counts_by_bucket, normalize_entry_location_block, normalize_entry_location_inputs, normalize_symbol_lists, to_dict, validate_as_of_utc, validate_daily_bar_id, validate_diagnostics_record, validate_intraday_bar_id, validate_run_id, validate_scan_mode`
 
 **Module Variables:** `ACCEPTED_DIAGNOSTICS_SCHEMA_VERSIONS, COUNTS_BUCKET_KEYS, ENTRY_ACTION_HINT_VALUES, ENTRY_LOCATION_INPUT_KEYS, ENTRY_LOCATION_STATUS_VALUES, REQUIRED_DIAGNOSTIC_BLOCKS, SCHEMA_VERSION, SYMBOL_LIST_BUCKET_KEYS, ScanMode, age` _(+30 more)_
 
@@ -1063,7 +1063,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_base_symbol, classify_symbol`
 
-**Module Variables:** `CANDIDATE_EXCLUDED_CATEGORIES, base, excluded`
+**Module Variables:** `ACTIONABLE_CANDIDATE_EXCLUDED_CATEGORIES, CANDIDATE_EXCLUDED_CATEGORIES, base, excluded`
 
 **Imports:** `__future__, dataclasses, re`
 
@@ -1606,7 +1606,7 @@ _This section shows which functions call which other functions, helping identify
 | `_update_index_after_run` | `_atomic_write_json`, `_atomic_write_text`, `_sort_newest_first` | `exists`, `get`, `loads`, `mkdir`, `read_text` |
 | `make_report_builder` | — | `ReportBuilder` |
 | `write_daily_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id` | `mkdir` |
-| `write_run_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id`, `_update_index_after_run` | `RunReport`, `as_posix`, `items`, `keys`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `relative_to`, `to_dict`, `write_symbol_diagnostics_jsonl_gz` |
+| `write_run_report` | `_atomic_write_json`, `_date_parts_from_daily_bar_id`, `_update_index_after_run` | `RunReport`, `as_posix`, `get`, `items`, `keys`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `relative_to`, `to_dict`, `validate_diagnostics_record`, `write_symbol_diagnostics_jsonl_gz` |
 
 ### 📄 scanner/output/schema.py
 
@@ -1626,7 +1626,7 @@ _This section shows which functions call which other functions, helping identify
 | `to_dict` | `_validate_relative_path`, `normalize_counts_by_bucket`, `normalize_symbol_lists`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | — |
 | `validate_as_of_utc` | — | `ValueError`, `match`, `strptime` |
 | `validate_daily_bar_id` | — | `ValueError`, `fromisoformat`, `match` |
-| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `_validate_diagnostics_invariants`, `normalize_entry_location_block`, `normalize_entry_location_inputs`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get`, `isfinite` |
+| `validate_diagnostics_record` | `_require_bool`, `_require_nullable_bool`, `_require_nullable_str`, `_require_symbol`, `_validate_diagnostics_invariants`, `is_operational_trade_candidate`, `normalize_entry_location_block`, `normalize_entry_location_inputs`, `validate_as_of_utc`, `validate_daily_bar_id`, `validate_intraday_bar_id`, `validate_run_id`, `validate_scan_mode` | `ValueError`, `get`, `isfinite` |
 | `validate_intraday_bar_id` | — | `ValueError`, `match` |
 | `validate_run_id` | — | `ValueError`, `match`, `strip` |
 | `validate_scan_mode` | — | `ValueError` |
@@ -2009,7 +2009,7 @@ _This section shows which functions call which other functions, helping identify
 | `_to_cycle_context` | — | `PersistedStateCycleContext` |
 | `_utc_now_iso` | — | `now`, `strftime` |
 | `_validate_as_of_date` | — | `ValueError`, `compute_daily_bar_id`, `date`, `fromisoformat`, `isoformat`, `now` |
-| `run_daily_scan` | `_build_execution_aware_report_payload`, `_build_ticket23_report_payload`, `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `attach_entry_location`, `build_entry_location_report_segments`, `build_feature_bundle`, `classify_execution_size`, `classify_symbol`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `is_reduced_size_eligible`, `is_tradeable_candidate`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_entry_location_inputs`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `setdefault`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
+| `run_daily_scan` | `_build_execution_aware_report_payload`, `_build_ticket23_report_payload`, `_create_run_metadata`, `_derive_runtime_context`, `_finish_run_metadata`, `_persist_run_manifest`, `_to_cycle_context`, `_utc_now_iso`, `_validate_as_of_date` | `Path`, `RankedDecision`, `RuntimeError`, `append`, `apply_state_persistence_patch`, `assign_bucket`, `attach_entry_location`, `build_entry_location_report_segments`, `build_feature_bundle`, `classify_execution_size`, `classify_symbol`, `close`, `compute_invalidation_and_cycle`, `compute_phase_interpretation`, `compute_state_machine`, `compute_tier1_axes`, `compute_tier2_axes`, `cwd`, `dumps`, `evaluate_execution_subset`, `execute`, `fetchone`, `get`, `init_db`, `is_operational_trade_candidate`, `is_reduced_size_eligible`, `is_tradeable_candidate`, `items`, `load_persisted_state_machine_context`, `make_report_builder`, `mkdir`, `ohlcv_provider`, `rank_coins`, `resolve_entry_pattern`, `select_execution_subset`, `serialize_axes_block`, `serialize_cycle_block`, `serialize_decision_block`, `serialize_entry_location_inputs`, `serialize_invalidation_block`, `serialize_pattern_block`, `serialize_phase_block`, `serialize_reasons_block`, `serialize_state_block`, `setdefault`, `split`, `universe_resolver`, `update`, `uuid4`, `validate_diagnostics_record`, `values`, `warning`, `write_daily_report`, `write_run_report`, `write_text` |
 
 ### 📄 scanner/runners/intraday.py
 
@@ -2287,11 +2287,11 @@ _Modules with high external call counts may benefit from refactoring._
 |--------|----------------|----------------|-------|----------|
 | `scanner/config.py` | 118 | 135 | 253 | ⚠️ Medium |
 | `scanner/pipeline/output.py` | 41 | 71 | 112 | 🔴 High |
-| `scanner/runners/daily.py` | 16 | 91 | 107 | 🔴 High |
+| `scanner/runners/daily.py` | 16 | 92 | 108 | 🔴 High |
 | `scanner/tools/backfill_snapshots.py` | 18 | 60 | 78 | 🔴 High |
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/runners/intraday.py` | 17 | 56 | 73 | 🔴 High |
-| `scanner/output/schema.py` | 23 | 42 | 65 | 🔴 High |
+| `scanner/output/schema.py` | 24 | 42 | 66 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
@@ -2299,12 +2299,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/evaluation/replay.py` | 12 | 28 | 40 | 🔴 High |
+| `scanner/output/report_builder.py` | 9 | 31 | 40 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/tools/prepare_shadow_calibration.py` | 13 | 27 | 40 | 🔴 High |
 | `scanner/data/bar_clock.py` | 10 | 29 | 39 | 🔴 High |
-| `scanner/output/report_builder.py` | 9 | 29 | 38 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/tools/backfill_btc_regime.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 9 | 27 | 36 | 🔴 High |
@@ -2388,4 +2388,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-13 04:52 UTC_
+_Generated by GitHub Actions • 2026-05-13 06:06 UTC_
