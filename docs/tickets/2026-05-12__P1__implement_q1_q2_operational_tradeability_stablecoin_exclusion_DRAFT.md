@@ -276,7 +276,7 @@ Do not rename or reinterpret existing `is_tradeable_candidate`-based counts.
 
 Add operational counts alongside existing counts where relevant.
 
-Prefer existing naming conventions. If no convention exists, use names similar to:
+Prefer existing naming conventions. Check whether the current report uses *_count suffixes in counts_by_bucket or *_symbol_count in candidate_segments before choosing names, and be consistent with whichever pattern already exists. If no convention exists, use names similar to:
 
 ```text
 operational_trade_candidate_count
