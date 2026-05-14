@@ -75,6 +75,13 @@ def _rel_path(project_root: Path, path: Path) -> str:
         return path.as_posix()
 
 
+def _effective_history_root(project_root: Path, history_root: str) -> Path:
+    candidate = Path(history_root).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return project_root / candidate
+
+
 def _read_json_object(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -255,6 +262,7 @@ def build_summary(
     generated_at_utc: str,
     evaluation_start_date: str,
     primary_schema_min: str,
+    history_root: str,
     input_validation: InputValidation,
     output_validation: OutputValidation,
 ) -> dict[str, Any]:
@@ -265,6 +273,7 @@ def build_summary(
         "project_root": project_root.as_posix(),
         "evaluation_start_date": evaluation_start_date,
         "primary_schema_min": primary_schema_min,
+        "history_root": history_root,
         "outputs": output_validation.outputs,
         "input_counts": {
             "manifest_count": input_validation.manifest_count,
@@ -351,6 +360,7 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
             f"- Project root: `{summary['project_root']}`",
             f"- Evaluation start date: `{summary['evaluation_start_date']}`",
             f"- Primary schema minimum: `{summary.get('primary_schema_min')}`",
+            f"- Effective OHLCV history root: `{summary.get('history_root')}`",
             f"- Replay manifests found: `{manifest_count}`",
             f"- Events reconstructed: `{events_reconstructed}`",
             f"- Symbols with OHLCV history: `{input_validation.ohlcv_symbol_count}`",
@@ -428,8 +438,10 @@ def main(argv: list[str] | None = None) -> int:
     project_root = Path(args.project_root).resolve()
     output_note = (project_root / args.output_note).resolve() if not Path(args.output_note).is_absolute() else Path(args.output_note)
     summary_output = (project_root / args.summary_output).resolve() if not Path(args.summary_output).is_absolute() else Path(args.summary_output)
+    effective_history_root = _effective_history_root(project_root, str(args.history_root))
+    history_root_for_export = effective_history_root.as_posix()
 
-    input_validation = validate_inputs(project_root, snapshots_runs_root=args.snapshots_runs_root, history_root=args.history_root)
+    input_validation = validate_inputs(project_root, snapshots_runs_root=args.snapshots_runs_root, history_root=history_root_for_export)
     if input_validation.errors:
         for error in input_validation.errors:
             print(f"ERROR: {error}", file=sys.stderr)
@@ -439,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
 
     config = {"independence_release": {"evaluation": {"include_first_watch_metrics": bool(args.include_first_watch_metrics)}}}
     try:
-        run_evaluation_export(project_root=project_root, config=config)
+        run_evaluation_export(project_root=project_root, config=config, history_root=history_root_for_export)
     except Exception as exc:  # noqa: BLE001 - CLI must turn export failures into clear non-zero exits.
         print(f"ERROR: run_evaluation_export failed: {exc}", file=sys.stderr)
         return 3
@@ -451,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
         generated_at_utc=generated_at,
         evaluation_start_date=str(args.evaluation_start_date),
         primary_schema_min=str(args.primary_schema_min),
+        history_root=history_root_for_export,
         input_validation=input_validation,
         output_validation=pre_note_validation,
     )
@@ -469,6 +482,7 @@ def main(argv: list[str] | None = None) -> int:
         generated_at_utc=generated_at,
         evaluation_start_date=str(args.evaluation_start_date),
         primary_schema_min=str(args.primary_schema_min),
+        history_root=history_root_for_export,
         input_validation=input_validation,
         output_validation=output_validation,
     )

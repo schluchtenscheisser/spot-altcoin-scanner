@@ -32,11 +32,14 @@ Useful flags:
 python scripts/run_t30_evaluation.py \
   --project-root . \
   --evaluation-start-date 2026-05-03 \
+  --history-root snapshots/history \
   --include-first-watch-metrics \
   --fail-on-missing-inputs
 ```
 
-The script validates replay manifests and candidate-scoped 1d OHLCV before running `scanner.evaluation.dataset_export.run_evaluation_export(...)`.
+`--history-root` may be relative to `--project-root` or absolute. The runner validates and passes the same effective history root into `scanner.evaluation.dataset_export.run_evaluation_export(...)`; it must contain `ohlcv/timeframe=1d/symbol=<SYMBOL>/year=<YYYY>/month=<MM>/*.parquet` below that root.
+
+The script validates replay manifests and candidate-scoped 1d OHLCV before running the T18 export.
 
 ## Outputs
 

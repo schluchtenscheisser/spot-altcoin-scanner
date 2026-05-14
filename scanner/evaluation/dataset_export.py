@@ -10,13 +10,19 @@ from scanner.evaluation.forward_returns import build_signal_metrics
 from scanner.evaluation.replay import reconstruct_event_timeline
 
 
-def run_evaluation_export(*, project_root: Path, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def run_evaluation_export(
+    *,
+    project_root: Path,
+    config: dict[str, Any] | None = None,
+    history_root: str | Path = "snapshots/history",
+) -> dict[str, Any]:
     raw_cfg = config or {}
     eval_cfg = resolve_independence_evaluation_config(raw_cfg)
     events, replay_diag = reconstruct_event_timeline(project_root=project_root)
     signal_df, terminal_df, transitions_df, metric_diag = build_signal_metrics(
         events,
         project_root=project_root,
+        history_root=str(history_root),
         include_first_watch_metrics=bool(eval_cfg["include_first_watch_metrics"]),
     )
 
@@ -54,6 +60,7 @@ def run_evaluation_export(*, project_root: Path, config: dict[str, Any] | None =
         "metric_status_counts": metric_diag["metric_status_counts"],
         "missing_or_unknown_event_bar_id_count": replay_diag["missing_or_unknown_event_bar_id_count"],
         "missing_persisted_reference_price_count": metric_diag["missing_persisted_reference_price_count"],
+        "history_root": str(history_root),
         "output_paths": {
             "event_timeline_jsonl": timeline_path.as_posix(),
             "signal_event_metrics_parquet": signal_path.as_posix(),

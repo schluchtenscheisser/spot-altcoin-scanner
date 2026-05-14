@@ -26,16 +26,20 @@ def _write_diag(project_root: Path, rows: list[dict], run_id: str = "daily-test"
     return path
 
 
-def _write_ohlcv(project_root: Path, symbol: str = "AAAUSDT", rows: list[dict] | None = None) -> Path:
+def _write_ohlcv(
+    project_root: Path,
+    symbol: str = "AAAUSDT",
+    rows: list[dict] | None = None,
+    history_root: Path | None = None,
+) -> Path:
     if rows is None:
         rows = [
             {"daily_bar_id": f"2026-05-{day:02d}", "close": 100.0 + day, "high": 101.0 + day, "low": 99.0 + day}
             for day in range(3, 15)
         ]
+    base_history_root = history_root if history_root is not None else project_root / "snapshots" / "history"
     path = (
-        project_root
-        / "snapshots"
-        / "history"
+        base_history_root
         / "ohlcv"
         / "timeframe=1d"
         / f"symbol={symbol}"
@@ -113,6 +117,7 @@ def test_t30_script_runs_t18_export_and_writes_note_and_summary(tmp_path: Path) 
     assert summary["schema"] == "t30_run_summary_v1"
     assert summary["input_counts"]["manifest_count"] == 1
     assert summary["input_counts"]["ohlcv_symbol_count"] == 1
+    assert summary["history_root"] == (tmp_path / "snapshots" / "history").as_posix()
     assert summary["event_counts_by_type"]["first_watch"] == 1
     assert summary["metric_status_counts_by_horizon"]["1d"]["ok"] == 1
     assert summary["metric_status_counts_by_horizon"]["1d"]["reference_price_not_evaluable"] == 1
@@ -132,7 +137,50 @@ def test_t30_script_runs_t18_export_and_writes_note_and_summary(tmp_path: Path) 
     ]:
         assert heading in note
     assert "Not a final performance conclusion" in note
+    assert "Effective OHLCV history root" in note
     assert "reference_price_not_evaluable" in note
+
+
+def test_t30_alternate_history_root_is_used_for_export(tmp_path: Path) -> None:
+    _write_manifest(tmp_path)
+    _write_diag(tmp_path, _valid_diag_rows())
+    alternate_history = tmp_path / "prefetched-history"
+    _write_ohlcv(tmp_path, "AAAUSDT", history_root=alternate_history)
+
+    exit_code = t30.main(["--project-root", str(tmp_path), "--history-root", str(alternate_history)])
+
+    assert exit_code == 0
+    signal = pd.read_parquet(tmp_path / "evaluation" / "exports" / "signal_event_metrics.parquet")
+    watch = signal.loc[signal["event_type"] == "first_watch"].iloc[0]
+    assert watch["metric_status_1d"] == "ok"
+    assert watch["metric_status_1d"] != "missing_ohlcv_history"
+    summary = json.loads((tmp_path / "evaluation" / "replay" / "t30_run_summary.json").read_text(encoding="utf-8"))
+    assert summary["history_root"] == alternate_history.as_posix()
+
+
+def test_t30_default_history_root_still_works(tmp_path: Path) -> None:
+    _prepare_valid_fixture(tmp_path)
+
+    exit_code = t30.main(["--project-root", str(tmp_path)])
+
+    assert exit_code == 0
+    signal = pd.read_parquet(tmp_path / "evaluation" / "exports" / "signal_event_metrics.parquet")
+    watch = signal.loc[signal["event_type"] == "first_watch"].iloc[0]
+    assert watch["metric_status_1d"] == "ok"
+
+
+def test_t30_missing_alternate_history_root_fails_preflight(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _write_manifest(tmp_path)
+    _write_diag(tmp_path, _valid_diag_rows())
+    missing_history = tmp_path / "does-not-exist"
+
+    exit_code = t30.main(["--project-root", str(tmp_path), "--history-root", str(missing_history)])
+
+    captured = capsys.readouterr()
+    assert exit_code != 0
+    assert "missing OHLCV history" in captured.err
+    assert missing_history.as_posix() in captured.err
+    assert not (tmp_path / "evaluation" / "exports" / "signal_event_metrics.parquet").exists()
 
 
 def test_t30_missing_manifests_fails_clearly(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -162,7 +210,7 @@ def test_t30_missing_ohlcv_history_fails_clearly(tmp_path: Path, capsys: pytest.
 def test_t30_output_validation_catches_empty_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _prepare_valid_fixture(tmp_path)
 
-    def fake_export(*, project_root: Path, config: dict | None = None) -> dict:
+    def fake_export(*, project_root: Path, config: dict | None = None, history_root: str | Path = "snapshots/history") -> dict:
         exports = project_root / "evaluation" / "exports"
         replay = project_root / "evaluation" / "replay"
         exports.mkdir(parents=True, exist_ok=True)
