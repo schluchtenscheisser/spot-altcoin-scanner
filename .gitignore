@@ -19,6 +19,7 @@ ENV/
 data/raw/*
 data/processed/*
 snapshots/history/ohlcv/
+snapshots/history/ohlcv/**
 snapshots/runs/
 logs/*.log
 *.log
