@@ -1,0 +1,58 @@
+name: Run Artifact Download Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_path:
+        description: "Relative path to a Python script under scripts/"
+        required: true
+        type: string
+      script_args:
+        description: "Optional arguments passed to the script"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate analysis script path
+        id: guard
+        run: |
+          python scripts/_runner_guard.py "${{ inputs.script_path }}" >> "$GITHUB_OUTPUT"
+
+      - name: Run analysis script
+        run: |
+          python "${{ steps.guard.outputs.script_path }}" ${{ inputs.script_args }}
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-output
+          path: |
+            evaluation/exports/**
+            evaluation/calibration/**
+            artifacts/**
+            reports/aux/**
+            reports/aux/**
+            data/shadow-live-zips/**
+          if-no-files-found: warn
