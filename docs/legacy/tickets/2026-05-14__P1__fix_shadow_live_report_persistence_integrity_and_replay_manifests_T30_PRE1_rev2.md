@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # Fix Shadow-Live Report Persistence Integrity and Replay Manifest Availability
 
 **Ticket ID:** T30_PRE1_PERSISTENCE_INTEGRITY_AND_REPLAY_MANIFESTS  
