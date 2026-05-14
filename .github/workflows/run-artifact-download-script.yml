@@ -41,6 +41,8 @@ jobs:
           python scripts/_runner_guard.py "${{ inputs.script_path }}" >> "$GITHUB_OUTPUT"
 
       - name: Run analysis script
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python "${{ steps.guard.outputs.script_path }}" ${{ inputs.script_args }}
 
@@ -52,7 +54,6 @@ jobs:
             evaluation/exports/**
             evaluation/calibration/**
             artifacts/**
-            reports/aux/**
             reports/aux/**
             data/shadow-live-zips/**
           if-no-files-found: warn
