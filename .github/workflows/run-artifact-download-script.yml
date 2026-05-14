@@ -52,8 +52,11 @@ jobs:
           name: analysis-output
           path: |
             evaluation/exports/**
+            evaluation/replay/**
+            evaluation/notes/**
             evaluation/calibration/**
             artifacts/**
             reports/aux/**
             data/shadow-live-zips/**
+            snapshots/history/ohlcv/**
           if-no-files-found: warn
