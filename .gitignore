@@ -38,6 +38,7 @@ Thumbs.db
 !logs/.gitkeep
 
 # Large Shadow-Live / scanner artifacts must remain artifact-only
+evaluation/exports/*.parquet
 reports/**/*.jsonl.gz
 reports/**/*.xlsx
 reports/**/*.parquet

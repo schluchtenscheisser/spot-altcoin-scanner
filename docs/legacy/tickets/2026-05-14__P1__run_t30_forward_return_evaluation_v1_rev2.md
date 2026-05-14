@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # Run T30 Forward-Return Evaluation v1 on Shadow-Live Signal Events
 
 **Ticket ID:** T30_FORWARD_RETURN_EVALUATION_V1  
