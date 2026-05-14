@@ -190,46 +190,74 @@ def test_existing_empty_repo_anchor_is_replaced_instead_of_skipped(tmp_path: Pat
     assert _run(["git", "log", "-1", "--pretty=%s"], cwd=repo).stdout.strip() == "Persist shadow-live reports for daily-2026-05-12"
 
 
-def test_persistence_skips_when_daily_anchor_already_exists_and_is_valid(tmp_path: Path) -> None:
+def test_valid_anchor_but_missing_manifest_is_repaired(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     source = tmp_path / "source"
     repo.mkdir()
     _init_repo(repo)
     _populate_source(source)
-    _write_json(repo / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json", {"already": True})
+    daily_report = json.loads(
+        (source / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    _write_json(repo / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json", daily_report)
     _run(["git", "add", "reports/runs/2026/05/12/daily-2026-05-12/report.json"], cwd=repo)
-    _run(["git", "commit", "-m", "persisted already"], cwd=repo)
+    _run(["git", "commit", "-m", "persist daily anchor only"], cwd=repo)
+
+    github_output = tmp_path / "github-output-repair-manifest.txt"
+    result = _run_persist(repo, source, github_output)
+
+    assert "report persistence skipped" not in result.stdout
+    assert "created_commit=true" in github_output.read_text(encoding="utf-8")
+    assert (repo / "snapshots" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "run.manifest.json").is_file()
+    changed = set(_run(["git", "show", "--name-only", "--format="], cwd=repo).stdout.splitlines())
+    assert "snapshots/runs/2026/05/12/daily-2026-05-12/run.manifest.json" in changed
+
+
+def test_valid_anchor_but_empty_index_sibling_is_repaired(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    source = tmp_path / "source"
+    repo.mkdir()
+    _init_repo(repo)
+    _populate_source(source)
+    daily_report = json.loads(
+        (source / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    _write_json(repo / "reports" / "runs" / "2026" / "05" / "12" / "daily-2026-05-12" / "report.json", daily_report)
+    empty_sibling = repo / "reports" / "index" / "latest_intraday.json"
+    empty_sibling.parent.mkdir(parents=True, exist_ok=True)
+    empty_sibling.write_text("", encoding="utf-8")
+    _run(["git", "add", "reports/runs/2026/05/12/daily-2026-05-12/report.json", "reports/index/latest_intraday.json"], cwd=repo)
+    _run(["git", "commit", "-m", "persist anchor and empty sibling"], cwd=repo)
+
+    result = _run_persist(repo, source, tmp_path / "github-output-repair-sibling.txt")
+
+    assert "report persistence skipped" not in result.stdout
+    assert json.loads(empty_sibling.read_text(encoding="utf-8"))["run_id"] == "intraday-2026-05-12T04"
+    changed = set(_run(["git", "show", "--name-only", "--format="], cwd=repo).stdout.splitlines())
+    assert "reports/index/latest_intraday.json" in changed
+
+
+def test_complete_valid_matching_allowlist_skips_cleanly(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    source = tmp_path / "source"
+    repo.mkdir()
+    _init_repo(repo)
+    _populate_source(source)
+    _run_persist(repo, source, tmp_path / "github-output-initial.txt")
     before = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
 
     github_output = tmp_path / "github-output-skip.txt"
     result = _run_persist(repo, source, github_output)
 
-    assert "report persistence skipped because daily run report already exists." in result.stdout
+    assert "report persistence skipped because complete allowlist is already valid and current." in result.stdout
     assert "created_commit=false" in github_output.read_text(encoding="utf-8")
     after = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
     assert after == before
     assert _run(["git", "status", "--short"], cwd=repo).stdout == ""
-
-
-def test_persistence_exits_without_commit_when_allowed_files_have_no_diff(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    source = tmp_path / "source"
-    repo.mkdir()
-    _init_repo(repo)
-    latest_daily = _latest_daily()
-    _write_json(source / "reports" / "index" / "latest_daily.json", latest_daily)
-    _write_json(repo / "reports" / "index" / "latest_daily.json", latest_daily)
-    _run(["git", "add", "reports/index/latest_daily.json"], cwd=repo)
-    _run(["git", "commit", "-m", "existing index"], cwd=repo)
-    before = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
-
-    github_output = tmp_path / "github-output-no-diff.txt"
-    result = _run_persist(repo, source, github_output)
-
-    assert "No report persistence changes to commit." in result.stdout
-    assert "created_commit=false" in github_output.read_text(encoding="utf-8")
-    after = _run(["git", "rev-parse", "HEAD"], cwd=repo).stdout.strip()
-    assert after == before
 
 
 def test_persistence_fails_when_run_report_manifest_is_missing(tmp_path: Path) -> None:

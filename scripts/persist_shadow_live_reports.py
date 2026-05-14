@@ -32,7 +32,7 @@ JSON_TYPE_ALLOWLIST: dict[str, tuple[type, ...]] = {
 
 BOT_NAME = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
-SKIP_MESSAGE = "report persistence skipped because daily run report already exists."
+SKIP_MESSAGE = "report persistence skipped because complete allowlist is already valid and current."
 NO_CHANGES_MESSAGE = "No report persistence changes to commit."
 
 
@@ -248,39 +248,44 @@ def _validate_manifest_coverage(source_root: Path, report_paths: list[Path], man
                 )
 
 
-def _repo_anchor_is_valid(repo_root: Path, daily_anchor: Path) -> bool:
-    path = repo_root / daily_anchor
-    if not path.exists():
-        return False
+def _target_needs_copy(source_root: Path, repo_root: Path, rel_path: Path) -> bool:
+    src = _source_for_rel_path(source_root, rel_path)
+    dst = repo_root / rel_path
+    if not dst.exists():
+        return True
     try:
-        _validate_json_file(path, expected_types=(dict,), label=f"repo idempotency anchor {daily_anchor.as_posix()}")
-    except (OSError, ValueError, json.JSONDecodeError):
-        return False
-    return True
+        _validate_allowed_path(dst, rel_path=rel_path, label_prefix="destination")
+    except (OSError, UnicodeDecodeError, ValueError):
+        return True
+    return src.read_bytes() != dst.read_bytes()
 
 
 def persist_reports(repo_root: Path, source_root: Path, push: bool = False) -> int:
     repo_root = repo_root.resolve()
     source_root = source_root.resolve()
-    daily_run_id, daily_anchor = _daily_anchor_from_source(source_root)
-
-    if _repo_anchor_is_valid(repo_root, daily_anchor):
-        _emit_created_commit(False)
-        print(SKIP_MESSAGE)
-        return 0
+    daily_run_id, _daily_anchor = _daily_anchor_from_source(source_root)
 
     report_paths = _allowed_report_paths(source_root)
     manifest_paths = _allowed_manifest_paths(source_root)
-    _validate_source_paths(source_root, [*report_paths, *manifest_paths])
+    allowed_paths = sorted([*report_paths, *manifest_paths], key=lambda path: path.as_posix())
+
+    # Idempotency is intentionally evaluated over the complete persisted
+    # allowlist. A valid daily report alone is not enough: same-day retries must
+    # be able to repair missing, corrupt, or stale index/report/manifest siblings.
+    _validate_source_paths(source_root, allowed_paths)
     _validate_manifest_coverage(source_root, report_paths, manifest_paths)
 
-    copied = [*report_paths, *manifest_paths]
+    copied = [
+        rel_path
+        for rel_path in allowed_paths
+        if _target_needs_copy(source_root, repo_root, rel_path)
+    ]
     for rel_path in copied:
         _copy_validated(source_root, repo_root, rel_path)
 
     if not copied:
         _emit_created_commit(False)
-        print(NO_CHANGES_MESSAGE)
+        print(SKIP_MESSAGE)
         return 0
 
     _run_git(repo_root, ["config", "user.name", BOT_NAME])
