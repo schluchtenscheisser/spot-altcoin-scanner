@@ -231,7 +231,10 @@ def test_parquet_partition_layout_and_idempotent_dedup(tmp_path: Path):
 
     expected = history_root / "ohlcv" / "timeframe=1d" / "symbol=INJUSDT" / "year=2026" / "month=05" / "part-000.parquet"
     assert first["partition_paths"] == [expected.as_posix()]
-    assert second["partition_paths"] == [expected.as_posix()]
+    assert first["new_row_count"] == 2
+    assert second["partition_paths"] == []
+    assert second["new_row_count"] == 0
+    assert second["existing_duplicate_row_count"] == 2
     stored = pd.read_parquet(expected)
     assert stored["daily_bar_id"].tolist() == ["2026-05-03", "2026-05-04"]
     assert not stored["daily_bar_id"].duplicated().any()
@@ -264,6 +267,115 @@ def test_existing_partition_merge_keeps_existing_overlap_without_force_and_repla
     write_ohlcv_partitions(history_root, "INJUSDT", fetched, force_refetch=True)
     stored = pd.read_parquet(path)
     assert stored.loc[stored["daily_bar_id"] == "2026-05-03", "close"].iloc[0] == 9.9
+
+
+def test_fetch_drops_in_progress_daily_candle_before_writing(tmp_path: Path):
+    _report(tmp_path, "2026-05-12", "daily-a", {"confirmed_candidates": ["INJUSDT"], "early_candidates": []})
+    client = FakeMEXCClient({"INJUSDT": [_kline("2026-05-12"), _kline("2026-05-13"), _kline("2026-05-14")]})
+
+    exit_code, summary, _ = fetch_and_write_history(
+        _args(tmp_path, start_date="2026-05-12", end_date="2026-05-14"),
+        client=client,
+        now_utc="2026-05-14T10:00:00Z",
+    )
+
+    path = tmp_path / "snapshots" / "history" / "ohlcv" / "timeframe=1d" / "symbol=INJUSDT" / "year=2026" / "month=05" / "part-000.parquet"
+    stored = pd.read_parquet(path)
+    assert exit_code == 0
+    assert stored["daily_bar_id"].tolist() == ["2026-05-12", "2026-05-13"]
+    assert summary["per_symbol"]["INJUSDT"]["status"] == "fetched"
+    assert summary["per_symbol"]["INJUSDT"]["new_row_count"] == 2
+    assert summary["per_symbol"]["INJUSDT"]["bars_written"] == 2
+    assert summary["symbols_with_new_history"] == 1
+
+
+def test_duplicate_only_fetch_is_reported_as_skipped_existing_complete(tmp_path: Path):
+    _report(tmp_path, "2026-05-12", "daily-a", {"confirmed_candidates": ["INJUSDT"], "early_candidates": []})
+    history_root = tmp_path / "snapshots" / "history"
+    existing, _ = normalize_klines(
+        "INJUSDT",
+        [_kline("2026-05-12"), _kline("2026-05-13")],
+        start_date="2026-05-12",
+        fetch_end_date="2026-05-13",
+        fetched_at_utc="2026-05-14T00:00:00Z",
+        now_utc="2026-05-14T10:00:00Z",
+    )
+    write_ohlcv_partitions(history_root, "INJUSDT", existing)
+    client = FakeMEXCClient({"INJUSDT": [_kline("2026-05-12"), _kline("2026-05-13")]})
+
+    exit_code, summary, _ = fetch_and_write_history(
+        _args(tmp_path, start_date="2026-05-12", end_date="2026-05-13"),
+        client=client,
+        now_utc="2026-05-14T10:00:00Z",
+    )
+
+    per_symbol = summary["per_symbol"]["INJUSDT"]
+    assert exit_code == 0
+    assert per_symbol["status"] == "skipped_existing_complete"
+    assert per_symbol["new_row_count"] == 0
+    assert per_symbol["existing_duplicate_row_count"] == 2
+    assert per_symbol["partition_paths"] == []
+    assert summary["symbols_with_new_history"] == 0
+
+
+def test_partial_new_fetch_counts_only_new_daily_bar_ids(tmp_path: Path):
+    _report(tmp_path, "2026-05-12", "daily-a", {"confirmed_candidates": ["INJUSDT"], "early_candidates": []})
+    history_root = tmp_path / "snapshots" / "history"
+    existing, _ = normalize_klines(
+        "INJUSDT",
+        [_kline("2026-05-12")],
+        start_date="2026-05-12",
+        fetch_end_date="2026-05-12",
+        fetched_at_utc="2026-05-14T00:00:00Z",
+        now_utc="2026-05-14T10:00:00Z",
+    )
+    write_ohlcv_partitions(history_root, "INJUSDT", existing)
+    client = FakeMEXCClient({"INJUSDT": [_kline("2026-05-12"), _kline("2026-05-13")]})
+
+    exit_code, summary, _ = fetch_and_write_history(
+        _args(tmp_path, start_date="2026-05-12", end_date="2026-05-13"),
+        client=client,
+        now_utc="2026-05-14T10:00:00Z",
+    )
+
+    per_symbol = summary["per_symbol"]["INJUSDT"]
+    assert exit_code == 0
+    assert per_symbol["status"] == "fetched"
+    assert per_symbol["new_row_count"] == 1
+    assert per_symbol["existing_duplicate_row_count"] == 1
+    assert summary["symbols_with_new_history"] == 1
+
+
+def test_force_refetch_duplicate_refresh_is_not_counted_as_new_history(tmp_path: Path):
+    _report(tmp_path, "2026-05-12", "daily-a", {"confirmed_candidates": ["INJUSDT"], "early_candidates": []})
+    history_root = tmp_path / "snapshots" / "history"
+    existing, _ = normalize_klines(
+        "INJUSDT",
+        [_kline("2026-05-12", close="1.4")],
+        start_date="2026-05-12",
+        fetch_end_date="2026-05-12",
+        fetched_at_utc="2026-05-14T00:00:00Z",
+        now_utc="2026-05-14T10:00:00Z",
+    )
+    write_ohlcv_partitions(history_root, "INJUSDT", existing)
+    client = FakeMEXCClient({"INJUSDT": [_kline("2026-05-12", close="9.9")]})
+
+    exit_code, summary, _ = fetch_and_write_history(
+        _args(tmp_path, start_date="2026-05-12", end_date="2026-05-12", force_refetch=True),
+        client=client,
+        now_utc="2026-05-14T10:00:00Z",
+    )
+
+    path = history_root / "ohlcv" / "timeframe=1d" / "symbol=INJUSDT" / "year=2026" / "month=05" / "part-000.parquet"
+    stored = pd.read_parquet(path)
+    per_symbol = summary["per_symbol"]["INJUSDT"]
+    assert exit_code == 0
+    assert per_symbol["status"] == "refreshed_existing"
+    assert per_symbol["new_row_count"] == 0
+    assert per_symbol["replaced_row_count"] >= 1
+    assert summary["symbols_with_new_history"] == 0
+    assert summary["symbols_refreshed_existing"] == 1
+    assert stored.loc[stored["daily_bar_id"] == "2026-05-12", "close"].iloc[0] == 9.9
 
 
 def test_empty_universe_writes_summary_and_fail_option_controls_exit(tmp_path: Path):

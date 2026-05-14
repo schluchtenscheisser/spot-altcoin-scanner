@@ -50,7 +50,7 @@ OUTPUT_COLUMNS = [
     "fetched_at_utc",
 ]
 ALLOWED_SYMBOL_SOURCES = {"auto", "reports", "diagnostics"}
-ALLOWED_STATUSES = {"ok", "no_valid_bars", "fetch_failed", "skipped_existing_complete"}
+ALLOWED_STATUSES = {"fetched", "refreshed_existing", "no_valid_bars", "fetch_failed", "skipped_existing_complete"}
 
 
 @dataclass
@@ -67,6 +67,33 @@ class UniverseResult:
     runs_considered: int
     runs_used: int
     source_counts: dict[str, int]
+
+
+@dataclass(frozen=True)
+class OhlcvWriteResult:
+    partition_paths: list[str]
+    new_row_count: int
+    replaced_row_count: int
+    existing_duplicate_row_count: int
+    valid_input_row_count: int
+    bars_written: int
+    first_daily_bar_id: str | None
+    last_daily_bar_id: str | None
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "bars_written": self.bars_written,
+            "first_daily_bar_id": self.first_daily_bar_id,
+            "last_daily_bar_id": self.last_daily_bar_id,
+            "partition_paths": self.partition_paths,
+            "new_row_count": self.new_row_count,
+            "replaced_row_count": self.replaced_row_count,
+            "existing_duplicate_row_count": self.existing_duplicate_row_count,
+            "valid_input_row_count": self.valid_input_row_count,
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        return self.to_summary()[key]
 
 
 def _now_utc() -> datetime:
@@ -288,9 +315,11 @@ def normalize_klines(
     start_date: str,
     fetch_end_date: str,
     fetched_at_utc: str,
+    now_utc: object | None = None,
 ) -> tuple[pd.DataFrame, int]:
     start = parse_date(start_date)
-    end = parse_date(fetch_end_date)
+    latest_closed = parse_date(latest_closed_daily_bar_date(now_utc if now_utc is not None else _now_utc()))
+    end = min(parse_date(fetch_end_date), latest_closed)
     rows: list[dict[str, Any]] = []
     invalid_count = 0
     for kline in klines or []:
@@ -347,12 +376,14 @@ def _partition_path(history_root: Path, symbol: str, year: str, month: str) -> P
     return history_root / "ohlcv" / "timeframe=1d" / f"symbol={symbol}" / f"year={year}" / f"month={month}" / "part-000.parquet"
 
 
-def write_ohlcv_partitions(history_root: Path, symbol: str, bars: pd.DataFrame, *, force_refetch: bool = False) -> dict[str, Any]:
+def write_ohlcv_partitions(history_root: Path, symbol: str, bars: pd.DataFrame, *, force_refetch: bool = False) -> OhlcvWriteResult:
     if bars.empty:
-        return {"bars_written": 0, "partition_paths": [], "first_daily_bar_id": None, "last_daily_bar_id": None}
+        return OhlcvWriteResult([], 0, 0, 0, 0, 0, None, None)
 
     partition_paths: list[str] = []
-    total_rows = 0
+    new_row_count = 0
+    replaced_row_count = 0
+    existing_duplicate_row_count = 0
     work = bars.copy()
     work["year"] = work["daily_bar_id"].str.slice(0, 4)
     work["month"] = work["daily_bar_id"].str.slice(5, 7)
@@ -360,31 +391,48 @@ def write_ohlcv_partitions(history_root: Path, symbol: str, bars: pd.DataFrame, 
         path = _partition_path(history_root, symbol, str(year), str(month))
         new_rows = group[OUTPUT_COLUMNS].copy()
         if path.exists():
-            existing = pd.read_parquet(path)
-            existing = existing.reindex(columns=OUTPUT_COLUMNS)
-            if force_refetch:
-                merged = pd.concat([existing, new_rows], ignore_index=True).drop_duplicates(
-                    subset=["daily_bar_id"], keep="last"
-                )
-            else:
-                merged = pd.concat([existing, new_rows], ignore_index=True).drop_duplicates(
-                    subset=["daily_bar_id"], keep="first"
-                )
+            existing = pd.read_parquet(path).reindex(columns=OUTPUT_COLUMNS)
         else:
-            merged = new_rows
+            existing = pd.DataFrame(columns=OUTPUT_COLUMNS)
+
+        existing_ids = set(existing["daily_bar_id"].dropna().astype(str).tolist()) if not existing.empty else set()
+        fetched_ids = set(new_rows["daily_bar_id"].dropna().astype(str).tolist())
+        duplicate_ids = fetched_ids & existing_ids
+        added_ids = fetched_ids - existing_ids
+        existing_duplicate_row_count += len(duplicate_ids)
+        new_row_count += len(added_ids)
+        if force_refetch:
+            replaced_row_count += len(duplicate_ids)
+
+        should_write = bool(added_ids) or bool(force_refetch and duplicate_ids) or not path.exists()
+        if not should_write:
+            continue
+
+        if force_refetch:
+            merged = pd.concat([existing, new_rows], ignore_index=True).drop_duplicates(
+                subset=["daily_bar_id"], keep="last"
+            )
+        else:
+            merged = pd.concat([existing, new_rows], ignore_index=True).drop_duplicates(
+                subset=["daily_bar_id"], keep="first"
+            )
         merged = merged.sort_values("daily_bar_id").reset_index(drop=True)
         if merged.empty:
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         merged.to_parquet(path, index=False)
         partition_paths.append(path.as_posix())
-        total_rows += len(merged)
-    return {
-        "bars_written": int(total_rows),
-        "partition_paths": partition_paths,
-        "first_daily_bar_id": str(bars["daily_bar_id"].min()),
-        "last_daily_bar_id": str(bars["daily_bar_id"].max()),
-    }
+
+    return OhlcvWriteResult(
+        partition_paths=partition_paths,
+        new_row_count=int(new_row_count),
+        replaced_row_count=int(replaced_row_count),
+        existing_duplicate_row_count=int(existing_duplicate_row_count),
+        valid_input_row_count=int(len(bars)),
+        bars_written=int(new_row_count + replaced_row_count),
+        first_daily_bar_id=str(bars["daily_bar_id"].min()),
+        last_daily_bar_id=str(bars["daily_bar_id"].max()),
+    )
 
 
 def _symbol_has_history(history_root: Path, symbol: str) -> bool:
@@ -409,7 +457,12 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def fetch_and_write_history(args: argparse.Namespace, *, client: MEXCClient | None = None) -> tuple[int, dict[str, Any], dict[str, Any]]:
+def fetch_and_write_history(
+    args: argparse.Namespace,
+    *,
+    client: MEXCClient | None = None,
+    now_utc: object | None = None,
+) -> tuple[int, dict[str, Any], dict[str, Any]]:
     project_root = Path(args.project_root).resolve()
     reports_root = _project_path(project_root, args.reports_root)
     history_root = _project_path(project_root, args.history_root)
@@ -447,6 +500,7 @@ def fetch_and_write_history(args: argparse.Namespace, *, client: MEXCClient | No
         "symbols_fetched": 0,
         "symbols_with_existing_history": 0,
         "symbols_with_new_history": 0,
+        "symbols_refreshed_existing": 0,
         "symbols_without_valid_bars": 0,
         "invalid_bar_count": 0,
         "written_partition_count": 0,
@@ -505,6 +559,7 @@ def fetch_and_write_history(args: argparse.Namespace, *, client: MEXCClient | No
             start_date=args.start_date,
             fetch_end_date=fetch_end,
             fetched_at_utc=generated_at,
+            now_utc=now_utc,
         )
         summary["invalid_bar_count"] += invalid_count
         if bars.empty:
@@ -518,15 +573,16 @@ def fetch_and_write_history(args: argparse.Namespace, *, client: MEXCClient | No
             }
             continue
         write_result = write_ohlcv_partitions(history_root, symbol, bars, force_refetch=bool(args.force_refetch))
-        status = "ok"
-        if had_existing and not args.force_refetch and not write_result["partition_paths"]:
-            status = "skipped_existing_complete"
-        if status not in ALLOWED_STATUSES:
-            status = "ok"
-        if write_result["partition_paths"]:
+        if write_result.new_row_count > 0:
+            status = "fetched"
             summary["symbols_with_new_history"] += 1
-        summary["written_partition_count"] += len(write_result["partition_paths"])
-        summary["per_symbol"][symbol] = {"status": status, **write_result}
+        elif write_result.replaced_row_count > 0:
+            status = "refreshed_existing"
+            summary["symbols_refreshed_existing"] += 1
+        else:
+            status = "skipped_existing_complete"
+        summary["written_partition_count"] += len(write_result.partition_paths)
+        summary["per_symbol"][symbol] = {"status": status, **write_result.to_summary()}
 
     _write_json(output_summary, summary)
     return 0, summary, symbols_manifest
