@@ -116,6 +116,7 @@ This contract does not introduce `data_resolution_class`.
 - `reports/index/latest_paths.json`
 - `reports/index/latest.json`
 - `reports/index/latest_daily.json`
+- `reports/index/latest_intraday.json`
 - `reports/index/latest_confirmed_candidates.json`
 - `reports/index/latest_watchlist.json`
 - `reports/index/recent_runs.json`
@@ -123,6 +124,7 @@ This contract does not introduce `data_resolution_class`.
 Semantics:
 - `latest.json` is content-identical to the latest run `report.json` for any scan mode, including no-op intraday runs.
 - `latest_daily.json` is content-identical to the latest daily discovery run `report.json`.
+- `latest_intraday.json` is content-identical to the latest intraday promotion run `report.json` when an intraday report is produced.
 - `latest_confirmed_candidates.json` and `latest_watchlist.json` are JSON arrays of plain symbol strings from the latest candidate-producing report for that list. Daily runs are authoritative candidate-producing reports even when a candidate list is present and empty. Intraday reports update a candidate-specific latest file only when that candidate-list key was actually produced by the report.
 - Diagnostics-only intraday runs, even with diagnostics records, must not clear candidate-oriented latest files. A present-but-empty candidate list means “candidate-producing run with zero candidates”; an absent candidate-list key means “this report did not produce that candidate list.”
 - Consumers that need daily candidates should read `latest_daily.json` or the candidate-specific latest files, not assume `latest.json` always points to a candidate-producing run.
@@ -132,10 +134,11 @@ Semantics:
 
 
 ## Shadow-Live repository persistence
-- After a successful Shadow-Live report generation, the workflow may persist only small plaintext report/index artifacts to the repository.
-- Persisted allowlist: `reports/index/latest_run.txt`, `reports/index/latest.json`, `reports/index/latest_daily.json`, `reports/index/latest_confirmed_candidates.json`, `reports/index/latest_watchlist.json`, `reports/index/latest_paths.json`, `reports/index/recent_runs.json`, `reports/daily/YYYY/MM/DD/report.json`, and `reports/runs/YYYY/MM/DD/<run_id>/report.json`.
-- Full diagnostics and large/generated data remain Actions-artifact-only and are intentionally excluded from repository commits, including `symbol_diagnostics.jsonl.gz`, Excel reports, Parquet files, ZIP archives, snapshots, and raw market data.
-- Workflow retry idempotency is anchored on the daily run report: if `reports/runs/YYYY/MM/DD/<run_id>/report.json` for the daily run already exists in the checked-out repository, report persistence is skipped without creating another commit.
+- After a successful Shadow-Live report generation, the workflow may persist only small plaintext report/index artifacts and minimal replay manifests to the repository.
+- Persisted allowlist: `reports/index/latest_run.txt`, `reports/index/latest.json`, `reports/index/latest_daily.json`, `reports/index/latest_intraday.json`, `reports/index/latest_confirmed_candidates.json`, `reports/index/latest_watchlist.json`, `reports/index/latest_paths.json`, `reports/index/recent_runs.json`, `reports/daily/YYYY/MM/DD/report.json`, `reports/runs/YYYY/MM/DD/<run_id>/report.json`, and `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json`.
+- Persisted JSON files must be non-empty valid JSON with the expected top-level type; `latest_run.txt` must be non-empty plaintext.
+- Full diagnostics and large/generated data remain Actions-artifact-only and are intentionally excluded from repository commits, including `symbol_diagnostics.jsonl.gz`, Excel reports, Parquet files, ZIP archives, run snapshots except `run.manifest.json`, and raw market data.
+- Workflow retry idempotency is anchored on the daily run report: if `reports/runs/YYYY/MM/DD/<run_id>/report.json` for the daily run already exists as a valid non-empty JSON object in the checked-out repository, report persistence is skipped without creating another commit. Empty or invalid anchors are not valid idempotency skips.
 - Candidate-specific latest files remain candidate-effective outputs: no-op or diagnostics-only intraday runs must not clear `latest_confirmed_candidates.json` or `latest_watchlist.json`.
 
 ## Writer determinism and atomicity

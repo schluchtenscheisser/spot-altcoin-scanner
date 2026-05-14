@@ -43,9 +43,9 @@ Implemented tickets: T1–T29, T21.1, T_EL1b, T_EL2
 
 Shadow-Live is operational:
 - Daily Discovery runs automatically via GitHub Actions at 01:30 UTC.
-- Shadow-Live report persistence is automated for small plaintext report/index files.
-- Persistence uses the daily run report as idempotency anchor.
-- symbol_diagnostics.jsonl.gz, Excel, Parquet, ZIPs, raw OHLCV, snapshots,
+- Shadow-Live report persistence is automated for small plaintext report/index files and minimal `snapshots/runs/**/run.manifest.json` replay manifests.
+- Persistence uses the daily run report as idempotency anchor only when that anchor is valid non-empty JSON.
+- symbol_diagnostics.jsonl.gz, Excel, Parquet, ZIPs, raw OHLCV, run snapshots except `run.manifest.json`,
   and other large artifacts remain artifact-only and are not committed.
 - Current diagnostics/report schema version: ir1.5.
 
@@ -336,8 +336,8 @@ Rules:
 - The canonical manifest is only under `snapshots/runs/...`.
 - `reports/analysis/` is deprecated and must not be used as an active output path.
 - Script and analysis outputs must not be written to `reports/analysis/`; use `evaluation/exports/`, `artifacts/`, or `reports/aux/` depending on artifact class.
-- Shadow-Live persists small plaintext report/index files to the repository after automated daily runs.
-- Shadow-Live keeps `symbol_diagnostics.jsonl.gz`, Excel, Parquet, ZIPs, raw OHLCV, snapshots, and other large artifacts artifact-only.
+- Shadow-Live persists small plaintext report/index files and minimal `snapshots/runs/**/run.manifest.json` replay manifests to the repository after automated daily runs.
+- Shadow-Live keeps `symbol_diagnostics.jsonl.gz`, Excel, Parquet, ZIPs, raw OHLCV, run snapshots except `run.manifest.json`, and other large artifacts artifact-only.
 
 ---
 
