@@ -4,154 +4,133 @@
 ```yaml
 id: CANON_OPEN_QUESTIONS
 status: canonical
+last_reviewed: 2026-05-15
+review_context: "Post T30 v1.1 / ir1.5 data accumulation phase"
 ```
 
 ## Purpose
+
 This file tracks authoritative open questions that remain unresolved in the current Independence-Release architecture and therefore must not be silently decided by later implementation tickets.
-These questions map to the unresolved clarification surface referenced in Gesamtkonzept §21.
+
+Resolved questions are kept in a reference section at the bottom so that older ticket references (`Q1`, `Q2`, etc.) remain traceable without leaving resolved items in the active decision surface.
 
 ## Bootstrap rule
-Until an open question listed here is resolved in canonical documentation, later tickets and implementations must not silently invent business-logic answers for it.
+
+Until an open question listed here is resolved in canonical documentation, a newer decision note, or an implemented ticket, later tickets and implementations must not silently invent business-logic answers for it.
+
+Where an item is marked `partially resolved`, the implemented part is no longer open, but the remaining unresolved part must still be treated as an active decision surface.
 
 ---
 
-## Open questions
+## Active open questions
 
-Compatibility note: cache-role ambiguity was resolved by Ticket 14; Canonical OHLCV long-term storage remains the active storage contract.
-
-*Sorted by impact on investment-signal correctness. Items at the top affect which candidates are shown as actionable; items further down are architectural quality concerns.*
+*Sorted by impact on investment-signal correctness. Original question numbers are preserved to avoid breaking references from prior tickets, decision notes, and reviews.*
 
 ---
 
-### 1) `is_tradeable_candidate` does not account for `candidate_excluded` / universe exclusion — RESOLVED
+### Q3) `distance_to_range_high_pct_abs` formula remains not fully canonical
 
-**Resolution (2026-05-13, T_Q1_Q2_OPERATIONAL_TRADEABILITY):** `is_tradeable_candidate` remains bucket-/execution-scoped. New top-level diagnostics field `is_operational_trade_candidate` is the final operational tradeability label for T30 and execution-adjacent consumers. See `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md`.
+**Status:** Partially resolved / remains open for v2
 
-**Context**
+**Current implementation status**
 
-Observed in Shadow-Live (May 2026): `USDPUSDT` showed:
+`distance_to_range_high_pct_abs` is now numerically present in current diagnostics for most symbols since the `ir1.3` / T_EL2 workstream. It is used in T_EL2 v1 only as an auxiliary proximity-warning input, specifically via:
 
 ```text
-decision_bucket = confirmed_candidates
-is_tradeable_candidate = true
-universe.candidate_excluded = true
-universe_category = stable_or_cash_proxy
+entry_location.range_high_proximity_warning
 ```
 
-The report summary correctly excludes such symbols from tradeable counts, but at the row level `is_tradeable_candidate` remains `true`. Any consumer reading the diagnostics directly (analysis scripts, T30 evaluation) sees a false positive.
+It is not yet a fully calibrated primary Entry-Location input, and its canonical formula has not been finalized in the v2.1 specification.
 
-**Historical options considered**
+**Current boundary**
 
-- **Option A:** `candidate_excluded = true` forces `is_tradeable_candidate = false`. The field is final-operative.
-- **Option B:** `is_tradeable_candidate` remains execution-/bucket-scoped. A separate field (e.g. `is_operational_trade_candidate`) additionally respects `candidate_excluded`.
+T_EL2 v1 may use this field only as an auxiliary warning / context signal. It must not be treated as a fully calibrated primary input until a future calibration/spec pass defines:
 
-**Why this must be resolved before a fix ticket**
-
-The semantics of `is_tradeable_candidate` must be decided canonically first. A fix ticket without this decision risks either breaking downstream consumers of the current field or producing an inconsistent second field.
-
-This must be resolved before T30 consumes row-level diagnostics as authoritative tradeable labels. Otherwise T30 and all forward-return evaluation scripts will need ad-hoc filters (`is_tradeable_candidate == true AND candidate_excluded != true`) — exactly the kind of implicit logic the architecture is designed to avoid.
-
-**Relationship to Q2:** Q1 is the downstream diagnostics/reporting symptom. Q2 is the upstream universe/eligibility root cause. Both must be resolved before production-grade tradeable candidate reporting. Resolving Q1 alone does not remove false positives from the universe; resolving Q2 alone does not fix the row-level labeling gap.
-
-**Related:** See Q2 (Stablecoin filter) for the upstream root cause; feature enhancement 6 (operational tradeability field) for the Option B implementation path.
-
----
-
-### 2) Stablecoin / cash-proxy exclusion is incomplete — RESOLVED
-
-**Resolution (2026-05-13, T_Q1_Q2_OPERATIONAL_TRADEABILITY):** `stable_or_cash_proxy`, `fiat_proxy`, and `wrapped_cash` are hard-excluded in the Universe-Classification-to-Decision path while remaining visible in diagnostics. See `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md`.
-
-**Context**
-
-Multiple Shadow-Live runs have produced stablecoin/cash-proxy candidates that pass the eligibility and decision layers:
-
-- `TUSDUSDT` — appeared as confirmed candidate on two consecutive days (early Shadow-Live runs)
-- `USDPUSDT` — appeared as confirmed candidate with `universe_category = stable_or_cash_proxy` and `candidate_excluded = true` but `is_tradeable_candidate = true` (May 2026 run)
-
-Stablecoins should be caught by market-cap or price-stability filters, but no explicit categorical exclusion exists in the spec.
-
-**Historical decision surface**
-
-1. Should an explicit stablecoin/cash-proxy hard exclusion be added to the Eligibility layer (pre-decision), the Universe Classification layer, or both?
-2. Candidate rule: `universe_category in {stable_or_cash_proxy, fiat_proxy, wrapped_cash}` → hard exclude before decision/tradeability evaluation.
-3. Which module owns enforcement?
-
-**Relationship to Q1:** Q2 is the upstream universe/eligibility root cause. Q1 is the downstream diagnostics/reporting symptom. Resolving Q2 removes false positives from the universe; resolving Q1 fixes row-level labeling. Both must be resolved before production-grade tradeable candidate reporting.
-
----
-
-### 3) `distance_to_range_high_pct_abs` primary calibration remains open — auxiliary T_EL2 v1 usage allowed
-
-**Context**
-
-The field exists in T5 as a `FeatureBundle` attribute and is present in the `entry_location_inputs` namespace. Current `ir1.2` observations supersede the earlier blanket statement that it is universally `null`: when valid 4h feature input exists, the field can be numeric.
-
-**Why this matters**
-
-T_EL2 v1 uses this field only as an auxiliary nullable warning (`range_high_proximity_warning`) with the provisional threshold `distance_to_range_high_pct_abs <= 0.5`. It is not a primary `entry_location_status` dimension and must not alter `entry_action_hint` in v1.
-
-**Staging note**
-
-Q3 is partially superseded by `ir1.2` observation: auxiliary diagnostic usage is allowed, but primary calibration is still deferred. Full range-high calibration requires resolution of this question before a future T_EL2 version can use the field as a status or action modifier.
+1. the exact range-high anchor,
+2. the lookback or structural range selection rule,
+3. the precise formula,
+4. ownership of the computation contract,
+5. how this field differs from `dist_to_base_mid_pct` (Q13).
 
 **Still to decide**
 
-1. What exactly is the "Range High" — swing high over what lookback?
+1. What exactly is the "Range High" — swing high over what lookback or structural range?
 2. Which historical bars or anchors define the range?
 3. Is a configurable lookback parameter involved?
-4. Which module owns the computation?
+4. Which module owns the computation contract?
 5. How does this field differ from `dist_to_base_mid_pct` (Q13)? The distinction must remain explicit.
 
----
+**Do not silently change**
 
-### 4) Intraday diagnostics are repeatedly empty (0 records)
-
-**Context**
-
-Multiple Shadow-Live artifacts contain `intraday symbol_diagnostics.jsonl.gz = 0 records`. Daily diagnostics are complete and correct in the same artifacts.
-
-**Still to decide**
-
-- Is zero records expected behavior when no new 4h bar is present (`NO_NEW_4H_BAR` no-op)?
-- Or does the Intraday Runner process symbols but write to the wrong / empty file (artifact packaging issue)?
-- Or is this a serialization defect in the Intraday Runner itself?
-- If zero records is intentional, should the report/manifest document this explicitly so analysis scripts do not treat it as a failure?
-
-**Consequence**
-
-Until resolved, Intraday Promotion scan quality cannot be validated from diagnostics. Recommended: small diagnostic ticket before productive Intraday expansion.
+Future tickets must not promote `distance_to_range_high_pct_abs` from auxiliary warning to primary calibrated Entry-Location input without resolving this question.
 
 ---
 
-### 5) `execution_size_class = "full"` has two distinct meanings
+### Q4) Intraday diagnostics / no-op behavior and future promotion diagnostics
+
+**Status:** Partially resolved
+
+**Resolved part**
+
+The no-op semantics for intraday runs have been implemented and are now expected behavior when no new actionable intraday cycle exists. Current diagnostics/reporting may explicitly surface:
+
+```text
+no_op
+no_op_reason
+```
+
+An intraday run with `0` records is therefore no longer automatically a serialization defect when it represents an intentional no-op condition.
+
+**Still open**
+
+The remaining open part concerns productive Intraday Promotion expansion:
+
+1. When genuine intraday promotions occur, should the intraday runner always emit full symbol diagnostics for the promoted / monitored population?
+2. Which subset is diagnostic-mandatory: all monitoring-universe symbols, only promoted symbols, only bucket-changing symbols, or all symbols with refreshed 4h context?
+3. How should intraday promotion diagnostics be evaluated against daily diagnostics and T30/T31 evaluation exports?
+4. Which `no_op_reason` values are canonical for skip/no-op states versus true empty outputs?
+
+**Current boundary**
+
+`0` intraday records can be valid no-op behavior, but this must not be generalized to mean that productive intraday promotions may remain diagnostically invisible.
+
+---
+
+### Q5) `execution_size_class = "full"` has two distinct meanings
+
+**Status:** Still open / deferred schema cleanup
 
 **Context**
 
 `execution_size_class = "full"` occurs in two separate scenarios:
 
 1. `direct_ok` + full orderbook depth → full position possible, all execution metrics passed.
-2. `marginal` + full orderbook depth, but at least one other execution quality metric prevented `direct_ok`.
+2. `marginal` + full orderbook depth, but at least one other execution-quality metric prevented `direct_ok`.
 
-The distinction is only preserved via `execution_status_raw`. Documented in `TRADEABILITY_GATE.md` (PR #236), but the single value conflates depth-capacity and execution-quality.
+The distinction is preserved via `execution_status_raw`. The current documentation clarifies that both fields must be read together, so there is no known current misbehavior.
 
 **Still to decide**
 
 Does the current documentation suffice permanently, or should a future schema version introduce granular fields such as:
 
 ```text
-execution_capacity_class  = full / reduced_75 / reduced_50 / reduced_25
-execution_quality_status  = direct_ok / marginal / fail / unknown
+execution_capacity_class = full / reduced_75 / reduced_50 / reduced_25
+execution_quality_status = direct_ok / marginal / fail / unknown
 ```
 
-No current misbehavior. Deferred until schema cleanup is warranted.
+**Current boundary**
+
+No immediate fix is required. This is a schema-cleanup candidate only.
 
 ---
 
-### 6) `is_reduced_size_eligible` is semantically misleading — rename pending
+### Q6) `is_reduced_size_eligible` is semantically misleading — rename pending
+
+**Status:** Still open / deferred schema cleanup
 
 **Context**
 
-`is_reduced_size_eligible = true` also applies to `direct_ok` records, which trade at full — not reduced — size. The field name implies "only eligible for reduced-size trading". The actual semantics (documented in `TRADEABILITY_GATE.md`, PR #236) are:
+`is_reduced_size_eligible = true` also applies to `direct_ok` records, which trade at full — not reduced — size. The field name implies "only eligible for reduced-size trading". The documented semantics are instead:
 
 ```text
 tradeable at the policy-permitted position size, whether full or reduced
@@ -159,7 +138,9 @@ tradeable at the policy-permitted position size, whether full or reduced
 
 **Still to decide**
 
-Should the field be renamed in a future schema cleanup? Candidate names:
+Should the field be renamed in a future schema cleanup?
+
+Candidate names:
 
 ```text
 is_execution_eligible
@@ -167,35 +148,63 @@ is_policy_tradeable
 is_policy_size_eligible
 ```
 
-A rename requires a schema version bump (`ir1.3` or later) and explicit migration handling. Must be decided before a rename ticket can be authored.
+**Current boundary**
+
+A rename requires a schema version bump and explicit migration handling. Until then, consumers must use the documented semantics and must not interpret the field as "reduced-size only".
 
 ---
 
-### 7) Smoke test vs. full-universe intraday behavior differs
+### Q7) Smoke-test vs. full-universe intraday behavior differs
+
+**Status:** Still open / verify if still reproducible
 
 **Context**
 
-Smoke-test runs and full-universe runs show different Intraday behavior. Most likely not a bug, but the root cause has not been verified.
+Smoke-test runs and full-universe runs previously showed different intraday behavior. This may be expected, but the root cause has not been verified in the current `ir1.5` phase.
 
 **Still to decide**
 
-Diagnose and document why the difference occurs. If intentional (e.g. universe size affects 4h-bar availability thresholds), document this explicitly. If a bug, fix.
+Diagnose and document why the difference occurs. If intentional, document the exact cause. If a bug, fix.
+
+**Current boundary**
+
+Before opening a fix ticket, first verify whether this difference is still observable in current Shadow-Live runs.
 
 ---
 
-### 8) `candidate_excluded_symbol_count` missing from `candidate_segments`
+### Q8) `candidate_excluded_symbol_count` in `candidate_segments`
+
+**Status:** Verification pending
 
 **Context**
 
-T23 defines `candidate_excluded_symbol_count` as an explicit contract field (integer). In Shadow-Live reports the key is absent from `candidate_segments` — the value comes back as `None`. No operational impact, but the report contract is incomplete.
+T23 defined `candidate_excluded_symbol_count` as an explicit contract field in `candidate_segments`. Earlier Shadow-Live reports appeared to omit the key, returning `None` when analysis scripts read it.
 
-**Still to decide**
+**Current check required**
 
-Is this a T23 implementation defect (Codex omitted the field) or a known scope gap? If a defect, it is a small targeted fix against the T23 module. If intentional, the contract must be updated to document the absence.
+Verify against a current `ir1.5+` `report.json` whether:
+
+```text
+candidate_segments.candidate_excluded_symbol_count
+```
+
+is present and emitted as an integer.
+
+**Resolution rule**
+
+- If present and correct in current reports: mark Q8 as resolved.
+- If absent: create a small targeted bugfix against the report/T23 module.
+- If intentionally absent: update the report contract to remove or explicitly document the omission.
+
+**Current boundary**
+
+No business-logic decision is required. This is either resolved in implementation or a small report-contract bugfix candidate. Do not mark as resolved without checking a current report artifact.
 
 ---
 
-### 9) Non-ASCII symbol `币安人生USDT` passes the eligibility filter
+### Q9) Non-ASCII symbol `币安人生USDT` passes the eligibility filter
+
+**Status:** Still open
 
 **Context**
 
@@ -203,62 +212,64 @@ A symbol containing Chinese characters appeared as a Confirmed Candidate in a Sh
 
 **Still to decide**
 
-1. Should the Eligibility or Universe Classification layer flag non-Latin/non-ASCII symbol names with lower confidence rather than hard-excluding them? A hard ASCII filter risks rejecting legitimate MEXC-listed assets without evidence; a flag-first approach is more consistent with the diagnostic-before-config principle.
-2. Alternatively: is the canonical path an explicit Override Map entry (include or exclude) for any non-ASCII symbol that surfaces in Shadow-Live runs?
+1. Should the Eligibility or Universe Classification layer flag non-Latin/non-ASCII symbol names with lower confidence rather than hard-excluding them?
+2. Alternatively: is the canonical path an explicit Override Map entry — include or exclude — for any non-ASCII symbol that surfaces in Shadow-Live runs?
 3. If flagging: which confidence level and which reason code?
-4. Document the decision explicitly so future Classification rules do not silently guess.
+4. Should non-ASCII handling affect only diagnostics/classification or also operational eligibility?
+
+**Current boundary**
+
+Do not introduce a hard ASCII filter without evidence. A flag-first or explicit-override approach is more consistent with the diagnostic-before-config principle, but this still needs an explicit decision.
 
 ---
 
-### 10) `tokenized_stock_or_etf` shows systematically higher `unknown_execution` rate
+### Q10) `tokenized_stock_or_etf` shows systematically higher `unknown_execution` rate
+
+**Status:** Still open / informational until reproduced
 
 **Context**
 
-Observed in T24 run (bar_id 2026-05-02): 6/22 tokenized assets showed `UNKNOWN_ORDERBOOK_STALE`, significantly higher than in `classic_crypto` segments.
+Observed in T24 run: tokenized-stock-/ETF-like assets showed a higher `UNKNOWN_ORDERBOOK_STALE` rate than `classic_crypto` segments.
 
 **Still to decide**
 
-Is this a structural pattern (lower market-maker activity, less frequently updated order books for tokenized assets)? If so:
+Is this a structural pattern, such as lower market-maker activity or less frequently updated orderbooks for tokenized assets? If so:
 
 - Should tokenized assets receive different execution grading behavior?
 - Should the `observe_only` threshold for stale orderbooks be tighter for this category?
 - Or is the current handling correct and this is informational only?
 
+**Current boundary**
+
+No immediate config or execution-rule change without reproduced evidence across newer runs.
+
 ---
 
-### 11) ARBUSDT shows `execution_attempted = true` without a valid decision bucket
+### Q11) ARBUSDT shows `execution_attempted = true` without a valid decision bucket
+
+**Status:** Still open / verify if still reproducible
 
 **Context**
 
-Observed after the Smoke-Test run (T20): `ARBUSDT` had `execution_attempted = True` with no corresponding `decision_bucket` or `state_machine_state` in diagnostics. Flagged as a "pre-existing anomaly in the execution adapter path" at the time, never investigated further.
+Observed after the T20 Smoke-Test run: `ARBUSDT` had `execution_attempted = true` with no corresponding `decision_bucket` or `state_machine_state` in diagnostics. It was flagged as a pre-existing anomaly in the execution-adapter path.
 
 **Still to decide**
 
-Is this a defect in the Execution Adapter logic, a diagnostics serialization gap, or an edge case specific to early Smoke-Test-phase behavior that is no longer reproducible? Lowest priority — verify first whether this is still observable in current Shadow-Live runs before investing in a fix.
+Is this a defect in Execution Adapter logic, a diagnostics serialization gap, or an edge case specific to early Smoke-Test-phase behavior that is no longer reproducible?
+
+**Current boundary**
+
+Lowest priority. Verify first whether this is still observable in current Shadow-Live runs before investing in a fix.
 
 ---
 
-### 12) Evaluation Replay does not accumulate across runs
+### Q13) `dist_to_base_mid_pct` remains unresolved
+
+**Status:** Still open
 
 **Context**
 
-`run_count: 1` on every day. Correct by T18 design — the Replay reads from the run artifact of the current session, not from a persistent event store. This means the Evaluation does not build a cross-day event history.
-
-**Consequence**
-
-For genuine forward-return evaluation ("What did TURTLEUSDT do after the confirmed signal?") either an accumulating event store or a separate analysis script that merges multiple Replay artifacts across days is required. This is the prerequisite for T30.
-
-**Still to decide**
-
-Which approach: accumulating event store (architectural change to T18) or aggregating analysis script (lighter, consistent with T25 pattern)?
-
----
-
-### 13) `dist_to_base_mid_pct` remains unresolved
-
-**Context**
-
-The field `dist_to_base_mid_pct` was identified during the Ticket-5 / Ticket-5.1 / Ticket-6 workstream as a required input for `expansion_progress_structural`, but no authoritative formula was found in the governing specifications.
+`dist_to_base_mid_pct` was identified during the Ticket-5 / Ticket-5.1 / Ticket-6 workstream as a required input for `expansion_progress_structural`, but no authoritative formula was found in the governing specifications.
 
 The field name and descriptive intent exist, but the architecture still lacks a canonical definition for:
 
@@ -269,11 +280,11 @@ The field name and descriptive intent exist, but the architecture still lacks a 
 
 **Why this matters**
 
-Without an authoritative formula, independent implementations may invent incompatible meanings for the same field, causing divergence in Tier-1 axis computation, diagnostics, later runner/state interpretation, and backtest comparability.
+Without an authoritative formula, independent implementations may invent incompatible meanings for the same field, causing divergence in Tier-1 axis computation, diagnostics, runner/state interpretation, and backtest comparability.
 
 **Current consequence**
 
-`expansion_progress_structural` treats this sub-input as absent. The related subscore remains unavailable; the axis continues to rely on canonical weight-dropout / re-normalization with `expansion_progress_structural_reduced_resolution = true`.
+`expansion_progress_structural` treats this sub-input as absent. The related subscore remains unavailable; the axis continues to rely on canonical weight-dropout / re-normalization.
 
 **Still to decide**
 
@@ -281,16 +292,113 @@ Without an authoritative formula, independent implementations may invent incompa
 2. The exact mathematical formula.
 3. Whether any lookback/config parameter is involved.
 4. Which module owns the computation contract.
+5. How it differs from `distance_to_range_high_pct_abs` (Q3).
 
 ---
 
 ## Resolved questions (for reference)
 
+### Q1) `is_tradeable_candidate` vs. `candidate_excluded` / universe exclusion
+
+**Status:** Resolved
+
+**Resolution**
+
+Resolved by the Q1/Q2 operational-tradeability decision and implementation.
+
+The chosen path keeps:
+
+```text
+is_tradeable_candidate
+```
+
+as the execution-/bucket-scoped field and introduces:
+
+```text
+is_operational_trade_candidate
+```
+
+as the final operational field that combines:
+
+```text
+is_tradeable_candidate == true
+AND candidate_excluded != true
+```
+
+**Current contract**
+
+- `candidate_excluded` is a top-level diagnostics field.
+- Do not read `universe.candidate_excluded` for current diagnostics.
+- `universe_category` remains nested under `universe.universe_category`.
+- Current schema after this resolution: `ir1.5`.
+
+---
+
+### Q2) Stablecoin / cash-proxy exclusion is incomplete
+
+**Status:** Resolved
+
+**Resolution**
+
+Resolved by the Q1/Q2 implementation.
+
+Stablecoin-/cash-proxy cases are excluded in the Universe-/Decision path and no longer rely only on downstream report-summary filtering.
+
+**Current contract**
+
+- Stablecoin-/cash-proxy candidates must be excluded before final operational tradeability is reported.
+- Operational consumers should rely on `is_operational_trade_candidate`, not on ad-hoc filters.
+- `candidate_excluded` remains the top-level exclusion marker.
+
+---
+
+### Q12) Evaluation Replay does not accumulate across runs
+
+**Status:** Resolved
+
+**Resolution**
+
+Resolved by the T18/T30 Replay-/Event-Evaluation architecture.
+
+T30 v1/v1.1 now provides the exploratory forward-return evaluation path using persisted/replayed report artifacts and event exports. The first T30 v1.1 run has technically validated:
+
+- replay execution,
+- OHLCV fetch,
+- early-/confirmed-reference-price fallback,
+- segment fields in the export.
+
+**Current boundary**
+
+The architectural accumulation question is resolved, but T30 analytical conclusions remain deferred until a larger `ir1.5+` run base exists. This is no longer an open architecture question; it is a data-accumulation/calibration constraint.
+
+---
+
 ### R2) Long-term OHLCV history storage path beyond Ticket 4 transitional SQLite persistence
-**Status:** Resolved by Ticket 14. Canonical path: `snapshots/history/ohlcv/timeframe=<tf>/symbol=<symbol>/year=<yyyy>/month=<mm>/`
+
+**Status:** Resolved by Ticket 14.
+
+Canonical path:
+
+```text
+snapshots/history/ohlcv/timeframe=<tf>/symbol=<symbol>/year=<yyyy>/month=<mm>/
+```
+
+---
 
 ### R3) `daily_bar_id` type consistency across Independence-Release layers
-**Status:** Resolved by Ticket 15. Canonical cross-layer type: `str` in `YYYY-MM-DD` format.
+
+**Status:** Resolved by Ticket 15.
+
+Canonical cross-layer type:
+
+```text
+str in YYYY-MM-DD format
+```
+
+---
 
 ### R4) §21/3 Execution frequency + Top-N policy (Daily vs Intraday)
-**Status:** Resolved by Tickets 16 and 17. No fachlicher Top-N cap; optional limits are technical safeguards only.
+
+**Status:** Resolved by Tickets 16 and 17.
+
+No fachlicher Top-N cap; optional limits are technical safeguards only.
