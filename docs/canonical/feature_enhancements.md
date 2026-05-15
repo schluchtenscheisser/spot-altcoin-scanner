@@ -157,21 +157,43 @@ VONUSDT, OXYONUSDT, PBRONUSDT, MAONUSDT, NVDAXUSDT
 
 ---
 
-### 8) AI context hygiene: `AI_CONTEXT_CURRENT.md` + SUPERSEDED headers
+### 8) AI context hygiene: `AI_CONTEXT_CURRENT.md`, GPT snapshot refresh, and superseded roadmap addendum
 
-**Source context:** Context-hygiene audit (April 2026) identified that `docs/GPT_SNAPSHOT.md` is entirely stale (generated 2026-03-13, pre-Independence-Release architecture) and `docs/code_map.md` has an active/legacy blindspot (`scanner/pipeline/` legacy modules appear alongside new Independence-Release families without distinction). `v2_1_addendum_for_future_tickets_and_new_chats_updated.md` is frozen at T1–T3 status.
+**Status:** Mostly completed / keep under maintenance.
 
-**Reason for deferral:** No impact on scanner output. Deferred until after T_EL2 to avoid context churn during active implementation.
+**Source context:** Context-hygiene audit (April 2026) identified that earlier AI context files could mislead AI agents into using stale pre-Independence or early-Independence assumptions. In particular:
 
-**Future enhancement scope (two-track):**
+- an older `docs/GPT_SNAPSHOT.md` had become stale relative to the active Independence Release implementation,
+- `docs/code_map.md` had an active/legacy blindspot (`scanner/pipeline/` legacy modules appeared alongside new Independence-Release families without distinction),
+- `v2_1_addendum_for_future_tickets_and_new_chats_updated.md` was frozen at the early T1–T3 implementation state.
 
-**Immediate (no ticket required):** Add `SUPERSEDED` header block to `GPT_SNAPSHOT.md` and `v2_1_addendum_for_future_tickets_and_new_chats_updated.md` to prevent AI agents from reading them as current context.
+**Resolution implemented:**
 
-**Full ticket (T0.1A + T0.1B already drafted):**
+- `docs/AI_CONTEXT_CURRENT.md` now exists as the current AI-context routing document.
+- It documents the active implementation status, active-vs-legacy module distinction, run-mode context, authority hierarchy, and known non-blocking states.
+- `docs/roadmap/v2_1_addendum_for_future_tickets_and_new_chats_updated.md` now has a `SUPERSEDED — HISTORICAL WORKING CONTEXT ONLY` header and must not be used as current implementation status or current ticket-planning baseline.
+- `docs/GPT_SNAPSHOT.md` was not marked superseded. Instead, it was refreshed into a current AI onboarding snapshot and is explicitly treated as an AI support artifact, not as independent domain authority.
+- `docs/code_map.md` remains a generated structural map only and must not be treated as a semantic authority.
 
-- New `docs/AI_CONTEXT_CURRENT.md`: architecture overview, active-vs-legacy module distinction, run-mode context (`daily` / `intraday`), spec-file hierarchy, current implementation status.
-- **Mandatory embedded maintenance rule**: document must include an explicit instruction specifying when and how it must be updated, to prevent future staleness.
-- `docs/code_map.md`: extend the generator script (`scripts/update_codemap.py`) to include a curator-protected header block with active/legacy distinction — do not manually patch the generated file.
+**Current intended document roles:**
+
+- `docs/AI_CONTEXT_CURRENT.md` = primary AI-context routing and staleness-prevention document.
+- `docs/GPT_SNAPSHOT.md` = compact current GPT onboarding snapshot, subordinate to repo reality and AI_CONTEXT_CURRENT.
+- `docs/code_map.md` = generated navigation aid only.
+- `docs/roadmap/v2_1_addendum_for_future_tickets_and_new_chats_updated.md` = historical working context only.
+- v2.1 section documents and `independence_release_gesamtkonzept_final.md` = historical build-spec authority where no newer current-state documentation or implementation contract supersedes them.
+
+**Maintenance rule:**
+
+Whenever implementation status, schema version, active ticket range, Shadow-Live behavior, active module families, or authority hierarchy materially changes, update `docs/AI_CONTEXT_CURRENT.md` first. Then update `docs/GPT_SNAPSHOT.md` only if the compact onboarding snapshot would otherwise become misleading.
+
+**Remaining follow-up:**
+
+- Keep `docs/code_map.md` AI-safe via the generator script (`scripts/update_codemap.py`), not by manually patching generated content.
+- Ensure generated/curated headers continue to distinguish active Independence Release module families from legacy/reference-only paths.
+- Periodically verify that `docs/GPT_SNAPSHOT.md` and `docs/AI_CONTEXT_CURRENT.md` do not drift apart.
+
+**No current signal-quality impact:** This topic affects AI/Codex/Claude context hygiene and implementation safety, not scanner output quality directly.
 
 ---
 
