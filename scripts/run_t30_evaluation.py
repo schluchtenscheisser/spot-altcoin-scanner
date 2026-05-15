@@ -234,6 +234,75 @@ def _metric_status_counts_by_horizon(project_root: Path) -> dict[str, dict[str, 
     return result
 
 
+def _load_signal_metrics(project_root: Path) -> pd.DataFrame:
+    path = project_root / "evaluation" / "exports" / "signal_event_metrics.parquet"
+    if not path.exists() or path.stat().st_size <= 0:
+        return pd.DataFrame()
+    try:
+        return pd.read_parquet(path)
+    except Exception:  # noqa: BLE001 - note generation should degrade after validation captures unreadable files.
+        return pd.DataFrame()
+
+
+def _counts_rows(df: pd.DataFrame, columns: list[str]) -> list[list[Any]]:
+    if df.empty or any(column not in df.columns for column in columns):
+        return []
+    grouped = df.groupby(columns, dropna=False).size().reset_index(name="rows")
+    grouped = grouped.sort_values(columns + ["rows"], kind="mergesort")
+    rows: list[list[Any]] = []
+    for record in grouped.to_dict("records"):
+        row: list[Any] = []
+        for column in columns:
+            value = record.get(column)
+            row.append(None if pd.isna(value) else value)
+        row.append(int(record["rows"]))
+        rows.append(row)
+    return rows
+
+
+def _reference_price_coverage_rows(project_root: Path) -> list[list[Any]]:
+    df = _load_signal_metrics(project_root)
+    return _counts_rows(df, ["event_type", "reference_price_status", "reference_price_source"])
+
+
+def _metric_status_by_event_type_rows(project_root: Path) -> list[list[Any]]:
+    df = _load_signal_metrics(project_root)
+    if df.empty or "event_type" not in df.columns:
+        return []
+    rows: list[list[Any]] = []
+    for horizon in HORIZONS:
+        column = f"metric_status_{horizon}d"
+        if column not in df.columns:
+            continue
+        for event_type, status, count in _counts_rows(df, ["event_type", column]):
+            rows.append([event_type, f"{horizon}d", status, count])
+    return rows
+
+
+def _segment_observation_blocks(project_root: Path) -> list[str]:
+    fields = [
+        "event_type",
+        "execution_size_class",
+        "is_tradeable_candidate",
+        "is_operational_trade_candidate",
+        "operational_tradeability_compat",
+        "is_reduced_size_eligible",
+        "candidate_excluded",
+        "entry_location_status",
+        "entry_action_hint",
+        "depth_ratio_band",
+    ]
+    df = _load_signal_metrics(project_root)
+    blocks: list[str] = []
+    for field in fields:
+        if df.empty or field not in df.columns:
+            blocks.append(f"Segment field `{field}` is absent from signal_event_metrics.parquet and was not approximated.")
+            continue
+        rows = _counts_rows(df, [field])
+        blocks.extend([f"### `{field}`", "", _markdown_table([field, "Rows"], rows), ""] )
+    return blocks
+
+
 def _row_count(path: Path) -> int | None:
     if not path.exists() or path.stat().st_size <= 0:
         return None
@@ -320,6 +389,10 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
                 metric_rows.append([horizon, status, count])
         else:
             metric_rows.append([horizon, "not_observed", 0])
+    project_root = Path(summary["project_root"])
+    reference_coverage_rows = _reference_price_coverage_rows(project_root)
+    metric_by_event_rows = _metric_status_by_event_type_rows(project_root)
+    segment_blocks = _segment_observation_blocks(project_root)
 
     limitations = [
         "Small sample size; this v1 note is not statistically meaningful as a final strategy assessment.",
@@ -349,7 +422,7 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
             "",
             "## Status",
             "",
-            "Status: first Shadow-Live forward-return evaluation run",
+            "Status: exploratory / validation note",
             "Type: exploratory / validation note",
             "Not a final performance conclusion",
             "No threshold changes recommended by this note alone",
@@ -380,6 +453,14 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
             "",
             _markdown_table(["Horizon", "Metric status", "Rows"], metric_rows),
             "",
+            "## Reference Price Coverage",
+            "",
+            _markdown_table(["Event type", "Reference price status", "Reference price source", "Rows"], reference_coverage_rows),
+            "",
+            "## Metric Status by Event Type",
+            "",
+            _markdown_table(["Event type", "Horizon", "Metric status", "Rows"], metric_by_event_rows),
+            "",
             "## Primary cohort: ir1.5+",
             "",
             "Primary cohort separation could not be derived from current T18 event rows without additional source metadata. No silent schema inference was applied.",
@@ -390,7 +471,7 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
             "",
             "## Segment observations",
             "",
-            "Current T18 signal-event exports do not include all required segmentation fields (`is_operational_trade_candidate`, `execution_size_class`, `is_reduced_size_eligible`, `candidate_excluded`). Segment observations were therefore not approximated or backfilled in T30 v1.",
+            "\n".join(segment_blocks),
             "",
             "## Known limitations",
             "",

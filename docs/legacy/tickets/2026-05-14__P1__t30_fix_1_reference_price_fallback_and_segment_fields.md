@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # T30-Fix-1 — Make Early/Confirmed Forward Returns Evaluable and Enrich Event Metrics with Segment Fields
 
 ## 1. Ticket Metadata

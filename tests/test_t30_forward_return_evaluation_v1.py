@@ -120,7 +120,7 @@ def test_t30_script_runs_t18_export_and_writes_note_and_summary(tmp_path: Path) 
     assert summary["history_root"] == (tmp_path / "snapshots" / "history").as_posix()
     assert summary["event_counts_by_type"]["first_watch"] == 1
     assert summary["metric_status_counts_by_horizon"]["1d"]["ok"] == 1
-    assert summary["metric_status_counts_by_horizon"]["1d"]["reference_price_not_evaluable"] == 1
+    assert summary["metric_status_counts_by_horizon"]["1d"]["missing_ohlcv_history"] == 1
 
     note = (tmp_path / "evaluation" / "notes" / "T30_forward_return_evaluation_v1.md").read_text(encoding="utf-8")
     for heading in [
@@ -241,7 +241,7 @@ def test_t30_metric_status_counts_are_per_horizon_and_not_collapsed(tmp_path: Pa
     summary = json.loads((tmp_path / "evaluation" / "replay" / "t30_run_summary.json").read_text(encoding="utf-8"))
     counts = summary["metric_status_counts_by_horizon"]
     assert counts["1d"]["ok"] == 1
-    assert counts["1d"]["reference_price_not_evaluable"] == 1
+    assert counts["1d"]["missing_ohlcv_history"] == 1
     assert counts["10d"]["ok"] == 1
     assert "failed" not in counts["1d"]
 
