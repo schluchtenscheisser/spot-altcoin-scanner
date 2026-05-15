@@ -262,7 +262,7 @@ def _counts_rows(df: pd.DataFrame, columns: list[str]) -> list[list[Any]]:
 
 def _reference_price_coverage_rows(project_root: Path) -> list[list[Any]]:
     df = _load_signal_metrics(project_root)
-    return _counts_rows(df, ["event_type", "reference_price_status", "reference_price_source"])
+    return _counts_rows(df, ["event_type", "reference_price_status", "reference_price_source", "reference_price_reason"])
 
 
 def _metric_status_by_event_type_rows(project_root: Path) -> list[list[Any]]:
@@ -455,7 +455,7 @@ def build_note(*, summary: dict[str, Any], input_validation: InputValidation, ou
             "",
             "## Reference Price Coverage",
             "",
-            _markdown_table(["Event type", "Reference price status", "Reference price source", "Rows"], reference_coverage_rows),
+            _markdown_table(["Event type", "Reference price status", "Reference price source", "Reference price reason", "Rows"], reference_coverage_rows),
             "",
             "## Metric Status by Event Type",
             "",

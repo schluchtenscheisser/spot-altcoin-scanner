@@ -48,10 +48,11 @@ def _signal_row(tmp_path: Path, event: dict) -> dict:
     return signal.iloc[0].to_dict()
 
 
-def test_reference_fallback_succeeds_for_confirmed_event(tmp_path: Path) -> None:
+@pytest.mark.parametrize("event_type", ["first_early_ready", "first_confirmed_ready"])
+def test_reference_fallback_succeeds_for_early_and_confirmed_events(tmp_path: Path, event_type: str) -> None:
     _write_daily_ohlcv(tmp_path, "AAAUSDT", _basic_ohlcv())
 
-    row = _signal_row(tmp_path, _event())
+    row = _signal_row(tmp_path, _event(event_type=event_type))
 
     assert row["reference_price"] == 10.0
     assert row["reference_price_status"] == "ok"
@@ -59,6 +60,18 @@ def test_reference_fallback_succeeds_for_confirmed_event(tmp_path: Path) -> None
     assert row["reference_price_reason"] == "fallback_missing_persisted_state_reference"
     assert row["metric_status_1d"] == "ok"
     assert row["forward_return_1d_pct"] == pytest.approx(10.0)
+
+
+def test_watch_event_bar_close_uses_watch_specific_reason(tmp_path: Path) -> None:
+    _write_daily_ohlcv(tmp_path, "AAAUSDT", _basic_ohlcv())
+
+    row = _signal_row(tmp_path, _event(event_type="first_watch"))
+
+    assert row["reference_price"] == 10.0
+    assert row["reference_price_status"] == "ok"
+    assert row["reference_price_source"] == "ohlcv_event_bar_close"
+    assert row["reference_price_reason"] == "watch_event_bar_close"
+    assert row["reference_price_reason"] != "fallback_missing_persisted_state_reference"
 
 
 def test_persisted_reference_takes_precedence_over_ohlcv_close(tmp_path: Path) -> None:
@@ -258,6 +271,16 @@ def test_t30_note_reports_reference_coverage_and_segment_observations(tmp_path: 
             {
                 "symbol": "AAAUSDT",
                 "setup_cycle_id": 1,
+                "state_machine_state": "watch",
+                "as_of_utc": "2026-05-05T00:00:00Z",
+                "daily_bar_id": "2026-05-05",
+                "execution_size_class": "full",
+                "is_tradeable_candidate": True,
+                "candidate_excluded": False,
+            },
+            {
+                "symbol": "AAAUSDT",
+                "setup_cycle_id": 3,
                 "state_machine_state": "early_ready",
                 "as_of_utc": "2026-05-05T00:00:00Z",
                 "daily_bar_id": "2026-05-05",
@@ -287,6 +310,8 @@ def test_t30_note_reports_reference_coverage_and_segment_observations(tmp_path: 
     assert "first_early_ready" in note
     assert "first_confirmed_ready" in note
     assert "ohlcv_event_bar_close" in note
+    assert "watch_event_bar_close" in note
+    assert "fallback_missing_persisted_state_reference" in note
     assert "## Metric Status by Event Type" in note
     assert "### `execution_size_class`" in note
     assert "Status: exploratory / validation note" in note

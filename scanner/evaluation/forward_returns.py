@@ -56,7 +56,11 @@ def _reference_price_from_event(event: dict[str, Any], df: pd.DataFrame) -> tupl
 
     close, close_status = _event_bar_close(df, day)
     if close is not None:
-        return close, "ok", "ohlcv_event_bar_close", "fallback_missing_persisted_state_reference", event_type in {"first_early_ready", "first_confirmed_ready"}
+        if event_type in {"first_early_ready", "first_confirmed_ready"}:
+            return close, "ok", "ohlcv_event_bar_close", "fallback_missing_persisted_state_reference", True
+        if event_type == "first_watch":
+            return close, "ok", "ohlcv_event_bar_close", "watch_event_bar_close", False
+        return close, "ok", "ohlcv_event_bar_close", "event_bar_close_no_persisted_state_reference_required", False
 
     if event_type == "first_watch":
         return None, "reference_price_not_evaluable", "not_available", close_status, False
