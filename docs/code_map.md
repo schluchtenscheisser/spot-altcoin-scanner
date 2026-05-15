@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-15 15:05 UTC  
+**Last Updated:** 2026-05-15 15:36 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -67,7 +67,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 - **Total Modules:** 105
 - **Total Classes:** 64
-- **Total Functions:** 783
+- **Total Functions:** 788
 
 ---
 
@@ -349,9 +349,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ### 📄 `scanner/evaluation/forward_returns.py`
 
-**Functions:** `_event_daily_bar_id, _finite_pos, _load_daily_ohlcv, build_signal_metrics`
+**Functions:** `_event_bar_close, _event_daily_bar_id, _finite_pos, _load_daily_ohlcv, _reference_price_from_event, build_signal_metrics`
 
-**Module Variables:** `HORIZONS, SIGNAL_EVENTS, TERMINAL_EVENTS, base, candidate, close, day, df, diagnostics, dt_s` _(+28 more)_
+**Module Variables:** `HORIZONS, SIGNAL_EVENTS, TERMINAL_EVENTS, base, close, close_value, day, df, diagnostics, dt_s` _(+28 more)_
 
 **Imports:** `__future__, datetime, math, pandas, pathlib, typing`
 
@@ -361,9 +361,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Classes:** `ReplayEvent`
 
-**Functions:** `_bucket, _coalesce_none, _cycle_id, _extract, _finite_or_none, _iter_diag_records, _parse_ts, _resolve_diag_path, _run_paths, _state, reconstruct_event_timeline`
+**Functions:** `_bool_or_none, _bucket, _coalesce_none, _cycle_id, _extract, _finite_or_none, _iter_diag_records, _nested, _operational_tradeability, _parse_ts, _resolve_diag_path, _run_paths, _state, reconstruct_event_timeline`
 
-**Module Variables:** `candidate, canonical, colocated, current_sig, cycle, cycle_nested, daily, decision_root, diag_path, diagnostics` _(+31 more)_
+**Module Variables:** `available_depth_ratio, candidate, canonical, colocated, current, current_sig, cycle, cycle_nested, daily, decision_root` _(+41 more)_
 
 **Imports:** `__future__, dataclasses, datetime, gzip, json, math, pathlib, typing`
 
@@ -1468,10 +1468,12 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_event_bar_close` | `_finite_pos` | `tolist` |
 | `_event_daily_bar_id` | — | `split` |
 | `_finite_pos` | — | `isfinite` |
 | `_load_daily_ohlcv` | — | `DataFrame`, `ValueError`, `concat`, `drop_duplicates`, `glob`, `issubset`, `read_parquet`, `reset_index`, `sort_values`, `strftime`, `to_datetime` |
-| `build_signal_metrics` | `_event_daily_bar_id`, `_finite_pos`, `_load_daily_ohlcv` | `DataFrame`, `append`, `fromisoformat`, `get`, `items`, `replace`, `setdefault`, `tolist`, `total_seconds` |
+| `_reference_price_from_event` | `_event_bar_close`, `_event_daily_bar_id`, `_finite_pos` | `get` |
+| `build_signal_metrics` | `_event_daily_bar_id`, `_load_daily_ohlcv`, `_reference_price_from_event` | `DataFrame`, `append`, `fromisoformat`, `get`, `items`, `replace`, `setdefault`, `tolist`, `total_seconds` |
 
 ### 📄 scanner/evaluation/replay.py
 
@@ -1481,11 +1483,13 @@ _This section shows which functions call which other functions, helping identify
 | `_cycle_id` | — | `get` |
 | `_finite_or_none` | — | `isfinite` |
 | `_iter_diag_records` | — | `exists`, `loads`, `strip` |
+| `_nested` | — | `get` |
+| `_operational_tradeability` | `_bool_or_none` | `get` |
 | `_parse_ts` | — | `ValueError`, `astimezone`, `fromisoformat`, `replace` |
 | `_resolve_diag_path` | — | `as_posix`, `exists`, `get`, `lstrip`, `relative_to`, `replace`, `rsplit`, `strip` |
 | `_run_paths` | — | `as_posix` |
 | `_state` | `_extract` | `get` |
-| `reconstruct_event_timeline` | `_bucket`, `_coalesce_none`, `_cycle_id`, `_extract`, `_finite_or_none`, `_iter_diag_records`, `_parse_ts`, `_resolve_diag_path`, `_run_paths`, `_state` | `RuntimeError`, `append`, `get`, `glob`, `loads`, `read_text`, `strftime`, `values` |
+| `reconstruct_event_timeline` | `_bool_or_none`, `_bucket`, `_coalesce_none`, `_cycle_id`, `_extract`, `_finite_or_none`, `_iter_diag_records`, `_nested`, `_operational_tradeability`, `_parse_ts`, `_resolve_diag_path`, `_run_paths`, `_state` | `RuntimeError`, `append`, `get`, `glob`, `loads`, `read_text`, `strftime`, `values` |
 
 ### 📄 scanner/execution/adapter.py
 
@@ -2296,9 +2300,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
+| `scanner/evaluation/replay.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
-| `scanner/evaluation/replay.py` | 12 | 28 | 40 | 🔴 High |
 | `scanner/output/report_builder.py` | 9 | 31 | 40 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
@@ -2313,6 +2317,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/features/raw_1d.py` | 12 | 23 | 35 | 🔴 High |
 | `scanner/features/raw_4h.py` | 9 | 23 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
+| `scanner/evaluation/forward_returns.py` | 7 | 24 | 31 | 🔴 High |
 | `scanner/phase/interpreter.py` | 14 | 16 | 30 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/storage/snapshots.py` | 10 | 20 | 30 | 🔴 High |
@@ -2320,7 +2325,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/decision/entry_location.py` | 11 | 15 | 26 | ⚠️ Medium |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
-| `scanner/evaluation/forward_returns.py` | 3 | 22 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
@@ -2388,4 +2392,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-15 15:05 UTC_
+_Generated by GitHub Actions • 2026-05-15 15:36 UTC_
