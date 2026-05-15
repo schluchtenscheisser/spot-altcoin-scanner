@@ -128,7 +128,7 @@ jobs:
             ${{ runner.temp }}/ir-shadow-live-workdir/reports/runs/
             ${{ runner.temp }}/ir-shadow-live-workdir/snapshots/runs/**/run.manifest.json
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30
 
       - name: Checkpoint and stage shadow-live SQLite state
         if: success()
@@ -166,7 +166,7 @@ jobs:
             ${{ runner.temp }}/ir-shadow-live-workdir/reports/daily/**
             ${{ runner.temp }}/ir-shadow-live-workdir/reports/index/**
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
       - name: Cleanup shadow-live workdir
         if: always()
