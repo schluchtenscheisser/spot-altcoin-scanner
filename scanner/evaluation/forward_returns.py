@@ -17,13 +17,56 @@ def _finite_pos(value: Any) -> bool:
 
 
 def _event_daily_bar_id(event_bar_id: Any, event_bar_id_type: Any) -> str | None:
-    if not isinstance(event_bar_id, str) or not event_bar_id:
+    if not isinstance(event_bar_id, str) or not event_bar_id or event_bar_id == "unknown":
         return None
     if event_bar_id_type == "daily_bar_id":
         return event_bar_id
     if event_bar_id_type == "intraday_bar_id":
         return event_bar_id.split("T", 1)[0]
     return None
+
+
+def _event_bar_close(df: pd.DataFrame, day: str | None) -> tuple[float | None, str]:
+    if not isinstance(day, str):
+        return None, "missing_or_unknown_event_bar_id"
+    if df.empty:
+        return None, "missing_ohlcv_history"
+    if day not in set(df["daily_bar_id"].tolist()):
+        return None, "missing_event_bar_ohlcv"
+    close_value = df.loc[df["daily_bar_id"] == day, "close"].iloc[0]
+    if not _finite_pos(close_value):
+        return None, "invalid_event_bar_close"
+    return float(close_value), "ok"
+
+
+def _reference_price_from_event(event: dict[str, Any], df: pd.DataFrame) -> tuple[float | None, str, str, str, bool]:
+    day = _event_daily_bar_id(event.get("event_bar_id"), event.get("event_bar_id_type"))
+    event_type = event.get("event_type")
+    persisted = None
+    has_persisted = False
+    if event_type == "first_early_ready":
+        persisted = event.get("close_at_early_entry_bar")
+        has_persisted = persisted is not None
+    elif event_type == "first_confirmed_ready":
+        persisted = event.get("close_at_confirmed_entry_bar")
+        has_persisted = persisted is not None
+
+    if event_type in {"first_early_ready", "first_confirmed_ready"} and _finite_pos(persisted):
+        return float(persisted), "ok", "persisted_state_reference", "persisted_state_reference_available", False
+
+    close, close_status = _event_bar_close(df, day)
+    if close is not None:
+        if event_type in {"first_early_ready", "first_confirmed_ready"}:
+            return close, "ok", "ohlcv_event_bar_close", "fallback_missing_persisted_state_reference", True
+        if event_type == "first_watch":
+            return close, "ok", "ohlcv_event_bar_close", "watch_event_bar_close", False
+        return close, "ok", "ohlcv_event_bar_close", "event_bar_close_no_persisted_state_reference_required", False
+
+    if event_type == "first_watch":
+        return None, "reference_price_not_evaluable", "not_available", close_status, False
+    if has_persisted and not _finite_pos(persisted) and close_status == "missing_or_unknown_event_bar_id":
+        return None, "reference_price_not_evaluable", "not_available", "invalid_persisted_state_reference", True
+    return None, "reference_price_not_evaluable", "not_available", close_status, event_type in {"first_early_ready", "first_confirmed_ready"}
 
 
 def _load_daily_ohlcv(project_root: Path, symbol: str, history_root: str = "snapshots/history") -> pd.DataFrame:
@@ -119,46 +162,21 @@ def build_signal_metrics(
             if symbol not in by_symbol:
                 by_symbol[symbol] = _load_daily_ohlcv(project_root, symbol, history_root=history_root)
             df = by_symbol[symbol]
-            row = {
-                **{k: event.get(k) for k in [
-                    "symbol", "setup_cycle_id", "event_type", "event_order", "event_timestamp_utc", "event_bar_id", "event_bar_id_type",
-                    "first_observed_run_id", "first_observed_run_mode", "source_snapshot_path", "market_phase", "market_phase_confidence",
-                    "state_machine_state", "state_confidence", "decision_bucket", "priority_score",
-                ]}
-            }
+            metric_context_fields = [
+                "symbol", "setup_cycle_id", "event_type", "event_order", "event_timestamp_utc", "event_bar_id", "event_bar_id_type",
+                "run_id", "scan_mode", "first_observed_run_id", "first_observed_run_mode", "source_snapshot_path",
+                "schema_version", "market_phase", "market_phase_confidence", "state_machine_state", "state_confidence",
+                "decision_bucket", "priority_score", "entry_pattern", "execution_status_raw", "execution_size_class",
+                "is_tradeable_candidate", "is_reduced_size_eligible", "recommended_position_factor", "execution_grade_effective",
+                "available_depth_ratio", "depth_ratio_band", "candidate_excluded", "universe_category",
+                "is_operational_trade_candidate", "operational_tradeability_compat", "operational_tradeability_source",
+                "entry_location_status", "entry_action_hint", "range_high_proximity_warning",
+            ]
+            row = {**{k: event.get(k) for k in metric_context_fields}}
 
-            ref_price = None
-            ref_status = "ok"
-            ref_source = "none"
-            ref_reason = "not_applicable"
-            if event["event_type"] == "first_watch":
-                day = _event_daily_bar_id(event.get("event_bar_id"), event.get("event_bar_id_type"))
-                if df.empty:
-                    ref_status = "missing_ohlcv_history"
-                elif not isinstance(day, str) or day not in set(df["daily_bar_id"].tolist()):
-                    ref_status = "reference_price_not_evaluable"
-                    ref_reason = "missing_ohlcv_event_bar"
-                else:
-                    ref_price = float(df.loc[df["daily_bar_id"] == day, "close"].iloc[0])
-                    ref_source = "ohlcv_event_bar_close"
-            elif event["event_type"] == "first_early_ready":
-                candidate = event.get("close_at_early_entry_bar")
-                if _finite_pos(candidate):
-                    ref_price = float(candidate)
-                    ref_source = "close_at_early_entry_bar"
-                else:
-                    ref_status = "reference_price_not_evaluable"
-                    ref_reason = "missing_persisted_state_reference"
-                    missing_persisted_refs += 1
-            elif event["event_type"] == "first_confirmed_ready":
-                candidate = event.get("close_at_confirmed_entry_bar")
-                if _finite_pos(candidate):
-                    ref_price = float(candidate)
-                    ref_source = "close_at_confirmed_entry_bar"
-                else:
-                    ref_status = "reference_price_not_evaluable"
-                    ref_reason = "missing_persisted_state_reference"
-                    missing_persisted_refs += 1
+            ref_price, ref_status, ref_source, ref_reason, counted_missing_persisted = _reference_price_from_event(event, df)
+            if counted_missing_persisted:
+                missing_persisted_refs += 1
 
             row["reference_price"] = ref_price
             row["reference_price_status"] = ref_status
@@ -178,7 +196,7 @@ def build_signal_metrics(
                     row[k_ret] = None
                     row[k_mfe] = None
                     row[k_mae] = None
-                    row[k_status] = ref_status
+                    row[k_status] = "missing_ohlcv_history" if ref_reason == "missing_ohlcv_history" else ref_status
                 elif df.empty:
                     row[k_ret] = None
                     row[k_mfe] = None

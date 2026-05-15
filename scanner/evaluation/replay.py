@@ -96,6 +96,32 @@ def _finite_or_none(value: Any) -> Any:
     return float(value)
 
 
+def _nested(record: dict[str, Any], *path: str) -> Any:
+    current: Any = record
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current.get(key)
+    return current
+
+
+def _bool_or_none(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _operational_tradeability(record: dict[str, Any]) -> tuple[bool | None, bool | None, str]:
+    native = _bool_or_none(record.get("is_operational_trade_candidate"))
+    if native is not None:
+        return native, None, "native_ir1_5"
+    tradeable = _bool_or_none(record.get("is_tradeable_candidate"))
+    excluded = _bool_or_none(record.get("candidate_excluded"))
+    if tradeable is None or excluded is None:
+        return None, None, "not_available"
+    return None, bool(tradeable and not excluded), "compat_backfill"
+
+
 def _resolve_diag_path(project_root: Path, manifest_path: Path, manifest_payload: dict[str, Any]) -> Path | None:
     explicit = (
         manifest_payload.get("symbol_diagnostics_path")
@@ -146,6 +172,9 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
         "market_phase_confidence": 0,
         "state_confidence": 0,
         "priority_score": 0,
+        "recommended_position_factor": 0,
+        "execution_grade_effective": 0,
+        "available_depth_ratio": 0,
     }
 
     for manifest in manifests:
@@ -191,15 +220,28 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
             raw_mpc = _coalesce_none(record.get("market_phase_confidence"), phase_root.get("market_phase_confidence"))
             raw_sc = _coalesce_none(record.get("state_confidence"), state_root.get("state_confidence"))
             raw_ps = _coalesce_none(record.get("priority_score"), decision_root.get("priority_score"))
+            raw_rpf = record.get("recommended_position_factor")
+            raw_grade = record.get("execution_grade_effective")
+            raw_depth = record.get("available_depth_ratio")
             mpc = _finite_or_none(raw_mpc)
             sc = _finite_or_none(raw_sc)
             ps = _finite_or_none(raw_ps)
+            recommended_position_factor = _finite_or_none(raw_rpf)
+            execution_grade_effective = _finite_or_none(raw_grade)
+            available_depth_ratio = _finite_or_none(raw_depth)
             if raw_mpc is not None and mpc is None:
                 invalid_numeric_counts["market_phase_confidence"] += 1
             if raw_sc is not None and sc is None:
                 invalid_numeric_counts["state_confidence"] += 1
             if raw_ps is not None and ps is None:
                 invalid_numeric_counts["priority_score"] += 1
+            if raw_rpf is not None and recommended_position_factor is None:
+                invalid_numeric_counts["recommended_position_factor"] += 1
+            if raw_grade is not None and execution_grade_effective is None:
+                invalid_numeric_counts["execution_grade_effective"] += 1
+            if raw_depth is not None and available_depth_ratio is None:
+                invalid_numeric_counts["available_depth_ratio"] += 1
+            is_operational_trade_candidate, operational_tradeability_compat, operational_tradeability_source = _operational_tradeability(record)
             row = {
                 "symbol": symbol,
                 "setup_cycle_id": cycle,
@@ -214,12 +256,32 @@ def reconstruct_event_timeline(*, project_root: Path, runs_root: str = "snapshot
                 "market_phase_confidence": mpc,
                 "state_confidence": sc,
                 "priority_score": ps,
+                "run_id": run_id,
+                "scan_mode": record.get("scan_mode") or manifest_payload.get("scan_mode"),
                 "first_observed_run_id": run_id,
                 "first_observed_run_mode": record.get("scan_mode") or manifest_payload.get("scan_mode"),
                 "source_snapshot_path": source_snapshot_path,
                 "source_manifest_path": source_manifest_path,
                 "close_at_early_entry_bar": _extract(record, "close_at_early_entry_bar"),
                 "close_at_confirmed_entry_bar": _extract(record, "close_at_confirmed_entry_bar"),
+                "schema_version": record.get("schema_version"),
+                "entry_pattern": _nested(record, "pattern", "entry_pattern"),
+                "execution_status_raw": record.get("execution_status_raw"),
+                "execution_size_class": record.get("execution_size_class"),
+                "is_tradeable_candidate": _bool_or_none(record.get("is_tradeable_candidate")),
+                "is_reduced_size_eligible": _bool_or_none(record.get("is_reduced_size_eligible")),
+                "recommended_position_factor": recommended_position_factor,
+                "execution_grade_effective": execution_grade_effective,
+                "available_depth_ratio": available_depth_ratio,
+                "depth_ratio_band": record.get("depth_ratio_band"),
+                "candidate_excluded": _bool_or_none(record.get("candidate_excluded")),
+                "universe_category": _nested(record, "universe", "universe_category"),
+                "is_operational_trade_candidate": is_operational_trade_candidate,
+                "operational_tradeability_compat": operational_tradeability_compat,
+                "operational_tradeability_source": operational_tradeability_source,
+                "entry_location_status": _nested(record, "entry_location", "entry_location_status"),
+                "entry_action_hint": _nested(record, "entry_location", "entry_action_hint"),
+                "range_high_proximity_warning": _bool_or_none(_nested(record, "entry_location", "range_high_proximity_warning")),
             }
             prev = by_identity.get(identity)
             if prev is None or (row["event_timestamp_utc"], row["event_type"]) < (prev["event_timestamp_utc"], prev["event_type"]):
