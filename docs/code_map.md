@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-18 17:30 UTC  
+**Last Updated:** 2026-05-18 19:02 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -65,9 +65,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 105
-- **Total Classes:** 64
-- **Total Functions:** 788
+- **Total Modules:** 112
+- **Total Classes:** 72
+- **Total Functions:** 829
 
 ---
 
@@ -354,6 +354,84 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 **Module Variables:** `HORIZONS, SIGNAL_EVENTS, TERMINAL_EVENTS, base, close, close_value, day, df, diagnostics, dt_s` _(+28 more)_
 
 **Imports:** `__future__, datetime, math, pandas, pathlib, typing`
+
+---
+
+### 📄 `scanner/evaluation/history/__init__.py`
+
+**Functions:** —
+
+**Imports:** `history_fetch_config, ohlcv_history_fetch`
+
+---
+
+### 📄 `scanner/evaluation/history/binance_client.py`
+
+**Classes:** `BinanceSpotClient`
+
+**Functions:** `_get, get_klines, get_spot_usdt_symbols`
+
+**Module Variables:** `BASE_URL, data, is_spot, permissions, response`
+
+**Imports:** `__future__, dataclasses, requests, typing`
+
+---
+
+### 📄 `scanner/evaluation/history/history_fetch_config.py`
+
+**Classes:** `HistoryFetchConfig`
+
+**Functions:** `last_closed_daily_bar_date, parse_utc_date, resolve, utc_now, warm_up_coverage`
+
+**Module Variables:** `DEFAULT_EVALUATION_END_DATE, DEFAULT_EVALUATION_START_DATE, DEFAULT_FETCH_END_DATE, DEFAULT_FETCH_START_DATE, DEFAULT_TIMEFRAMES, EXCLUSION_REASONS, SCHEMA_VERSION, SOURCE, VALID_TIMEFRAMES, VALID_UNIVERSE_MODES` _(+10 more)_
+
+**Imports:** `__future__, dataclasses, datetime, pathlib, typing`
+
+---
+
+### 📄 `scanner/evaluation/history/manifests.py`
+
+**Functions:** `_json_safe, build_history_manifest, build_symbol_completeness, build_universe_manifest, iso_now, write_json`
+
+**Module Variables:** `bar_counts, counts, errors, key, ordered, sorted_excluded, subset, symbols_with_any`
+
+**Imports:** `__future__, datetime, history_fetch_config, json, pandas, parquet_store, pathlib, symbol_intersection` _(+1 more)_
+
+---
+
+### 📄 `scanner/evaluation/history/ohlcv_history_fetch.py`
+
+**Classes:** `FetchAccumulator, FetchOutcome, HistoryClient`
+
+**Functions:** `_coerce_float, _end_ms, _ms, _resolve, _row_from_kline, _start_ms, fetch_klines_paginated, get_klines, get_spot_usdt_symbols, run_history_fetch`
+
+**Module Variables:** `accumulator, advanced, batch, binance_symbols, close_time, close_time_ms, created_at, current_counts, cursor, daily_counts` _(+18 more)_
+
+**Imports:** `__future__, binance_client, dataclasses, datetime, history_fetch_config, manifests, math, pandas` _(+5 more)_
+
+---
+
+### 📄 `scanner/evaluation/history/parquet_store.py`
+
+**Classes:** `WriteResult`
+
+**Functions:** `_month_is_closed, _open_time_keys, _relative, _status, _validate_rows, discover_partitions, load_symbol_timeframe, normalize_rows, partition_path, read_partition, write_partitioned_ohlcv`
+
+**Module Variables:** `KEY_COLUMNS, NUMERIC_COLUMNS, REQUIRED_COLUMNS, after_keys, before_missing, closed_month, completed_from_partial, existing, existing_keys, exists` _(+20 more)_
+
+**Imports:** `__future__, dataclasses, datetime, math, pandas, pathlib`
+
+---
+
+### 📄 `scanner/evaluation/history/symbol_intersection.py`
+
+**Classes:** `ExcludedSymbol, UniverseResolution`
+
+**Functions:** `_sorted_exclusions, empty_excluded_counts, load_mexc_universe, normalize_spot_usdt_symbol, resolve_universe, to_dict`
+
+**Module Variables:** `base, binance_normalized, binance_set, counts, normalized, normalized_by_source, payload, raw, source_symbols`
+
+**Imports:** `__future__, collections, dataclasses, history_fetch_config, json, pathlib, typing`
 
 ---
 
@@ -1475,6 +1553,69 @@ _This section shows which functions call which other functions, helping identify
 | `_reference_price_from_event` | `_event_bar_close`, `_event_daily_bar_id`, `_finite_pos` | `get` |
 | `build_signal_metrics` | `_event_daily_bar_id`, `_load_daily_ohlcv`, `_reference_price_from_event` | `DataFrame`, `append`, `fromisoformat`, `get`, `items`, `replace`, `setdefault`, `tolist`, `total_seconds` |
 
+### 📄 scanner/evaluation/history/binance_client.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_get` | — | `get`, `json`, `raise_for_status` |
+| `get_klines` | `_get` | — |
+| `get_spot_usdt_symbols` | `_get` | `append`, `get`, `upper` |
+
+### 📄 scanner/evaluation/history/history_fetch_config.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `last_closed_daily_bar_date` | `utc_now` | `ValueError`, `astimezone`, `date`, `timedelta` |
+| `parse_utc_date` | — | `TypeError`, `ValueError`, `endswith`, `fromisoformat`, `strip` |
+| `resolve` | `last_closed_daily_bar_date`, `parse_utc_date`, `utc_now` | `Path`, `ValueError`, `astimezone`, `cls`, `isoformat` |
+| `utc_now` | — | `now` |
+
+### 📄 scanner/evaluation/history/manifests.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_json_safe` | — | `as_posix` |
+| `build_history_manifest` | — | `as_posix`, `groupby`, `isoformat`, `items`, `nunique`, `replace`, `size` |
+| `build_symbol_completeness` | — | `items`, `sort_values` |
+| `build_universe_manifest` | — | `ExcludedSymbol`, `append`, `empty_excluded_counts`, `get`, `to_dict` |
+| `iso_now` | — | `isoformat`, `now`, `replace` |
+| `write_json` | — | `dumps`, `mkdir`, `write_text` |
+
+### 📄 scanner/evaluation/history/ohlcv_history_fetch.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_coerce_float` | — | `ValueError`, `isfinite` |
+| `_end_ms` | `_ms` | `combine`, `time`, `timedelta` |
+| `_ms` | — | `timestamp` |
+| `_resolve` | `get_spot_usdt_symbols` | `load_mexc_universe`, `resolve_universe` |
+| `_row_from_kline` | `_coerce_float` | `fromtimestamp`, `isoformat`, `most_recent_closed_bar_close_time_utc_ms`, `replace`, `timeframe_to_duration_ms` |
+| `_start_ms` | `_ms` | `combine`, `time` |
+| `fetch_klines_paginated` | `_end_ms`, `_row_from_kline`, `_start_ms`, `get_klines` | `append`, `timeframe_to_duration_ms` |
+| `run_history_fetch` | `_resolve`, `fetch_klines_paginated` | `BinanceSpotClient`, `DataFrame`, `FetchAccumulator`, `FetchOutcome`, `WriteResult`, `build_history_manifest`, `build_symbol_completeness`, `build_universe_manifest`, `extend`, `get`, `groupby`, `iso_now`, `items`, `load_symbol_timeframe`, `normalize_rows`, `size`, `to_dict`, `update`, `uuid4`, `write_json`, `write_partitioned_ohlcv` |
+
+### 📄 scanner/evaluation/history/parquet_store.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_open_time_keys` | — | `strftime`, `to_datetime` |
+| `_relative` | — | `as_posix` |
+| `_status` | `_relative` | — |
+| `_validate_rows` | — | `ValueError`, `eq`, `isfinite`, `isna`, `to_numeric` |
+| `discover_partitions` | — | `exists`, `glob` |
+| `load_symbol_timeframe` | `normalize_rows` | `DataFrame`, `concat`, `glob`, `read_parquet` |
+| `normalize_rows` | `_validate_rows` | `copy`, `drop_duplicates`, `reset_index`, `sort_values`, `strftime`, `to_datetime` |
+| `read_partition` | — | `DataFrame`, `exists`, `read_parquet` |
+| `write_partitioned_ohlcv` | `_month_is_closed`, `_open_time_keys`, `_relative`, `_status`, `normalize_rows`, `partition_path`, `read_partition` | `DataFrame`, `WriteResult`, `append`, `concat`, `copy`, `drop`, `exists`, `groupby`, `isin`, `issubset`, `mkdir`, `sort`, `to_datetime`, `to_parquet` |
+
+### 📄 scanner/evaluation/history/symbol_intersection.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `load_mexc_universe` | — | `Path`, `ValueError`, `get`, `loads`, `read_text` |
+| `normalize_spot_usdt_symbol` | — | `endswith`, `isalnum`, `replace`, `strip`, `upper` |
+| `resolve_universe` | `_sorted_exclusions`, `normalize_spot_usdt_symbol` | `Counter`, `ExcludedSymbol`, `UniverseResolution`, `ValueError`, `add`, `append`, `values` |
+
 ### 📄 scanner/evaluation/replay.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2299,7 +2440,9 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
+| `scanner/evaluation/history/ohlcv_history_fetch.py` | 10 | 38 | 48 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
+| `scanner/evaluation/history/parquet_store.py` | 10 | 37 | 47 | 🔴 High |
 | `scanner/evaluation/replay.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
@@ -2328,10 +2471,13 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
+| `scanner/evaluation/history/manifests.py` | 0 | 21 | 21 | 🔴 High |
 | `scanner/execution/adapter.py` | 4 | 17 | 21 | 🔴 High |
 | `scanner/storage/repositories.py` | 0 | 21 | 21 | 🔴 High |
 | `scanner/storage/schema.py` | 4 | 17 | 21 | 🔴 High |
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
+| `scanner/evaluation/history/history_fetch_config.py` | 4 | 15 | 19 | 🔴 High |
+| `scanner/evaluation/history/symbol_intersection.py` | 2 | 17 | 19 | 🔴 High |
 | `scanner/utils/raw_collector.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/axes/tier1.py` | 7 | 11 | 18 | 🔴 High |
 | `scanner/output/diagnostics_serialization.py` | 11 | 7 | 18 | ⚠️ Medium |
@@ -2358,6 +2504,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/main.py` | 3 | 7 | 10 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/evaluation/history/binance_client.py` | 2 | 6 | 8 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/pipeline/regime.py` | 2 | 5 | 7 | 🔴 High |
@@ -2392,4 +2539,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-18 17:30 UTC_
+_Generated by GitHub Actions • 2026-05-18 19:02 UTC_
