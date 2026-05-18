@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # 2026-05-18__BACKTEST_PRE_1__binance_ohlcv_history_fetch
 
 ## Title
