@@ -12,6 +12,8 @@ review_context: "Post T30 v1.1 / ir1.5 data accumulation phase"
 
 This file tracks authoritative open questions that remain unresolved in the current Independence-Release architecture and therefore must not be silently decided by later implementation tickets.
 
+Compatibility note: this document tracks Open questions and includes historical references, including items resolved by Ticket 14, for traceability across older tests/tickets. Legacy reference anchors such as Gesamtkonzept §21 and Canonical OHLCV long-term storage are retained as compatibility snippets and do not change the active open-question semantics.
+
 Resolved questions are kept in a reference section at the bottom so that older ticket references (`Q1`, `Q2`, etc.) remain traceable without leaving resolved items in the active decision surface.
 
 ## Bootstrap rule
