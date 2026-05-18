@@ -10,6 +10,8 @@ review_context: "Post T30 v1.1 / ir1.5 data accumulation phase"
 
 ## Purpose
 
+
+Compatibility note: Diese Liste dokumentiert bewusst verschobene Themen aus früheren Planungsständen. Historical placeholder status: none yet.
 This file lists deliberately deferred, partially implemented, and completed enhancement topics for the Independence-Release architecture.
 
 Items that are fully implemented are retained in a reference section so that older tickets, reviews, and open-question links remain traceable without treating completed work as still deferred.
