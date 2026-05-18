@@ -192,6 +192,7 @@ def run_history_fetch(
         rows=rows_df,
         symbols=resolution.included_symbols,
         timeframes=config.timeframes,
+        partition_completeness=write_result.partition_completeness,
     )
     universe_manifest = build_universe_manifest(
         fetch_run_id=run_id,

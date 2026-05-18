@@ -6,7 +6,6 @@ import math
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -36,9 +35,13 @@ class WriteResult:
     written: list[str] = field(default_factory=list)
     skipped_existing: list[str] = field(default_factory=list)
     repaired: list[str] = field(default_factory=list)
+    completed_partial: list[str] = field(default_factory=list)
+    incomplete: list[str] = field(default_factory=list)
+    partition_completeness: list[dict[str, object]] = field(default_factory=list)
     existing_partitions_detected: int = 0
     new_partitions_written: int = 0
     existing_closed_partitions_rewritten: int = 0
+    existing_partial_partitions_completed: int = 0
 
 
 def partition_path(root: Path, *, timeframe: str, symbol: str, year: int, month: int) -> Path:
@@ -51,6 +54,41 @@ def _relative(path: Path) -> str:
 
 def _month_is_closed(year: int, month: int, effective_fetch_end_date: date) -> bool:
     return (year, month) < (effective_fetch_end_date.year, effective_fetch_end_date.month)
+
+
+def _open_time_keys(df: pd.DataFrame) -> set[str]:
+    if df.empty or "open_time_utc" not in df.columns:
+        return set()
+    return set(pd.to_datetime(df["open_time_utc"], utc=True).dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
+def _status(
+    *,
+    path: Path,
+    timeframe: str,
+    symbol: str,
+    year: int,
+    month: int,
+    expected_keys: set[str],
+    actual_keys: set[str],
+    closed_month: bool,
+    completed_from_partial: bool = False,
+) -> dict[str, object]:
+    missing = sorted(expected_keys - actual_keys)
+    return {
+        "path": _relative(path),
+        "timeframe": timeframe,
+        "symbol": symbol,
+        "year": year,
+        "month": month,
+        "closed_month": closed_month,
+        "expected_bars_for_effective_fetch_window": len(expected_keys),
+        "actual_bars": len(actual_keys),
+        "missing_bars_for_effective_fetch_window": len(missing),
+        "missing_open_time_utc": missing,
+        "complete_for_effective_fetch_window": not missing,
+        "completed_from_partial": completed_from_partial,
+    }
 
 
 def _validate_rows(df: pd.DataFrame) -> None:
@@ -97,26 +135,64 @@ def write_partitioned_ohlcv(
     normalized["_open_ts"] = pd.to_datetime(normalized["open_time_utc"], utc=True)
     grouped = normalized.groupby(["timeframe", "symbol", normalized["_open_ts"].dt.year, normalized["_open_ts"].dt.month], sort=True)
     for (timeframe, symbol, year, month), group in grouped:
-        path = partition_path(output_root, timeframe=str(timeframe), symbol=str(symbol), year=int(year), month=int(month))
+        timeframe = str(timeframe)
+        symbol = str(symbol)
+        year = int(year)
+        month = int(month)
+        path = partition_path(output_root, timeframe=timeframe, symbol=symbol, year=year, month=month)
         rel = _relative(path)
         exists = path.exists()
-        closed_month = _month_is_closed(int(year), int(month), effective_fetch_end_date)
+        closed_month = _month_is_closed(year, month, effective_fetch_end_date)
+        incoming = normalize_rows(group.drop(columns=["_open_ts"]).copy())
+        expected_keys = _open_time_keys(incoming)
+        existing = normalize_rows(read_partition(path)) if exists else pd.DataFrame(columns=REQUIRED_COLUMNS)
+        existing_keys = _open_time_keys(existing)
         if exists:
             result.existing_partitions_detected += 1
-        if exists and closed_month and not force_repair:
+
+        if exists and closed_month and not force_repair and expected_keys.issubset(existing_keys):
             result.skipped_existing.append(rel)
+            result.partition_completeness.append(
+                _status(
+                    path=path,
+                    timeframe=timeframe,
+                    symbol=symbol,
+                    year=year,
+                    month=month,
+                    expected_keys=expected_keys,
+                    actual_keys=existing_keys,
+                    closed_month=closed_month,
+                )
+            )
             continue
-        path.parent.mkdir(parents=True, exist_ok=True)
-        out_group = group.drop(columns=["_open_ts"]).copy()
+
+        completed_from_partial = False
         if exists and not force_repair:
-            existing = read_partition(path)
-            out_group = normalize_rows(pd.concat([existing, out_group], ignore_index=True))
-            before = len(normalize_rows(existing)) if not existing.empty else 0
-            if len(out_group) == before:
+            before_missing = expected_keys - existing_keys
+            incoming_missing = incoming[incoming["open_time_utc"].isin(before_missing)]
+            out_group = normalize_rows(pd.concat([existing, incoming_missing], ignore_index=True))
+            after_keys = _open_time_keys(out_group)
+            if not before_missing and len(after_keys) == len(existing_keys):
                 result.skipped_existing.append(rel)
+                result.partition_completeness.append(
+                    _status(
+                        path=path,
+                        timeframe=timeframe,
+                        symbol=symbol,
+                        year=year,
+                        month=month,
+                        expected_keys=expected_keys,
+                        actual_keys=after_keys,
+                        closed_month=closed_month,
+                    )
+                )
                 continue
+            completed_from_partial = bool(closed_month and before_missing and expected_keys.issubset(after_keys))
         else:
-            out_group = normalize_rows(out_group)
+            out_group = incoming
+            after_keys = _open_time_keys(out_group)
+
+        path.parent.mkdir(parents=True, exist_ok=True)
         out_group.to_parquet(path, index=False)
         if exists and closed_month and force_repair:
             result.repaired.append(rel)
@@ -125,9 +201,30 @@ def write_partitioned_ohlcv(
             result.written.append(rel)
             if not exists:
                 result.new_partitions_written += 1
+        if completed_from_partial:
+            result.completed_partial.append(rel)
+            result.existing_partial_partitions_completed += 1
+
+        status = _status(
+            path=path,
+            timeframe=timeframe,
+            symbol=symbol,
+            year=year,
+            month=month,
+            expected_keys=expected_keys,
+            actual_keys=after_keys,
+            closed_month=closed_month,
+            completed_from_partial=completed_from_partial,
+        )
+        result.partition_completeness.append(status)
+        if not status["complete_for_effective_fetch_window"]:
+            result.incomplete.append(rel)
     result.written.sort()
     result.skipped_existing.sort()
     result.repaired.sort()
+    result.completed_partial.sort()
+    result.incomplete.sort()
+    result.partition_completeness.sort(key=lambda item: str(item["path"]))
     return result
 
 

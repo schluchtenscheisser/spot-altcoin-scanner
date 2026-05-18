@@ -37,6 +37,7 @@ def build_symbol_completeness(
     symbols: list[str],
     timeframes: tuple[str, ...],
     missing_ranges: dict[str, list[dict[str, str]]] | None = None,
+    partition_completeness: list[dict[str, object]] | None = None,
 ) -> dict[str, Any]:
     counts: dict[str, int] = {}
     latest: dict[str, str | None] = {}
@@ -62,6 +63,7 @@ def build_symbol_completeness(
         "latest_close_time_by_symbol_timeframe": dict(sorted(latest.items())),
         "first_close_time_by_symbol_timeframe": dict(sorted(first.items())),
         "missing_ranges_by_symbol_timeframe": dict(sorted((missing_ranges or {}).items())),
+        "partition_completeness": partition_completeness or [],
     }
 
 
@@ -153,10 +155,14 @@ def build_history_manifest(
         "partitions_written": write_result.written,
         "partitions_skipped_existing": write_result.skipped_existing,
         "partitions_repaired": write_result.repaired,
+        "partitions_completed_from_partial": write_result.completed_partial,
+        "partitions_incomplete_for_effective_fetch_window": write_result.incomplete,
+        "partition_completeness": write_result.partition_completeness,
         "data_quality_issues": data_quality_issues or [],
         "incremental_update_summary": {
             "existing_partitions_detected": write_result.existing_partitions_detected,
             "new_partitions_written": write_result.new_partitions_written,
             "existing_closed_partitions_rewritten": write_result.existing_closed_partitions_rewritten,
+            "existing_partial_partitions_completed": write_result.existing_partial_partitions_completed,
         },
     }

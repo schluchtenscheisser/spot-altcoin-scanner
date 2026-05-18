@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -39,6 +39,11 @@ def kline(open_iso: str, *, timeframe="1d", close="1.0"):
     duration = 86_400_000 if timeframe == "1d" else 14_400_000
     open_ms = ms(open_iso)
     return [open_ms, "1.0", "2.0", "0.5", close, "10", open_ms + duration - 1, "100", 7]
+
+
+def daily_klines(start: str, days: int, *, close="1.0"):
+    start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    return [kline((start_dt + timedelta(days=offset)).isoformat().replace("+00:00", "Z"), close=close) for offset in range(days)]
 
 
 def cfg(tmp_path: Path, **overrides) -> HistoryFetchConfig:
@@ -121,6 +126,62 @@ def test_closed_partition_immutability_and_force_repair(tmp_path):
     repaired = run_history_fetch(cfg(tmp_path, fetch_end_date="2025-02-02", timeframes=("1d",), runtime_utc=datetime(2025, 2, 3, tzinfo=timezone.utc), force_repair=True), client=FakeBinanceClient(["AAAUSDT"], changed), fetch_run_id="r3")
     stored = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
     assert float(stored.iloc[0]["close"]) == 9.0
+    assert repaired.history_manifest["partitions_repaired"]
+
+
+def test_formerly_partial_closed_month_is_completed_without_force_repair(tmp_path):
+    january = daily_klines("2025-01-01T00:00:00Z", 31, close="1.0")
+    february = daily_klines("2025-02-01T00:00:00Z", 2, close="2.0")
+    client = FakeBinanceClient(["AAAUSDT"], {("AAAUSDT", "1d"): january + february, ("AAAUSDT", "4h"): []})
+
+    run_history_fetch(
+        cfg(tmp_path, fetch_end_date="2025-01-15", timeframes=("1d",), runtime_utc=datetime(2025, 1, 16, 1, tzinfo=timezone.utc)),
+        client=client,
+        fetch_run_id="jan15",
+    )
+    stored = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
+    assert len(stored[stored["open_time_utc"].str.startswith("2025-01-")]) == 15
+
+    completed = run_history_fetch(
+        cfg(tmp_path, fetch_end_date="2025-02-02", timeframes=("1d",), runtime_utc=datetime(2025, 2, 3, 1, tzinfo=timezone.utc)),
+        client=client,
+        fetch_run_id="feb2",
+    )
+    stored = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
+    january_stored = stored[stored["open_time_utc"].str.startswith("2025-01-")]
+    assert len(january_stored) == 31
+    assert january_stored.duplicated(["source", "symbol", "timeframe", "open_time_utc"]).sum() == 0
+    assert completed.history_manifest["partitions_completed_from_partial"]
+    assert completed.history_manifest["incremental_update_summary"]["existing_partial_partitions_completed"] == 1
+    assert any(item["completed_from_partial"] for item in completed.symbol_completeness["partition_completeness"])
+
+    rerun = run_history_fetch(
+        cfg(tmp_path, fetch_end_date="2025-02-02", timeframes=("1d",), runtime_utc=datetime(2025, 2, 3, 1, tzinfo=timezone.utc)),
+        client=client,
+        fetch_run_id="feb2-rerun",
+    )
+    stored_again = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
+    assert len(stored_again[stored_again["open_time_utc"].str.startswith("2025-01-")]) == 31
+    assert stored_again.duplicated(["source", "symbol", "timeframe", "open_time_utc"]).sum() == 0
+    assert not rerun.history_manifest["partitions_completed_from_partial"]
+
+    changed = FakeBinanceClient(["AAAUSDT"], {("AAAUSDT", "1d"): daily_klines("2025-01-01T00:00:00Z", 31, close="9.0") + february, ("AAAUSDT", "4h"): []})
+    normal = run_history_fetch(
+        cfg(tmp_path, fetch_end_date="2025-02-02", timeframes=("1d",), runtime_utc=datetime(2025, 2, 3, 1, tzinfo=timezone.utc)),
+        client=changed,
+        fetch_run_id="normal-no-repair",
+    )
+    stored_normal = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
+    assert float(stored_normal[stored_normal["open_time_utc"] == "2025-01-01T00:00:00Z"].iloc[0]["close"]) == 1.0
+    assert normal.history_manifest["partitions_skipped_existing"]
+
+    repaired = run_history_fetch(
+        cfg(tmp_path, fetch_end_date="2025-02-02", timeframes=("1d",), runtime_utc=datetime(2025, 2, 3, 1, tzinfo=timezone.utc), force_repair=True),
+        client=changed,
+        fetch_run_id="repair",
+    )
+    stored_repaired = load_symbol_timeframe(tmp_path / "ohlcv", "AAAUSDT", "1d")
+    assert float(stored_repaired[stored_repaired["open_time_utc"] == "2025-01-01T00:00:00Z"].iloc[0]["close"]) == 9.0
     assert repaired.history_manifest["partitions_repaired"]
 
 
