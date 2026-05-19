@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from argparse import ArgumentParser
+import sys
 from pathlib import Path
 
-from scanner.evaluation.historical_replay.scenario import load_scenario, scenario_config_hash
+from scanner.evaluation.historical_replay.scenario import ScenarioValidationError, load_scenario, scenario_config_hash
 from scanner.evaluation.historical_replay.scenario_registry import ensure_scenario_hash
 
 
@@ -18,7 +19,11 @@ def build_parser() -> ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     scenario_path = Path(args.scenario)
-    scenario = load_scenario(scenario_path)
+    try:
+        scenario = load_scenario(scenario_path)
+    except ScenarioValidationError as exc:
+        print(f"Scenario validation failed: {exc}", file=sys.stderr)
+        return 2
     if args.dry_run_validate_scenario:
         return 0
     registry_path = Path(args.output_root) / "scenario_registry.sqlite"

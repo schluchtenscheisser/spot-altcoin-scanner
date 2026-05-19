@@ -5,14 +5,46 @@ from datetime import date, datetime
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import yaml
 
-_ALLOWED_TIMEFRAMES = {"1d", "4h"}
+CANONICAL_TIMEFRAME_ORDER = ("1d", "4h")
+_ALLOWED_TIMEFRAMES = set(CANONICAL_TIMEFRAME_ORDER)
 _ALLOWED_EXECUTION_MODE = "disabled_historical_ohlcv_only"
 
 
+
+
+class ScenarioValidationError(ValueError):
+    """Scenario validation failed."""
+
+
+def _require_int(mapping: Mapping[str, Any], key: str, *, path: str, min_value: int | None = None) -> int:
+    if key not in mapping:
+        raise ScenarioValidationError(f"Missing required scenario field: {path}.{key}")
+    value = mapping[key]
+    if isinstance(value, bool):
+        raise ScenarioValidationError(f"Invalid integer field {path}.{key}: booleans are not allowed")
+    if not isinstance(value, int):
+        raise ScenarioValidationError(f"Invalid integer field {path}.{key}: expected integer")
+    if min_value is not None and value < min_value:
+        raise ScenarioValidationError(f"Invalid integer field {path}.{key}: expected >= {min_value}")
+    return value
+
+
+def _canonicalize_timeframes(raw_timeframes: Sequence[Any]) -> tuple[str, ...]:
+    raw = [str(v) for v in raw_timeframes]
+    if not raw:
+        raise ScenarioValidationError("Missing or empty required scenario field: timeframes")
+    duplicates = sorted({tf for tf in raw if raw.count(tf) > 1})
+    if duplicates:
+        raise ScenarioValidationError(f"Duplicate timeframes are not allowed: {duplicates}")
+    unsupported = sorted(set(raw) - _ALLOWED_TIMEFRAMES)
+    if unsupported:
+        raise ScenarioValidationError(f"Unsupported timeframes: {unsupported}")
+    raw_set = set(raw)
+    return tuple(tf for tf in CANONICAL_TIMEFRAME_ORDER if tf in raw_set)
 @dataclass(frozen=True)
 class DateRange:
     start_date: date
@@ -81,11 +113,9 @@ def load_scenario(path: Path) -> ReplayScenario:
         raise ValueError("execution.mode must be disabled_historical_ohlcv_only")
 
     tfs = payload.get("timeframes")
-    if not isinstance(tfs, list) or not tfs:
-        raise ValueError("timeframes must be non-empty list")
-    timeframes = tuple(str(v) for v in tfs)
-    if any(tf not in _ALLOWED_TIMEFRAMES for tf in timeframes):
-        raise ValueError("timeframes must contain only 1d and 4h")
+    if not isinstance(tfs, list):
+        raise ScenarioValidationError("Missing or empty required scenario field: timeframes")
+    timeframes = _canonicalize_timeframes(tfs)
 
     scanner_config = payload.get("scanner_config")
     regime_labels = payload.get("regime_labels")
@@ -106,15 +136,11 @@ def load_scenario(path: Path) -> ReplayScenario:
         scanner_config_ref=_require_str(scanner_config, "ref"),
         scanner_config_hash=_require_str(scanner_config, "hash"),
         regime_method_ref=_require_str(regime_labels, "method_ref"),
-        settlement_delay_seconds=int(replay_policy.get("settlement_delay_seconds")),
-        warm_up_1d_bars=int(warmup.get("warm_up_1d_bars")),
-        warm_up_4h_bars=int(warmup.get("warm_up_4h_bars")),
+        settlement_delay_seconds=_require_int(replay_policy, "settlement_delay_seconds", path="daily_replay_time_policy", min_value=0),
+        warm_up_1d_bars=_require_int(warmup, "warm_up_1d_bars", path="warmup", min_value=1),
+        warm_up_4h_bars=_require_int(warmup, "warm_up_4h_bars", path="warmup", min_value=1),
         splits=_parse_splits(payload.get("splits"), start_date, end_date),
     )
-    if scenario.settlement_delay_seconds < 0:
-        raise ValueError("settlement_delay_seconds must be >= 0")
-    if scenario.warm_up_1d_bars < 1 or scenario.warm_up_4h_bars < 1:
-        raise ValueError("warmup bars must be positive")
     return scenario
 
 
