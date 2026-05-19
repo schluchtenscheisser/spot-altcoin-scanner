@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-19 07:41 UTC  
+**Last Updated:** 2026-05-19 08:23 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -65,9 +65,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 112
-- **Total Classes:** 72
-- **Total Functions:** 829
+- **Total Modules:** 116
+- **Total Classes:** 75
+- **Total Functions:** 839
 
 ---
 
@@ -354,6 +354,34 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 **Module Variables:** `HORIZONS, SIGNAL_EVENTS, TERMINAL_EVENTS, base, close, close_value, day, df, diagnostics, dt_s` _(+28 more)_
 
 **Imports:** `__future__, datetime, math, pandas, pathlib, typing`
+
+---
+
+### 📄 `scanner/evaluation/historical_replay/__init__.py`
+
+**Functions:** —
+
+---
+
+### 📄 `scanner/evaluation/historical_replay/scenario.py`
+
+**Classes:** `DateRange, ReplayScenario, ScenarioValidationError`
+
+**Functions:** `_canonicalize_timeframes, _parse_date, _parse_splits, _require_int, _require_str, load_scenario, scenario_config_hash`
+
+**Module Variables:** `CANONICAL_TIMEFRAME_ORDER, blob, block, cal, canonical, duplicates, end, end_date, evaluation, execution` _(+16 more)_
+
+**Imports:** `__future__, dataclasses, datetime, hashlib, json, pathlib, typing, yaml`
+
+---
+
+### 📄 `scanner/evaluation/historical_replay/scenario_registry.py`
+
+**Functions:** `ensure_scenario_hash`
+
+**Module Variables:** `row`
+
+**Imports:** `__future__, datetime, pathlib, sqlite3`
 
 ---
 
@@ -1117,6 +1145,16 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ---
 
+### 📄 `scanner/tools/run_historical_daily_replay.py`
+
+**Functions:** `build_parser, main`
+
+**Module Variables:** `args, parser, registry_path, scenario, scenario_path`
+
+**Imports:** `__future__, argparse, pathlib, scanner.evaluation.historical_replay.scenario, scanner.evaluation.historical_replay.scenario_registry, sys`
+
+---
+
 ### 📄 `scanner/tools/validate_features.py`
 
 **Functions:** `_emit, _error, _is_number, validate_features`
@@ -1552,6 +1590,24 @@ _This section shows which functions call which other functions, helping identify
 | `_load_daily_ohlcv` | — | `DataFrame`, `ValueError`, `concat`, `drop_duplicates`, `glob`, `issubset`, `read_parquet`, `reset_index`, `sort_values`, `strftime`, `to_datetime` |
 | `_reference_price_from_event` | `_event_bar_close`, `_event_daily_bar_id`, `_finite_pos` | `get` |
 | `build_signal_metrics` | `_event_daily_bar_id`, `_load_daily_ohlcv`, `_reference_price_from_event` | `DataFrame`, `append`, `fromisoformat`, `get`, `items`, `replace`, `setdefault`, `tolist`, `total_seconds` |
+
+### 📄 scanner/evaluation/historical_replay/scenario.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_canonicalize_timeframes` | — | `ScenarioValidationError`, `count` |
+| `_parse_date` | — | `ValueError`, `fromisoformat` |
+| `_parse_splits` | `_parse_date` | `DateRange`, `ValueError`, `get`, `issubset` |
+| `_require_int` | — | `ScenarioValidationError` |
+| `_require_str` | — | `ValueError`, `get`, `strip` |
+| `load_scenario` | `_canonicalize_timeframes`, `_parse_date`, `_parse_splits`, `_require_int`, `_require_str` | `DateRange`, `ReplayScenario`, `ScenarioValidationError`, `ValueError`, `get`, `read_text`, `safe_load` |
+| `scenario_config_hash` | — | `dumps`, `encode`, `hexdigest`, `isoformat`, `sha256` |
+
+### 📄 scanner/evaluation/historical_replay/scenario_registry.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `ensure_scenario_hash` | — | `ValueError`, `commit`, `connect`, `execute`, `fetchone`, `mkdir`, `now`, `strftime` |
 
 ### 📄 scanner/evaluation/history/binance_client.py
 
@@ -2339,6 +2395,13 @@ _This section shows which functions call which other functions, helping identify
 | `main` | `build_parser`, `run` | `parse_args` |
 | `run` | `_load_jsonl`, `_utc_now`, `_write_json_atomic`, `build_shadow_calibration_prep_report` | `Path`, `ValueError`, `strftime` |
 
+### 📄 scanner/tools/run_historical_daily_replay.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `build_parser` | — | `ArgumentParser`, `add_argument` |
+| `main` | `build_parser` | `Path`, `as_posix`, `ensure_scenario_hash`, `load_scenario`, `parse_args`, `scenario_config_hash` |
+
 ### 📄 scanner/tools/validate_features.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2461,6 +2524,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/features/raw_4h.py` | 9 | 23 | 32 | 🔴 High |
 | `scanner/clients/marketcap_client.py` | 4 | 27 | 31 | 🔴 High |
 | `scanner/evaluation/forward_returns.py` | 7 | 24 | 31 | 🔴 High |
+| `scanner/evaluation/historical_replay/scenario.py` | 6 | 24 | 30 | 🔴 High |
 | `scanner/phase/interpreter.py` | 14 | 16 | 30 | ⚠️ Medium |
 | `scanner/pipeline/runtime_market_meta.py` | 12 | 18 | 30 | 🔴 High |
 | `scanner/storage/snapshots.py` | 10 | 20 | 30 | 🔴 High |
@@ -2502,8 +2566,10 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/execution/grading.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/main.py` | 3 | 7 | 10 | 🔴 High |
+| `scanner/tools/run_historical_daily_replay.py` | 1 | 8 | 9 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
+| `scanner/evaluation/historical_replay/scenario_registry.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/evaluation/history/binance_client.py` | 2 | 6 | 8 | 🔴 High |
 | `scanner/pipeline/scoring/weights.py` | 0 | 8 | 8 | 🔴 High |
 | `scanner/utils/save_raw.py` | 0 | 8 | 8 | 🔴 High |
@@ -2539,4 +2605,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-19 07:41 UTC_
+_Generated by GitHub Actions • 2026-05-19 08:23 UTC_
