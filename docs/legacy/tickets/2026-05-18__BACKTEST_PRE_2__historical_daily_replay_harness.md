@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # 2026-05-18__BACKTEST_PRE_2__historical_daily_replay_harness
 
 ## Title
