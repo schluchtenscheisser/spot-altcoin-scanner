@@ -74,7 +74,7 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
     state = ReplayStateStore(run_dir / "state.sqlite")
     loader = HistoricalBarLoader(scenario.history_dataset_ref)
 
-    symbols = sorted([p.stem for p in (Path(scenario.history_dataset_ref) / "1d").glob("*.parquet")])
+    symbols = sorted([p.name.replace("symbol=", "") for p in (Path(scenario.history_dataset_ref) / "timeframe=1d").iterdir() if p.is_dir()])
     diagnostics: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     warmup_summary: dict[str, dict[str, Any]] = {s: {"warmup_days_skipped": 0, "first_evaluable_date": None} for s in symbols}
@@ -181,7 +181,7 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
         "warm_up_4h_bars": scenario.warm_up_4h_bars, "execution_mode": "disabled_historical_ohlcv_only", "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",
         "t4_bypass": True, "production_modules_used": ["scanner.state.machine"], "state_store_path": (run_dir / "state.sqlite").as_posix(),
         "scenario_registry_path": (output_root / "scenario_registry.sqlite").as_posix(), "warmup_summary_by_symbol": warmup_summary,
-        "replay_symbol_diagnostics_path": diag_path.as_posix(), "replay_event_candidates_path": event_path.as_posix(), "splits_recorded": None if scenario.splits is None else {k: asdict(v) for k,v in scenario.splits.items()},
+        "replay_symbol_diagnostics_path": diag_path.as_posix(), "replay_event_candidates_path": event_path.as_posix(), "splits_recorded": None if scenario.splits is None else {k: {"start_date": v.start_date.isoformat(), "end_date": v.end_date.isoformat()} for k,v in scenario.splits.items()},
         "replay_days_total": (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1, "replay_days_completed": (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1,
         "symbols_total": len(symbols), "symbols_evaluable": symbols_evaluable, "symbols_excluded_warmup": symbols_excluded_warmup,
         "signal_events_total": len(events), "created_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

@@ -18,11 +18,11 @@ class HistoricalBarLoader:
     def __init__(self, history_dataset_ref: str) -> None:
         self.root = Path(history_dataset_ref)
 
-    def _path(self, timeframe: str, symbol: str) -> Path:
-        return self.root / timeframe / f"{symbol}.parquet"
+    def _symbol_dir(self, timeframe: str, symbol: str) -> Path:
+        return self.root / f"timeframe={timeframe}" / f"symbol={symbol}"
 
     def load_symbol_timeframe(self, symbol: str, timeframe: str) -> pd.DataFrame:
-        p = self._path(timeframe, symbol)
+        p = self._symbol_dir(timeframe, symbol)
         if not p.exists():
             return pd.DataFrame()
         df = pd.read_parquet(p)
