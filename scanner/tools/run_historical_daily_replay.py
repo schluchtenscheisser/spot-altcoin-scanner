@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from argparse import ArgumentParser
+import logging
 import sys
+import time
 from pathlib import Path
 
 from scanner.evaluation.historical_replay.scenario import ScenarioValidationError, load_scenario, scenario_config_hash
@@ -18,6 +20,12 @@ def build_parser() -> ArgumentParser:
 
 
 def main() -> int:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%SZ",
+    )
+    logging.Formatter.converter = time.gmtime
     args = build_parser().parse_args()
     scenario_path = Path(args.scenario)
     try:

@@ -1,0 +1,40 @@
+scenario_id: hsq_replay_2025_05_to_2026_05_v1
+
+history_dataset_ref: snapshots/history/ohlcv
+history_manifest_ref: snapshots/history/manifests/history_manifest.json
+universe_manifest_ref: snapshots/history/manifests/universe_manifest.json
+
+timeframes:
+  - 1d
+  - 4h
+
+universe_mode: binance_spot_usdt_all
+
+evaluation:
+  start_date: "2025-05-01"
+  end_date: "2026-05-17"
+
+execution:
+  mode: disabled_historical_ohlcv_only
+
+scanner_config:
+  ref: config/config.yml
+  hash: "8940a32173b4975ee635933981566719fb6d0225b34f4080a331a9fce4000594"
+
+regime_labels:
+  method_ref: snapshots/history/regime_labels/regime_labels_btc_weekly_30d_return_vol_v1.json
+
+daily_replay_time_policy:
+  settlement_delay_seconds: 0
+
+warmup:
+  warm_up_1d_bars: 120
+  warm_up_4h_bars: 120
+
+splits:
+  calibration:
+    start_date: "2025-05-01"
+    end_date: "2026-01-31"
+  validation:
+    start_date: "2026-02-01"
+    end_date: "2026-05-17"
