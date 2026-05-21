@@ -10,13 +10,19 @@ import pytest
 from scripts.generate_btc_weekly_regime_labels import generate_payload, main
 
 
-def _write_btc_dataset(root: Path, closes: list[float], *, drop_last_sunday: bool = False) -> None:
+def _write_btc_dataset(
+    root: Path,
+    closes: list[float],
+    *,
+    drop_indices: set[int] | None = None,
+) -> None:
     start = pd.Timestamp("2026-01-01T00:00:00Z")
     rows = []
+    drop_indices = drop_indices or set()
     for i, close in enumerate(closes):
-        ts = start + pd.Timedelta(days=i)
-        if drop_last_sunday and ts.day_name() == "Sunday" and i == len(closes) - 1:
+        if i in drop_indices:
             continue
+        ts = start + pd.Timedelta(days=i)
         rows.append(
             {
                 "source": "binance",
@@ -77,22 +83,52 @@ def test_return_and_realized_vol_and_schema(tmp_path: Path) -> None:
     assert first["btc_30d_realized_vol_annualized_pct"] == pytest.approx(expected_vol)
 
 
-def test_weekly_derivation_and_incomplete_week_exclusion_and_missing_sunday(tmp_path: Path) -> None:
+def test_snapshot_ending_on_sunday_keeps_latest_week(tmp_path: Path) -> None:
     root = tmp_path / "ohlcv"
-    closes = [200.0 + i * 0.5 for i in range(75)]
-    _write_btc_dataset(root, closes, drop_last_sunday=True)
+    closes = [200.0 + i * 0.5 for i in range(74)]  # last bar: 2026-03-15 Sunday
+    _write_btc_dataset(root, closes)
     history_manifest, symbol_comp = _write_manifests(tmp_path)
 
     payload = generate_payload(history_root=root, history_manifest_path=history_manifest, symbol_completeness_path=symbol_comp)
     labels = payload["labels"]
     assert labels == sorted(labels, key=lambda row: row["week_start_date"])
     assert labels[-1]["week_end_date"] == "2026-03-15"
-    latest_bar = pd.Timestamp("2026-01-01T00:00:00Z") + pd.Timedelta(days=74)
+    latest_bar = pd.Timestamp("2026-01-01T00:00:00Z") + pd.Timedelta(days=73)
+    assert latest_bar.day_name() == "Sunday"
+    latest_iso = latest_bar.isocalendar()
+    assert pd.Timestamp(labels[-1]["week_end_date"]).isocalendar()[:2] == (latest_iso.year, latest_iso.week)
+
+
+def test_snapshot_ending_midweek_excludes_latest_incomplete_week(tmp_path: Path) -> None:
+    root = tmp_path / "ohlcv"
+    closes = [210.0 + i * 0.3 for i in range(71)]  # last bar: 2026-03-12 Thursday
+    _write_btc_dataset(root, closes)
+    history_manifest, symbol_comp = _write_manifests(tmp_path)
+
+    payload = generate_payload(history_root=root, history_manifest_path=history_manifest, symbol_completeness_path=symbol_comp)
+    labels = payload["labels"]
+    latest_bar = pd.Timestamp("2026-01-01T00:00:00Z") + pd.Timedelta(days=70)
+    assert latest_bar.day_name() == "Thursday"
     latest_iso = latest_bar.isocalendar()
     assert all(
         pd.Timestamp(label["week_end_date"]).isocalendar()[:2] != (latest_iso.year, latest_iso.week)
         for label in labels
     )
+    assert labels[-1]["week_end_date"] == "2026-03-08"
+
+
+def test_week_with_missing_day_is_excluded_even_if_not_latest(tmp_path: Path) -> None:
+    root = tmp_path / "ohlcv"
+    closes = [220.0 + i * 0.2 for i in range(80)]
+    # Drop Wednesday 2026-02-18 from an interior week (Mon 16 .. Sun 22)
+    _write_btc_dataset(root, closes, drop_indices={48})
+    history_manifest, symbol_comp = _write_manifests(tmp_path)
+
+    payload = generate_payload(history_root=root, history_manifest_path=history_manifest, symbol_completeness_path=symbol_comp)
+    labels = payload["labels"]
+    assert all(label["week_start_date"] != "2026-02-16" for label in labels)
+    assert any(label["week_start_date"] == "2026-02-09" for label in labels)
+    assert any(label["week_start_date"] == "2026-02-23" for label in labels)
 
 
 def test_json_is_deterministic_sorted_keys(tmp_path: Path) -> None:

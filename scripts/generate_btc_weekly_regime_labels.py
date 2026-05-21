@@ -79,9 +79,25 @@ def _derive_weekly_labels(frame: pd.DataFrame) -> list[dict[str, Any]]:
     by_week = tmp.groupby(["iso_year", "iso_week"], sort=True, as_index=False)
     rows: list[dict[str, Any]] = []
     for _, week in by_week:
-        week_end_row = week.iloc[-1]
+        distinct_dates = set(week["bar_date"].tolist())
+        if len(distinct_dates) != 7:
+            continue
+
         week_start = week["bar_date"].min()
-        week_end = week_end_row["bar_date"]
+        week_end = week["bar_date"].max()
+        expected_week_dates = pd.date_range(start=week_start, periods=7, freq="D").date
+        expected_dates_set = set(expected_week_dates)
+        if distinct_dates != expected_dates_set:
+            continue
+
+        week_end_dt = pd.Timestamp(week_end)
+        if week_end_dt.dayofweek != 6:
+            continue
+
+        week_end_rows = week[week["bar_date"] == week_end]
+        if week_end_rows.empty:
+            continue
+        week_end_row = week_end_rows.iloc[-1]
         rows.append(
             {
                 "week_start_date": week_start.isoformat(),
@@ -96,19 +112,6 @@ def _derive_weekly_labels(frame: pd.DataFrame) -> list[dict[str, Any]]:
             }
         )
 
-    if not rows:
-        return rows
-
-    latest = frame["open_time"].max()
-    latest_iso = latest.isocalendar()
-    rows = [
-        row
-        for row in rows
-        if not (
-            datetime.fromisoformat(f"{row['week_end_date']}T00:00:00+00:00").isocalendar().year == latest_iso.year
-            and datetime.fromisoformat(f"{row['week_end_date']}T00:00:00+00:00").isocalendar().week == latest_iso.week
-        )
-    ]
     return sorted(rows, key=lambda row: row["week_start_date"])
 
 
