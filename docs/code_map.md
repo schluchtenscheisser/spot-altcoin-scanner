@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-21 19:30 UTC  
+**Last Updated:** 2026-05-21 19:58 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -379,9 +379,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_bar_day, _compute_manifest_symbol_counts, _map_bucket, get_current_daily_bar, has_current_day_4h_coverage, run_replay`
 
-**Module Variables:** `as_of, bar_id, current, current_d1, d1, diag_path, disposition_reason, disposition_status, evaluable, event_path` _(+14 more)_
+**Module Variables:** `admitted_count, as_of, bar_id, current, current_d1, d1, day_idx, days_completed, diag_path, diagnostics_so_far` _(+26 more)_
 
-**Imports:** `__future__, dataclasses, datetime, gzip, json, pandas, pathlib, scanner.evaluation.historical_replay.bar_loader` _(+3 more)_
+**Imports:** `__future__, dataclasses, datetime, gzip, json, logging, pandas, pathlib` _(+4 more)_
 
 ---
 
@@ -1185,7 +1185,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Module Variables:** `args, parser, registry_path, scenario, scenario_path`
 
-**Imports:** `__future__, argparse, pathlib, scanner.evaluation.historical_replay.replay_runner, scanner.evaluation.historical_replay.scenario, scanner.evaluation.historical_replay.scenario_registry, sys`
+**Imports:** `__future__, argparse, logging, pathlib, scanner.evaluation.historical_replay.replay_runner, scanner.evaluation.historical_replay.scenario, scanner.evaluation.historical_replay.scenario_registry, sys` _(+1 more)_
 
 ---
 
@@ -1641,7 +1641,7 @@ _This section shows which functions call which other functions, helping identify
 | `_compute_manifest_symbol_counts` | — | `get`, `values` |
 | `get_current_daily_bar` | — | `fromisoformat`, `to_dict` |
 | `has_current_day_4h_coverage` | — | `fromisoformat` |
-| `run_replay` | `_compute_manifest_symbol_counts`, `_map_bucket`, `get_current_daily_bar`, `has_current_day_4h_coverage` | `DataFrame`, `HistoricalBarLoader`, `Path`, `ReplayStateStore`, `append`, `as_posix`, `closed_bars_as_of`, `combine`, `dumps`, `get`, `is_dir`, `isoformat`, `items`, `iterdir`, `mkdir`, `now`, `replace`, `scenario_config_hash`, `strftime`, `time`, `timedelta`, `to_parquet`, `update`, `upsert`, `write`, `write_text` |
+| `run_replay` | `_compute_manifest_symbol_counts`, `_map_bucket`, `get_current_daily_bar`, `has_current_day_4h_coverage` | `DataFrame`, `HistoricalBarLoader`, `Path`, `ReplayStateStore`, `append`, `as_posix`, `closed_bars_as_of`, `combine`, `critical`, `dumps`, `exception`, `get`, `info`, `is_dir`, `isoformat`, `items`, `iterdir`, `mkdir`, `now`, `replace`, `scenario_config_hash`, `strftime`, `time`, `timedelta`, `to_parquet`, `update`, `upsert`, `write`, `write_text` |
 
 ### 📄 scanner/evaluation/historical_replay/scenario.py
 
@@ -2460,7 +2460,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `build_parser` | — | `ArgumentParser`, `add_argument` |
-| `main` | `build_parser` | `Path`, `as_posix`, `ensure_scenario_hash`, `load_scenario`, `parse_args`, `run_replay`, `scenario_config_hash` |
+| `main` | `build_parser` | `Path`, `as_posix`, `basicConfig`, `ensure_scenario_hash`, `load_scenario`, `parse_args`, `run_replay`, `scenario_config_hash` |
 
 ### 📄 scanner/tools/validate_features.py
 
@@ -2569,13 +2569,13 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/evaluation/replay.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
+| `scanner/evaluation/historical_replay/replay_runner.py` | 4 | 37 | 41 | 🔴 High |
 | `scanner/output/report_builder.py` | 9 | 31 | 40 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
 | `scanner/pipeline/decision.py` | 17 | 23 | 40 | ⚠️ Medium |
 | `scanner/pipeline/excel_output.py` | 6 | 34 | 40 | 🔴 High |
 | `scanner/tools/prepare_shadow_calibration.py` | 13 | 27 | 40 | 🔴 High |
 | `scanner/data/bar_clock.py` | 10 | 29 | 39 | 🔴 High |
-| `scanner/evaluation/historical_replay/replay_runner.py` | 4 | 34 | 38 | 🔴 High |
 | `scanner/pipeline/scoring/reversal.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/tools/backfill_btc_regime.py` | 11 | 27 | 38 | 🔴 High |
 | `scanner/pipeline/scoring/breakout.py` | 9 | 27 | 36 | 🔴 High |
@@ -2625,11 +2625,11 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/decision/ranking.py` | 3 | 9 | 12 | 🔴 High |
 | `scanner/execution/policy.py` | 6 | 6 | 12 | ⚠️ Medium |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
+| `scanner/tools/run_historical_daily_replay.py` | 1 | 10 | 11 | 🔴 High |
 | `scanner/evaluation/historical_replay/state_store.py` | 1 | 9 | 10 | 🔴 High |
 | `scanner/execution/grading.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/main.py` | 3 | 7 | 10 | 🔴 High |
-| `scanner/tools/run_historical_daily_replay.py` | 1 | 9 | 10 | 🔴 High |
 | `scanner/tools/validate_features.py` | 3 | 6 | 9 | 🔴 High |
 | `scanner/utils/time_utils.py` | 2 | 7 | 9 | 🔴 High |
 | `scanner/evaluation/historical_replay/scenario_registry.py` | 0 | 8 | 8 | 🔴 High |
@@ -2668,4 +2668,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-21 19:30 UTC_
+_Generated by GitHub Actions • 2026-05-21 19:58 UTC_
