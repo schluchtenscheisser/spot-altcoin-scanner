@@ -65,7 +65,7 @@ def _load_btc_daily(history_root: Path) -> pd.DataFrame:
 def _label_regime(ret: float, vol: float) -> str:
     if ret < -15.0:
         return "Bear/Crash"
-    if ret > 15.0 and vol < 60.0:
+    if ret > 10.0 and vol < 50.0:
         return "Bull"
     return "Sideways"
 

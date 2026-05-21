@@ -1,0 +1,570 @@
+{
+  "created_at_utc": "2026-05-21T13:20:39Z",
+  "labels": [
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-02-09T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 39.420052994246305,
+      "btc_30d_return_pct": 1.8333276854713088,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-02-09",
+      "week_start_date": "2025-02-03"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-02-16T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.12498607288361,
+      "btc_30d_return_pct": -7.647533356879899,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-02-16",
+      "week_start_date": "2025-02-10"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-02-23T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 30.871931015109578,
+      "btc_30d_return_pct": -8.212509714362003,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-02-23",
+      "week_start_date": "2025-02-17"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-03-02T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 51.23450355194689,
+      "btc_30d_return_pct": -7.966020746354863,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-03-02",
+      "week_start_date": "2025-02-24"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-03-09T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 62.7416121037172,
+      "btc_30d_return_pct": -16.34333539191022,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2025-03-09",
+      "week_start_date": "2025-03-03"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-03-16T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 67.90071467821829,
+      "btc_30d_return_pct": -15.308591301294106,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2025-03-16",
+      "week_start_date": "2025-03-10"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-03-23T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 71.47956721226366,
+      "btc_30d_return_pct": -10.50038687080469,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-03-23",
+      "week_start_date": "2025-03-17"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-03-30T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 67.87621008492899,
+      "btc_30d_return_pct": -2.323593828282511,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-03-30",
+      "week_start_date": "2025-03-24"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-04-06T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 53.638082732988266,
+      "btc_30d_return_pct": -9.644678822719587,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-04-06",
+      "week_start_date": "2025-03-31"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-04-13T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 56.141022095450765,
+      "btc_30d_return_pct": -0.26576743920212476,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-04-13",
+      "week_start_date": "2025-04-07"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-04-20T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 51.609718058931364,
+      "btc_30d_return_pct": 1.2967840303089284,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-04-20",
+      "week_start_date": "2025-04-14"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-04-27T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 54.83868260517622,
+      "btc_30d_return_pct": 11.04529284076472,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-04-27",
+      "week_start_date": "2025-04-21"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-05-04T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 53.1962450243092,
+      "btc_30d_return_pct": 12.382603525312419,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-05-04",
+      "week_start_date": "2025-04-28"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-05-11T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 36.83756120288453,
+      "btc_30d_return_pct": 24.80605064451602,
+      "regime_label": "Bull",
+      "week_end_date": "2025-05-11",
+      "week_start_date": "2025-05-05"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-05-18T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 36.91665298755047,
+      "btc_30d_return_pct": 26.019118862703117,
+      "regime_label": "Bull",
+      "week_end_date": "2025-05-18",
+      "week_start_date": "2025-05-12"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-05-25T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.07051762727904,
+      "btc_30d_return_pct": 15.179322027737507,
+      "regime_label": "Bull",
+      "week_end_date": "2025-05-25",
+      "week_start_date": "2025-05-19"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-06-01T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.813440805666914,
+      "btc_30d_return_pct": 9.037102344026259,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-06-01",
+      "week_start_date": "2025-05-26"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-06-08T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 30.800840377851657,
+      "btc_30d_return_pct": 2.682292534115338,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-06-08",
+      "week_start_date": "2025-06-02"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-06-15T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 34.80207460693598,
+      "btc_30d_return_pct": 2.0587953866034514,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-06-15",
+      "week_start_date": "2025-06-09"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-06-22T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 29.033305264103188,
+      "btc_30d_return_pct": -5.921105720086883,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-06-22",
+      "week_start_date": "2025-06-16"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-06-29T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 31.554298355452353,
+      "btc_30d_return_pct": 4.203904237399292,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-06-29",
+      "week_start_date": "2025-06-23"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-07-06T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 30.825507002348445,
+      "btc_30d_return_pct": 4.713274069494178,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-07-06",
+      "week_start_date": "2025-06-30"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-07-13T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 29.574325415820233,
+      "btc_30d_return_pct": 12.275354567352448,
+      "regime_label": "Bull",
+      "week_end_date": "2025-07-13",
+      "week_start_date": "2025-07-07"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-07-20T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 28.85092138715687,
+      "btc_30d_return_pct": 13.521202106643116,
+      "regime_label": "Bull",
+      "week_end_date": "2025-07-20",
+      "week_start_date": "2025-07-14"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-07-27T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 25.77649900036117,
+      "btc_30d_return_pct": 11.55370242338012,
+      "regime_label": "Bull",
+      "week_end_date": "2025-07-27",
+      "week_start_date": "2025-07-21"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-08-03T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 25.560966807163766,
+      "btc_30d_return_pct": 5.764322645600872,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-08-03",
+      "week_start_date": "2025-07-28"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-08-10T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 22.348686756782897,
+      "btc_30d_return_pct": 1.5029228013218265,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-08-10",
+      "week_start_date": "2025-08-04"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-08-17T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 27.205355418560362,
+      "btc_30d_return_pct": -0.4408146748386521,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-08-17",
+      "week_start_date": "2025-08-11"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-08-24T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 32.70248177079207,
+      "btc_30d_return_pct": -3.5035872760721065,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-08-24",
+      "week_start_date": "2025-08-18"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-08-31T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.774343057941635,
+      "btc_30d_return_pct": -4.458669280188953,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-08-31",
+      "week_start_date": "2025-08-25"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-09-07T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.15850900748994,
+      "btc_30d_return_pct": -4.746014432944101,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-09-07",
+      "week_start_date": "2025-09-01"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-09-14T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 30.620506888155578,
+      "btc_30d_return_pct": -1.7675164188796888,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-09-14",
+      "week_start_date": "2025-09-08"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-09-21T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 24.993066124176867,
+      "btc_30d_return_pct": -1.4569509352937549,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-09-21",
+      "week_start_date": "2025-09-15"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-09-28T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 23.765296083371815,
+      "btc_30d_return_pct": 3.4938557300691953,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-09-28",
+      "week_start_date": "2025-09-22"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-10-05T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 27.49474805744424,
+      "btc_30d_return_pct": 11.587132802018129,
+      "regime_label": "Bull",
+      "week_end_date": "2025-10-05",
+      "week_start_date": "2025-09-29"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-10-12T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 42.583769844121164,
+      "btc_30d_return_pct": -0.9227142564359969,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-10-12",
+      "week_start_date": "2025-10-06"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-10-19T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 44.48113760305823,
+      "btc_30d_return_pct": -6.044673645911303,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-10-19",
+      "week_start_date": "2025-10-13"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-10-26T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 44.32014214185754,
+      "btc_30d_return_pct": 4.483568833015661,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-10-26",
+      "week_start_date": "2025-10-20"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-11-02T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 41.487281010888836,
+      "btc_30d_return_pct": -9.564860265724207,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-11-02",
+      "week_start_date": "2025-10-27"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-11-09T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 39.864909955776334,
+      "btc_30d_return_pct": -7.139504054551338,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-11-09",
+      "week_start_date": "2025-11-03"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-11-16T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 41.199441666826786,
+      "btc_30d_return_pct": -11.434790844229825,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-11-16",
+      "week_start_date": "2025-11-10"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-11-23T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 43.62621637760174,
+      "btc_30d_return_pct": -21.778220761265565,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2025-11-23",
+      "week_start_date": "2025-11-17"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-11-30T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 44.555419679337504,
+      "btc_30d_return_pct": -17.560769509454644,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2025-11-30",
+      "week_start_date": "2025-11-24"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-12-07T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 47.9439357378933,
+      "btc_30d_return_pct": -12.525532451034016,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-12-07",
+      "week_start_date": "2025-12-01"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-12-14T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 44.18146416442912,
+      "btc_30d_return_pct": -6.788834386959008,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-12-14",
+      "week_start_date": "2025-12-08"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-12-21T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 40.742661717519574,
+      "btc_30d_return_pct": 4.145957514340237,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-12-21",
+      "week_start_date": "2025-12-15"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2025-12-28T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 37.36874965993562,
+      "btc_30d_return_pct": -3.232442923203349,
+      "regime_label": "Sideways",
+      "week_end_date": "2025-12-28",
+      "week_start_date": "2025-12-22"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-01-04T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 25.02784703859272,
+      "btc_30d_return_pct": 2.4624303313868445,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-01-04",
+      "week_start_date": "2025-12-29"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-01-11T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 25.091952150759546,
+      "btc_30d_return_pct": 0.8255711133528187,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-01-11",
+      "week_start_date": "2026-01-05"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-01-18T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 25.12778461229159,
+      "btc_30d_return_pct": 6.281361708268962,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-01-18",
+      "week_start_date": "2026-01-12"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-01-25T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 32.12500492635903,
+      "btc_30d_return_pct": -0.8002787240773523,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-01-25",
+      "week_start_date": "2026-01-19"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-02-01T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 43.6010065474625,
+      "btc_30d_return_pct": -14.475138821400668,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-02-01",
+      "week_start_date": "2026-01-26"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-02-08T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 80.99416697692561,
+      "btc_30d_return_pct": -22.408002181787367,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2026-02-08",
+      "week_start_date": "2026-02-02"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-02-15T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 80.33239341498142,
+      "btc_30d_return_pct": -27.96242506876436,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2026-02-15",
+      "week_start_date": "2026-02-09"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-02-22T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 79.74125331574177,
+      "btc_30d_return_pct": -24.50535299785961,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2026-02-22",
+      "week_start_date": "2026-02-16"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-03-01T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 82.29547491928047,
+      "btc_30d_return_pct": -21.936758260010127,
+      "regime_label": "Bear/Crash",
+      "week_end_date": "2026-03-01",
+      "week_start_date": "2026-02-23"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-03-08T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 50.118243755613676,
+      "btc_30d_return_pct": -6.530239474889998,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-03-08",
+      "week_start_date": "2026-03-02"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-03-15T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 49.16867238987312,
+      "btc_30d_return_pct": 5.753162200111661,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-03-15",
+      "week_start_date": "2026-03-09"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-03-22T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 51.95155324276993,
+      "btc_30d_return_pct": -0.2367097564378362,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-03-22",
+      "week_start_date": "2026-03-16"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-03-29T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 49.89121562564224,
+      "btc_30d_return_pct": 0.21075690618637122,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-03-29",
+      "week_start_date": "2026-03-23"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-04-05T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 39.98957606725194,
+      "btc_30d_return_pct": 1.3509113101825232,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-04-05",
+      "week_start_date": "2026-03-30"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-04-12T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 41.575133265507816,
+      "btc_30d_return_pct": -0.26648808684619496,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-04-12",
+      "week_start_date": "2026-04-06"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-04-19T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 43.04327916406179,
+      "btc_30d_return_pct": 4.667459832000032,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-04-19",
+      "week_start_date": "2026-04-13"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-04-26T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 35.61928352188025,
+      "btc_30d_return_pct": 18.447179285162708,
+      "regime_label": "Bull",
+      "week_end_date": "2026-04-26",
+      "week_start_date": "2026-04-20"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-05-03T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 36.1637126199047,
+      "btc_30d_return_pct": 17.329039503138244,
+      "regime_label": "Bull",
+      "week_end_date": "2026-05-03",
+      "week_start_date": "2026-04-27"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-05-10T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 33.41551355908018,
+      "btc_30d_return_pct": 12.67410608434174,
+      "regime_label": "Bull",
+      "week_end_date": "2026-05-10",
+      "week_start_date": "2026-05-04"
+    },
+    {
+      "as_of_daily_bar_id": "BTCUSDT:1d:2026-05-17T00:00:00Z",
+      "btc_30d_realized_vol_annualized_pct": 29.28607355297658,
+      "btc_30d_return_pct": 0.5004022212995674,
+      "regime_label": "Sideways",
+      "week_end_date": "2026-05-17",
+      "week_start_date": "2026-05-11"
+    }
+  ],
+  "method": {
+    "method_id": "btc_weekly_30d_return_vol_v1",
+    "return_window_bars": 30,
+    "rules": {
+      "bear_crash": "btc_30d_return_pct < -15",
+      "bull": "btc_30d_return_pct > 15 and btc_30d_realized_vol_annualized_pct < 60",
+      "sideways": "all other complete weeks"
+    },
+    "vol_annualization_basis_days": 365,
+    "vol_window_returns": 30
+  },
+  "schema_version": "regime_labels_btc_weekly_30d_return_vol_v1",
+  "source": {
+    "history_manifest": {
+      "closed_bar_only": true,
+      "created_at_utc": "2026-05-20T19:48:04Z",
+      "effective_fetch_end_date": "2026-05-19",
+      "fetch_run_id": "pre1-e3b50f55beb040a9b3a2216f640d7bdf",
+      "fetch_start_date": "2025-01-01"
+    },
+    "history_root": "snapshots/history/ohlcv",
+    "symbol": "BTCUSDT",
+    "symbol_completeness": {
+      "created_at_utc": "2026-05-20T19:48:04Z",
+      "fetch_run_id": "pre1-e3b50f55beb040a9b3a2216f640d7bdf"
+    },
+    "timeframe": "1d"
+  },
+  "status": "frozen"
+}
