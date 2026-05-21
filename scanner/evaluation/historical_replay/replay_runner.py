@@ -4,6 +4,7 @@ from dataclasses import asdict
 from datetime import date, datetime, time, timedelta, timezone
 import gzip
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ import pandas as pd
 from scanner.evaluation.historical_replay.bar_loader import HistoricalBarLoader
 from scanner.evaluation.historical_replay.scenario import ReplayScenario, scenario_config_hash
 from scanner.evaluation.historical_replay.state_store import ReplayStateStore
+
+logger = logging.getLogger(__name__)
 
 
 def _map_bucket(disposition_status: str, state_machine_state: str | None, entry_pattern: str) -> str:
@@ -79,48 +82,71 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
     events: list[dict[str, Any]] = []
     warmup_summary: dict[str, dict[str, Any]] = {s: {"warmup_days_skipped": 0, "first_evaluable_date": None} for s in symbols}
 
+    replay_days_total = (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1
+    logger.info(
+        "Starting replay scenario_id=%s replay_id=%s symbols=%s evaluation=%s..%s",
+        scenario.scenario_id,
+        replay_id,
+        len(symbols),
+        scenario.evaluation.start_date.isoformat(),
+        scenario.evaluation.end_date.isoformat(),
+    )
+    days_completed = 0
+    signal_events_so_far = 0
+    diagnostics_so_far = 0
     current = scenario.evaluation.start_date
-    while current <= scenario.evaluation.end_date:
-        as_of = datetime.combine(current, time(23, 59, 59), tzinfo=timezone.utc) + timedelta(seconds=scenario.settlement_delay_seconds)
-        bar_id = current.isoformat()
-        for sym in symbols:
-            s = state.get(sym)
-            d1 = loader.closed_bars_as_of(sym, "1d", as_of).bars
-            h4 = loader.closed_bars_as_of(sym, "4h", as_of).bars
-            info = warmup_summary[sym]
+    try:
+        while current <= scenario.evaluation.end_date:
+            day_idx = days_completed + 1
+            logger.info("Replaying day %s (%s/%s) symbols=%s", current.isoformat(), day_idx, replay_days_total, len(symbols))
+            admitted_count = 0
+            untracked_count = 0
+            warmup_skipped_count = 0
+            missing_data_count = 0
+            events_today = 0
+            diagnostics_today = 0
+            as_of = datetime.combine(current, time(23, 59, 59), tzinfo=timezone.utc) + timedelta(seconds=scenario.settlement_delay_seconds)
+            bar_id = current.isoformat()
+            for sym in symbols:
+                try:
+                    s = state.get(sym)
+                    d1 = loader.closed_bars_as_of(sym, "1d", as_of).bars
+                    h4 = loader.closed_bars_as_of(sym, "4h", as_of).bars
+                    info = warmup_summary[sym]
 
-            if len(d1) < scenario.warm_up_1d_bars or len(h4) < scenario.warm_up_4h_bars:
-                info["warmup_days_skipped"] += 1
-                continue
-            if info["first_evaluable_date"] is None:
-                info["first_evaluable_date"] = bar_id
+                    if len(d1) < scenario.warm_up_1d_bars or len(h4) < scenario.warm_up_4h_bars:
+                        info["warmup_days_skipped"] += 1
+                        warmup_skipped_count += 1
+                        continue
+                    if info["first_evaluable_date"] is None:
+                        info["first_evaluable_date"] = bar_id
 
-            current_d1 = get_current_daily_bar(d1, bar_id)
-            row = {"symbol": sym, "as_of_daily_bar_id": bar_id, "scenario_id": scenario.scenario_id, "replay_id": replay_id}
+                    current_d1 = get_current_daily_bar(d1, bar_id)
+                    row = {"symbol": sym, "as_of_daily_bar_id": bar_id, "scenario_id": scenario.scenario_id, "replay_id": replay_id}
 
-            if current_d1 is None:
-                s["consecutive_missing_1d_bars"] = int(s.get("consecutive_missing_1d_bars") or 0) + 1
-                disposition_status, disposition_reason = "not_evaluable_missing_data", "MISSING_1D_BAR"
-                row.update({"data_4h_available": has_current_day_4h_coverage(h4, bar_id), "state_machine_state": s.get("state_machine_state")})
-                signal_daily_close = None
-            elif not has_current_day_4h_coverage(h4, bar_id):
-                s["consecutive_missing_4h_bars"] = int(s.get("consecutive_missing_4h_bars") or 0) + 1
-                disposition_status, disposition_reason = "not_evaluable_missing_data", "MISSING_4H_CONTEXT"
-                row.update({"data_4h_available": False, "state_machine_state": s.get("state_machine_state")})
-                signal_daily_close = float(current_d1.get("close", 0.0))
-            else:
-                disposition_status = "admitted"
-                disposition_reason = "PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE"
-                row.update({"data_4h_available": True, "state_machine_state": "watch"})
-                if s.get("last_aging_daily_bar_id") != bar_id:
-                    s["bars_since_state_entered"] = int(s.get("bars_since_state_entered") or 0) + 1
-                    s["last_aging_daily_bar_id"] = bar_id
-                s["consecutive_missing_1d_bars"] = 0
-                s["consecutive_missing_4h_bars"] = 0
-                s["last_evaluable_replay_date"] = bar_id
-                signal_daily_close = float(current_d1.get("close", 0.0))
+                    if current_d1 is None:
+                        s["consecutive_missing_1d_bars"] = int(s.get("consecutive_missing_1d_bars") or 0) + 1
+                        disposition_status, disposition_reason = "not_evaluable_missing_data", "MISSING_1D_BAR"
+                        row.update({"data_4h_available": has_current_day_4h_coverage(h4, bar_id), "state_machine_state": s.get("state_machine_state")})
+                        signal_daily_close = None
+                    elif not has_current_day_4h_coverage(h4, bar_id):
+                        s["consecutive_missing_4h_bars"] = int(s.get("consecutive_missing_4h_bars") or 0) + 1
+                        disposition_status, disposition_reason = "not_evaluable_missing_data", "MISSING_4H_CONTEXT"
+                        row.update({"data_4h_available": False, "state_machine_state": s.get("state_machine_state")})
+                        signal_daily_close = float(current_d1.get("close", 0.0))
+                    else:
+                        disposition_status = "admitted"
+                        disposition_reason = "PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE"
+                        row.update({"data_4h_available": True, "state_machine_state": "watch"})
+                        if s.get("last_aging_daily_bar_id") != bar_id:
+                            s["bars_since_state_entered"] = int(s.get("bars_since_state_entered") or 0) + 1
+                            s["last_aging_daily_bar_id"] = bar_id
+                        s["consecutive_missing_1d_bars"] = 0
+                        s["consecutive_missing_4h_bars"] = 0
+                        s["last_evaluable_replay_date"] = bar_id
+                        signal_daily_close = float(current_d1.get("close", 0.0))
 
-            row.update({
+                    row.update({
                 "disposition_status": disposition_status,
                 "disposition_reason": disposition_reason,
                 "state_confidence": s.get("state_confidence"),
@@ -143,9 +169,10 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
                 "last_evaluable_replay_date": s.get("last_evaluable_replay_date"),
                 "data_resolution_class": "full_1d_4h" if row.get("data_4h_available") else "daily_only",
             })
-            diagnostics.append(row)
-            s["symbol"] = sym
-            for k in [
+                    diagnostics.append(row)
+                    diagnostics_today += 1
+                    s["symbol"] = sym
+                    for k in [
                 "state_machine_state",
                 "state_confidence",
                 "state_transition_reason",
@@ -153,14 +180,47 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
                 "last_evaluable_replay_date",
                 "consecutive_missing_1d_bars",
                 "consecutive_missing_4h_bars",
-            ]:
-                if row.get(k) is not None or k in {"consecutive_missing_1d_bars", "consecutive_missing_4h_bars"}:
-                    s[k] = row.get(k)
-            if disposition_status == "admitted":
-                s["bars_since_state_entered"] = int(s.get("bars_since_state_entered") or 0)
-            state.upsert(s)
-        current += timedelta(days=1)
+                    ]:
+                        if row.get(k) is not None or k in {"consecutive_missing_1d_bars", "consecutive_missing_4h_bars"}:
+                            s[k] = row.get(k)
+                    if disposition_status == "admitted":
+                        s["bars_since_state_entered"] = int(s.get("bars_since_state_entered") or 0)
+                        admitted_count += 1
+                    if disposition_status == "untracked":
+                        untracked_count += 1
+                    if disposition_status == "not_evaluable_missing_data":
+                        missing_data_count += 1
+                    state.upsert(s)
+                except Exception as exc:
+                    logger.exception("Symbol %s day %s failed: %s", sym, bar_id, exc)
+                    raise
+            days_completed += 1
+            signal_events_so_far += events_today
+            diagnostics_so_far += diagnostics_today
+            logger.info(
+                "Day %s done: admitted=%s untracked=%s warmup_skipped=%s missing_data=%s events=%s diagnostics=%s",
+                bar_id,
+                admitted_count,
+                untracked_count,
+                warmup_skipped_count,
+                missing_data_count,
+                events_today,
+                diagnostics_today,
+            )
+            if days_completed % 10 == 0:
+                logger.info(
+                    "Progress %s/%s days completed, signal_events_so_far=%s diagnostics_so_far=%s",
+                    days_completed,
+                    replay_days_total,
+                    signal_events_so_far,
+                    diagnostics_so_far,
+                )
+            current += timedelta(days=1)
+    except Exception as exc:
+        logger.critical("Replay aborted after %s/%s days: %s", days_completed, replay_days_total, exc, exc_info=True)
+        raise
 
+    logger.info("Writing replay outputs run_dir=%s", run_dir.as_posix())
     diag_path = run_dir / "replay_symbol_diagnostics.jsonl.gz"
     with gzip.open(diag_path, "wt", encoding="utf-8") as f:
         for r in diagnostics:
@@ -168,6 +228,12 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
 
     event_path = run_dir / "replay_event_candidates.parquet"
     pd.DataFrame(events).to_parquet(event_path, index=False)
+    logger.info(
+        "Wrote replay outputs diagnostics=%s events=%s manifest=%s",
+        diag_path.as_posix(),
+        event_path.as_posix(),
+        (run_dir / "replay_manifest.json").as_posix(),
+    )
     symbols_evaluable, symbols_excluded_warmup = _compute_manifest_symbol_counts(warmup_summary, len(symbols))
 
     manifest = {
@@ -182,9 +248,18 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
         "t4_bypass": True, "production_modules_used": ["scanner.state.machine"], "state_store_path": (run_dir / "state.sqlite").as_posix(),
         "scenario_registry_path": (output_root / "scenario_registry.sqlite").as_posix(), "warmup_summary_by_symbol": warmup_summary,
         "replay_symbol_diagnostics_path": diag_path.as_posix(), "replay_event_candidates_path": event_path.as_posix(), "splits_recorded": None if scenario.splits is None else {k: {"start_date": v.start_date.isoformat(), "end_date": v.end_date.isoformat()} for k,v in scenario.splits.items()},
-        "replay_days_total": (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1, "replay_days_completed": (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1,
+        "replay_days_total": replay_days_total, "replay_days_completed": replay_days_total,
         "symbols_total": len(symbols), "symbols_evaluable": symbols_evaluable, "symbols_excluded_warmup": symbols_excluded_warmup,
         "signal_events_total": len(events), "created_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     (run_dir / "replay_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    logger.info(
+        "Replay complete replay_id=%s days=%s symbols_total=%s symbols_evaluable=%s signal_events=%s diagnostics=%s",
+        replay_id,
+        replay_days_total,
+        len(symbols),
+        symbols_evaluable,
+        len(events),
+        len(diagnostics),
+    )
     return manifest

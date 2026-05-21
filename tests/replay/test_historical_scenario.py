@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 import pytest
+import scanner.tools.run_historical_daily_replay as cli
 
 from scanner.evaluation.historical_replay.scenario import load_scenario, scenario_config_hash
 from scanner.evaluation.historical_replay.scenario_registry import ensure_scenario_hash
@@ -104,3 +105,26 @@ def test_cli_dry_run_validation_failure_is_clean(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "Scenario validation failed:" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_cli_configures_logging_and_calls_run_replay(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    scenario_path = _write(tmp_path, _base_scenario())
+    called: dict[str, object] = {}
+
+    monkeypatch.setattr(sys, "argv", ["run_historical_daily_replay", "--scenario", str(scenario_path), "--output-root", str(tmp_path / "out")])
+
+    def _fake_basic_config(**kwargs: object) -> None:
+        called["basic_config"] = kwargs
+
+    monkeypatch.setattr(cli.logging, "basicConfig", _fake_basic_config)
+    monkeypatch.setattr(cli, "ensure_scenario_hash", lambda **kwargs: called.setdefault("registry", kwargs))
+    monkeypatch.setattr(cli, "run_replay", lambda **kwargs: called.setdefault("run_replay", kwargs))
+
+    rc = cli.main()
+    assert rc == 0
+    assert called["basic_config"] == {
+        "level": cli.logging.INFO,
+        "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        "datefmt": "%Y-%m-%dT%H:%M:%SZ",
+    }
+    assert called["run_replay"] is not None

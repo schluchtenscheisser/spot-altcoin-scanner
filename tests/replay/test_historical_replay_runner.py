@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 
 import pandas as pd
+import pytest
 
 from scanner.evaluation.historical_replay.bar_loader import HistoricalBarLoader
 from scanner.evaluation.historical_replay.replay_runner import run_replay
@@ -13,10 +14,12 @@ from scanner.evaluation.historical_replay.scenario import load_scenario
 
 
 def _write_hist(root: Path, symbol: str, d1_rows: list[dict], h4_rows: list[dict]) -> None:
-    (root / "1d").mkdir(parents=True, exist_ok=True)
-    (root / "4h").mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(d1_rows).to_parquet(root / "1d" / f"{symbol}.parquet", index=False)
-    pd.DataFrame(h4_rows).to_parquet(root / "4h" / f"{symbol}.parquet", index=False)
+    d1_dir = root / "timeframe=1d" / f"symbol={symbol}"
+    h4_dir = root / "timeframe=4h" / f"symbol={symbol}"
+    d1_dir.mkdir(parents=True, exist_ok=True)
+    h4_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(d1_rows).to_parquet(d1_dir / "data.parquet", index=False)
+    pd.DataFrame(h4_rows).to_parquet(h4_dir / "data.parquet", index=False)
 
 
 def _scenario(tmp: Path, history: Path, warm4h: int = 1) -> Path:
@@ -115,3 +118,48 @@ def test_manifest_evaluable_counts_warmup_only_and_mixed(tmp_path: Path) -> None
     assert m2["symbols_total"] == 2
     assert m2["symbols_evaluable"] == 1
     assert m2["symbols_excluded_warmup"] == 1
+
+
+def test_replay_runner_logs_start_and_day_progress(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT", [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}], [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}])
+    scenario = load_scenario(_scenario(tmp_path, hist))
+    with caplog.at_level("INFO"):
+        run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay")
+    messages = [r.message for r in caplog.records]
+    assert any("Starting replay scenario_id=s1" in m for m in messages)
+    assert any("Replaying day 2025-01-01 (1/3) symbols=1" in m for m in messages)
+    assert any("Day 2025-01-01 done:" in m for m in messages)
+    assert any("Replay complete replay_id=" in m for m in messages)
+
+
+def test_symbol_exception_logs_context_and_reraises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT", [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}], [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}])
+    scenario = load_scenario(_scenario(tmp_path, hist))
+
+    original = HistoricalBarLoader.closed_bars_as_of
+
+    def _boom(self: HistoricalBarLoader, symbol: str, timeframe: str, as_of: object) -> object:
+        if symbol == "AAAUSDT" and timeframe == "1d":
+            raise RuntimeError("boom")
+        return original(self, symbol, timeframe, as_of)
+
+    monkeypatch.setattr(HistoricalBarLoader, "closed_bars_as_of", _boom)
+    with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="boom"):
+        run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay")
+    assert any("Symbol AAAUSDT day 2025-01-01 failed: boom" in r.message for r in caplog.records)
+
+
+def test_abort_exception_logs_context_and_reraises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT", [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}], [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}])
+    scenario = load_scenario(_scenario(tmp_path, hist))
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("fatal")
+
+    monkeypatch.setattr(HistoricalBarLoader, "closed_bars_as_of", _boom)
+    with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="fatal"):
+        run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay")
+    assert any("Replay aborted after 0/3 days: fatal" in r.message for r in caplog.records)
