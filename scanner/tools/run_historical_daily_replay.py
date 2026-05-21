@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scanner.evaluation.historical_replay.scenario import ScenarioValidationError, load_scenario, scenario_config_hash
 from scanner.evaluation.historical_replay.scenario_registry import ensure_scenario_hash
+from scanner.evaluation.historical_replay.replay_runner import run_replay
 
 
 def build_parser() -> ArgumentParser:
@@ -21,7 +22,7 @@ def main() -> int:
     scenario_path = Path(args.scenario)
     try:
         scenario = load_scenario(scenario_path)
-    except ScenarioValidationError as exc:
+    except (ScenarioValidationError, ValueError) as exc:
         print(f"Scenario validation failed: {exc}", file=sys.stderr)
         return 2
     if args.dry_run_validate_scenario:
@@ -33,6 +34,7 @@ def main() -> int:
         scenario_hash=scenario_config_hash(scenario),
         scenario_path=scenario_path.as_posix(),
     )
+    run_replay(scenario=scenario, output_root=Path(args.output_root))
     return 0
 
 
