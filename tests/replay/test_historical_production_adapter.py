@@ -10,8 +10,8 @@ from scanner.evaluation.historical_replay.production_adapter import HistoricalPr
 
 def _bars() -> pd.DataFrame:
     return pd.DataFrame([
-        {"close_time_utc_ms": 1, "close": 10.0, "high": 11.0, "low": 9.0, "base_volume": 1.0, "quote_volume": 10.0},
-        {"close_time_utc_ms": 2, "close": 10.5, "high": 11.5, "low": 9.5, "base_volume": 1.1, "quote_volume": 11.0},
+        {"close_time_utc_ms": 1, "close": 10.0, "high": 11.0, "low": 9.0, "volume": 1.0, "quote_volume": 10.0},
+        {"close_time_utc_ms": 2, "close": 10.5, "high": 11.5, "low": 9.5, "volume": 1.1, "quote_volume": 11.0},
     ])
 
 
