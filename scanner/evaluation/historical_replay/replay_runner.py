@@ -190,16 +190,17 @@ def run_replay(
                             )
                             events_today += 1
 
+                    adapter_used = adapter_out is not None
                     row.update({
                 "disposition_status": disposition_status,
                 "disposition_reason": disposition_reason,
                 "state_confidence": adapter_out.state_confidence if disposition_status == "admitted" else s.get("state_confidence"),
                 "state_transition_reason": adapter_out.state_transition_reason if disposition_status == "admitted" else s.get("state_transition_reason"),
                 "setup_cycle_id": adapter_out.setup_cycle_id if disposition_status == "admitted" else s.get("setup_cycle_id"),
-                "market_phase": adapter_out.market_phase if disposition_status == "admitted" else "none",
-                "market_phase_confidence": adapter_out.market_phase_confidence if disposition_status == "admitted" else 0.0,
-                "entry_pattern": adapter_out.entry_pattern if disposition_status == "admitted" else "none",
-                "entry_pattern_score": adapter_out.entry_pattern_score if disposition_status == "admitted" else 0.0,
+                "market_phase": adapter_out.market_phase if adapter_used else "none",
+                "market_phase_confidence": adapter_out.market_phase_confidence if adapter_used else 0.0,
+                "entry_pattern": adapter_out.entry_pattern if adapter_used else "none",
+                "entry_pattern_score": adapter_out.entry_pattern_score if adapter_used else 0.0,
                 "historical_signal_bucket": _map_bucket(disposition_status, row.get("state_machine_state"), adapter_out.entry_pattern if disposition_status == "admitted" else "none"),
                 "execution_mode": "disabled_historical_ohlcv_only",
                 "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",

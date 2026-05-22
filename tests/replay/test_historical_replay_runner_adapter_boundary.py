@@ -99,3 +99,38 @@ def test_runner_uses_adapter_outputs_and_emits_events(tmp_path: Path) -> None:
         "scanner.phase.interpreter",
         "scanner.state.machine",
     ]
+
+
+def test_runner_preserves_adapter_phase_for_untracked_disposition(tmp_path: Path) -> None:
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT")
+    scenario = load_scenario(_scenario(tmp_path, hist))
+
+    def _stub_adapter(**kwargs: object) -> ReplayProductionOutput:
+        return ReplayProductionOutput(
+            disposition_status="untracked",
+            disposition_reason="UNTRACKED_BY_POLICY",
+            market_phase="acceleration",
+            market_phase_confidence=61.0,
+            state_machine_state="watch",
+            state_confidence=55.0,
+            state_transition_reason="UNCHANGED",
+            setup_cycle_id=None,
+            entry_pattern="pullback",
+            entry_pattern_score=44.0,
+            signal_daily_close=10.0,
+            transition_event_types=[],
+            updated_state_patch={},
+            production_modules_used=["scanner.phase.interpreter"],
+        )
+
+    manifest = run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay", production_adapter=_stub_adapter)
+    run_dir = tmp_path / "evaluation/replay" / "runs" / "s1" / manifest["replay_id"]
+    rows = _rows(run_dir / "replay_symbol_diagnostics.jsonl.gz")
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["disposition_status"] == "untracked"
+    assert row["market_phase"] == "acceleration"
+    assert row["market_phase_confidence"] == 61.0
+    assert row["entry_pattern"] == "pullback"
+    assert row["entry_pattern_score"] == 44.0
