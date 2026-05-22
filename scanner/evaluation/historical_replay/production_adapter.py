@@ -52,22 +52,33 @@ def _finite_float(value: Any, field: str) -> float:
 
 
 def _bars_from_df(df: pd.DataFrame) -> list[SimpleNamespace]:
-    required = ["close", "high", "low", "base_volume", "quote_volume"]
+    required = ["close", "high", "low", "volume", "quote_volume"]
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(f"missing required OHLCV columns: {missing}")
+
+    if "close_time_utc_ms" not in df.columns and "close_time_utc" not in df.columns:
+        raise ValueError("missing required OHLCV close time column: close_time_utc_ms or close_time_utc")
+
     sort_col = "close_time_utc_ms" if "close_time_utc_ms" in df.columns else "close_time_utc"
     sorted_df = df.sort_values(sort_col, ascending=True)
+
     bars: list[SimpleNamespace] = []
     for rec in sorted_df.to_dict("records"):
+        if rec.get("close_time_utc_ms") is not None:
+            close_time_utc_ms = int(rec["close_time_utc_ms"])
+        else:
+            close_time_utc_ms = int(pd.Timestamp(rec["close_time_utc"]).timestamp() * 1000)
+
         bars.append(SimpleNamespace(
-            close_time_utc_ms=int(rec["close_time_utc_ms"]) if rec.get("close_time_utc_ms") is not None else int(pd.Timestamp(rec["close_time_utc"]).timestamp() * 1000),
+            close_time_utc_ms=close_time_utc_ms,
             close=_finite_float(rec["close"], "close"),
             high=_finite_float(rec["high"], "high"),
             low=_finite_float(rec["low"], "low"),
-            base_volume=_finite_float(rec["base_volume"], "base_volume"),
+            base_volume=_finite_float(rec["volume"], "volume"),
             quote_volume=_finite_float(rec["quote_volume"], "quote_volume"),
         ))
+
     return bars
 
 
