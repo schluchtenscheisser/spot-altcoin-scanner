@@ -20,7 +20,7 @@ def _with_ohlcv_defaults(rows: list[dict]) -> list[dict]:
         c = float(r.get("close", 0.0))
         r.setdefault("high", c)
         r.setdefault("low", c)
-        r.setdefault("base_volume", 1.0)
+        r.setdefault("volume", 1.0)
         r.setdefault("quote_volume", c)
         out.append(r)
     return out
