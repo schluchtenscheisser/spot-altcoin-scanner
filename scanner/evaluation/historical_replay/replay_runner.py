@@ -11,6 +11,10 @@ from typing import Any
 import pandas as pd
 
 from scanner.evaluation.historical_replay.bar_loader import HistoricalBarLoader
+from scanner.evaluation.historical_replay.production_adapter import (
+    HistoricalProductionAdapter,
+    ReplayProductionAdapterProtocol,
+)
 from scanner.evaluation.historical_replay.scenario import ReplayScenario, scenario_config_hash
 from scanner.evaluation.historical_replay.state_store import ReplayStateStore
 
@@ -70,12 +74,19 @@ def _compute_manifest_symbol_counts(warmup_summary: dict[str, dict[str, Any]], s
     return evaluable, excluded
 
 
-def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]:
+def run_replay(
+    *,
+    scenario: ReplayScenario,
+    output_root: Path,
+    production_adapter: ReplayProductionAdapterProtocol | None = None,
+) -> dict[str, Any]:
     replay_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     run_dir = output_root / "runs" / scenario.scenario_id / replay_id
     run_dir.mkdir(parents=True, exist_ok=False)
     state = ReplayStateStore(run_dir / "state.sqlite")
     loader = HistoricalBarLoader(scenario.history_dataset_ref)
+    adapter = production_adapter or HistoricalProductionAdapter()
+    production_modules_used: set[str] = set()
 
     symbols = sorted([p.name.replace("symbol=", "") for p in (Path(scenario.history_dataset_ref) / "timeframe=1d").iterdir() if p.is_dir()])
     diagnostics: list[dict[str, Any]] = []
@@ -123,6 +134,7 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
 
                     current_d1 = get_current_daily_bar(d1, bar_id)
                     row = {"symbol": sym, "as_of_daily_bar_id": bar_id, "scenario_id": scenario.scenario_id, "replay_id": replay_id}
+                    adapter_out = None
 
                     if current_d1 is None:
                         s["consecutive_missing_1d_bars"] = int(s.get("consecutive_missing_1d_bars") or 0) + 1
@@ -135,28 +147,61 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
                         row.update({"data_4h_available": False, "state_machine_state": s.get("state_machine_state")})
                         signal_daily_close = float(current_d1.get("close", 0.0))
                     else:
-                        disposition_status = "admitted"
-                        disposition_reason = "PHASE_NONE_WITHOUT_PRIOR_ACTIVE_CYCLE"
-                        row.update({"data_4h_available": True, "state_machine_state": "watch"})
+                        adapter_out = adapter(
+                            symbol=sym,
+                            as_of_daily_bar_id=bar_id,
+                            closed_1d_bars=d1,
+                            closed_4h_bars=h4,
+                            persisted_state=dict(s),
+                            scanner_config={"ref": scenario.scanner_config_ref, "hash": scenario.scanner_config_hash},
+                        )
+                        disposition_status = adapter_out.disposition_status
+                        disposition_reason = adapter_out.disposition_reason
+                        row.update({"data_4h_available": True, "state_machine_state": adapter_out.state_machine_state})
                         if s.get("last_aging_daily_bar_id") != bar_id:
                             s["bars_since_state_entered"] = int(s.get("bars_since_state_entered") or 0) + 1
                             s["last_aging_daily_bar_id"] = bar_id
                         s["consecutive_missing_1d_bars"] = 0
                         s["consecutive_missing_4h_bars"] = 0
                         s["last_evaluable_replay_date"] = bar_id
-                        signal_daily_close = float(current_d1.get("close", 0.0))
+                        signal_daily_close = adapter_out.signal_daily_close
+                        for k, v in adapter_out.updated_state_patch.items():
+                            s[k] = v
+                        production_modules_used.update(adapter_out.production_modules_used)
+                        for event_type in adapter_out.transition_event_types:
+                            if not event_type.startswith("first_"):
+                                continue
+                            events.append(
+                                {
+                                    "symbol": sym,
+                                    "as_of_daily_bar_id": bar_id,
+                                    "scenario_id": scenario.scenario_id,
+                                    "replay_id": replay_id,
+                                    "event_type": event_type,
+                                    "state_machine_state": adapter_out.state_machine_state,
+                                    "entry_pattern": adapter_out.entry_pattern,
+                                    "historical_signal_bucket": _map_bucket(
+                                        disposition_status,
+                                        adapter_out.state_machine_state,
+                                        adapter_out.entry_pattern,
+                                    ),
+                                    "signal_daily_close": adapter_out.signal_daily_close,
+                                }
+                            )
+                            events_today += 1
 
+                    adapter_used = adapter_out is not None
                     row.update({
                 "disposition_status": disposition_status,
                 "disposition_reason": disposition_reason,
-                "state_confidence": s.get("state_confidence"),
-                "state_transition_reason": s.get("state_transition_reason"),
-                "setup_cycle_id": s.get("setup_cycle_id"),
-                "market_phase": "none",
-                "market_phase_confidence": 0.0,
-                "entry_pattern": "none",
-                "entry_pattern_score": 0.0,
-                "historical_signal_bucket": _map_bucket(disposition_status, row.get("state_machine_state"), "none"),
+                "state_confidence": adapter_out.state_confidence if disposition_status == "admitted" else s.get("state_confidence"),
+                "state_transition_reason": adapter_out.state_transition_reason if disposition_status == "admitted" else s.get("state_transition_reason"),
+                "setup_cycle_id": adapter_out.setup_cycle_id if disposition_status == "admitted" else s.get("setup_cycle_id"),
+                "market_phase": adapter_out.market_phase if adapter_used else "none",
+                "market_phase_confidence": adapter_out.market_phase_confidence if adapter_used else 0.0,
+                "entry_pattern": adapter_out.entry_pattern if adapter_used else "none",
+                "entry_pattern_score": adapter_out.entry_pattern_score if adapter_used else 0.0,
+                "historical_signal_bucket": _map_bucket(disposition_status, row.get("state_machine_state"), adapter_out.entry_pattern if disposition_status == "admitted" else "none"),
                 "execution_mode": "disabled_historical_ohlcv_only",
                 "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",
                 "execution_status_raw": "not_evaluated",
@@ -245,7 +290,7 @@ def run_replay(*, scenario: ReplayScenario, output_root: Path) -> dict[str, Any]
         "evaluation_end_date": scenario.evaluation.end_date.isoformat(), "timeframes": list(scenario.timeframes), "universe_mode": scenario.universe_mode,
         "daily_replay_time_policy": {"settlement_delay_seconds": scenario.settlement_delay_seconds}, "warm_up_1d_bars": scenario.warm_up_1d_bars,
         "warm_up_4h_bars": scenario.warm_up_4h_bars, "execution_mode": "disabled_historical_ohlcv_only", "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",
-        "t4_bypass": True, "production_modules_used": ["scanner.state.machine"], "state_store_path": (run_dir / "state.sqlite").as_posix(),
+        "t4_bypass": True, "production_modules_used": sorted(production_modules_used), "state_store_path": (run_dir / "state.sqlite").as_posix(),
         "scenario_registry_path": (output_root / "scenario_registry.sqlite").as_posix(), "warmup_summary_by_symbol": warmup_summary,
         "replay_symbol_diagnostics_path": diag_path.as_posix(), "replay_event_candidates_path": event_path.as_posix(), "splits_recorded": None if scenario.splits is None else {k: {"start_date": v.start_date.isoformat(), "end_date": v.end_date.isoformat()} for k,v in scenario.splits.items()},
         "replay_days_total": replay_days_total, "replay_days_completed": replay_days_total,
