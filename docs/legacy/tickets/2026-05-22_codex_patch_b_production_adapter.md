@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # Codex Task: Patch B — Wire Production T5–T12 into Historical Replay Production Adapter
 
 ## Context
