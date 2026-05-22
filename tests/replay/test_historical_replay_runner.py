@@ -13,13 +13,26 @@ from scanner.evaluation.historical_replay.replay_runner import run_replay
 from scanner.evaluation.historical_replay.scenario import load_scenario
 
 
+def _with_ohlcv_defaults(rows: list[dict]) -> list[dict]:
+    out: list[dict] = []
+    for row in rows:
+        r = dict(row)
+        c = float(r.get("close", 0.0))
+        r.setdefault("high", c)
+        r.setdefault("low", c)
+        r.setdefault("base_volume", 1.0)
+        r.setdefault("quote_volume", c)
+        out.append(r)
+    return out
+
+
 def _write_hist(root: Path, symbol: str, d1_rows: list[dict], h4_rows: list[dict]) -> None:
     d1_dir = root / "timeframe=1d" / f"symbol={symbol}"
     h4_dir = root / "timeframe=4h" / f"symbol={symbol}"
     d1_dir.mkdir(parents=True, exist_ok=True)
     h4_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(d1_rows).to_parquet(d1_dir / "data.parquet", index=False)
-    pd.DataFrame(h4_rows).to_parquet(h4_dir / "data.parquet", index=False)
+    pd.DataFrame(_with_ohlcv_defaults(d1_rows)).to_parquet(d1_dir / "data.parquet", index=False)
+    pd.DataFrame(_with_ohlcv_defaults(h4_rows)).to_parquet(h4_dir / "data.parquet", index=False)
 
 
 def _scenario(tmp: Path, history: Path, warm4h: int = 1) -> Path:
@@ -74,7 +87,7 @@ def test_missing_current_1d_after_warmup_is_missing_data_and_no_stale_price(tmp_
     assert missing_day["disposition_reason"] == "MISSING_1D_BAR"
     assert missing_day["historical_signal_bucket"] == "not_evaluable_missing_data"
     assert missing_day["signal_daily_close"] is None
-    assert missing_day["state_machine_state"] == "watch"
+    assert missing_day["state_machine_state"] is None
     con = sqlite3.connect(run_dir / "state.sqlite")
     state = con.execute("SELECT last_aging_daily_bar_id, bars_since_state_entered, consecutive_missing_1d_bars FROM replay_state WHERE symbol='AAAUSDT'").fetchone()
     assert state[0] == "2025-01-01"

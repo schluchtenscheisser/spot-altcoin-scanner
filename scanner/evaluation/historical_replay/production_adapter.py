@@ -52,15 +52,16 @@ def _finite_float(value: Any, field: str) -> float:
 
 
 def _bars_from_df(df: pd.DataFrame) -> list[SimpleNamespace]:
-    required = ["close_time_utc_ms", "close", "high", "low", "base_volume", "quote_volume"]
+    required = ["close", "high", "low", "base_volume", "quote_volume"]
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(f"missing required OHLCV columns: {missing}")
-    sorted_df = df.sort_values("close_time_utc_ms", ascending=True)
+    sort_col = "close_time_utc_ms" if "close_time_utc_ms" in df.columns else "close_time_utc"
+    sorted_df = df.sort_values(sort_col, ascending=True)
     bars: list[SimpleNamespace] = []
     for rec in sorted_df.to_dict("records"):
         bars.append(SimpleNamespace(
-            close_time_utc_ms=int(rec["close_time_utc_ms"]),
+            close_time_utc_ms=int(rec["close_time_utc_ms"]) if rec.get("close_time_utc_ms") is not None else int(pd.Timestamp(rec["close_time_utc"]).timestamp() * 1000),
             close=_finite_float(rec["close"], "close"),
             high=_finite_float(rec["high"], "high"),
             low=_finite_float(rec["low"], "low"),
@@ -71,9 +72,18 @@ def _bars_from_df(df: pd.DataFrame) -> list[SimpleNamespace]:
 
 
 def _build_bar_clock_context(as_of_daily_bar_id: str, current_daily_bar: dict[str, Any]) -> dict[str, Any]:
+    if "close_time_utc_ms" in current_daily_bar and current_daily_bar["close_time_utc_ms"] is not None:
+        daily_close_time_utc_ms = int(current_daily_bar["close_time_utc_ms"])
+    else:
+        ts = pd.Timestamp(current_daily_bar["close_time_utc"])
+        if ts.tzinfo is None:
+            ts = ts.tz_localize(timezone.utc)
+        else:
+            ts = ts.tz_convert(timezone.utc)
+        daily_close_time_utc_ms = int(ts.timestamp() * 1000)
     return {
         "daily_bar_id": as_of_daily_bar_id,
-        "daily_close_time_utc_ms": int(current_daily_bar["close_time_utc_ms"]),
+        "daily_close_time_utc_ms": daily_close_time_utc_ms,
     }
 
 

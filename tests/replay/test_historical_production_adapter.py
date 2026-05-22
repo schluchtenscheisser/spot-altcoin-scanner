@@ -16,10 +16,13 @@ def _bars() -> pd.DataFrame:
 
 
 def test_bar_clock_context_daily_only() -> None:
-    ctx = _build_bar_clock_context("2025-01-01", {"close_time_utc_ms": 123})
+    ctx = _build_bar_clock_context("2025-01-01", {"close_time_utc": "2025-01-01T23:59:59Z"})
     assert ctx["daily_bar_id"] == "2025-01-01"
-    assert ctx["daily_close_time_utc_ms"] == 123
+    assert isinstance(ctx["daily_close_time_utc_ms"], int)
     assert "intraday_bar_id" not in ctx
+
+    ctx_ms = _build_bar_clock_context("2025-01-01", {"close_time_utc_ms": 123, "close_time_utc": "2025-01-01T23:59:59Z"})
+    assert ctx_ms["daily_close_time_utc_ms"] == 123
 
 
 def test_state_ctx_bootstrap_and_validation() -> None:
