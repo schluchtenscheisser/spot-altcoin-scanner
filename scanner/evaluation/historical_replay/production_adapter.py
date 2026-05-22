@@ -172,7 +172,7 @@ class HistoricalProductionAdapter:
                 state_machine_state=state.state_machine_state,
                 state_confidence=state.state_confidence,
                 state_transition_reason=state.state_transition_reason,
-                setup_cycle_id=str(state.persistence_patch.current_setup_cycle_id) if state.persistence_patch is not None else None,
+                setup_cycle_id=str(state.persistence_patch.setup_cycle_id) if state.persistence_patch is not None else None,
                 entry_pattern=entry.entry_pattern,
                 entry_pattern_score=entry.entry_pattern_score,
                 signal_daily_close=float(current_daily_bar["close"]),

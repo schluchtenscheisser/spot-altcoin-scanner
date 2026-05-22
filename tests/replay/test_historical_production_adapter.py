@@ -50,7 +50,7 @@ def test_adapter_mapping_with_stubs(monkeypatch: pytest.MonkeyPatch, tmp_path) -
 
     @dataclass
     class Patch:
-        current_setup_cycle_id: int | None = 5
+        setup_cycle_id: int = 5
 
     class State:
         disposition = Disp()
