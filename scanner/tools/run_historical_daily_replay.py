@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import ArgumentParser
+from datetime import date
 import logging
 import sys
 import time
@@ -16,6 +17,11 @@ def build_parser() -> ArgumentParser:
     parser.add_argument("--scenario", required=True)
     parser.add_argument("--output-root", default="evaluation/replay")
     parser.add_argument("--dry-run-validate-scenario", action="store_true")
+    parser.add_argument("--chunk-start")
+    parser.add_argument("--chunk-end")
+    parser.add_argument("--resume-from-state")
+    parser.add_argument("--replay-id")
+    parser.add_argument("--chunk-id")
     return parser
 
 
@@ -42,7 +48,17 @@ def main() -> int:
         scenario_hash=scenario_config_hash(scenario),
         scenario_path=scenario_path.as_posix(),
     )
-    run_replay(scenario=scenario, output_root=Path(args.output_root))
+    chunk_start = date.fromisoformat(args.chunk_start) if args.chunk_start else None
+    chunk_end = date.fromisoformat(args.chunk_end) if args.chunk_end else None
+    run_replay(
+        scenario=scenario,
+        output_root=Path(args.output_root),
+        chunk_start=chunk_start,
+        chunk_end=chunk_end,
+        resume_from_state=Path(args.resume_from_state) if args.resume_from_state else None,
+        replay_id=args.replay_id,
+        chunk_id=args.chunk_id,
+    )
     return 0
 
 

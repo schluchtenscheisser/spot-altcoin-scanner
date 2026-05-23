@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # BACKTEST-CHUNK-1: Chunk-Capable Historical Replay Runner
 
 ## Metadata
