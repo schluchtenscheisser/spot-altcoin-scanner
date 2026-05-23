@@ -131,6 +131,8 @@ def run_replay(
     if is_chunk_mode:
         chunk_id = chunk_id or f"{chunk_start.isoformat()}_to_{chunk_end.isoformat()}"
         run_dir.mkdir(parents=True, exist_ok=True)
+        if prior_manifest is not None and "chunks_completed" not in prior_manifest:
+            raise ValueError(f"replay_id {replay_id} belongs to a full-window run and cannot be reused in chunk mode")
         chunks_completed = list((prior_manifest or {}).get("chunks_completed", []))
         if chunk_id in chunks_completed:
             raise ValueError(f"chunk_id already completed: {chunk_id}")
@@ -148,6 +150,12 @@ def run_replay(
             logger.info("Resuming from state: %s", resume_from_state.as_posix())
             state_path.write_bytes(resume_from_state.read_bytes())
         else:
+            if state_path.exists():
+                logger.warning(
+                    "Found existing state_working.sqlite for fresh chunk %s. Deleting and recreating.",
+                    chunk_id,
+                )
+                state_path.unlink()
             logger.info("Starting fresh replay state for chunk %s", chunk_id)
         start_day, end_day = chunk_start, chunk_end
     else:

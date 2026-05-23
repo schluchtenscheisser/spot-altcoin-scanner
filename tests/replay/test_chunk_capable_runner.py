@@ -63,3 +63,47 @@ def test_mid_period_without_resume_fails(tmp_path: Path):
     s=load_scenario(_scenario(tmp_path,hist))
     with pytest.raises(ValueError, match="resume_from_state is required"):
         run_replay(s,tmp_path/"evaluation/replay",chunk_start=date(2025,1,2),chunk_end=date(2025,1,2))
+
+
+def test_fresh_chunk_deletes_stale_state_working(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT", [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}], [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}])
+    s = load_scenario(_scenario(tmp_path, hist))
+    run_dir = tmp_path / "evaluation/replay" / "runs" / "s1" / "2026-01-02T00:00:00Z"
+    chunk_dir = run_dir / "chunks" / "2025-01-01_to_2025-01-01"
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+    stale = chunk_dir / "state_working.sqlite"
+    stale.write_text("not-a-sqlite-db", encoding="utf-8")
+    with caplog.at_level("WARNING"):
+        run_replay(
+            s,
+            tmp_path / "evaluation/replay",
+            chunk_start=date(2025, 1, 1),
+            chunk_end=date(2025, 1, 1),
+            replay_id="2026-01-02T00:00:00Z",
+        )
+    assert any("Found existing state_working.sqlite for fresh chunk 2025-01-01_to_2025-01-01. Deleting and recreating." in r.message for r in caplog.records)
+    con = sqlite3.connect(stale)
+    row = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='replay_state'").fetchone()
+    con.close()
+    assert row is not None
+
+
+def test_chunk_mode_rejects_full_window_replay_id_reuse(tmp_path: Path):
+    hist = tmp_path / "hist"
+    _write_hist(
+        hist,
+        "AAAUSDT",
+        [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}, {"close_time_utc": "2025-01-02T23:59:59Z", "close": 2.0}, {"close_time_utc": "2025-01-03T23:59:59Z", "close": 3.0}],
+        [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}, {"close_time_utc": "2025-01-02T04:00:00Z", "close": 2.0}, {"close_time_utc": "2025-01-03T04:00:00Z", "close": 3.0}],
+    )
+    s = load_scenario(_scenario(tmp_path, hist))
+    run_replay(s, tmp_path / "evaluation/replay", replay_id="2026-01-03T00:00:00Z")
+    with pytest.raises(ValueError, match="belongs to a full-window run and cannot be reused in chunk mode"):
+        run_replay(
+            s,
+            tmp_path / "evaluation/replay",
+            chunk_start=date(2025, 1, 1),
+            chunk_end=date(2025, 1, 1),
+            replay_id="2026-01-03T00:00:00Z",
+        )
