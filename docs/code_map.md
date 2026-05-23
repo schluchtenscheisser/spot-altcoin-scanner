@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-05-23 20:10 UTC  
+**Last Updated:** 2026-05-23 22:45 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -67,7 +67,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 - **Total Modules:** 120
 - **Total Classes:** 81
-- **Total Functions:** 857
+- **Total Functions:** 859
 
 ---
 
@@ -389,11 +389,11 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ### 📄 `scanner/evaluation/historical_replay/replay_runner.py`
 
-**Functions:** `_bar_day, _compute_manifest_symbol_counts, _map_bucket, get_current_daily_bar, has_current_day_4h_coverage, run_replay`
+**Functions:** `_atomic_write_json, _bar_day, _compute_manifest_symbol_counts, _map_bucket, _validate_resume_state_store, get_current_daily_bar, has_current_day_4h_coverage, run_replay`
 
-**Module Variables:** `adapter, adapter_out, adapter_used, admitted_count, as_of, bar_id, current, current_d1, d1, day_idx` _(+29 more)_
+**Module Variables:** `adapter, adapter_out, adapter_used, admitted_count, as_of, bar_id, chunk_dir, chunk_id, chunk_manifest, chunks_completed` _(+41 more)_
 
-**Imports:** `__future__, dataclasses, datetime, gzip, json, logging, pandas, pathlib` _(+5 more)_
+**Imports:** `__future__, dataclasses, datetime, gzip, json, logging, pandas, pathlib` _(+6 more)_
 
 ---
 
@@ -1195,9 +1195,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `build_parser, main`
 
-**Module Variables:** `args, parser, registry_path, scenario, scenario_path`
+**Module Variables:** `args, chunk_end, chunk_start, parser, registry_path, scenario, scenario_path`
 
-**Imports:** `__future__, argparse, logging, pathlib, scanner.evaluation.historical_replay.replay_runner, scanner.evaluation.historical_replay.scenario, scanner.evaluation.historical_replay.scenario_registry, sys` _(+1 more)_
+**Imports:** `__future__, argparse, datetime, logging, pathlib, scanner.evaluation.historical_replay.replay_runner, scanner.evaluation.historical_replay.scenario, scanner.evaluation.historical_replay.scenario_registry` _(+2 more)_
 
 ---
 
@@ -1659,11 +1659,13 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
+| `_atomic_write_json` | — | `dumps`, `replace`, `with_name`, `write_text` |
 | `_bar_day` | — | `Timestamp`, `date`, `tz_convert` |
 | `_compute_manifest_symbol_counts` | — | `get`, `values` |
+| `_validate_resume_state_store` | — | `ValueError`, `close`, `connect`, `execute`, `fetchone` |
 | `get_current_daily_bar` | — | `fromisoformat`, `to_dict` |
 | `has_current_day_4h_coverage` | — | `fromisoformat` |
-| `run_replay` | `_compute_manifest_symbol_counts`, `_map_bucket`, `get_current_daily_bar`, `has_current_day_4h_coverage` | `DataFrame`, `HistoricalBarLoader`, `HistoricalProductionAdapter`, `Path`, `ReplayStateStore`, `adapter`, `append`, `as_posix`, `closed_bars_as_of`, `combine`, `critical`, `dumps`, `exception`, `get`, `info`, `is_dir`, `isoformat`, `items`, `iterdir`, `mkdir`, `now`, `replace`, `scenario_config_hash`, `startswith`, `strftime`, `time`, `timedelta`, `to_parquet`, `update`, `upsert`, `write`, `write_text` |
+| `run_replay` | `_atomic_write_json`, `_compute_manifest_symbol_counts`, `_map_bucket`, `_validate_resume_state_store`, `get_current_daily_bar`, `has_current_day_4h_coverage` | `DataFrame`, `HistoricalBarLoader`, `HistoricalProductionAdapter`, `Path`, `ReplayStateStore`, `ValueError`, `adapter`, `append`, `as_posix`, `closed_bars_as_of`, `combine`, `critical`, `dumps`, `exception`, `exists`, `fromisoformat`, `get`, `info`, `is_dir`, `isoformat`, `items`, `iterdir`, `loads`, `mkdir`, `now`, `read_bytes`, `read_text`, `replace`, `scenario_config_hash`, `startswith`, `strftime`, `time`, `timedelta`, `to_parquet`, `unlink`, `update`, `upsert`, `warning`, `write`, `write_bytes` |
 
 ### 📄 scanner/evaluation/historical_replay/scenario.py
 
@@ -2482,7 +2484,7 @@ _This section shows which functions call which other functions, helping identify
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
 | `build_parser` | — | `ArgumentParser`, `add_argument` |
-| `main` | `build_parser` | `Path`, `as_posix`, `basicConfig`, `ensure_scenario_hash`, `load_scenario`, `parse_args`, `run_replay`, `scenario_config_hash` |
+| `main` | `build_parser` | `Path`, `as_posix`, `basicConfig`, `ensure_scenario_hash`, `fromisoformat`, `load_scenario`, `parse_args`, `run_replay`, `scenario_config_hash` |
 
 ### 📄 scanner/tools/validate_features.py
 
@@ -2582,6 +2584,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/features.py` | 29 | 48 | 77 | 🔴 High |
 | `scanner/runners/intraday.py` | 17 | 56 | 73 | 🔴 High |
 | `scanner/output/schema.py` | 24 | 42 | 66 | 🔴 High |
+| `scanner/evaluation/historical_replay/replay_runner.py` | 6 | 57 | 63 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
 | `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
@@ -2590,7 +2593,6 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/evaluation/history/parquet_store.py` | 10 | 37 | 47 | 🔴 High |
 | `scanner/evaluation/replay.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
-| `scanner/evaluation/historical_replay/replay_runner.py` | 4 | 40 | 44 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/output/report_builder.py` | 9 | 31 | 40 | 🔴 High |
 | `scanner/pipeline/backtest_runner.py` | 15 | 25 | 40 | 🔴 High |
@@ -2648,7 +2650,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/decision/ranking.py` | 3 | 9 | 12 | 🔴 High |
 | `scanner/execution/policy.py` | 6 | 6 | 12 | ⚠️ Medium |
 | `scanner/pipeline/shortlist.py` | 1 | 11 | 12 | 🔴 High |
-| `scanner/tools/run_historical_daily_replay.py` | 1 | 10 | 11 | 🔴 High |
+| `scanner/tools/run_historical_daily_replay.py` | 1 | 11 | 12 | 🔴 High |
 | `scanner/evaluation/historical_replay/state_store.py` | 1 | 9 | 10 | 🔴 High |
 | `scanner/execution/grading.py` | 2 | 8 | 10 | 🔴 High |
 | `scanner/features/shared.py` | 2 | 8 | 10 | 🔴 High |
@@ -2691,4 +2693,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-05-23 20:10 UTC_
+_Generated by GitHub Actions • 2026-05-23 22:45 UTC_
