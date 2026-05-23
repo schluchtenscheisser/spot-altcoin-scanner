@@ -74,16 +74,95 @@ def _compute_manifest_symbol_counts(warmup_summary: dict[str, dict[str, Any]], s
     return evaluable, excluded
 
 
+
+
+def _atomic_write_json(manifest_path: Path, payload: dict[str, Any]) -> None:
+    tmp = manifest_path.with_name(manifest_path.name + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp.replace(manifest_path)
+
+
+def _validate_resume_state_store(path: Path) -> None:
+    import sqlite3
+
+    try:
+        con = sqlite3.connect(path)
+        row = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='replay_state'").fetchone()
+        if not row:
+            raise ValueError
+        con.execute("SELECT symbol FROM replay_state LIMIT 1").fetchone()
+    except Exception as exc:
+        raise ValueError(f"resume_from_state is not a valid replay state store: {path}") from exc
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
 def run_replay(
-    *,
     scenario: ReplayScenario,
     output_root: Path,
+    chunk_start: date | None = None,
+    chunk_end: date | None = None,
+    resume_from_state: Path | None = None,
+    replay_id: str | None = None,
+    chunk_id: str | None = None,
     production_adapter: ReplayProductionAdapterProtocol | None = None,
 ) -> dict[str, Any]:
-    replay_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    is_chunk_mode = chunk_start is not None or chunk_end is not None
+    if (chunk_start is None) ^ (chunk_end is None):
+        raise ValueError("Both --chunk-start and --chunk-end are required")
+    if is_chunk_mode:
+        assert chunk_start is not None and chunk_end is not None
+        if chunk_start < scenario.evaluation.start_date:
+            raise ValueError("chunk_start is before scenario evaluation start")
+        if chunk_end > scenario.evaluation.end_date:
+            raise ValueError("chunk_end is after scenario evaluation end")
+        if chunk_start > chunk_end:
+            raise ValueError("chunk_start is after chunk_end")
+        if chunk_start > scenario.evaluation.start_date and resume_from_state is None:
+            raise ValueError("resume_from_state is required when chunk_start > scenario evaluation start")
+    replay_id = replay_id or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     run_dir = output_root / "runs" / scenario.scenario_id / replay_id
-    run_dir.mkdir(parents=True, exist_ok=False)
-    state = ReplayStateStore(run_dir / "state.sqlite")
+    manifest_path = run_dir / "replay_manifest.json"
+    prior_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
+    if prior_manifest is not None and (prior_manifest.get("scenario_id") != scenario.scenario_id or prior_manifest.get("scenario_config_hash") != scenario_config_hash(scenario)):
+        raise ValueError("replay_id conflict: scenario mismatch")
+    if is_chunk_mode:
+        chunk_id = chunk_id or f"{chunk_start.isoformat()}_to_{chunk_end.isoformat()}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        if prior_manifest is not None and "chunks_completed" not in prior_manifest:
+            raise ValueError(f"replay_id {replay_id} belongs to a full-window run and cannot be reused in chunk mode")
+        chunks_completed = list((prior_manifest or {}).get("chunks_completed", []))
+        if chunk_id in chunks_completed:
+            raise ValueError(f"chunk_id already completed: {chunk_id}")
+        if chunks_completed:
+            expected_start = date.fromisoformat(prior_manifest["last_chunk_end_date"]) + timedelta(days=1)
+            if chunk_start != expected_start:
+                raise ValueError(f"chunk gap detected: expected chunk_start {expected_start.isoformat()}")
+        chunk_dir = run_dir / "chunks" / chunk_id
+        chunk_dir.mkdir(parents=True, exist_ok=True)
+        state_path = chunk_dir / "state_working.sqlite"
+        if resume_from_state is not None:
+            if not resume_from_state.exists():
+                raise ValueError(f"resume_from_state file not found: {resume_from_state}")
+            _validate_resume_state_store(resume_from_state)
+            logger.info("Resuming from state: %s", resume_from_state.as_posix())
+            state_path.write_bytes(resume_from_state.read_bytes())
+        else:
+            if state_path.exists():
+                logger.warning(
+                    "Found existing state_working.sqlite for fresh chunk %s. Deleting and recreating.",
+                    chunk_id,
+                )
+                state_path.unlink()
+            logger.info("Starting fresh replay state for chunk %s", chunk_id)
+        start_day, end_day = chunk_start, chunk_end
+    else:
+        run_dir.mkdir(parents=True, exist_ok=False)
+        state_path = run_dir / "state.sqlite"
+        start_day, end_day = scenario.evaluation.start_date, scenario.evaluation.end_date
+    state = ReplayStateStore(state_path)
     loader = HistoricalBarLoader(scenario.history_dataset_ref)
     adapter = production_adapter or HistoricalProductionAdapter()
     production_modules_used: set[str] = set()
@@ -92,6 +171,11 @@ def run_replay(
     diagnostics: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     warmup_summary: dict[str, dict[str, Any]] = {s: {"warmup_days_skipped": 0, "first_evaluable_date": None} for s in symbols}
+    if is_chunk_mode and prior_manifest and isinstance(prior_manifest.get("warmup_summary_by_symbol"), dict):
+        for sym, prev in prior_manifest["warmup_summary_by_symbol"].items():
+            if sym in warmup_summary:
+                warmup_summary[sym]["warmup_days_skipped"] = int(prev.get("warmup_days_skipped") or 0)
+                warmup_summary[sym]["first_evaluable_date"] = prev.get("first_evaluable_date")
 
     replay_days_total = (scenario.evaluation.end_date - scenario.evaluation.start_date).days + 1
     logger.info(
@@ -105,9 +189,9 @@ def run_replay(
     days_completed = 0
     signal_events_so_far = 0
     diagnostics_so_far = 0
-    current = scenario.evaluation.start_date
+    current = start_day
     try:
-        while current <= scenario.evaluation.end_date:
+        while current <= end_day:
             day_idx = days_completed + 1
             logger.info("Replaying day %s (%s/%s) symbols=%s", current.isoformat(), day_idx, replay_days_total, len(symbols))
             admitted_count = 0
@@ -266,12 +350,12 @@ def run_replay(
         raise
 
     logger.info("Writing replay outputs run_dir=%s", run_dir.as_posix())
-    diag_path = run_dir / "replay_symbol_diagnostics.jsonl.gz"
+    diag_path = (run_dir / "replay_symbol_diagnostics.jsonl.gz") if not is_chunk_mode else (run_dir / "chunks" / chunk_id / "replay_symbol_diagnostics.jsonl.gz")
     with gzip.open(diag_path, "wt", encoding="utf-8") as f:
         for r in diagnostics:
             f.write(json.dumps(r) + "\n")
 
-    event_path = run_dir / "replay_event_candidates.parquet"
+    event_path = (run_dir / "replay_event_candidates.parquet") if not is_chunk_mode else (run_dir / "chunks" / chunk_id / "replay_event_candidates.parquet")
     pd.DataFrame(events).to_parquet(event_path, index=False)
     logger.info(
         "Wrote replay outputs diagnostics=%s events=%s manifest=%s",
@@ -290,14 +374,34 @@ def run_replay(
         "evaluation_end_date": scenario.evaluation.end_date.isoformat(), "timeframes": list(scenario.timeframes), "universe_mode": scenario.universe_mode,
         "daily_replay_time_policy": {"settlement_delay_seconds": scenario.settlement_delay_seconds}, "warm_up_1d_bars": scenario.warm_up_1d_bars,
         "warm_up_4h_bars": scenario.warm_up_4h_bars, "execution_mode": "disabled_historical_ohlcv_only", "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",
-        "t4_bypass": True, "production_modules_used": sorted(production_modules_used), "state_store_path": (run_dir / "state.sqlite").as_posix(),
+        "t4_bypass": True, "production_modules_used": sorted(production_modules_used), "state_store_path": state_path.as_posix(),
         "scenario_registry_path": (output_root / "scenario_registry.sqlite").as_posix(), "warmup_summary_by_symbol": warmup_summary,
         "replay_symbol_diagnostics_path": diag_path.as_posix(), "replay_event_candidates_path": event_path.as_posix(), "splits_recorded": None if scenario.splits is None else {k: {"start_date": v.start_date.isoformat(), "end_date": v.end_date.isoformat()} for k,v in scenario.splits.items()},
-        "replay_days_total": replay_days_total, "replay_days_completed": replay_days_total,
+        "replay_days_total": replay_days_total, "replay_days_completed": replay_days_total if not is_chunk_mode else days_completed + int((prior_manifest or {}).get("replay_days_completed", 0)),
         "symbols_total": len(symbols), "symbols_evaluable": symbols_evaluable, "symbols_excluded_warmup": symbols_excluded_warmup,
         "signal_events_total": len(events), "created_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    (run_dir / "replay_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    if is_chunk_mode:
+        state_final = run_dir / "chunks" / chunk_id / "state_final.sqlite"
+        state_final.write_bytes(state_path.read_bytes())
+        (run_dir / "state_latest.sqlite").write_bytes(state_final.read_bytes())
+        manifest["chunks_completed"] = list((prior_manifest or {}).get("chunks_completed", [])) + [chunk_id]
+        manifest["chunks_total"] = None
+        manifest["last_chunk_end_date"] = end_day.isoformat()
+        manifest["is_complete"] = end_day == scenario.evaluation.end_date
+        manifest["signal_events_so_far"] = int((prior_manifest or {}).get("signal_events_so_far", 0)) + len(events)
+        manifest["diagnostics_so_far"] = int((prior_manifest or {}).get("diagnostics_so_far", 0)) + len(diagnostics)
+        chunk_manifest = {
+            "scenario_id": scenario.scenario_id, "replay_id": replay_id, "chunk_id": chunk_id,
+            "chunk_start_date": start_day.isoformat(), "chunk_end_date": end_day.isoformat(),
+            "days_in_chunk": (end_day - start_day).days + 1, "days_completed": days_completed,
+            "signal_events_in_chunk": len(events), "diagnostics_in_chunk": len(diagnostics),
+            "resumed_from_state": resume_from_state.as_posix() if resume_from_state else None,
+            "state_working_path": state_path.as_posix(), "state_final_path": state_final.as_posix(),
+            "created_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        _atomic_write_json(run_dir / "chunks" / chunk_id / "chunk_manifest.json", chunk_manifest)
+    _atomic_write_json(run_dir / "replay_manifest.json", manifest)
     logger.info(
         "Replay complete replay_id=%s days=%s symbols_total=%s symbols_evaluable=%s signal_events=%s diagnostics=%s",
         replay_id,
