@@ -172,7 +172,7 @@ jobs:
           cat chunk_plan.json
 
           REPLAY_ID=$(python -c 'import json; print(json.load(open("chunk_plan.json", encoding="utf-8"))["replay_id"])')
-          REPLAY_ID_SAFE=$(echo "$REPLAY_ID" | tr ':\"<>|*?\\/\\r\\n' '-')
+          REPLAY_ID_SAFE=$(printf '%s' "$REPLAY_ID" | tr '":<>|*?\r\n\\/' '-')
 
           echo "replay_id=$REPLAY_ID" >> "$GITHUB_OUTPUT"
           echo "replay_id_safe=$REPLAY_ID_SAFE" >> "$GITHUB_OUTPUT"
