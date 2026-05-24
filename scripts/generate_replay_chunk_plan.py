@@ -8,6 +8,10 @@ from pathlib import Path
 from scanner.evaluation.historical_replay.scenario import load_scenario
 
 
+def _generate_replay_id() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
 def _month_end(d: date) -> date:
     first_next = (d.replace(day=1) + timedelta(days=32)).replace(day=1)
     return first_next - timedelta(days=1)
@@ -44,7 +48,7 @@ def main() -> int:
     eval_start = scenario.evaluation.start_date
     eval_end = scenario.evaluation.end_date
 
-    replay_id = args.replay_id.strip() or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    replay_id = args.replay_id.strip() or _generate_replay_id()
 
     chunks: list[dict[str, object]] = []
     if args.run_mode == "full_chunked":

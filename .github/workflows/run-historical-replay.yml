@@ -172,7 +172,7 @@ jobs:
           cat chunk_plan.json
 
           REPLAY_ID=$(python -c 'import json; print(json.load(open("chunk_plan.json", encoding="utf-8"))["replay_id"])')
-          REPLAY_ID_SAFE=$(echo "$REPLAY_ID" | tr ':' '-')
+          REPLAY_ID_SAFE=$(echo "$REPLAY_ID" | tr ':\"<>|*?\\/\\r\\n' '-')
 
           echo "replay_id=$REPLAY_ID" >> "$GITHUB_OUTPUT"
           echo "replay_id_safe=$REPLAY_ID_SAFE" >> "$GITHUB_OUTPUT"
@@ -221,12 +221,20 @@ jobs:
 
           "${CMD[@]}"
 
+      - name: Package replay outputs
+        if: ${{ always() }}
+        run: |
+          TAR_NAME="replay-outputs-${{ steps.plan.outputs.replay_id_safe || github.run_id }}.tar.gz"
+          tar -czf "$TAR_NAME" evaluation/replay/runs/
+          echo "packaged_artifact=$TAR_NAME" >> "$GITHUB_OUTPUT"
+        id: package_outputs
+
       - name: Upload replay outputs
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: replay-outputs-${{ steps.plan.outputs.replay_id_safe || github.run_id }}
           path: |
-            evaluation/replay/runs/
+            ${{ steps.package_outputs.outputs.packaged_artifact }}
           retention-days: 90
           if-no-files-found: warn

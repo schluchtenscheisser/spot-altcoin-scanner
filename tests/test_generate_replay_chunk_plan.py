@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -24,7 +25,8 @@ def test_full_chunk_generation(tmp_path):
     assert chunks[0]["chunk_start"] == "2025-05-01"
     assert chunks[-1]["chunk_end"] == "2026-05-17"
     assert plan["scenario_id"] == "hsq_replay_2025_05_to_2026_05_v1"
-    assert "T" in plan["replay_id"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z", plan["replay_id"])
+    assert not any(ch in plan["replay_id"] for ch in ':\"<>|*?\\\\/\\r\\n')
 
 
 def test_full_chunk_has_no_gaps(tmp_path):

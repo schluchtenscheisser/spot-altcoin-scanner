@@ -21,6 +21,10 @@ from scanner.evaluation.historical_replay.state_store import ReplayStateStore
 logger = logging.getLogger(__name__)
 
 
+def _generate_replay_id() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
 def _map_bucket(disposition_status: str, state_machine_state: str | None, entry_pattern: str) -> str:
     if disposition_status == "not_evaluable_warmup":
         return "not_evaluable_warmup"
@@ -122,7 +126,7 @@ def run_replay(
             raise ValueError("chunk_start is after chunk_end")
         if chunk_start > scenario.evaluation.start_date and resume_from_state is None:
             raise ValueError("resume_from_state is required when chunk_start > scenario evaluation start")
-    replay_id = replay_id or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    replay_id = replay_id or _generate_replay_id()
     run_dir = output_root / "runs" / scenario.scenario_id / replay_id
     manifest_path = run_dir / "replay_manifest.json"
     prior_manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
