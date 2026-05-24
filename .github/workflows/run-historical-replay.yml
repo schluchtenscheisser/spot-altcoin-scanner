@@ -109,10 +109,40 @@ jobs:
 
       - name: Extract history dataset
         run: |
-          tar -xzf "${{ inputs.history_asset_name }}"
-          echo "History extracted."
+          rm -rf extracted_history
+          mkdir -p extracted_history
 
-          test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after extraction" && exit 1)
+          echo "Archive preview:"
+          tar -tzf "${{ inputs.history_asset_name }}" | head -80
+
+          tar -xzf "${{ inputs.history_asset_name }}" -C extracted_history
+          echo "History extracted into extracted_history/."
+
+          echo "Detected extracted structure:"
+          find extracted_history -maxdepth 5 -type d | sort | head -120
+
+          if [ -d extracted_history/snapshots/history/ohlcv ]; then
+            echo "Detected layout: snapshots/history at archive root"
+            mkdir -p snapshots
+            cp -a extracted_history/snapshots/history snapshots/
+          elif [ -d extracted_history/history/ohlcv ]; then
+            echo "Detected layout: history/ at archive root"
+            mkdir -p snapshots
+            cp -a extracted_history/history snapshots/
+          elif [ -d extracted_history/ohlcv ]; then
+            echo "Detected layout: ohlcv/ at archive root"
+            mkdir -p snapshots/history
+            cp -a extracted_history/ohlcv snapshots/history/
+            if [ -d extracted_history/manifests ]; then cp -a extracted_history/manifests snapshots/history/; fi
+            if [ -d extracted_history/regime_labels ]; then cp -a extracted_history/regime_labels snapshots/history/; fi
+          else
+            echo "ERROR: Could not detect Pre-1 history layout."
+            echo "Files found:"
+            find extracted_history -maxdepth 6 -type f | sort | head -200
+            exit 1
+          fi
+
+          test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after normalization" && exit 1)
           test -f snapshots/history/manifests/history_manifest.json || (echo "ERROR: history_manifest.json not found" && exit 1)
           test -f snapshots/history/manifests/universe_manifest.json || (echo "ERROR: universe_manifest.json not found" && exit 1)
           test -f snapshots/history/manifests/symbol_completeness.json || (echo "ERROR: symbol_completeness.json not found" && exit 1)
@@ -120,7 +150,7 @@ jobs:
 
           ls -lh snapshots/history/ohlcv/ | head -5
           echo "Post-extraction validation passed."
-
+          
       - name: Validate scenario
         run: |
           python scanner/tools/run_historical_daily_replay.py \
