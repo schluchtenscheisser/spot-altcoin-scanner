@@ -8,49 +8,60 @@ on:
         required: false
         default: "configs/replay_scenarios/hsq_replay_2025_05_to_2026_05_v1.yml"
         type: string
+
       history_release_tag:
         description: "GitHub Release tag for Pre-1 history asset"
         required: false
         default: "history-pre1-2026-05-20"
         type: string
+
       history_asset_name:
         description: "Asset filename within the release"
         required: false
         default: "pre1_history_2026-05-20.tar.gz"
         type: string
+
       history_asset_sha256:
         description: "Expected SHA256 of the history asset"
         required: false
         default: "74f3a6c90d84b9f812320ac9a4f8653b605e190fd6d8aa9655625723333a4bc7"
         type: string
+
       run_mode:
         description: "full_chunked = all monthly chunks; single_chunk = debug mode"
         required: false
         default: "full_chunked"
         type: choice
-        options: [full_chunked, single_chunk]
+        options:
+          - full_chunked
+          - single_chunk
+
       chunk_start:
         description: "single_chunk mode only: chunk start date YYYY-MM-DD"
         required: false
         default: ""
         type: string
+
       chunk_end:
         description: "single_chunk mode only: chunk end date YYYY-MM-DD"
         required: false
         default: ""
         type: string
+
       resume_from_artifact:
         description: "single_chunk mode only: artifact name containing state_final.sqlite to resume from"
         required: false
         default: ""
         type: string
-      replay_id:
-        description: "Optional: reuse existing replay_id (for single_chunk continuation)"
+
+      resume_from_run_id:
+        description: "single_chunk mode only: workflow run ID containing the resume artifact"
         required: false
         default: ""
         type: string
-      resume_from_run_id:
-        description: "single_chunk mode only: workflow run ID containing the resume artifact"
+
+      replay_id:
+        description: "Optional: reuse existing replay_id"
         required: false
         default: ""
         type: string
@@ -63,40 +74,59 @@ jobs:
   replay:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
+
       - name: Download Pre-1 history asset
-        run: |
-          gh release download ${{ inputs.history_release_tag }} --pattern "${{ inputs.history_asset_name }}" --output "${{ inputs.history_asset_name }}"
-          gh release download ${{ inputs.history_release_tag }} --pattern "${{ inputs.history_asset_name }}.sha256" --output "${{ inputs.history_asset_name }}.sha256"
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}" \
+            --output "${{ inputs.history_asset_name }}"
+
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}.sha256" \
+            --output "${{ inputs.history_asset_name }}.sha256"
+
       - name: Verify SHA256
         run: |
           sha256sum --check "${{ inputs.history_asset_name }}.sha256"
           echo "SHA256 verified."
+
       - name: Extract history dataset
         run: |
           tar -xzf "${{ inputs.history_asset_name }}"
           echo "History extracted."
+
           test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after extraction" && exit 1)
           test -f snapshots/history/manifests/history_manifest.json || (echo "ERROR: history_manifest.json not found" && exit 1)
           test -f snapshots/history/manifests/universe_manifest.json || (echo "ERROR: universe_manifest.json not found" && exit 1)
           test -f snapshots/history/manifests/symbol_completeness.json || (echo "ERROR: symbol_completeness.json not found" && exit 1)
           test -f snapshots/history/regime_labels/regime_labels_btc_weekly_30d_return_vol_v1.json || (echo "ERROR: regime_labels not found" && exit 1)
+
           ls -lh snapshots/history/ohlcv/ | head -5
           echo "Post-extraction validation passed."
+
       - name: Validate scenario
         run: |
-          python scanner/tools/run_historical_daily_replay.py --scenario "${{ inputs.scenario_path }}" --dry-run-validate-scenario
+          python scanner/tools/run_historical_daily_replay.py \
+            --scenario "${{ inputs.scenario_path }}" \
+            --dry-run-validate-scenario
+
       - name: Generate replay_id and chunk plan
         id: plan
         run: |
@@ -109,16 +139,20 @@ jobs:
             --replay-id "${{ inputs.replay_id }}" \
             --resume-from-run-id "${{ inputs.resume_from_run_id }}" \
             --output-plan chunk_plan.json
+
           cat chunk_plan.json
+
           REPLAY_ID=$(python - <<'PY'
-import json
-with open('chunk_plan.json', 'r', encoding='utf-8') as f:
-    print(json.load(f)['replay_id'])
-PY
-)
+          import json
+          with open("chunk_plan.json", "r", encoding="utf-8") as f:
+              print(json.load(f)["replay_id"])
+          PY
+          )
+
           echo "replay_id=$REPLAY_ID" >> "$GITHUB_OUTPUT"
+
       - name: Validate resume artifact inputs
-        if: inputs.run_mode == 'single_chunk'
+        if: ${{ inputs.run_mode == 'single_chunk' }}
         run: |
           if [ -n "${{ inputs.resume_from_artifact }}" ] && [ -z "${{ inputs.resume_from_run_id }}" ]; then
             echo "ERROR: resume_from_run_id is required when resume_from_artifact is provided"
@@ -126,7 +160,7 @@ PY
           fi
 
       - name: Download resume state artifact
-        if: inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != ''
+        if: ${{ inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != '' }}
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.resume_from_artifact }}
@@ -135,7 +169,7 @@ PY
           run-id: ${{ inputs.resume_from_run_id }}
 
       - name: Validate downloaded resume state artifact
-        if: inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != 
+        if: ${{ inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != '' }}
         run: |
           COUNT=$(find resume_state -type f -name state_final.sqlite | wc -l)
           if [ "$COUNT" -ne 1 ]; then
@@ -157,8 +191,9 @@ PY
           fi
 
           "${CMD[@]}"
+
       - name: Upload replay outputs
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: replay-outputs-${{ steps.plan.outputs.replay_id }}
