@@ -22,7 +22,7 @@ on:
         type: string
 
       history_asset_sha256:
-        description: "Expected SHA256 of the history asset"
+        description: "Expected SHA256 of the history asset. Documentation only; verification uses the .sha256 release asset."
         required: false
         default: "74f3a6c90d84b9f812320ac9a4f8653b605e190fd6d8aa9655625723333a4bc7"
         type: string
@@ -97,7 +97,6 @@ jobs:
           gh release download "${{ inputs.history_release_tag }}" \
             --pattern "${{ inputs.history_asset_name }}" \
             --output "${{ inputs.history_asset_name }}"
-
           gh release download "${{ inputs.history_release_tag }}" \
             --pattern "${{ inputs.history_asset_name }}.sha256" \
             --output "${{ inputs.history_asset_name }}.sha256"
@@ -150,7 +149,7 @@ jobs:
 
           ls -lh snapshots/history/ohlcv/ | head -5
           echo "Post-extraction validation passed."
-          
+
       - name: Validate scenario
         run: |
           python scanner/tools/run_historical_daily_replay.py \
@@ -173,13 +172,19 @@ jobs:
           cat chunk_plan.json
 
           REPLAY_ID=$(python - <<'PY'
-          import json
-          with open("chunk_plan.json", "r", encoding="utf-8") as f:
-              print(json.load(f)["replay_id"])
-          PY
-          )
+import json
+with open("chunk_plan.json", "r", encoding="utf-8") as f:
+    print(json.load(f)["replay_id"])
+PY
+)
+
+          REPLAY_ID_SAFE=$(echo "$REPLAY_ID" | tr ':' '-')
 
           echo "replay_id=$REPLAY_ID" >> "$GITHUB_OUTPUT"
+          echo "replay_id_safe=$REPLAY_ID_SAFE" >> "$GITHUB_OUTPUT"
+
+          echo "Replay ID: $REPLAY_ID"
+          echo "Artifact-safe Replay ID: $REPLAY_ID_SAFE"
 
       - name: Validate resume artifact inputs
         if: ${{ inputs.run_mode == 'single_chunk' }}
@@ -226,7 +231,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: replay-outputs-${{ steps.plan.outputs.replay_id }}
+          name: replay-outputs-${{ steps.plan.outputs.replay_id_safe || github.run_id }}
           path: |
             evaluation/replay/runs/
           retention-days: 90
