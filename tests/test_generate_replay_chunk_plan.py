@@ -92,3 +92,31 @@ def test_single_chunk_outside_window_fails(tmp_path):
         "--output-plan", str(out),
     )
     assert result.returncode != 0
+
+
+def test_single_chunk_resume_artifact_requires_run_id(tmp_path):
+    out = tmp_path / "chunk_plan.json"
+    result = _run(
+        "--scenario", "configs/replay_scenarios/hsq_replay_2025_05_to_2026_05_v1.yml",
+        "--run-mode", "single_chunk",
+        "--chunk-start", "2025-05-01",
+        "--chunk-end", "2025-05-31",
+        "--resume-from-artifact", "artifact-x",
+        "--output-plan", str(out),
+    )
+    assert result.returncode != 0
+    assert "resume_from_run_id is required" in (result.stderr + result.stdout)
+
+
+def test_single_chunk_resume_artifact_with_run_id_ok(tmp_path):
+    out = tmp_path / "chunk_plan.json"
+    result = _run(
+        "--scenario", "configs/replay_scenarios/hsq_replay_2025_05_to_2026_05_v1.yml",
+        "--run-mode", "single_chunk",
+        "--chunk-start", "2025-05-01",
+        "--chunk-end", "2025-05-31",
+        "--resume-from-artifact", "artifact-x",
+        "--resume-from-run-id", "123456",
+        "--output-plan", str(out),
+    )
+    assert result.returncode == 0, result.stderr

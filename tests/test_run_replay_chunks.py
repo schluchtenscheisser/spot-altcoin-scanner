@@ -48,7 +48,7 @@ def test_sequential_state_handoff(monkeypatch, tmp_path):
     assert "--resume-from-state" in calls[1]
 
 
-def test_resume_state_dir_rules(monkeypatch, tmp_path):
+def test_single_chunk_with_resume_state_dir_passes_resume(monkeypatch, tmp_path):
     resume = tmp_path / "resume"
     resume.mkdir()
     with open(resume / "state_final.sqlite", "w", encoding="utf-8") as f:
@@ -57,7 +57,10 @@ def test_resume_state_dir_rules(monkeypatch, tmp_path):
     plan = _write_plan(tmp_path, chunks)
     output_root = tmp_path / "evaluation" / "replay"
 
+    calls = []
+
     def fake_run(cmd, check=False):
+        calls.append(cmd)
         state = output_root / "runs" / "scenario_x" / "2026-05-24T08:00:00Z" / "chunks" / "a" / "state_final.sqlite"
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text("ok", encoding="utf-8")

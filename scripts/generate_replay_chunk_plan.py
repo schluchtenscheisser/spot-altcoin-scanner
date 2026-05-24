@@ -31,6 +31,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--chunk-end", default="")
     p.add_argument("--resume-from-artifact", default="")
     p.add_argument("--replay-id", default="")
+    p.add_argument("--resume-from-run-id", default="")
     p.add_argument("--output-plan", required=True)
     return p
 
@@ -59,6 +60,8 @@ def main() -> int:
             raise SystemExit(
                 "ERROR: resume_from_artifact is required for single_chunk mode when chunk_start > evaluation.start_date"
             )
+        if args.resume_from_artifact.strip() and not args.resume_from_run_id.strip():
+            raise SystemExit("ERROR: resume_from_run_id is required when resume_from_artifact is provided")
         ranges = [(chunk_start, chunk_end)]
 
     for idx, (chunk_start, chunk_end) in enumerate(ranges):

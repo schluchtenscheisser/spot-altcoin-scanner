@@ -49,9 +49,15 @@ on:
         required: false
         default: ""
         type: string
+      resume_from_run_id:
+        description: "single_chunk mode only: workflow run ID containing the resume artifact"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   replay:
@@ -101,6 +107,7 @@ jobs:
             --chunk-end "${{ inputs.chunk_end }}" \
             --resume-from-artifact "${{ inputs.resume_from_artifact }}" \
             --replay-id "${{ inputs.replay_id }}" \
+            --resume-from-run-id "${{ inputs.resume_from_run_id }}" \
             --output-plan chunk_plan.json
           cat chunk_plan.json
           REPLAY_ID=$(python - <<'PY'
@@ -110,20 +117,46 @@ with open('chunk_plan.json', 'r', encoding='utf-8') as f:
 PY
 )
           echo "replay_id=$REPLAY_ID" >> "$GITHUB_OUTPUT"
+      - name: Validate resume artifact inputs
+        if: inputs.run_mode == 'single_chunk'
+        run: |
+          if [ -n "${{ inputs.resume_from_artifact }}" ] && [ -z "${{ inputs.resume_from_run_id }}" ]; then
+            echo "ERROR: resume_from_run_id is required when resume_from_artifact is provided"
+            exit 1
+          fi
+
       - name: Download resume state artifact
         if: inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != ''
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.resume_from_artifact }}
           path: resume_state/
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.resume_from_run_id }}
+
+      - name: Validate downloaded resume state artifact
+        if: inputs.run_mode == 'single_chunk' && inputs.resume_from_artifact != 
+        run: |
+          COUNT=$(find resume_state -type f -name state_final.sqlite | wc -l)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "ERROR: expected exactly one state_final.sqlite under resume_state/, found $COUNT"
+            exit 1
+          fi
+
       - name: Run all chunks
         run: |
-          mkdir -p resume_state
-          python scripts/run_replay_chunks.py \
-            --scenario "${{ inputs.scenario_path }}" \
-            --chunk-plan chunk_plan.json \
-            --output-root evaluation/replay \
-            --resume-state-dir resume_state/
+          CMD=(
+            python scripts/run_replay_chunks.py
+            --scenario "${{ inputs.scenario_path }}"
+            --chunk-plan chunk_plan.json
+            --output-root evaluation/replay
+          )
+
+          if [ -n "${{ inputs.resume_from_artifact }}" ]; then
+            CMD+=(--resume-state-dir resume_state/)
+          fi
+
+          "${CMD[@]}"
       - name: Upload replay outputs
         if: always()
         uses: actions/upload-artifact@v4
