@@ -4,6 +4,7 @@ import gzip
 import json
 from pathlib import Path
 import sqlite3
+import re
 
 import pandas as pd
 import pytest
@@ -176,3 +177,13 @@ def test_abort_exception_logs_context_and_reraises(tmp_path: Path, monkeypatch: 
     with caplog.at_level("INFO"), pytest.raises(RuntimeError, match="fatal"):
         run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay")
     assert any("Replay aborted after 0/3 days: fatal" in r.message for r in caplog.records)
+
+
+def test_auto_generated_replay_id_is_filesystem_safe(tmp_path: Path) -> None:
+    hist = tmp_path / "hist"
+    _write_hist(hist, "AAAUSDT", [{"close_time_utc": "2025-01-01T23:59:59Z", "close": 1.0}], [{"close_time_utc": "2025-01-01T04:00:00Z", "close": 1.0}])
+    scenario = load_scenario(_scenario(tmp_path, hist))
+    manifest = run_replay(scenario=scenario, output_root=tmp_path / "evaluation/replay")
+    replay_id = manifest["replay_id"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z", replay_id)
+    assert not any(ch in replay_id for ch in ':\"<>|*?\\\\/\\r\\n')
