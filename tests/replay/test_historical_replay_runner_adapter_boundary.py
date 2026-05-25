@@ -91,8 +91,36 @@ def test_runner_uses_adapter_outputs_and_emits_events(tmp_path: Path) -> None:
 
     events = pd.read_parquet(run_dir / "replay_event_candidates.parquet")
     assert len(events) == 1
-    assert events.iloc[0]["event_type"] == "first_confirmed_with_entry_pattern"
-    assert events.iloc[0]["historical_signal_bucket"] == "confirmed_candidates"
+    event = events.iloc[0]
+    assert event["event_type"] == "first_confirmed_with_entry_pattern"
+    assert event["historical_signal_bucket"] == "confirmed_candidates"
+    required_fields = {
+        "event_timestamp_utc",
+        "market_phase",
+        "market_phase_confidence",
+        "state_confidence",
+        "state_transition_reason",
+        "entry_pattern_score",
+        "setup_cycle_id",
+        "consecutive_missing_1d_bars_at_event",
+        "consecutive_missing_4h_bars_at_event",
+        "data_4h_available",
+        "data_resolution_class",
+        "disposition_status",
+        "disposition_reason",
+        "execution_evaluation_status",
+        "is_tradeable_candidate",
+    }
+    assert required_fields.issubset(set(events.columns))
+    assert event["market_phase"] == "impulse"
+    assert event["entry_pattern_score"] == 77.0
+    assert event["setup_cycle_id"] == "cycle-1"
+    assert event["consecutive_missing_1d_bars_at_event"] == 0
+    assert event["consecutive_missing_4h_bars_at_event"] == 0
+    assert event["event_timestamp_utc"] == "2025-01-01T23:59:59Z"
+    assert event["data_resolution_class"] == "full_1d_4h"
+    assert event["execution_evaluation_status"] == "not_evaluated_historical_ohlcv_only"
+    assert pd.isna(event["is_tradeable_candidate"])
 
     assert manifest["production_modules_used"] == [
         "scanner.entry.patterns",

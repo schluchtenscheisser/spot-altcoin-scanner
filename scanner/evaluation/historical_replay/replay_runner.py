@@ -259,23 +259,37 @@ def run_replay(
                         for event_type in adapter_out.transition_event_types:
                             if not event_type.startswith("first_"):
                                 continue
-                            events.append(
-                                {
-                                    "symbol": sym,
-                                    "as_of_daily_bar_id": bar_id,
-                                    "scenario_id": scenario.scenario_id,
-                                    "replay_id": replay_id,
-                                    "event_type": event_type,
-                                    "state_machine_state": adapter_out.state_machine_state,
-                                    "entry_pattern": adapter_out.entry_pattern,
-                                    "historical_signal_bucket": _map_bucket(
-                                        disposition_status,
-                                        adapter_out.state_machine_state,
-                                        adapter_out.entry_pattern,
-                                    ),
-                                    "signal_daily_close": adapter_out.signal_daily_close,
-                                }
-                            )
+                            event_context = {
+                                "scenario_id": scenario.scenario_id,
+                                "replay_id": replay_id,
+                                "symbol": sym,
+                                "event_type": event_type,
+                                "as_of_daily_bar_id": bar_id,
+                                "event_timestamp_utc": f"{bar_id}T23:59:59Z",
+                                "state_machine_state": adapter_out.state_machine_state,
+                                "historical_signal_bucket": _map_bucket(
+                                    disposition_status,
+                                    adapter_out.state_machine_state,
+                                    adapter_out.entry_pattern,
+                                ),
+                                "market_phase": adapter_out.market_phase,
+                                "market_phase_confidence": adapter_out.market_phase_confidence,
+                                "state_confidence": adapter_out.state_confidence,
+                                "state_transition_reason": adapter_out.state_transition_reason,
+                                "entry_pattern": adapter_out.entry_pattern,
+                                "entry_pattern_score": adapter_out.entry_pattern_score,
+                                "setup_cycle_id": adapter_out.setup_cycle_id,
+                                "signal_daily_close": adapter_out.signal_daily_close,
+                                "consecutive_missing_1d_bars_at_event": int(s.get("consecutive_missing_1d_bars") or 0),
+                                "consecutive_missing_4h_bars_at_event": int(s.get("consecutive_missing_4h_bars") or 0),
+                                "data_4h_available": True,
+                                "data_resolution_class": "full_1d_4h",
+                                "disposition_status": disposition_status,
+                                "disposition_reason": disposition_reason,
+                                "execution_evaluation_status": "not_evaluated_historical_ohlcv_only",
+                                "is_tradeable_candidate": None,
+                            }
+                            events.append(event_context)
                             events_today += 1
 
                     adapter_used = adapter_out is not None
