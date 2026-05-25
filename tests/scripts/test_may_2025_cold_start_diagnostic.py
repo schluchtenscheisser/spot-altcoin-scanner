@@ -1,74 +1,106 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
 
-from scripts.diagnostics.may_2025_cold_start_diagnostic import ReplayModeResult, _render_report
+import pandas as pd
 
-
-def _event_rows() -> list[dict[str, str]]:
-    return [
-        {"date": "2025-04-30", "symbol": "AAA", "event_type": "first_watch"},
-        {"date": "2025-05-01", "symbol": "AAA", "event_type": "first_watch"},
-        {"date": "2025-05-01", "symbol": "BBB", "event_type": "first_early"},
-        {"date": "2025-05-02", "symbol": "AAA", "event_type": "first_early"},
-    ]
+import scripts.diagnostics.may_2025_cold_start_diagnostic as diag
 
 
-def _summarize(rows: list[dict[str, str]], evaluation_start: date) -> ReplayModeResult:
-    filtered = [r for r in rows if date.fromisoformat(r["date"]) >= evaluation_start]
-    by_month: dict[str, int] = {}
-    by_type: dict[str, int] = {}
-    by_symbol: dict[str, int] = {}
-    by_day: dict[str, int] = {}
-    for r in filtered:
-        by_month[r["date"][:7]] = by_month.get(r["date"][:7], 0) + 1
-        if r["date"].startswith("2025-05-"):
-            by_type[r["event_type"]] = by_type.get(r["event_type"], 0) + 1
-            by_symbol[r["symbol"]] = by_symbol.get(r["symbol"], 0) + 1
-        by_day[r["date"]] = by_day.get(r["date"], 0) + 1
-    first_10 = []
-    d = evaluation_start
-    for _ in range(10):
-        first_10.append((d.isoformat(), by_day.get(d.isoformat(), 0)))
-        d = date.fromordinal(d.toordinal() + 1)
-    return ReplayModeResult(
-        mode="x",
-        total_events=len(filtered),
-        events_by_month=by_month,
-        may_events_by_type=by_type,
-        may_top_symbols=sorted(by_symbol.items(), key=lambda kv: (-kv[1], kv[0])),
-        first_10_day_counts=first_10,
+class _DummyLoader:
+    def __init__(self, _ref: str) -> None:
+        pass
+
+    def closed_bars_as_of(self, _symbol: str, timeframe: str, _as_of) -> SimpleNamespace:
+        ts = pd.Timestamp("2025-05-01T23:59:59Z")
+        bars = pd.DataFrame([{"close_time_utc": ts, "close": 1.0}])
+        if timeframe == "4h":
+            bars = pd.DataFrame([{"close_time_utc": ts}])
+        return SimpleNamespace(bars=bars)
+
+
+class _DummyAdapter:
+    def __call__(self, **kwargs):
+        persisted = kwargs["persisted_state"]
+        first = "seen" not in persisted
+        return SimpleNamespace(
+            updated_state_patch={"seen": True},
+            transition_event_types=["first_watch"] if first else [],
+        )
+
+
+def _scenario(dataset_root: Path) -> SimpleNamespace:
+    return SimpleNamespace(
+        history_dataset_ref=str(dataset_root),
+        settlement_delay_seconds=0,
+        warm_up_1d_bars=1,
+        warm_up_4h_bars=1,
+        scanner_config_ref="x",
+        scanner_config_hash="y",
+        evaluation=SimpleNamespace(start_date=date(2025, 5, 1), end_date=date(2025, 5, 1)),
     )
 
 
-def test_preroll_excludes_events_before_evaluation_start() -> None:
-    result = _summarize(_event_rows(), date(2025, 5, 1))
-    assert result.total_events == 3
-    assert result.events_by_month == {"2025-05": 3}
+def _prepare_dataset(tmp_path: Path) -> Path:
+    root = tmp_path / "hist"
+    (root / "timeframe=1d" / "symbol=AAA").mkdir(parents=True)
+    return root
 
 
-def test_state_preroll_should_update_state_before_eval_semantics() -> None:
-    # Synthetic contract: pre-evaluation rows exist and are intentionally dropped from event counts.
-    rows = _event_rows()
-    assert any(r["date"] < "2025-05-01" for r in rows)
-    result = _summarize(rows, date(2025, 5, 1))
-    assert result.total_events == 3
+def test_reset_sqlite_state_removes_db_and_sidecars(tmp_path: Path) -> None:
+    p = tmp_path / "state.sqlite"
+    for suffix in ["", "-wal", "-shm", "-journal"]:
+        (tmp_path / f"state.sqlite{suffix}").write_text("x", encoding="utf-8")
+    diag._reset_sqlite_state(p)
+    for suffix in ["", "-wal", "-shm", "-journal"]:
+        assert not (tmp_path / f"state.sqlite{suffix}").exists()
+
+
+def test_running_twice_same_workdir_is_deterministic(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(diag, "HistoricalBarLoader", _DummyLoader)
+    monkeypatch.setattr(diag, "HistoricalProductionAdapter", _DummyAdapter)
+    dataset = _prepare_dataset(tmp_path)
+    scenario = _scenario(dataset)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    r1 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
+    r2 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
+    assert r1.total_events == r2.total_events == 1
+
+
+def test_stale_state_file_does_not_affect_cold_start_or_preroll(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(diag, "HistoricalBarLoader", _DummyLoader)
+    monkeypatch.setattr(diag, "HistoricalProductionAdapter", _DummyAdapter)
+    dataset = _prepare_dataset(tmp_path)
+    scenario = _scenario(dataset)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    for mode in ["cold_start", "state_preroll"]:
+        stale = out / f"{mode}_state.sqlite"
+        stale.write_text("stale", encoding="utf-8")
+        (out / f"{mode}_state.sqlite-wal").write_text("stale", encoding="utf-8")
+        result = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, mode, out)
+        assert result.total_events == 1
 
 
 def test_month_and_event_type_grouping_rendered() -> None:
-    cold = _summarize(_event_rows(), date(2025, 5, 1))
-    preroll = _summarize([r for r in _event_rows() if r["date"] >= "2025-05-02"], date(2025, 5, 1))
+    cold = diag.ReplayModeResult("cold", 3, {"2025-05": 3}, {"first_watch": 2, "first_early": 1}, [("AAA", 2)], [("2025-05-01", 2)])
+    pre = diag.ReplayModeResult("pre", 1, {"2025-05": 1}, {"first_early": 1}, [("AAA", 1)], [("2025-05-01", 1)])
 
     class S:
         scenario_id = "s1"
         evaluation = type("E", (), {"start_date": date(2025, 5, 1), "end_date": date(2025, 5, 10)})
 
-    report = _render_report(
+    report = diag._render_report(
         scenario_path=type("P", (), {"as_posix": lambda self: "scenario.yml"})(),
         scenario=S(),
         preroll_start_date=date(2025, 1, 1),
         cold=cold,
-        preroll=preroll,
+        preroll=pre,
         command="python ...",
     )
     assert "| 2025-05 | 3 | 1 |" in report
