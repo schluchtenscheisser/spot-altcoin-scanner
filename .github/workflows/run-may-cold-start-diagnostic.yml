@@ -1,0 +1,172 @@
+name: run-may-cold-start-diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario_path:
+        description: "Path to scenario YAML"
+        required: false
+        default: "configs/replay_scenarios/hsq_replay_2025_05_to_2026_05_v1.yml"
+        type: string
+
+      history_release_tag:
+        description: "GitHub Release tag for Pre-1 history asset"
+        required: false
+        default: "history-pre1-2026-05-20"
+        type: string
+
+      history_asset_name:
+        description: "Asset filename within the release"
+        required: false
+        default: "pre1_history_2026-05-20.tar.gz"
+        type: string
+
+      preroll_start_date:
+        description: "State preroll start date (YYYY-MM-DD)"
+        required: false
+        default: "2025-01-01"
+        type: string
+
+      report_out:
+        description: "Output path for generated diagnostic report"
+        required: false
+        default: "docs/legacy/reports/2026-05-25__may_2025_cold_start_diagnostic.md"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Download Pre-1 history asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}" \
+            --output "${{ inputs.history_asset_name }}"
+
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}.sha256" \
+            --output "${{ inputs.history_asset_name }}.sha256"
+
+      - name: Verify SHA256
+        run: |
+          sha256sum --check "${{ inputs.history_asset_name }}.sha256"
+          echo "SHA256 verified."
+
+      - name: Extract and normalize history
+        run: |
+          rm -rf extracted_history
+          mkdir -p extracted_history
+
+          tar -tzf "${{ inputs.history_asset_name }}" > archive_listing.txt
+          echo "Archive preview:"
+          head -80 archive_listing.txt
+
+          tar -xzf "${{ inputs.history_asset_name }}" -C extracted_history
+          echo "History extracted into extracted_history/."
+
+          find extracted_history -maxdepth 5 -type d | sort > extracted_dirs.txt
+          echo "Detected extracted structure:"
+          head -120 extracted_dirs.txt
+
+          rm -rf snapshots/history
+          mkdir -p snapshots
+          echo "Removed existing snapshots/history before normalization."
+
+          if [ -d extracted_history/snapshots/history/ohlcv ]; then
+            echo "Detected layout: snapshots/history at archive root"
+            cp -a extracted_history/snapshots/history snapshots/history
+          elif [ -d extracted_history/history/ohlcv ]; then
+            echo "Detected layout: history/ at archive root"
+            cp -a extracted_history/history snapshots/history
+          elif [ -d extracted_history/ohlcv ]; then
+            echo "Detected layout: ohlcv/ at archive root"
+            mkdir -p snapshots/history
+            cp -a extracted_history/ohlcv snapshots/history/
+            if [ -d extracted_history/manifests ]; then cp -a extracted_history/manifests snapshots/history/; fi
+            if [ -d extracted_history/regime_labels ]; then cp -a extracted_history/regime_labels snapshots/history/; fi
+          else
+            echo "ERROR: Could not detect Pre-1 history layout."
+            find extracted_history -maxdepth 6 -type f | sort > extracted_files.txt
+            echo "Sample files found:"
+            head -200 extracted_files.txt
+            exit 1
+          fi
+
+          test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after normalization" && exit 1)
+          test -f snapshots/history/manifests/history_manifest.json || (echo "ERROR: history_manifest.json not found" && exit 1)
+          test -f snapshots/history/manifests/universe_manifest.json || (echo "ERROR: universe_manifest.json not found" && exit 1)
+          test -f snapshots/history/manifests/symbol_completeness.json || (echo "ERROR: symbol_completeness.json not found" && exit 1)
+          test -f snapshots/history/regime_labels/regime_labels_btc_weekly_30d_return_vol_v1.json || (echo "ERROR: regime labels file not found" && exit 1)
+
+          ls -lh snapshots/history/ohlcv/ | head -5
+          echo "Post-normalization validation passed."
+
+      - name: Run May 2025 cold-start diagnostic
+        run: |
+          PYTHONPATH=. python scripts/diagnostics/may_2025_cold_start_diagnostic.py \
+            --scenario "${{ inputs.scenario_path }}" \
+            --preroll-start-date "${{ inputs.preroll_start_date }}" \
+            --report-out "${{ inputs.report_out }}"
+
+      - name: Print report
+        run: |
+          cat "${{ inputs.report_out }}"
+
+      - name: Package diagnostic outputs
+        if: ${{ always() }}
+        run: |
+          PACKAGE_ITEMS=()
+
+          if [ -f "${{ inputs.report_out }}" ]; then
+            PACKAGE_ITEMS+=("${{ inputs.report_out }}")
+          fi
+
+          if [ -d tmp/diagnostics/may_2025_cold_start ]; then
+            PACKAGE_ITEMS+=("tmp/diagnostics/may_2025_cold_start")
+          fi
+
+          if [ -f archive_listing.txt ]; then
+            PACKAGE_ITEMS+=("archive_listing.txt")
+          fi
+
+          if [ -f extracted_dirs.txt ]; then
+            PACKAGE_ITEMS+=("extracted_dirs.txt")
+          fi
+
+          if [ "${#PACKAGE_ITEMS[@]}" -eq 0 ]; then
+            echo "No diagnostic outputs found to package."
+            exit 0
+          fi
+
+          tar -czf may-cold-start-diagnostic-output.tar.gz "${PACKAGE_ITEMS[@]}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: may-cold-start-diagnostic-${{ github.run_id }}
+          path: may-cold-start-diagnostic-output.tar.gz
+          retention-days: 90
+          if-no-files-found: warn
