@@ -45,3 +45,29 @@ def test_invalid_horizons_fail(tmp_path: Path):
     run,hist,regime,out=_fixture(tmp_path)
     with pytest.raises(ValueError):
         build_dataset(run,hist,regime,out,forward_horizons="1,0,3")
+
+def test_missing_diagnostics_match_fails(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    # break one diagnostics key while keeping diagnostics row count plausible
+    _write_jsonl_gz(run/"chunks"/"2025-06"/"replay_symbol_diagnostics.jsonl.gz", [{
+        "scenario_id":"s","replay_id":"r","symbol":"OTHERUSDT","as_of_daily_bar_id":"2025-06-20",
+        "execution_evaluation_status":"not_evaluated_historical_ohlcv_only"
+    }])
+    with pytest.raises(ValueError, match="events without matching diagnostics rows"):
+        build_dataset(run,hist,regime,out,analysis_start_date="2025-06-01")
+
+
+def test_regime_zero_values_and_secondary_fallback(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps([
+        {"iso_week":"2025-W21","regime_label":"neutral","ret_30d":0.0,"realized_vol_30d":0.0,"btc_30d_return":None,"btc_30d_realized_vol":None},
+        {"iso_week":"2025-W25","regime_label":"risk_on","ret_30d":None,"realized_vol_30d":None,"btc_30d_return":0.0,"btc_30d_realized_vol":0.0},
+    ]))
+    build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+    enr=pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    may = enr.loc[enr["as_of_daily_bar_id"]=="2025-05-20"].iloc[0]
+    jun = enr.loc[enr["as_of_daily_bar_id"]=="2025-06-20"].iloc[0]
+    assert may["btc_30d_return"] == 0.0
+    assert may["btc_30d_realized_vol"] == 0.0
+    assert jun["btc_30d_return"] == 0.0
+    assert jun["btc_30d_realized_vol"] == 0.0

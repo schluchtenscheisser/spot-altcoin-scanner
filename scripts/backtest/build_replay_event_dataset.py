@@ -10,6 +10,12 @@ import pandas as pd
 EVENT_JOIN_KEYS=["scenario_id","replay_id","symbol","as_of_daily_bar_id"]
 EVENT_KEY=EVENT_JOIN_KEYS+["event_type"]
 
+def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return None
+
 
 def _parse_date(s:str,name:str)->date:
     try:
@@ -93,11 +99,22 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
     events=events.sort_values(EVENT_KEY).reset_index(drop=True)
     diagnostics=diagnostics.sort_values(EVENT_JOIN_KEYS).reset_index(drop=True)
 
-    enriched=events.merge(diagnostics,on=EVENT_JOIN_KEYS,how="left",suffixes=("","_diag"),validate="many_to_one")
-    if enriched[[*EVENT_JOIN_KEYS]].isna().any().any() or enriched.filter(regex="_diag$").shape[1]>0 and enriched.isna().all(axis=1).any():
-        pass
+    enriched=events.merge(
+        diagnostics,
+        on=EVENT_JOIN_KEYS,
+        how="left",
+        suffixes=("","_diag"),
+        validate="many_to_one",
+        indicator=True,
+    )
     if len(enriched)!=len(events): raise ValueError("join mismatch")
-    if enriched.isna().all(axis=1).any(): raise ValueError("missing join rows")
+    missing = enriched["_merge"] != "both"
+    if missing.any():
+        sample = enriched.loc[missing, EVENT_KEY].head(20).to_dict("records")
+        raise ValueError(
+            f"events without matching diagnostics rows: count={int(missing.sum())}, sample={sample}"
+        )
+    enriched = enriched.drop(columns=["_merge"])
     if "event_timestamp_utc" not in enriched:
         enriched["event_timestamp_utc"]=enriched["as_of_daily_bar_id"].astype(str)+"T23:59:59Z"
 
@@ -117,7 +134,7 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
         if row is None:
             miss_reg+=1; labels.append(None); rets.append(None); vols.append(None)
         else:
-            labels.append(row.get("regime_label") or row.get("btc_regime_label")); rets.append(row.get("ret_30d") or row.get("btc_30d_return")); vols.append(row.get("realized_vol_30d") or row.get("btc_30d_realized_vol"))
+            labels.append(_first_present(row, "regime_label", "btc_regime_label")); rets.append(_first_present(row, "ret_30d", "btc_30d_return")); vols.append(_first_present(row, "realized_vol_30d", "btc_30d_realized_vol"))
     if miss_reg==len(enriched): raise ValueError("all regime joins missing")
     enriched["btc_regime_week"]=weeks; enriched["btc_regime_label"]=labels; enriched["btc_30d_return"]=rets; enriched["btc_30d_realized_vol"]=vols
 
