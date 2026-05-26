@@ -73,3 +73,46 @@ def test_metrics_nonfinite_missing_and_min_count(tmp_path):
     assert all_row["missing_count_3d"] == 1
     assert bool(all_row["passes_min_count"]) is False
     assert "|" in str(seg[seg["segment_group"] == "historical_signal_bucket__x__entry_pattern"].iloc[0]["segment_key"])
+
+
+def test_segment_key_single_missing_value_is_null(tmp_path):
+    df = _base_df()
+    df.loc[df["symbol"] == "A", "entry_pattern"] = None
+    r = _run(tmp_path, df, "--analysis-scope", "primary_signal")
+    assert r.returncode == 0
+    seg = pd.read_csv(tmp_path / "out" / "s1" / "r1" / "segment_returns.csv")
+    rows = seg[seg["segment_group"] == "entry_pattern"]
+    assert rows["segment_key"].isna().any()
+    assert not rows["segment_key"].astype(str).str.contains("nan|None|<NA>", regex=True).any()
+
+
+def test_segment_key_composite_missing_second_uses_null_sentinel(tmp_path):
+    df = _base_df()
+    df.loc[df["symbol"] == "A", "historical_signal_bucket"] = "confirmed_candidates"
+    df.loc[df["symbol"] == "A", "entry_pattern"] = None
+    r = _run(tmp_path, df, "--analysis-scope", "primary_signal")
+    assert r.returncode == 0
+    seg = pd.read_csv(tmp_path / "out" / "s1" / "r1" / "segment_returns.csv")
+    rows = seg[seg["segment_group"] == "historical_signal_bucket__x__entry_pattern"]
+    assert "confirmed_candidates | <NULL>" in set(rows["segment_key"].astype(str))
+
+
+def test_segment_key_composite_missing_first_uses_null_sentinel(tmp_path):
+    df = _base_df()
+    df.loc[df["symbol"] == "A", "historical_signal_bucket"] = None
+    df.loc[df["symbol"] == "A", "entry_pattern"] = "ema_reclaim"
+    r = _run(tmp_path, df, "--analysis-scope", "primary_signal")
+    assert r.returncode == 0
+    seg = pd.read_csv(tmp_path / "out" / "s1" / "r1" / "segment_returns.csv")
+    rows = seg[seg["segment_group"] == "historical_signal_bucket__x__entry_pattern"]
+    assert "<NULL> | ema_reclaim" in set(rows["segment_key"].astype(str))
+
+
+def test_segment_key_never_stringifies_missing_tokens(tmp_path):
+    df = _base_df()
+    df.loc[df["symbol"] == "A", "entry_pattern"] = np.nan
+    df.loc[df["symbol"] == "A", "historical_signal_bucket"] = None
+    r = _run(tmp_path, df, "--analysis-scope", "primary_signal")
+    assert r.returncode == 0
+    seg = pd.read_csv(tmp_path / "out" / "s1" / "r1" / "segment_returns.csv")
+    assert not seg["segment_key"].astype(str).str.contains("nan|None|<NA>", regex=True).any()

@@ -80,6 +80,31 @@ def _select_scope(df: pd.DataFrame, scope: str) -> pd.DataFrame:
     return df.copy()
 
 
+
+
+def _is_missing(value: object) -> bool:
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _segment_value_to_key_part(value: object) -> str | None:
+    if _is_missing(value):
+        return None
+    return str(value)
+
+
+def _build_segment_key(values: tuple[object, ...] | list[object]) -> str | None:
+    parts: list[str] = []
+    for value in values:
+        part = _segment_value_to_key_part(value)
+        parts.append("<NULL>" if part is None else part)
+    if len(parts) == 1:
+        return None if parts[0] == "<NULL>" else parts[0]
+    return " | ".join(parts)
+
+
 def _metrics_for_series(series: pd.Series) -> dict[str, float | int | None]:
     if series.empty:
         return {"mean": None, "median": None, "win_rate": None, "positive": None, "negative": None, "flat": None, "min": None, "max": None, "p25": None, "p75": None}
@@ -96,7 +121,7 @@ def _build_segment_row(frame: pd.DataFrame, scope: str, group: str, k1: Any, k2:
     count = int(len(frame))
     row = {
         "scope": scope, "segment_group": group,
-        "segment_key": "ALL" if group == "ALL" else (str(k1) if k2 is None else f"{k1} | {k2}"),
+        "segment_key": "ALL" if group == "ALL" else _build_segment_key((k1,)) if group in SINGLE_GROUPS else _build_segment_key((k1, k2)),
         "segment_key_1": "ALL" if group == "ALL" else k1,
         "segment_key_2": None if group in SINGLE_GROUPS or group == "ALL" else k2,
         "count": count,
