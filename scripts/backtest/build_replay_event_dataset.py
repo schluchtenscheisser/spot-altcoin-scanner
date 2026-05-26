@@ -16,6 +16,27 @@ def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
             return mapping[key]
     return None
 
+def _nonempty_str(value: Any) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return None
+
+
+def _derive_regime_week_key(row: dict[str, Any]) -> str | None:
+    for key in ("iso_week", "week", "btc_regime_week"):
+        val = _nonempty_str(row.get(key))
+        if val is not None:
+            return val
+    week_start = _nonempty_str(row.get("week_start_date"))
+    if week_start is None:
+        return None
+    try:
+        iso = date.fromisoformat(week_start).isocalendar()
+    except ValueError:
+        return None
+    return f"{iso.year}-W{iso.week:02d}"
+
 
 def _parse_date(s:str,name:str)->date:
     try:
@@ -131,18 +152,13 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
         rows = []
     week_map={}
     for r in rows:
-        key = _first_present(r, "iso_week", "week", "btc_regime_week")
-        if key is None:
-            week_start_date = r.get("week_start_date")
-            if week_start_date is not None:
-                iso = date.fromisoformat(week_start_date).isocalendar()
-                key = f"{iso.year}-W{iso.week:02d}"
+        key = _derive_regime_week_key(r)
         if key is None:
             continue
         if key in week_map:
             raise ValueError(f"duplicate regime week key: {key}")
         week_map[key]=r
-    if not week_map: raise ValueError("cannot interpret regime schema: expected top-level list, rows, or labels with iso_week/week/btc_regime_week or week_start_date")
+    if not week_map: raise ValueError("cannot interpret regime schema: expected top-level list, rows, or labels with non-empty iso_week/week/btc_regime_week or valid week_start_date")
     miss_reg=0
     weeks=[]; labels=[]; rets=[]; vols=[]
     for dtv in pd.to_datetime(enriched["as_of_daily_bar_id"]):

@@ -122,5 +122,50 @@ def test_regime_does_not_use_as_of_daily_bar_id_as_week_key(tmp_path: Path):
     regime.write_text(json.dumps({"labels":[
         {"as_of_daily_bar_id":"BTCUSDT:1d:2025-02-09T00:00:00Z","regime_label":"Sideways"}
     ]}))
-    with pytest.raises(ValueError, match="cannot interpret regime schema: expected top-level list, rows, or labels"):
+    with pytest.raises(ValueError, match="cannot interpret regime schema: expected top-level list, rows, or labels with non-empty iso_week/week/btc_regime_week or valid week_start_date"):
+        build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+
+
+def test_regime_empty_iso_week_falls_back_to_week_start_date(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps({"labels":[
+        {"iso_week":"","week_start_date":"2025-05-19","regime_label":"Sideways"},
+        {"week_start_date":"2025-06-16","regime_label":"RiskOn"},
+    ]}))
+    build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+    enr=pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    assert enr.loc[enr["as_of_daily_bar_id"]=="2025-05-20","btc_regime_label"].iloc[0] == "Sideways"
+
+
+def test_regime_whitespace_week_falls_back_to_week_start_date(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps({"labels":[
+        {"week":"   ","week_start_date":"2025-05-19","regime_label":"Sideways"},
+        {"week_start_date":"2025-06-16","regime_label":"RiskOn"},
+    ]}))
+    build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+    enr=pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    assert enr.loc[enr["as_of_daily_bar_id"]=="2025-05-20","btc_regime_label"].iloc[0] == "Sideways"
+
+
+def test_regime_malformed_week_start_date_is_skipped(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps({"labels":[
+        {"week_start_date":"not-a-date","regime_label":"BadRow"},
+        {"week_start_date":"2025-06-16","regime_label":"RiskOn"},
+    ]}))
+    build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+    enr=pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    jun = enr.loc[enr["as_of_daily_bar_id"]=="2025-06-20"].iloc[0]
+    assert jun["btc_regime_label"] == "RiskOn"
+
+
+def test_regime_all_non_interpretable_rows_fail_with_clear_error(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps({"labels":[
+        {"iso_week":" ","week_start_date":"not-a-date","regime_label":"A"},
+        {"week":"", "regime_label":"B"},
+        {"btc_regime_week":"   ", "week_start_date":"", "regime_label":"C"},
+    ]}))
+    with pytest.raises(ValueError, match="cannot interpret regime schema: expected top-level list, rows, or labels with non-empty iso_week/week/btc_regime_week or valid week_start_date"):
         build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
