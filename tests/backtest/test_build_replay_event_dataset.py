@@ -12,6 +12,17 @@ def _write_jsonl_gz(path: Path, rows):
             f.write(json.dumps(r) + "\n")
 
 
+
+
+def _write_ohlcv_1d(history_root: Path, symbol: str, rows):
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return
+    for (y,m), part in df.groupby([df["close_time_utc"].str.slice(0,4), df["close_time_utc"].str.slice(5,7)]):
+        d = history_root / f"timeframe=1d/symbol={symbol}/year={y}/month={m}"
+        d.mkdir(parents=True, exist_ok=True)
+        part.to_parquet(d/"part-000.parquet", index=False)
+
 def _fixture(tmp_path: Path):
     run=tmp_path/"run"; (run/"chunks"/"2025-05").mkdir(parents=True); (run/"chunks"/"2025-06").mkdir(parents=True)
     ev1=pd.DataFrame([{"scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-05-20","event_type":"E","signal_daily_close":1.0}])
@@ -225,3 +236,62 @@ def test_mixed_setup_cycle_id_normalized_for_parquet_write(tmp_path: Path):
     events = pd.read_parquet(out/"s"/"r"/"all_replay_event_candidates.parquet")
     if "forward_close_return_1d" in events.columns:
         assert pd.api.types.is_numeric_dtype(events["forward_close_return_1d"])
+
+
+def test_ohlcv_enrichment_and_manifest_counts(tmp_path: Path):
+    run,hist,regime,out=_fixture(tmp_path)
+    regime.write_text(json.dumps([{"iso_week":"2025-W21","regime_label":"neutral"},{"iso_week":"2025-W25","regime_label":"risk_on"}]))
+    # overwrite with mixed symbols/events
+    ev1=pd.DataFrame([
+        {"scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-05-20","event_type":"E","signal_daily_close":100.0},
+        {"scenario_id":"s","replay_id":"r","symbol":"BBBUSDT","as_of_daily_bar_id":"2025-05-20","event_type":"E","signal_daily_close":50.0},
+    ])
+    ev2=pd.DataFrame([
+        {"scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-20","event_type":"E","signal_daily_close":200.0},
+    ])
+    ev1.to_parquet(run/"chunks"/"2025-05"/"replay_event_candidates.parquet",index=False)
+    ev2.to_parquet(run/"chunks"/"2025-06"/"replay_event_candidates.parquet",index=False)
+    _write_jsonl_gz(run/"chunks"/"2025-05"/"replay_symbol_diagnostics.jsonl.gz",[
+        {"scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-05-20","execution_evaluation_status":"not_evaluated_historical_ohlcv_only"},
+        {"scenario_id":"s","replay_id":"r","symbol":"BBBUSDT","as_of_daily_bar_id":"2025-05-20","execution_evaluation_status":"not_evaluated_historical_ohlcv_only"},
+    ])
+    _write_jsonl_gz(run/"chunks"/"2025-06"/"replay_symbol_diagnostics.jsonl.gz",[
+        {"scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-20","execution_evaluation_status":"not_evaluated_historical_ohlcv_only"},
+    ])
+    (run/"replay_manifest.json").write_text(json.dumps({"is_complete":True,"replay_days_completed":2,"replay_days_total":2,"chunks_completed":["2025-05","2025-06"],"signal_events_so_far":3,"signal_events_total":3,"diagnostics_so_far":3,"scenario_id":"s","replay_id":"r","evaluation_end_date":"2025-06-30"}))
+
+    rows=[]
+    for d in pd.date_range("2025-05-01", periods=60, freq="D"):
+        qv=float((d.day%5+1)*100000)
+        if d.strftime("%Y-%m-%d")=="2025-06-20":
+            qv=float('nan')
+        rows.append({"close_time_utc":d.strftime("%Y-%m-%dT23:59:59Z"),"close":float(100+d.day),"quote_volume":qv,"is_closed":True})
+    # missing 2025-05-21 to verify available-bar forward logic
+    rows=[r for r in rows if not r["close_time_utc"].startswith("2025-05-21")]
+    _write_ohlcv_1d(hist,"AAAUSDT",rows)
+
+    build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01",forward_horizons="1,3")
+    enr=pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    aaa_may=enr[(enr.symbol=="AAAUSDT")&(enr.as_of_daily_bar_id=="2025-05-20")].iloc[0]
+    assert aaa_may["signal_day_quote_volume"] == 100000.0
+    assert pd.notna(aaa_may["median_quote_volume_30d"])
+    assert pd.notna(aaa_may["median_quote_volume_90d"])
+    assert aaa_may["quote_volume_bucket"] in {"qv_100k_1m","qv_lt_100k","qv_1m_10m","qv_10m_100m","qv_ge_100m"}
+    assert bool(aaa_may["has_forward_1d"]) is True
+    assert bool(aaa_may["has_forward_3d"]) is True
+    assert pd.notna(aaa_may["forward_close_return_1d"])
+    assert pd.notna(aaa_may["forward_close_return_3d"])
+
+    aaa_jun=enr[(enr.symbol=="AAAUSDT")&(enr.as_of_daily_bar_id=="2025-06-20")].iloc[0]
+    assert pd.isna(aaa_jun["signal_day_quote_volume"])
+    assert aaa_jun["quote_volume_bucket"] == "qv_unknown"
+
+    bbb=enr[enr.symbol=="BBBUSDT"].iloc[0]
+    assert bbb["quote_volume_bucket"]=="qv_unknown"
+    assert bool(bbb["has_forward_1d"]) is False
+    assert pd.isna(bbb["forward_close_return_1d"])
+
+    manifest=json.loads((out/"s"/"r"/"backtest_merge_manifest.json").read_text())
+    assert manifest["symbols_missing_1d_history_count"] == 1
+    assert manifest["events_missing_1d_history_count"] == 1
+    assert "1" in manifest["missing_forward_return_counts_by_horizon"]
