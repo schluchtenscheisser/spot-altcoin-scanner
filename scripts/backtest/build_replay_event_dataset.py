@@ -88,6 +88,43 @@ def _atomic_write_json(payload:dict[str,Any],path:Path)->None:
         t=Path(tf.name)
     t.replace(path)
 
+_NULLABLE_STRING_COLUMNS = [
+    "setup_cycle_id",
+    "state_machine_state",
+    "state_transition_reason",
+    "entry_pattern",
+    "historical_signal_bucket",
+    "market_phase",
+    "disposition_status",
+    "disposition_reason",
+    "execution_evaluation_status",
+    "data_resolution_class",
+    "event_type",
+    "scenario_id",
+    "replay_id",
+    "symbol",
+    "as_of_daily_bar_id",
+    "event_timestamp_utc",
+    "btc_regime_week",
+    "btc_regime_label",
+    "quote_volume_bucket",
+]
+
+
+def _normalize_nullable_string_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    if column not in df.columns:
+        return df
+    out = df.copy()
+    out[column] = out[column].map(lambda v: None if pd.isna(v) else str(v))
+    return out
+
+
+def _normalize_nullable_string_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    out = df
+    for column in columns:
+        out = _normalize_nullable_string_column(out, column)
+    return out
+
 def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,output_root:Path,analysis_start_date:str="2025-06-01",analysis_end_date:str|None=None,forward_horizons:str="1,3,5,10,20"):
     if not replay_run_dir.exists() or not history_root.exists() or not regime_labels.exists():
         raise ValueError("required path missing")
@@ -182,9 +219,16 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
     for c in req_cols:
         if c not in enriched.columns: enriched[c]=None
 
-    _atomic_write_df(events,out_dir/"all_replay_event_candidates.parquet")
-    _atomic_write_df(diagnostics,out_dir/"all_replay_symbol_diagnostics.parquet")
-    _atomic_write_df(enriched.sort_values(EVENT_KEY).reset_index(drop=True),out_dir/"enriched_replay_events.parquet")
+    events_for_write = _normalize_nullable_string_columns(events, _NULLABLE_STRING_COLUMNS)
+    diagnostics_for_write = _normalize_nullable_string_columns(diagnostics, _NULLABLE_STRING_COLUMNS)
+    enriched_for_write = _normalize_nullable_string_columns(
+        enriched.sort_values(EVENT_KEY).reset_index(drop=True),
+        _NULLABLE_STRING_COLUMNS,
+    )
+
+    _atomic_write_df(events_for_write,out_dir/"all_replay_event_candidates.parquet")
+    _atomic_write_df(diagnostics_for_write,out_dir/"all_replay_symbol_diagnostics.parquet")
+    _atomic_write_df(enriched_for_write,out_dir/"enriched_replay_events.parquet")
     m={"scenario_id":scenario_id,"replay_id":replay_id,"replay_run_dir":str(replay_run_dir),"history_root":str(history_root),"regime_labels_path":str(regime_labels),"created_at_utc":datetime.utcnow().replace(microsecond=0).isoformat()+"Z","analysis_start_date":analysis_start_date,"analysis_end_date":ed.isoformat(),"forward_horizons":hs,"full_event_count":int(len(events)),"primary_analysis_event_count":int(enriched["included_in_primary_analysis"].sum()),"diagnostics_count":int(len(diagnostics)),"chunk_count":len(chunks),"chunks_completed":sorted(chunks),"missing_regime_label_count":miss_reg,"missing_signal_daily_close_count":int(enriched["signal_daily_close"].isna().sum()),"missing_quote_volume_count":int(len(enriched)),"negative_quote_volume_count":0,"nonfinite_numeric_values_replaced_with_null_count":0,"market_cap_available":False,"market_cap_reason":"not_available_point_in_time","liquidity_proxy_fields":["signal_day_quote_volume","median_quote_volume_30d","median_quote_volume_90d","quote_volume_bucket"],"forward_returns_are_labels_only":True,"no_lookahead_signal_inputs":True,"validation_status":"passed","validation_errors":[]}
     _atomic_write_json(m,out_dir/"backtest_merge_manifest.json")
 

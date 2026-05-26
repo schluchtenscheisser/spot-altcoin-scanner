@@ -169,3 +169,59 @@ def test_regime_all_non_interpretable_rows_fail_with_clear_error(tmp_path: Path)
     ]}))
     with pytest.raises(ValueError, match="cannot interpret regime schema: expected top-level list, rows, or labels with non-empty iso_week/week/btc_regime_week or valid week_start_date"):
         build_dataset(run,hist,regime,out,analysis_start_date="2025-05-01")
+
+
+def test_mixed_setup_cycle_id_normalized_for_parquet_write(tmp_path: Path):
+    run, hist, regime, out = _fixture(tmp_path)
+    ev1 = pd.DataFrame([{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-05-20",
+        "event_type":"E","signal_daily_close":1.0,"market_phase_confidence":0.8,"entry_pattern_score":0.5,
+        "forward_close_return_1d":0.01,
+    }])
+    ev2 = pd.DataFrame([{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-20",
+        "event_type":"E","signal_daily_close":1.2,"market_phase_confidence":0.6,"entry_pattern_score":0.7,
+        "forward_close_return_1d":0.02,
+    }])
+    ev3 = pd.DataFrame([{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-21",
+        "event_type":"E","signal_daily_close":1.4,"market_phase_confidence":0.9,"entry_pattern_score":0.2,
+        "forward_close_return_1d":0.03,
+    }])
+    (run/"chunks"/"2025-07").mkdir(parents=True)
+    ev1.to_parquet(run/"chunks"/"2025-05"/"replay_event_candidates.parquet",index=False)
+    ev2.to_parquet(run/"chunks"/"2025-06"/"replay_event_candidates.parquet",index=False)
+    ev3.to_parquet(run/"chunks"/"2025-07"/"replay_event_candidates.parquet",index=False)
+    (run/"chunks"/"2025-07"/"chunk_manifest.json").write_text("{}")
+    _write_jsonl_gz(run/"chunks"/"2025-05"/"replay_symbol_diagnostics.jsonl.gz",[{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-05-20",
+        "setup_cycle_id":5,"execution_evaluation_status":"not_evaluated_historical_ohlcv_only"
+    }])
+    _write_jsonl_gz(run/"chunks"/"2025-06"/"replay_symbol_diagnostics.jsonl.gz",[{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-20",
+        "setup_cycle_id":"6","execution_evaluation_status":"not_evaluated_historical_ohlcv_only"
+    }])
+    _write_jsonl_gz(run/"chunks"/"2025-07"/"replay_symbol_diagnostics.jsonl.gz",[{
+        "scenario_id":"s","replay_id":"r","symbol":"AAAUSDT","as_of_daily_bar_id":"2025-06-21",
+        "setup_cycle_id":None,"execution_evaluation_status":"not_evaluated_historical_ohlcv_only"
+    }])
+    manifest={"is_complete":True,"replay_days_completed":3,"replay_days_total":3,"chunks_completed":["2025-05","2025-06","2025-07"],"signal_events_so_far":3,"signal_events_total":1,"diagnostics_so_far":3,"scenario_id":"s","replay_id":"r","evaluation_end_date":"2025-06-30"}
+    (run/"replay_manifest.json").write_text(json.dumps(manifest))
+    regime.write_text(json.dumps([{"iso_week":"2025-W21","regime_label":"neutral"}, {"iso_week":"2025-W25","regime_label":"risk_on"}]))
+
+    build_dataset(run, hist, regime, out, analysis_start_date="2025-05-01")
+
+    diag = pd.read_parquet(out/"s"/"r"/"all_replay_symbol_diagnostics.parquet")
+    assert diag["setup_cycle_id"].iloc[0] == "5"
+    assert diag["setup_cycle_id"].iloc[1] == "6"
+    assert pd.isna(diag["setup_cycle_id"].iloc[2])
+    assert "None" not in diag["setup_cycle_id"].dropna().tolist()
+    assert "nan" not in diag["setup_cycle_id"].dropna().tolist()
+
+    enr = pd.read_parquet(out/"s"/"r"/"enriched_replay_events.parquet")
+    assert pd.api.types.is_numeric_dtype(enr["signal_daily_close"])
+    assert pd.api.types.is_numeric_dtype(enr["market_phase_confidence"])
+    assert pd.api.types.is_numeric_dtype(enr["entry_pattern_score"])
+    events = pd.read_parquet(out/"s"/"r"/"all_replay_event_candidates.parquet")
+    if "forward_close_return_1d" in events.columns:
+        assert pd.api.types.is_numeric_dtype(events["forward_close_return_1d"])
