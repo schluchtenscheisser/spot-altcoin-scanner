@@ -123,9 +123,26 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
     enriched["analysis_start_date"]=analysis_start_date; enriched["analysis_end_date"]=ed.isoformat()
 
     regime=json.loads(regime_labels.read_text())
-    rows = regime if isinstance(regime, list) else regime.get("rows", [])
-    week_map={r.get("iso_week") or r.get("week") or r.get("btc_regime_week"):r for r in rows}
-    if not week_map: raise ValueError("cannot interpret regime schema")
+    if isinstance(regime, list):
+        rows = regime
+    elif isinstance(regime, dict):
+        rows = regime.get("rows") or regime.get("labels") or []
+    else:
+        rows = []
+    week_map={}
+    for r in rows:
+        key = _first_present(r, "iso_week", "week", "btc_regime_week")
+        if key is None:
+            week_start_date = r.get("week_start_date")
+            if week_start_date is not None:
+                iso = date.fromisoformat(week_start_date).isocalendar()
+                key = f"{iso.year}-W{iso.week:02d}"
+        if key is None:
+            continue
+        if key in week_map:
+            raise ValueError(f"duplicate regime week key: {key}")
+        week_map[key]=r
+    if not week_map: raise ValueError("cannot interpret regime schema: expected top-level list, rows, or labels with iso_week/week/btc_regime_week or week_start_date")
     miss_reg=0
     weeks=[]; labels=[]; rets=[]; vols=[]
     for dtv in pd.to_datetime(enriched["as_of_daily_bar_id"]):
@@ -134,7 +151,7 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
         if row is None:
             miss_reg+=1; labels.append(None); rets.append(None); vols.append(None)
         else:
-            labels.append(_first_present(row, "regime_label", "btc_regime_label")); rets.append(_first_present(row, "ret_30d", "btc_30d_return")); vols.append(_first_present(row, "realized_vol_30d", "btc_30d_realized_vol"))
+            labels.append(_first_present(row, "regime_label", "btc_regime_label")); rets.append(_first_present(row, "btc_30d_return_pct", "ret_30d", "btc_30d_return")); vols.append(_first_present(row, "btc_30d_realized_vol_annualized_pct", "realized_vol_30d", "btc_30d_realized_vol"))
     if miss_reg==len(enriched): raise ValueError("all regime joins missing")
     enriched["btc_regime_week"]=weeks; enriched["btc_regime_label"]=labels; enriched["btc_30d_return"]=rets; enriched["btc_30d_realized_vol"]=vols
 
