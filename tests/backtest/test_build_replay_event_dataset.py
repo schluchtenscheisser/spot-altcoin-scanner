@@ -366,3 +366,8 @@ def test_signal_analysis_tie_breaker_event_type_ascending(tmp_path: Path):
     grp=enr[(enr.symbol=="AAAUSDT")&(enr.as_of_daily_bar_id=="2025-05-20")]
     assert bool(grp.loc[grp["event_type"]=="aaa_unknown","included_in_signal_analysis"].iloc[0]) is True
     assert bool(grp.loc[grp["event_type"]=="zzz_unknown","included_in_signal_analysis"].iloc[0]) is False
+
+
+def test_dedup_key_build_avoids_dataframe_map_api():
+    source = Path("scripts/backtest/build_replay_event_dataset.py").read_text(encoding="utf-8")
+    assert 'SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS].map(' not in source

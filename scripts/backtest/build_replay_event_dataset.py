@@ -200,7 +200,20 @@ def _normalize_nullable_string_columns(df: pd.DataFrame, columns: list[str]) -> 
 
 def _apply_signal_analysis_dedup_fields(enriched: pd.DataFrame) -> pd.DataFrame:
     out = enriched.copy()
-    out["dedup_group_key"] = out[SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS].map(lambda c: "" if pd.isna(c) else str(c)).agg("|".join, axis=1)
+    dedup_parts: list[pd.Series] = []
+    for column in SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS:
+        dedup_parts.append(out[column].astype("string").fillna("<NA>"))
+    out["dedup_group_key"] = (
+        dedup_parts[0]
+        + "|"
+        + dedup_parts[1]
+        + "|"
+        + dedup_parts[2]
+        + "|"
+        + dedup_parts[3]
+        + "|"
+        + dedup_parts[4]
+    )
     out["analysis_event_rank"] = out["event_type"].map(lambda e: ANALYSIS_EVENT_PRIORITY_ORDER.get(str(e), 99)).astype(int)
     ranked = out.sort_values(["dedup_group_key", "analysis_event_rank", "event_type", "symbol", "as_of_daily_bar_id"], kind="mergesort")
     selected_index = set(ranked.groupby("dedup_group_key", sort=False).head(1).index.tolist())
