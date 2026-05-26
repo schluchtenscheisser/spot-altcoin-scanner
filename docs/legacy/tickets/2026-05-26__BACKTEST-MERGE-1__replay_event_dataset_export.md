@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # BACKTEST-MERGE-1: Replay Event Dataset Export for Backtest-1
 
 ## Metadata
