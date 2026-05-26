@@ -9,6 +9,8 @@ import pandas as pd
 
 EVENT_JOIN_KEYS=["scenario_id","replay_id","symbol","as_of_daily_bar_id"]
 EVENT_KEY=EVENT_JOIN_KEYS+["event_type"]
+SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS=["scenario_id","replay_id","symbol","as_of_daily_bar_id","historical_signal_bucket"]
+ANALYSIS_EVENT_PRIORITY_ORDER={"first_confirmed_with_entry_pattern":1,"first_early_ready":2,"first_late":3,"first_chased":4,"first_rejected":5,"first_confirmed_ready":6}
 
 def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
     for key in keys:
@@ -174,6 +176,9 @@ _NULLABLE_STRING_COLUMNS = [
     "btc_regime_week",
     "btc_regime_label",
     "quote_volume_bucket",
+    "dedup_group_key",
+    "analysis_event_type",
+    "dedup_reason",
 ]
 
 
@@ -189,6 +194,19 @@ def _normalize_nullable_string_columns(df: pd.DataFrame, columns: list[str]) -> 
     out = df
     for column in columns:
         out = _normalize_nullable_string_column(out, column)
+    return out
+
+
+
+def _apply_signal_analysis_dedup_fields(enriched: pd.DataFrame) -> pd.DataFrame:
+    out = enriched.copy()
+    out["dedup_group_key"] = out[SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS].map(lambda c: "" if pd.isna(c) else str(c)).agg("|".join, axis=1)
+    out["analysis_event_rank"] = out["event_type"].map(lambda e: ANALYSIS_EVENT_PRIORITY_ORDER.get(str(e), 99)).astype(int)
+    ranked = out.sort_values(["dedup_group_key", "analysis_event_rank", "event_type", "symbol", "as_of_daily_bar_id"], kind="mergesort")
+    selected_index = set(ranked.groupby("dedup_group_key", sort=False).head(1).index.tolist())
+    out["included_in_signal_analysis"] = out.index.to_series().map(lambda i: i in selected_index).astype(bool)
+    out["analysis_event_type"] = np.where(out["included_in_signal_analysis"], out["event_type"], None)
+    out["dedup_reason"] = np.where(out["included_in_signal_analysis"], "selected_primary_event", "duplicate_lower_priority_event")
     return out
 
 def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,output_root:Path,analysis_start_date:str="2025-06-01",analysis_end_date:str|None=None,forward_horizons:str="1,3,5,10,20"):
@@ -345,6 +363,8 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
     for c in req_cols:
         if c not in enriched.columns: enriched[c]=None
 
+    enriched=_apply_signal_analysis_dedup_fields(enriched)
+
     events_for_write = _normalize_nullable_string_columns(events, _NULLABLE_STRING_COLUMNS)
     diagnostics_for_write = _normalize_nullable_string_columns(diagnostics, _NULLABLE_STRING_COLUMNS)
     enriched_for_write = _normalize_nullable_string_columns(
@@ -359,7 +379,8 @@ def build_dataset(replay_run_dir:Path,history_root:Path,regime_labels:Path,outpu
     quote_bucket_counts = {k: int(v) for k, v in enriched["quote_volume_bucket"].value_counts(dropna=False).items()}
     primary = enriched[enriched["included_in_primary_analysis"]]
     primary_quote_bucket_counts = {k: int(v) for k, v in primary["quote_volume_bucket"].value_counts(dropna=False).items()}
-    m={"scenario_id":scenario_id,"replay_id":replay_id,"replay_run_dir":str(replay_run_dir),"history_root":str(history_root),"regime_labels_path":str(regime_labels),"created_at_utc":datetime.utcnow().replace(microsecond=0).isoformat()+"Z","analysis_start_date":analysis_start_date,"analysis_end_date":ed.isoformat(),"forward_horizons":hs,"full_event_count":int(len(events)),"primary_analysis_event_count":int(enriched["included_in_primary_analysis"].sum()),"diagnostics_count":int(len(diagnostics)),"chunk_count":len(chunks),"chunks_completed":sorted(chunks),"missing_regime_label_count":miss_reg,"missing_signal_daily_close_count":int(enriched["signal_daily_close"].isna().sum()),"missing_quote_volume_count":int(enriched["signal_day_quote_volume"].isna().sum()),"missing_median_quote_volume_30d_count":int(enriched["median_quote_volume_30d"].isna().sum()),"missing_median_quote_volume_90d_count":int(enriched["median_quote_volume_90d"].isna().sum()),"quote_volume_bucket_counts":quote_bucket_counts,"primary_quote_volume_bucket_counts":primary_quote_bucket_counts,"missing_forward_return_counts_by_horizon":missing_forward,"symbols_missing_1d_history_count":int(len(symbol_missing_history)),"events_missing_1d_history_count":int(event_missing_history_count),"negative_quote_volume_count":int((pd.to_numeric(enriched["signal_day_quote_volume"], errors="coerce") < 0).fillna(False).sum()),"nonfinite_numeric_values_replaced_with_null_count":int(nonfinite_replaced),"market_cap_available":False,"market_cap_reason":"not_available_point_in_time","liquidity_proxy_fields":["signal_day_quote_volume","median_quote_volume_30d","median_quote_volume_90d","quote_volume_bucket"],"forward_returns_are_labels_only":True,"no_lookahead_signal_inputs":True,"validation_status":"passed","validation_errors":[]}
+    raw_event_count=int(len(enriched)); signal_analysis_event_count=int(enriched["included_in_signal_analysis"].sum()); primary_signal_analysis_event_count=int((enriched["included_in_signal_analysis"]&enriched["included_in_primary_analysis"]).sum()); duplicate_signal_event_count=int(raw_event_count-signal_analysis_event_count); duplicate_signal_event_count_by_event_type={str(k):int(v) for k,v in enriched.loc[~enriched["included_in_signal_analysis"],"event_type"].value_counts(dropna=False).items()}
+    m={"scenario_id":scenario_id,"replay_id":replay_id,"replay_run_dir":str(replay_run_dir),"history_root":str(history_root),"regime_labels_path":str(regime_labels),"created_at_utc":datetime.utcnow().replace(microsecond=0).isoformat()+"Z","analysis_start_date":analysis_start_date,"analysis_end_date":ed.isoformat(),"forward_horizons":hs,"full_event_count":int(len(events)),"primary_analysis_event_count":int(enriched["included_in_primary_analysis"].sum()),"diagnostics_count":int(len(diagnostics)),"chunk_count":len(chunks),"chunks_completed":sorted(chunks),"missing_regime_label_count":miss_reg,"missing_signal_daily_close_count":int(enriched["signal_daily_close"].isna().sum()),"missing_quote_volume_count":int(enriched["signal_day_quote_volume"].isna().sum()),"missing_median_quote_volume_30d_count":int(enriched["median_quote_volume_30d"].isna().sum()),"missing_median_quote_volume_90d_count":int(enriched["median_quote_volume_90d"].isna().sum()),"quote_volume_bucket_counts":quote_bucket_counts,"primary_quote_volume_bucket_counts":primary_quote_bucket_counts,"missing_forward_return_counts_by_horizon":missing_forward,"symbols_missing_1d_history_count":int(len(symbol_missing_history)),"events_missing_1d_history_count":int(event_missing_history_count),"negative_quote_volume_count":int((pd.to_numeric(enriched["signal_day_quote_volume"], errors="coerce") < 0).fillna(False).sum()),"nonfinite_numeric_values_replaced_with_null_count":int(nonfinite_replaced),"market_cap_available":False,"market_cap_reason":"not_available_point_in_time","liquidity_proxy_fields":["signal_day_quote_volume","median_quote_volume_30d","median_quote_volume_90d","quote_volume_bucket"],"forward_returns_are_labels_only":True,"no_lookahead_signal_inputs":True,"raw_event_count":raw_event_count,"signal_analysis_event_count":signal_analysis_event_count,"primary_signal_analysis_event_count":primary_signal_analysis_event_count,"duplicate_signal_event_count":duplicate_signal_event_count,"duplicate_signal_event_count_by_event_type":duplicate_signal_event_count_by_event_type,"analysis_event_priority_order":ANALYSIS_EVENT_PRIORITY_ORDER,"signal_analysis_dedup_key_fields":SIGNAL_ANALYSIS_DEDUP_KEY_FIELDS,"validation_status":"passed","validation_errors":[]}
     _atomic_write_json(m,out_dir/"backtest_merge_manifest.json")
 
 def main():
