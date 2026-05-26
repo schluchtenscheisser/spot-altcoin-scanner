@@ -26,6 +26,11 @@ on:
         required: false
         default: "2025-01-01"
         type: string
+      diagnostic_end_date:
+        description: "End date for diagnostic counting/processing, default limits run to May 2025"
+        required: false
+        default: "2025-05-31"
+        type: string
 
       report_out:
         description: "Output path for generated diagnostic report"
@@ -40,7 +45,7 @@ permissions:
 jobs:
   diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
 
     steps:
       - name: Checkout
@@ -128,6 +133,7 @@ jobs:
           PYTHONPATH=. python scripts/diagnostics/may_2025_cold_start_diagnostic.py \
             --scenario "${{ inputs.scenario_path }}" \
             --preroll-start-date "${{ inputs.preroll_start_date }}" \
+            --diagnostic-end-date "${{ inputs.diagnostic_end_date }}" \
             --report-out "${{ inputs.report_out }}"
 
       - name: Print report

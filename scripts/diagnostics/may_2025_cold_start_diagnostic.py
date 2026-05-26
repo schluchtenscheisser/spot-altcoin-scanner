@@ -42,6 +42,7 @@ def _collect_events(
     scenario: ReplayScenario,
     state_start_date: date,
     evaluation_start_date: date,
+    diagnostic_end_date: date,
     mode: str,
     output_dir: Path,
 ) -> ReplayModeResult:
@@ -55,8 +56,13 @@ def _collect_events(
     symbols = sorted([p.name.replace("symbol=", "") for p in (Path(scenario.history_dataset_ref) / "timeframe=1d").iterdir() if p.is_dir()])
 
     event_rows: list[dict[str, Any]] = []
+    logger.info("[%s] start replay mode from %s to %s", mode, state_start_date.isoformat(), diagnostic_end_date.isoformat())
+    mode_started_at = datetime.now(timezone.utc)
     current = state_start_date
-    while current <= scenario.evaluation.end_date:
+    replay_day_index = 0
+    while current <= diagnostic_end_date:
+        if replay_day_index % 10 == 0 or current.day == 1:
+            logger.info("[%s] replay progress day=%s", mode, current.isoformat())
         as_of = datetime.combine(current, time(23, 59, 59), tzinfo=timezone.utc) + timedelta(seconds=scenario.settlement_delay_seconds)
         bar_id = current.isoformat()
         for sym in symbols:
@@ -92,6 +98,7 @@ def _collect_events(
                 if event_type.startswith("first_"):
                     event_rows.append({"date": bar_id, "symbol": sym, "event_type": event_type})
         current += timedelta(days=1)
+        replay_day_index += 1
 
     by_month = Counter(r["date"][:7] for r in event_rows)
     may_rows = [r for r in event_rows if r["date"].startswith("2025-05-")]
@@ -105,6 +112,8 @@ def _collect_events(
         first_10.append((day, sum(1 for r in event_rows if r["date"] == day)))
         d += timedelta(days=1)
 
+    elapsed_seconds = (datetime.now(timezone.utc) - mode_started_at).total_seconds()
+    logger.info("[%s] completed replay mode total_events=%d elapsed_seconds=%.2f", mode, len(event_rows), elapsed_seconds)
     return ReplayModeResult(
         mode=mode,
         total_events=len(event_rows),
@@ -120,11 +129,12 @@ def _render_report(
     scenario_path: Path,
     scenario: ReplayScenario,
     preroll_start_date: date,
+    diagnostic_end_date: date,
     cold: ReplayModeResult,
     preroll: ReplayModeResult,
     command: str,
 ) -> str:
-    lines = ["# May 2025 Cold-Start Diagnostic", "", f"- Generated at: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}", f"- Scenario: `{scenario.scenario_id}` ({scenario_path.as_posix()})", f"- Evaluation window: `{scenario.evaluation.start_date}`..`{scenario.evaluation.end_date}`", f"- Preroll start date: `{preroll_start_date}`", "", "## Command", "", "```bash", command, "```", "", "## Monthly event counts", "", "| Month | cold_start | state_preroll |", "|---|---:|---:|"]
+    lines = ["# May 2025 Cold-Start Diagnostic", "", f"- Generated at: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}", f"- Scenario: `{scenario.scenario_id}` ({scenario_path.as_posix()})", f"- Evaluation window: `{scenario.evaluation.start_date}`..`{scenario.evaluation.end_date}`", f"- Preroll start date: `{preroll_start_date}`", f"- Diagnostic end date: `{diagnostic_end_date}`", f"- Event counts are limited to: `{scenario.evaluation.start_date}`..`{diagnostic_end_date}`", "", "## Command", "", "```bash", command, "```", "", "## Monthly event counts", "", "| Month | cold_start | state_preroll |", "|---|---:|---:|"]
     months = sorted(set(cold.events_by_month) | set(preroll.events_by_month))
     for m in months:
         lines.append(f"| {m} | {cold.events_by_month.get(m, 0)} | {preroll.events_by_month.get(m, 0)} |")
@@ -154,19 +164,25 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Diagnose May 2025 event spike under cold-start vs state preroll")
     p.add_argument("--scenario", required=True)
     p.add_argument("--preroll-start-date", default="2025-01-01")
+    p.add_argument("--diagnostic-end-date", default="2025-05-31")
     p.add_argument("--report-out", default="docs/legacy/reports/2026-05-25__may_2025_cold_start_diagnostic.md")
     args = p.parse_args()
     scenario_path = Path(args.scenario)
     scenario = load_scenario(scenario_path)
     preroll_start_date = date.fromisoformat(args.preroll_start_date)
+    diagnostic_end_date = date.fromisoformat(args.diagnostic_end_date)
     if preroll_start_date > scenario.evaluation.start_date:
         raise SystemExit("preroll_start_date must be on or before evaluation_start_date")
+    if diagnostic_end_date < scenario.evaluation.start_date:
+        raise SystemExit("diagnostic_end_date must be on or after evaluation_start_date")
+    if diagnostic_end_date > scenario.evaluation.end_date:
+        raise SystemExit("diagnostic_end_date must be on or before scenario.evaluation.end_date")
     output_dir = Path("tmp/diagnostics/may_2025_cold_start")
     output_dir.mkdir(parents=True, exist_ok=True)
-    cold = _collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", output_dir)
-    preroll = _collect_events(scenario, preroll_start_date, scenario.evaluation.start_date, "state_preroll", output_dir)
-    cmd = f"python scripts/diagnostics/may_2025_cold_start_diagnostic.py --scenario {scenario_path.as_posix()} --preroll-start-date {preroll_start_date.isoformat()} --report-out {args.report_out}"
-    report = _render_report(scenario_path, scenario, preroll_start_date, cold, preroll, cmd)
+    cold = _collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, diagnostic_end_date, "cold_start", output_dir)
+    preroll = _collect_events(scenario, preroll_start_date, scenario.evaluation.start_date, diagnostic_end_date, "state_preroll", output_dir)
+    cmd = f"python scripts/diagnostics/may_2025_cold_start_diagnostic.py --scenario {scenario_path.as_posix()} --preroll-start-date {preroll_start_date.isoformat()} --diagnostic-end-date {diagnostic_end_date.isoformat()} --report-out {args.report_out}"
+    report = _render_report(scenario_path, scenario, preroll_start_date, diagnostic_end_date, cold, preroll, cmd)
     out = Path(args.report_out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
