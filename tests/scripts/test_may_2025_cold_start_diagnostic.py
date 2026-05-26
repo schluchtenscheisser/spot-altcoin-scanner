@@ -39,7 +39,7 @@ def _scenario(dataset_root: Path) -> SimpleNamespace:
         warm_up_4h_bars=1,
         scanner_config_ref="x",
         scanner_config_hash="y",
-        evaluation=SimpleNamespace(start_date=date(2025, 5, 1), end_date=date(2025, 5, 1)),
+        evaluation=SimpleNamespace(start_date=date(2025, 5, 1), end_date=date(2025, 6, 2)),
     )
 
 
@@ -66,8 +66,8 @@ def test_running_twice_same_workdir_is_deterministic(tmp_path: Path, monkeypatch
     out = tmp_path / "out"
     out.mkdir()
 
-    r1 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
-    r2 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
+    r1 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
+    r2 = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, scenario.evaluation.start_date, "cold_start", out)
     assert r1.total_events == r2.total_events == 1
 
 
@@ -83,8 +83,26 @@ def test_stale_state_file_does_not_affect_cold_start_or_preroll(tmp_path: Path, 
         stale = out / f"{mode}_state.sqlite"
         stale.write_text("stale", encoding="utf-8")
         (out / f"{mode}_state.sqlite-wal").write_text("stale", encoding="utf-8")
-        result = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, mode, out)
+        result = diag._collect_events(scenario, scenario.evaluation.start_date, scenario.evaluation.start_date, scenario.evaluation.start_date, mode, out)
         assert result.total_events == 1
+
+
+def test_collect_events_respects_diagnostic_end_date(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(diag, "HistoricalBarLoader", _DummyLoader)
+    monkeypatch.setattr(diag, "HistoricalProductionAdapter", _DummyAdapter)
+    dataset = _prepare_dataset(tmp_path)
+    scenario = _scenario(dataset)
+    out = tmp_path / "out"
+    out.mkdir()
+    result = diag._collect_events(
+        scenario,
+        scenario.evaluation.start_date,
+        scenario.evaluation.start_date,
+        date(2025, 5, 31),
+        "cold_start",
+        out,
+    )
+    assert result.events_by_month == {"2025-05": 1}
 
 
 def test_month_and_event_type_grouping_rendered() -> None:
@@ -99,9 +117,39 @@ def test_month_and_event_type_grouping_rendered() -> None:
         scenario_path=type("P", (), {"as_posix": lambda self: "scenario.yml"})(),
         scenario=S(),
         preroll_start_date=date(2025, 1, 1),
+        diagnostic_end_date=date(2025, 5, 31),
         cold=cold,
         preroll=pre,
         command="python ...",
     )
     assert "| 2025-05 | 3 | 1 |" in report
     assert "first_watch" in report
+    assert "Diagnostic end date: `2025-05-31`" in report
+
+
+def test_main_rejects_diagnostic_end_date_before_eval_start(tmp_path: Path, monkeypatch) -> None:
+    dataset = _prepare_dataset(tmp_path)
+    scenario = _scenario(dataset)
+    monkeypatch.setattr(diag, "load_scenario", lambda _p: scenario)
+    monkeypatch.setattr(diag, "_collect_events", lambda *args, **kwargs: None)
+    monkeypatch.setattr(diag, "_render_report", lambda *args, **kwargs: "x")
+    monkeypatch.setattr("sys.argv", ["diag", "--scenario", "s.yml", "--diagnostic-end-date", "2025-04-30"])
+    try:
+        diag.main()
+        assert False, "Expected SystemExit"
+    except SystemExit as exc:
+        assert "diagnostic_end_date must be on or after evaluation_start_date" in str(exc)
+
+
+def test_main_rejects_diagnostic_end_date_after_eval_end(tmp_path: Path, monkeypatch) -> None:
+    dataset = _prepare_dataset(tmp_path)
+    scenario = _scenario(dataset)
+    monkeypatch.setattr(diag, "load_scenario", lambda _p: scenario)
+    monkeypatch.setattr(diag, "_collect_events", lambda *args, **kwargs: None)
+    monkeypatch.setattr(diag, "_render_report", lambda *args, **kwargs: "x")
+    monkeypatch.setattr("sys.argv", ["diag", "--scenario", "s.yml", "--diagnostic-end-date", "2025-06-03"])
+    try:
+        diag.main()
+        assert False, "Expected SystemExit"
+    except SystemExit as exc:
+        assert "diagnostic_end_date must be on or before scenario.evaluation.end_date" in str(exc)
