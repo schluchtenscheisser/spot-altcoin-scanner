@@ -1,3 +1,5 @@
+> ARCHIVED (ticket): Implemented in PR for this ticket. Current truth is defined by repo reality, current implementation contracts, and relevant current documentation.
+
 # 2026-05-27 — BACKTEST-2 — Actionable Segment Report
 
 ## Status
