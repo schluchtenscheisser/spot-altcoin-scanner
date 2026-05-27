@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 SCRIPT = Path("scripts/backtest/analyze_actionable_segments.py")
 
@@ -107,3 +108,55 @@ def test_missing_optional_liquidity_column_warns(tmp_path):
     assert r.returncode == 0
     s = json.loads((out / "actionable_segment_report.json").read_text())
     assert any("missing optional column" in w for w in s["warnings"])
+
+
+def test_markdown_percentage_rendering_does_not_change_stored_values(tmp_path):
+    rows = []
+    for _ in range(17):
+        rows.append({
+            **_base_row(),
+            "historical_signal_bucket": "confirmed_candidates",
+            "entry_pattern": "ema_reclaim",
+            "forward_close_return_1d": 0.06546336206896552,
+            "forward_close_return_3d": 0.08169785486079406,
+            "forward_close_return_5d": 0.062213,
+        })
+    rows.extend([
+        {
+            **_base_row(),
+            "historical_signal_bucket": "confirmed_candidates",
+            "entry_pattern": "ema_reclaim",
+            "forward_close_return_1d": -0.01,
+            "forward_close_return_3d": -0.01,
+            "forward_close_return_5d": -0.01,
+        },
+        {
+            **_base_row(),
+            "historical_signal_bucket": "confirmed_candidates",
+            "entry_pattern": "ema_reclaim",
+            "forward_close_return_1d": -0.02,
+            "forward_close_return_3d": -0.02,
+            "forward_close_return_5d": -0.02,
+        },
+    ])
+
+    r, out = _run(tmp_path, pd.DataFrame(rows))
+    assert r.returncode == 0, r.stderr
+
+    md = (out / "actionable_segment_report.md").read_text()
+    assert "| confirmed_candidates × ema_reclaim | 19 | 6.55 | 8.17 | 6.22 |" in md
+
+    seg = pd.read_csv(out / "actionable_segments.csv")
+    row = seg[(seg["historical_signal_bucket"] == "confirmed_candidates") & (seg["entry_pattern"] == "ema_reclaim")].iloc[0]
+    assert row["forward_return_1d_median_pct"] == pytest.approx(0.06546336206896552)
+    assert row["forward_return_3d_median_pct"] == pytest.approx(0.08169785486079406)
+    assert row["forward_return_1d_win_rate_pct"] == pytest.approx(89.47368421052632)
+
+    report = json.loads((out / "actionable_segment_report.json").read_text())
+    report_row = next(x for x in report["segments"] if x["historical_signal_bucket"] == "confirmed_candidates" and x["entry_pattern"] == "ema_reclaim")
+    assert report_row["forward_return_1d_median_pct"] == pytest.approx(0.06546336206896552)
+    assert report_row["forward_return_3d_median_pct"] == pytest.approx(0.08169785486079406)
+    assert report_row["classification"] == "Tier A"
+
+    assert report["thresholds"]["tier_a_min_count"] == 15
+    assert report["thresholds"]["tier_b_min_count"] == 10
