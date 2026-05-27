@@ -149,6 +149,20 @@ def _empty_df(columns: list[str]) -> pd.DataFrame:
     return pd.DataFrame({col: pd.Series(dtype="object") for col in columns})
 
 
+def _format_markdown_metric(value: Any, *, metric_name: str | None = None) -> str:
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if value is None:
+        return "n/a"
+    if isinstance(value, (float, np.floating)):
+        if not np.isfinite(value):
+            return "n/a"
+        if metric_name and any(metric_name.endswith(f"_{suffix}") for suffix in ("mean_pct", "median_pct")):
+            return f"{value * 100.0:.2f}"
+        return f"{value:.2f}"
+    return str(value)
+
+
 def main() -> None:
     args = _parse_args()
     in_path = Path(args.input_events_parquet)
@@ -264,16 +278,14 @@ def main() -> None:
             return lines + ["", empty_text, ""]
         lines += ["", "| segment | count | 1d med % | 3d med % | 5d med % |", "|---|---:|---:|---:|---:|"]
         for _, r in df_sec.iterrows():
-            def fm(x: Any) -> str:
-                if isinstance(x, (int, np.integer)):
-                    return str(int(x))
-                if isinstance(x, (float, np.floating)):
-                    return "n/a" if not np.isfinite(x) else f"{x:.2f}"
-                if x is None:
-                    return "n/a"
-                return str(x)
-
-            lines.append(f"| {fm(r['segment_label'])} | {fm(r['count'])} | {fm(r['forward_return_1d_median_pct'])} | {fm(r['forward_return_3d_median_pct'])} | {fm(r['forward_return_5d_median_pct'])} |")
+            lines.append(
+                "| "
+                f"{_format_markdown_metric(r['segment_label'])} | "
+                f"{_format_markdown_metric(r['count'])} | "
+                f"{_format_markdown_metric(r['forward_return_1d_median_pct'], metric_name='forward_return_1d_median_pct')} | "
+                f"{_format_markdown_metric(r['forward_return_3d_median_pct'], metric_name='forward_return_3d_median_pct')} | "
+                f"{_format_markdown_metric(r['forward_return_5d_median_pct'], metric_name='forward_return_5d_median_pct')} |"
+            )
         return lines + [""]
 
     md = [
