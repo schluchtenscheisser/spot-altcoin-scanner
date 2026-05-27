@@ -2,7 +2,7 @@
 
 ## Status
 
-**Status:** Draft for Codex implementation  
+**Status:** Ready for Codex implementation  
 **Project:** Independence — Spot Altcoin Scanner  
 **Workstream:** Historical Backtest / Segment Validation  
 **Target PR size:** One focused PR  
