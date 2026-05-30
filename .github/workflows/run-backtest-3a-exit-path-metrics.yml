@@ -1,0 +1,102 @@
+name: Run BACKTEST-3A Exit Path Metrics
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_events_path:
+        description: "Path to enriched replay events parquet"
+        required: true
+        type: string
+        default: "evaluation/backtest/exports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/enriched_replay_events.parquet"
+      history_root:
+        description: "Root path for partitioned OHLCV history"
+        required: true
+        type: string
+        default: "snapshots/history/ohlcv"
+      output_dir:
+        description: "Output directory for BACKTEST-3A artifacts"
+        required: true
+        type: string
+        default: "evaluation/backtest/reports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/exit_path_metrics_4h"
+      scenario_id:
+        description: "Scenario id written into the BACKTEST-3A outputs"
+        required: true
+        type: string
+        default: "hsq_replay_2025_05_to_2026_05_v1"
+      replay_id:
+        description: "Replay id written into the BACKTEST-3A outputs"
+        required: true
+        type: string
+        default: "2026-05-24T21-27-31Z"
+      path_bars:
+        description: "Number of closed 4h bars after each signal"
+        required: true
+        type: number
+        default: 42
+      overwrite:
+        description: "Overwrite existing output files"
+        required: true
+        type: boolean
+        default: true
+      strict_preflight:
+        description: "Run strict preflight before writing any outputs"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run-backtest-3a:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run BACKTEST-3A exit path metrics
+        run: |
+          args=(
+            --input-events-path "${{ inputs.input_events_path }}"
+            --history-root "${{ inputs.history_root }}"
+            --output-dir "${{ inputs.output_dir }}"
+            --scenario-id "${{ inputs.scenario_id }}"
+            --replay-id "${{ inputs.replay_id }}"
+            --path-bars "${{ inputs.path_bars }}"
+          )
+
+          if [[ "${{ inputs.overwrite }}" == "true" ]]; then
+            args+=(--overwrite)
+          fi
+
+          if [[ "${{ inputs.strict_preflight }}" == "true" ]]; then
+            args+=(--strict-preflight)
+          else
+            args+=(--no-strict-preflight)
+          fi
+
+          python scripts/backtest/generate_exit_path_metrics_4h.py "${args[@]}"
+
+      - name: Upload BACKTEST-3A artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest-3a-exit-path-metrics
+          path: |
+            ${{ inputs.output_dir }}/**
+          if-no-files-found: warn
