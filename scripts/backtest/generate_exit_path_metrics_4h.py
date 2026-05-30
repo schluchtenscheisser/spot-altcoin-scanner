@@ -222,29 +222,41 @@ def _stable_event_id(row: pd.Series, *, scenario_id: str, replay_id: str) -> str
     return "bt3a_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
+def _reference_candidate_value(value: Any) -> tuple[float | None, bool]:
+    if value is None or pd.isna(value):
+        return None, False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None, True
+    if not math.isfinite(number) or number <= 0:
+        return None, True
+    return number, False
+
+
 def _resolve_reference_price(row: pd.Series) -> tuple[float | None, str, str, str | None]:
     ordered_sources = ["signal_reference_price", "entry_reference_price"]
     for col in ordered_sources:
         if col in row.index:
-            value = row.get(col)
-            if _is_finite_positive(value):
-                return float(value), col, "available", None
-            if value is not None:
+            candidate, invalid = _reference_candidate_value(row.get(col))
+            if candidate is not None:
+                return candidate, col, "available", None
+            if invalid:
                 return None, "null", "invalid", f"invalid_{col}"
 
     decision_bucket = row.get("decision_bucket")
     state = row.get("state_machine_state")
     if (state == "early_ready" or decision_bucket == "early_candidates") and "close_at_early_entry_bar" in row.index:
-        value = row.get("close_at_early_entry_bar")
-        if _is_finite_positive(value):
-            return float(value), "close_at_early_entry_bar", "available", None
-        if value is not None:
+        candidate, invalid = _reference_candidate_value(row.get("close_at_early_entry_bar"))
+        if candidate is not None:
+            return candidate, "close_at_early_entry_bar", "available", None
+        if invalid:
             return None, "null", "invalid", "invalid_close_at_early_entry_bar"
     if (state == "confirmed_ready" or decision_bucket == "confirmed_candidates") and "close_at_confirmed_entry_bar" in row.index:
-        value = row.get("close_at_confirmed_entry_bar")
-        if _is_finite_positive(value):
-            return float(value), "close_at_confirmed_entry_bar", "available", None
-        if value is not None:
+        candidate, invalid = _reference_candidate_value(row.get("close_at_confirmed_entry_bar"))
+        if candidate is not None:
+            return candidate, "close_at_confirmed_entry_bar", "available", None
+        if invalid:
             return None, "null", "invalid", "invalid_close_at_confirmed_entry_bar"
 
     event_close_values: list[tuple[str, float]] = []

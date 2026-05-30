@@ -158,7 +158,22 @@ def test_ambiguous_event_close_is_not_chosen_silently(tmp_path: Path) -> None:
     assert pd.isna(row["mfe_pct"])
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_nan_reference_price_column_continues_fallback(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(events, [_event(signal_reference_price=float("nan"), entry_reference_price=50.0)])
+    history = tmp_path / "history" / "ohlcv"
+    _basic_history(history)
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=2)
+
+    event_df, _bar_df, _summary, _report, _ = build_exit_path_metrics(config)
+    row = event_df.iloc[0]
+
+    assert row["reference_price"] == 50.0
+    assert row["reference_price_source"] == "entry_reference_price"
+    assert row["reference_price_status"] == "available"
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf")])
 def test_non_finite_reference_price_invalid(tmp_path: Path, value: float) -> None:
     events = tmp_path / "events.parquet"
     _write_events(events, [_event(signal_reference_price=value)])
