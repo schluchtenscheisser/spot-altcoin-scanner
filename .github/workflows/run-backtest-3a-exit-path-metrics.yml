@@ -13,6 +13,16 @@ on:
         required: true
         type: string
         default: "snapshots/history/ohlcv"
+      history_release_tag:
+        description: "GitHub Release tag containing the frozen Pre-1 OHLCV history asset"
+        required: true
+        type: string
+        default: "history-pre1-2026-05-20"
+      history_asset_name:
+        description: "Release asset name for the frozen Pre-1 OHLCV history tarball"
+        required: true
+        type: string
+        default: "pre1_history_2026-05-20.tar.gz"
       output_dir:
         description: "Output directory for BACKTEST-3A artifacts"
         required: true
@@ -59,6 +69,64 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Download frozen Pre-1 OHLCV history release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/pre1-history-release
+          gh release download "${{ inputs.history_release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "${{ inputs.history_asset_name }}" \
+            --dir /tmp/pre1-history-release
+
+          echo "Downloaded release assets:"
+          find /tmp/pre1-history-release -maxdepth 2 -type f -print
+
+      - name: Extract frozen Pre-1 OHLCV history
+        run: |
+          set -euo pipefail
+
+          asset_path="/tmp/pre1-history-release/${{ inputs.history_asset_name }}"
+          if [[ ! -f "$asset_path" ]]; then
+            echo "Expected history asset not found: $asset_path" >&2
+            exit 1
+          fi
+
+          mkdir -p /tmp/pre1-history-extract
+          tar -xzf "$asset_path" -C /tmp/pre1-history-extract
+
+          echo "Top-level extracted files/directories:"
+          find /tmp/pre1-history-extract -maxdepth 4 -print | sort | head -200
+
+          if [[ -d "/tmp/pre1-history-extract/snapshots/history/ohlcv" ]]; then
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a /tmp/pre1-history-extract/snapshots/history/ohlcv snapshots/history/ohlcv
+          elif [[ -d "/tmp/pre1-history-extract/history/ohlcv" ]]; then
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a /tmp/pre1-history-extract/history/ohlcv snapshots/history/ohlcv
+          else
+            detected_ohlcv_dir="$(find /tmp/pre1-history-extract -type d -path '*/ohlcv' | head -1 || true)"
+            if [[ -z "$detected_ohlcv_dir" ]]; then
+              echo "Could not find an extracted ohlcv directory in Pre-1 history asset." >&2
+              exit 1
+            fi
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a "$detected_ohlcv_dir" snapshots/history/ohlcv
+          fi
+
+          if [[ ! -d "${{ inputs.history_root }}" ]]; then
+            echo "history_root still does not exist after extraction: ${{ inputs.history_root }}" >&2
+            exit 1
+          fi
+
+          echo "Prepared history_root: ${{ inputs.history_root }}"
+          find "${{ inputs.history_root }}" -maxdepth 4 -type d | sort | head -100
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -68,6 +136,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Verify BACKTEST-3A inputs exist
+        run: |
+          set -euo pipefail
+          test -f "${{ inputs.input_events_path }}"
+          test -d "${{ inputs.history_root }}"
+          ls -lh "${{ inputs.input_events_path }}"
 
       - name: Run BACKTEST-3A exit path metrics
         run: |
