@@ -1,0 +1,211 @@
+name: Run BACKTEST-3B Exit Model Simulation
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_events_path:
+        description: "Path to enriched replay events parquet for regenerating BACKTEST-3A inputs"
+        required: true
+        type: string
+        default: "evaluation/backtest/exports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/enriched_replay_events.parquet"
+      history_root:
+        description: "Root path for partitioned OHLCV history"
+        required: true
+        type: string
+        default: "snapshots/history/ohlcv"
+      history_release_tag:
+        description: "GitHub Release tag containing the frozen Pre-1 OHLCV history asset"
+        required: true
+        type: string
+        default: "history-pre1-2026-05-20"
+      history_asset_name:
+        description: "Release asset name for the frozen Pre-1 OHLCV history tarball"
+        required: true
+        type: string
+        default: "pre1_history_2026-05-20.tar.gz"
+      backtest_3a_output_dir:
+        description: "Output directory for regenerated BACKTEST-3A artifacts"
+        required: true
+        type: string
+        default: "evaluation/backtest/reports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/exit_path_metrics_4h"
+      backtest_3b_output_dir:
+        description: "Output directory for BACKTEST-3B artifacts"
+        required: true
+        type: string
+        default: "evaluation/backtest/reports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/exit_model_simulation_4h"
+      scenario_id:
+        description: "Scenario id written into regenerated BACKTEST-3A outputs"
+        required: true
+        type: string
+        default: "hsq_replay_2025_05_to_2026_05_v1"
+      replay_id:
+        description: "Replay id written into regenerated BACKTEST-3A outputs"
+        required: true
+        type: string
+        default: "2026-05-24T21-27-31Z"
+      path_bars:
+        description: "Number of closed 4h bars after each signal for BACKTEST-3A regeneration"
+        required: true
+        type: number
+        default: 42
+      overwrite:
+        description: "Overwrite existing output directories"
+        required: true
+        type: boolean
+        default: true
+      strict_preflight:
+        description: "Run strict BACKTEST-3A preflight before writing any outputs"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run-backtest-3b:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Download frozen Pre-1 OHLCV history release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/pre1-history-release
+          gh release download "${{ inputs.history_release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "${{ inputs.history_asset_name }}" \
+            --dir /tmp/pre1-history-release
+
+          echo "Downloaded release asset: /tmp/pre1-history-release/${{ inputs.history_asset_name }}"
+          test -f "/tmp/pre1-history-release/${{ inputs.history_asset_name }}"
+
+      - name: Extract frozen Pre-1 OHLCV history
+        run: |
+          set -euo pipefail
+
+          asset_path="/tmp/pre1-history-release/${{ inputs.history_asset_name }}"
+          if [[ ! -f "$asset_path" ]]; then
+            echo "Expected history asset not found: $asset_path" >&2
+            exit 1
+          fi
+
+          mkdir -p /tmp/pre1-history-extract
+          tar -xzf "$asset_path" -C /tmp/pre1-history-extract
+
+          if [[ -d "/tmp/pre1-history-extract/snapshots/history/ohlcv" ]]; then
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a /tmp/pre1-history-extract/snapshots/history/ohlcv snapshots/history/ohlcv
+          elif [[ -d "/tmp/pre1-history-extract/history/ohlcv" ]]; then
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a /tmp/pre1-history-extract/history/ohlcv snapshots/history/ohlcv
+          else
+            detected_ohlcv_dir="$(find /tmp/pre1-history-extract -type d -path '*/ohlcv' -print -quit || true)"
+            if [[ -z "$detected_ohlcv_dir" ]]; then
+              echo "Could not find an extracted ohlcv directory in Pre-1 history asset." >&2
+              exit 1
+            fi
+            mkdir -p snapshots/history
+            rm -rf "${{ inputs.history_root }}"
+            cp -a "$detected_ohlcv_dir" snapshots/history/ohlcv
+          fi
+
+          if [[ ! -d "${{ inputs.history_root }}" ]]; then
+            echo "history_root still does not exist after extraction: ${{ inputs.history_root }}" >&2
+            exit 1
+          fi
+
+          echo "Prepared history_root: ${{ inputs.history_root }}"
+          du -sh "${{ inputs.history_root }}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify BACKTEST inputs exist
+        run: |
+          set -euo pipefail
+          test -f "${{ inputs.input_events_path }}"
+          test -d "${{ inputs.history_root }}"
+          ls -lh "${{ inputs.input_events_path }}"
+
+      - name: Regenerate BACKTEST-3A exit path metrics
+        run: |
+          args=(
+            --input-events-path "${{ inputs.input_events_path }}"
+            --history-root "${{ inputs.history_root }}"
+            --output-dir "${{ inputs.backtest_3a_output_dir }}"
+            --scenario-id "${{ inputs.scenario_id }}"
+            --replay-id "${{ inputs.replay_id }}"
+            --path-bars "${{ inputs.path_bars }}"
+          )
+
+          if [[ "${{ inputs.overwrite }}" == "true" ]]; then
+            args+=(--overwrite)
+          fi
+
+          if [[ "${{ inputs.strict_preflight }}" == "true" ]]; then
+            args+=(--strict-preflight)
+          else
+            args+=(--no-strict-preflight)
+          fi
+
+          python scripts/backtest/generate_exit_path_metrics_4h.py "${args[@]}"
+
+      - name: Verify BACKTEST-3A outputs for BACKTEST-3B
+        run: |
+          set -euo pipefail
+          test -f "${{ inputs.backtest_3a_output_dir }}/exit_path_metrics_4h.parquet"
+          test -f "${{ inputs.backtest_3a_output_dir }}/exit_path_returns_by_bar.parquet"
+          test -f "${{ inputs.backtest_3a_output_dir }}/exit_path_metrics_4h_summary.json"
+          ls -lh "${{ inputs.backtest_3a_output_dir }}"
+
+      - name: Run BACKTEST-3B exit model simulation
+        run: |
+          args=(
+            --input-events-path "${{ inputs.backtest_3a_output_dir }}/exit_path_metrics_4h.parquet"
+            --input-bars-path "${{ inputs.backtest_3a_output_dir }}/exit_path_returns_by_bar.parquet"
+            --input-summary-path "${{ inputs.backtest_3a_output_dir }}/exit_path_metrics_4h_summary.json"
+            --output-dir "${{ inputs.backtest_3b_output_dir }}"
+          )
+
+          if [[ "${{ inputs.overwrite }}" == "true" ]]; then
+            args+=(--overwrite)
+          fi
+
+          python scripts/backtest/simulate_exit_model_variants_4h.py "${args[@]}"
+
+      - name: Upload BACKTEST-3B artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest-3b-exit-model-simulation
+          path: |
+            ${{ inputs.backtest_3b_output_dir }}/**
+          if-no-files-found: warn
+
+      - name: Upload regenerated BACKTEST-3A artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backtest-3a-exit-path-metrics-for-3b
+          path: |
+            ${{ inputs.backtest_3a_output_dir }}/**
+          if-no-files-found: warn
