@@ -606,6 +606,22 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
 
         atr_available, atr_value, atr_source = _compute_atr(valid_ohlcv, anchor, config.atr_4h_period)
         first = path.iloc[0] if available else None
+        if (
+            reference_status == "missing"
+            and first is not None
+            and _is_finite_positive(first["open"])
+            and first["_open_ts"] > pd.Timestamp(signal_dt)
+        ):
+            reference_price = float(first["open"])
+            reference_source = "path_bar_1_open"
+            reference_status = "available"
+            reference_reason = "fallback_to_path_bar_1_open"
+            base.update({
+                "reference_price": reference_price,
+                "reference_price_source": reference_source,
+                "reference_price_status": reference_status,
+                "reference_price_reason": reference_reason,
+            })
         metric_reason = None
         mfe_pct = mae_pct = None
         mfe_idx = mae_idx = None
