@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import math
 import shutil
 import tempfile
@@ -15,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 ANALYSIS_ID = "BACKTEST-3A_EXIT_PATH_METRICS_4H"
+LOGGER = logging.getLogger(__name__)
 DEFAULT_INPUT_EVENTS_PATH = Path(
     "evaluation/backtest/exports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/enriched_replay_events.parquet"
 )
@@ -222,6 +224,30 @@ def _stable_event_id(row: pd.Series, *, scenario_id: str, replay_id: str) -> str
     return "bt3a_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
+def _resolve_and_deduplicate_events(
+    events: pd.DataFrame, *, scenario_id: str, replay_id: str
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    result = events.copy()
+    result["event_id"] = result.apply(lambda row: _stable_event_id(row, scenario_id=scenario_id, replay_id=replay_id), axis=1)
+    duplicate_mask = result.duplicated("event_id", keep=False)
+    duplicated_event_ids = int(result.loc[duplicate_mask, "event_id"].nunique())
+    discarded_duplicate_rows = int(result.duplicated("event_id", keep="first").sum())
+    if duplicated_event_ids:
+        columns = list(result.columns)
+        for event_id, group in result.loc[duplicate_mask].groupby("event_id", sort=False, dropna=False):
+            if len(group.drop_duplicates(subset=columns, keep="first")) != 1:
+                raise ValueError(
+                    "Conflicting duplicate event_ids detected — cannot deduplicate safely"
+                    f": {event_id}"
+                )
+        result = result.drop_duplicates("event_id", keep="first").copy()
+        LOGGER.info("Discarded %d identical duplicate event rows across %d event_ids", discarded_duplicate_rows, duplicated_event_ids)
+    return result, {
+        "duplicate_event_ids": duplicated_event_ids,
+        "discarded_duplicate_rows": discarded_duplicate_rows,
+    }
+
+
 def _reference_candidate_value(value: Any) -> tuple[float | None, bool]:
     if value is None or pd.isna(value):
         return None, False
@@ -405,6 +431,9 @@ def validate_preflight(config: Backtest3AConfig) -> None:
     missing = sorted(required - set(events.columns))
     if missing:
         raise ValueError(f"BACKTEST-3A preflight failed: input events missing required/mapped columns: {missing}")
+    events, _duplicate_counts = _resolve_and_deduplicate_events(
+        events, scenario_id=config.scenario_id, replay_id=config.replay_id
+    )
 
     in_scope = events[
         events[["decision_bucket", "entry_pattern"]].apply(tuple, axis=1).isin(PRIMARY_SEGMENT_PAIRS)
@@ -417,13 +446,15 @@ def validate_preflight(config: Backtest3AConfig) -> None:
 
 def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any], str, dict[str, str]]:
     events = pd.read_parquet(config.input_events_path)
+    input_rows = int(len(events))
     events, mappings = _normalize_input_columns(events)
-    events = events.copy()
+    events, duplicate_counts = _resolve_and_deduplicate_events(
+        events, scenario_id=config.scenario_id, replay_id=config.replay_id
+    )
     events["decision_bucket"] = events["decision_bucket"].astype("string")
     events["entry_pattern"] = events["entry_pattern"].astype("string").fillna("none").str.strip().replace("", "none")
     events = events[events[["decision_bucket", "entry_pattern"]].apply(tuple, axis=1).isin(PRIMARY_SEGMENT_PAIRS)].copy()
     events["segment_key"] = events["decision_bucket"].astype(str) + "__" + events["entry_pattern"].astype(str)
-    events["event_id"] = events.apply(lambda row: _stable_event_id(row, scenario_id=config.scenario_id, replay_id=config.replay_id), axis=1)
 
     ohlcv_cache: dict[str, pd.DataFrame] = {}
     event_rows: list[dict[str, Any]] = []
@@ -503,6 +534,19 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
 
         atr_available, atr_value, atr_source = _compute_atr(valid_ohlcv, anchor, config.atr_4h_period)
         first = path.iloc[0] if available else None
+        if reference_status != "available" and first is not None:
+            candidate, _invalid = _reference_candidate_value(first.get("open"))
+            if candidate is not None:
+                reference_price = candidate
+                reference_source = "path_bar_1_open"
+                reference_status = "available"
+                reference_reason = "fallback_to_path_bar_1_open"
+                base.update({
+                    "reference_price": reference_price,
+                    "reference_price_source": reference_source,
+                    "reference_price_status": reference_status,
+                    "reference_price_reason": reference_reason,
+                })
         metric_reason = None
         mfe_pct = mae_pct = None
         mfe_idx = mae_idx = None
@@ -577,7 +621,10 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
         "late_monitor_included": False,
         "exit_simulation_performed": False,
         "counts": {
-            "input_rows": int(len(pd.read_parquet(config.input_events_path))),
+            "input_rows": input_rows,
+            "deduplicated_input_rows": int(input_rows - duplicate_counts["discarded_duplicate_rows"]),
+            "duplicate_event_ids": duplicate_counts["duplicate_event_ids"],
+            "discarded_duplicate_rows": duplicate_counts["discarded_duplicate_rows"],
             "primary_scope_rows": int(len(event_df)),
             "bar_rows": int(len(bar_df)),
             "by_segment": {segment: int((event_df["segment_key"] == segment).sum()) if not event_df.empty else 0 for segment in PRIMARY_SEGMENTS},
@@ -626,6 +673,10 @@ def render_report(config: Backtest3AConfig, summary: dict[str, Any], mappings: d
         "",
         "## Column mappings",
         *mapping_lines,
+        "",
+        "## Duplicate input rows",
+        f"- Duplicate event IDs: {summary.get('counts', {}).get('duplicate_event_ids', 0)}",
+        f"- Discarded identical duplicate rows: {summary.get('counts', {}).get('discarded_duplicate_rows', 0)}",
         "",
         "## Row counts by segment",
         *[f"- `{segment}`: {summary.get('counts', {}).get('by_segment', {}).get(segment, 0)}" for segment in PRIMARY_SEGMENTS],
