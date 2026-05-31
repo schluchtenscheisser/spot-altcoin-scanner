@@ -126,24 +126,27 @@ def test_primary_scope_filter_excludes_late_monitor_and_non_primary(tmp_path: Pa
     assert "late_monitor was not included in Primary Trade Scope metrics." in report
 
 
-def test_reference_price_missing_keeps_row_with_null_metrics(tmp_path: Path) -> None:
+def test_future_path_bar_1_open_is_not_used_as_reference_price(tmp_path: Path) -> None:
     events = tmp_path / "events.parquet"
-    _write_events(events, [_event(signal_reference_price=None)])
+    _write_events(events, [_event(signal_timestamp="2026-05-01T00:01:00Z", signal_reference_price=None)])
     history = tmp_path / "history" / "ohlcv"
-    _basic_history(history)
-    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=2)
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-01T04:00:00Z", 100, 103, 98, 101)])
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
 
     event_df, bar_df, _summary, _report, _ = build_exit_path_metrics(config)
     row = event_df.iloc[0]
 
+    assert row["path_bar_1_timestamp"] == "2026-05-01T04:00:00Z"
+    assert row["path_bar_1_open"] == 100.0
     assert row["reference_price_status"] == "missing"
+    assert row["reference_price_source"] == "null"
+    assert pd.isna(row["reference_price"])
     assert pd.isna(row["mfe_pct"])
     assert pd.isna(row["mae_pct"])
-    assert row["path_coverage_status"] == "path_evaluated"
     assert bar_df["return_close_pct"].isna().all()
 
 
-def test_ambiguous_event_close_is_not_chosen_silently(tmp_path: Path) -> None:
+def test_ambiguous_event_close_remains_not_evaluable(tmp_path: Path) -> None:
     events = tmp_path / "events.parquet"
     _write_events(events, [_event(signal_reference_price=None, close=100.0, signal_close=101.0)])
     history = tmp_path / "history" / "ohlcv"
@@ -174,7 +177,7 @@ def test_nan_reference_price_column_continues_fallback(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("value", [float("inf"), float("-inf")])
-def test_non_finite_reference_price_invalid(tmp_path: Path, value: float) -> None:
+def test_non_finite_reference_price_remains_invalid(tmp_path: Path, value: float) -> None:
     events = tmp_path / "events.parquet"
     _write_events(events, [_event(signal_reference_price=value)])
     history = tmp_path / "history" / "ohlcv"
@@ -355,3 +358,98 @@ def test_repeated_runs_identical_output_order(tmp_path: Path) -> None:
 
     pd.testing.assert_frame_equal(first_events, second_events)
     pd.testing.assert_frame_equal(first_bars, second_bars)
+
+
+def test_path_bar_1_open_is_not_used_even_when_signal_is_on_boundary(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(events, [_event(signal_timestamp="2026-05-01T04:00:00Z", signal_reference_price=None)])
+    history = tmp_path / "history" / "ohlcv"
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-01T04:00:00Z", 100, 103, 98, 101)])
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
+
+    event_df, bar_df, _summary, _report, _ = build_exit_path_metrics(config)
+    row = event_df.iloc[0]
+
+    assert row["path_bar_1_open"] == 100.0
+    assert row["reference_price_status"] == "missing"
+    assert pd.isna(row["mfe_pct"])
+    assert pd.isna(row["mae_pct"])
+    assert bar_df["return_close_pct"].isna().all()
+
+
+def test_selected_primary_duplicate_row_is_kept_and_lower_priority_row_is_discarded(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(
+        events,
+        [
+            _event(event_id="same-event", included_in_signal_analysis=False, event_type="duplicate_lower_priority_event", analysis_event_rank=6),
+            _event(event_id="same-event", included_in_signal_analysis=True, event_type="selected_primary_event", analysis_event_rank=1),
+        ],
+    )
+    history = tmp_path / "history" / "ohlcv"
+    _basic_history(history)
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=2)
+
+    event_df, bar_df, summary, report, _ = build_exit_path_metrics(config)
+
+    assert list(event_df["event_id"]) == ["same-event"]
+    assert list(bar_df["event_id"].unique()) == ["same-event"]
+    assert summary["counts"]["input_rows_before_deduplication"] == 2
+    assert summary["counts"]["output_rows_after_deduplication"] == 1
+    assert summary["counts"]["duplicate_event_id_count"] == 1
+    assert summary["counts"]["discarded_duplicate_row_count"] == 1
+    assert summary["counts"]["conflicting_duplicate_event_id_count"] == 0
+    assert "Discarded lower-priority or identical duplicate rows: 1" in report
+
+
+def test_identical_duplicate_event_ids_keep_first_deterministically(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    duplicate = _event(event_id="same-event")
+    _write_events(events, [duplicate, duplicate.copy()])
+    history = tmp_path / "history" / "ohlcv"
+    _basic_history(history)
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=2)
+
+    event_df, _bar_df, summary, _report, _ = build_exit_path_metrics(config)
+
+    assert list(event_df["event_id"]) == ["same-event"]
+    assert summary["counts"]["discarded_duplicate_row_count"] == 1
+
+
+def test_conflicting_duplicate_event_ids_fail_preflight_before_writes(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(events, [_event(event_id="same-event"), _event(event_id="same-event", setup_cycle_id=2)])
+    history = tmp_path / "history" / "ohlcv"
+    history.mkdir(parents=True)
+    out = tmp_path / "out"
+    config = Backtest3AConfig(input_events_path=events, output_dir=out, history_root=history, path_bars=2)
+
+    with pytest.raises(ValueError, match="Conflicting duplicate event_ids detected — cannot deduplicate safely"):
+        run(config)
+    assert not out.exists()
+
+
+def test_backtest_3a_sized_selected_duplicates_reduce_291_rows_to_228(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    selected_rows = [
+        _event(event_id=f"event-{idx:03d}", setup_cycle_id=idx, included_in_signal_analysis=True, event_type="selected_primary_event", analysis_event_rank=1)
+        for idx in range(228)
+    ]
+    lower_priority_rows = [
+        {**row, "included_in_signal_analysis": False, "event_type": "duplicate_lower_priority_event", "analysis_event_rank": 6}
+        for row in selected_rows[:63]
+    ]
+    _write_events(events, [*lower_priority_rows, *selected_rows])
+    history = tmp_path / "history" / "ohlcv"
+    history.mkdir(parents=True)
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
+
+    event_df, _bar_df, summary, _report, _ = build_exit_path_metrics(config)
+
+    assert summary["counts"]["input_rows_before_deduplication"] == 291
+    assert summary["counts"]["output_rows_after_deduplication"] == 228
+    assert summary["counts"]["duplicate_event_id_count"] == 63
+    assert summary["counts"]["discarded_duplicate_row_count"] == 63
+    assert summary["counts"]["conflicting_duplicate_event_id_count"] == 0
+    assert summary["counts"]["primary_scope_rows"] == 228
+    assert len(event_df) == 228
