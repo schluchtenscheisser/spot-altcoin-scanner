@@ -81,8 +81,8 @@ jobs:
             --pattern "${{ inputs.history_asset_name }}" \
             --dir /tmp/pre1-history-release
 
-          echo "Downloaded release assets:"
-          find /tmp/pre1-history-release -maxdepth 2 -type f -print
+          echo "Downloaded release asset: /tmp/pre1-history-release/${{ inputs.history_asset_name }}"
+          test -f "/tmp/pre1-history-release/${{ inputs.history_asset_name }}"
 
       - name: Extract frozen Pre-1 OHLCV history
         run: |
@@ -97,9 +97,6 @@ jobs:
           mkdir -p /tmp/pre1-history-extract
           tar -xzf "$asset_path" -C /tmp/pre1-history-extract
 
-          echo "Top-level extracted files/directories:"
-          find /tmp/pre1-history-extract -maxdepth 4 -print | sort | head -200
-
           if [[ -d "/tmp/pre1-history-extract/snapshots/history/ohlcv" ]]; then
             mkdir -p snapshots/history
             rm -rf "${{ inputs.history_root }}"
@@ -109,7 +106,7 @@ jobs:
             rm -rf "${{ inputs.history_root }}"
             cp -a /tmp/pre1-history-extract/history/ohlcv snapshots/history/ohlcv
           else
-            detected_ohlcv_dir="$(find /tmp/pre1-history-extract -type d -path '*/ohlcv' | head -1 || true)"
+            detected_ohlcv_dir="$(find /tmp/pre1-history-extract -type d -path '*/ohlcv' -print -quit || true)"
             if [[ -z "$detected_ohlcv_dir" ]]; then
               echo "Could not find an extracted ohlcv directory in Pre-1 history asset." >&2
               exit 1
@@ -125,7 +122,8 @@ jobs:
           fi
 
           echo "Prepared history_root: ${{ inputs.history_root }}"
-          find "${{ inputs.history_root }}" -maxdepth 4 -type d | sort | head -100
+          du -sh "${{ inputs.history_root }}"
+          find "${{ inputs.history_root }}" -maxdepth 2 -type d -print
 
       - name: Set up Python
         uses: actions/setup-python@v6
