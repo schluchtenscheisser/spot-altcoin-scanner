@@ -224,6 +224,71 @@ def _stable_event_id(row: pd.Series, *, scenario_id: str, replay_id: str) -> str
     return "bt3a_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
+def _selected_signal_analysis_value(value: Any) -> bool:
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
+
+
+def _finite_rank_or_none(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _rows_match_backtest_relevant_fields(group: pd.DataFrame) -> bool:
+    relevant_columns = [
+        "event_id",
+        "symbol",
+        "decision_bucket",
+        "entry_pattern",
+        "signal_timestamp",
+        "setup_cycle_id",
+        "state_machine_state",
+        "signal_reference_price",
+        "entry_reference_price",
+        "close_at_early_entry_bar",
+        "close_at_confirmed_entry_bar",
+        "close",
+        "close_price",
+        "signal_close",
+    ]
+    available_columns = [column for column in relevant_columns if column in group.columns]
+    return len(group.drop_duplicates(subset=available_columns, keep="first")) == 1
+
+
+def _select_duplicate_event_row(group: pd.DataFrame) -> Any | None:
+    candidates = group
+    if "included_in_signal_analysis" in candidates.columns:
+        selected = candidates["included_in_signal_analysis"].map(_selected_signal_analysis_value)
+        if selected.any():
+            candidates = candidates[selected]
+
+    for column in ("event_type", "dedup_reason"):
+        if column in candidates.columns:
+            selected = candidates[column].astype("string") == "selected_primary_event"
+            if selected.any():
+                candidates = candidates[selected]
+
+    if "analysis_event_rank" in candidates.columns:
+        ranks = candidates["analysis_event_rank"].map(_finite_rank_or_none)
+        finite_ranks = ranks.dropna()
+        if not finite_ranks.empty:
+            candidates = candidates[ranks == finite_ranks.min()]
+
+    if len(candidates) == 1:
+        return candidates.index[0]
+    if _rows_match_backtest_relevant_fields(candidates):
+        return candidates.index[0]
+    return None
+
+
 def _resolve_and_deduplicate_events(
     events: pd.DataFrame, *, scenario_id: str, replay_id: str
 ) -> tuple[pd.DataFrame, dict[str, int]]:
@@ -231,20 +296,27 @@ def _resolve_and_deduplicate_events(
     result["event_id"] = result.apply(lambda row: _stable_event_id(row, scenario_id=scenario_id, replay_id=replay_id), axis=1)
     duplicate_mask = result.duplicated("event_id", keep=False)
     duplicated_event_ids = int(result.loc[duplicate_mask, "event_id"].nunique())
-    discarded_duplicate_rows = int(result.duplicated("event_id", keep="first").sum())
-    if duplicated_event_ids:
-        columns = list(result.columns)
-        for event_id, group in result.loc[duplicate_mask].groupby("event_id", sort=False, dropna=False):
-            if len(group.drop_duplicates(subset=columns, keep="first")) != 1:
-                raise ValueError(
-                    "Conflicting duplicate event_ids detected — cannot deduplicate safely"
-                    f": {event_id}"
-                )
-        result = result.drop_duplicates("event_id", keep="first").copy()
-        LOGGER.info("Discarded %d identical duplicate event rows across %d event_ids", discarded_duplicate_rows, duplicated_event_ids)
+    discarded_indexes: list[Any] = []
+    conflicting_event_ids: list[str] = []
+    for event_id, group in result.loc[duplicate_mask].groupby("event_id", sort=False, dropna=False):
+        selected_index = _select_duplicate_event_row(group)
+        if selected_index is None:
+            conflicting_event_ids.append(str(event_id))
+            continue
+        discarded_indexes.extend(index for index in group.index if index != selected_index)
+
+    if conflicting_event_ids:
+        raise ValueError(
+            "Conflicting duplicate event_ids detected — cannot deduplicate safely"
+            f": {', '.join(conflicting_event_ids[:5])}"
+        )
+    if discarded_indexes:
+        result = result.drop(index=discarded_indexes).copy()
+        LOGGER.info("Discarded %d lower-priority or identical duplicate event rows across %d event_ids", len(discarded_indexes), duplicated_event_ids)
     return result, {
-        "duplicate_event_ids": duplicated_event_ids,
-        "discarded_duplicate_rows": discarded_duplicate_rows,
+        "duplicate_event_id_count": duplicated_event_ids,
+        "discarded_duplicate_row_count": len(discarded_indexes),
+        "conflicting_duplicate_event_id_count": 0,
     }
 
 
@@ -431,13 +503,12 @@ def validate_preflight(config: Backtest3AConfig) -> None:
     missing = sorted(required - set(events.columns))
     if missing:
         raise ValueError(f"BACKTEST-3A preflight failed: input events missing required/mapped columns: {missing}")
-    events, _duplicate_counts = _resolve_and_deduplicate_events(
-        events, scenario_id=config.scenario_id, replay_id=config.replay_id
-    )
-
     in_scope = events[
         events[["decision_bucket", "entry_pattern"]].apply(tuple, axis=1).isin(PRIMARY_SEGMENT_PAIRS)
-    ]
+    ].copy()
+    in_scope, _duplicate_counts = _resolve_and_deduplicate_events(
+        in_scope, scenario_id=config.scenario_id, replay_id=config.replay_id
+    )
     if not in_scope.empty:
         sample = in_scope["signal_timestamp"].dropna().head(10)
         for value in sample:
@@ -446,14 +517,15 @@ def validate_preflight(config: Backtest3AConfig) -> None:
 
 def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any], str, dict[str, str]]:
     events = pd.read_parquet(config.input_events_path)
-    input_rows = int(len(events))
+    raw_input_rows = int(len(events))
     events, mappings = _normalize_input_columns(events)
-    events, duplicate_counts = _resolve_and_deduplicate_events(
-        events, scenario_id=config.scenario_id, replay_id=config.replay_id
-    )
     events["decision_bucket"] = events["decision_bucket"].astype("string")
     events["entry_pattern"] = events["entry_pattern"].astype("string").fillna("none").str.strip().replace("", "none")
     events = events[events[["decision_bucket", "entry_pattern"]].apply(tuple, axis=1).isin(PRIMARY_SEGMENT_PAIRS)].copy()
+    input_rows_before_deduplication = int(len(events))
+    events, duplicate_counts = _resolve_and_deduplicate_events(
+        events, scenario_id=config.scenario_id, replay_id=config.replay_id
+    )
     events["segment_key"] = events["decision_bucket"].astype(str) + "__" + events["entry_pattern"].astype(str)
 
     ohlcv_cache: dict[str, pd.DataFrame] = {}
@@ -534,19 +606,6 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
 
         atr_available, atr_value, atr_source = _compute_atr(valid_ohlcv, anchor, config.atr_4h_period)
         first = path.iloc[0] if available else None
-        if reference_status != "available" and first is not None:
-            candidate, _invalid = _reference_candidate_value(first.get("open"))
-            if candidate is not None:
-                reference_price = candidate
-                reference_source = "path_bar_1_open"
-                reference_status = "available"
-                reference_reason = "fallback_to_path_bar_1_open"
-                base.update({
-                    "reference_price": reference_price,
-                    "reference_price_source": reference_source,
-                    "reference_price_status": reference_status,
-                    "reference_price_reason": reference_reason,
-                })
         metric_reason = None
         mfe_pct = mae_pct = None
         mfe_idx = mae_idx = None
@@ -621,10 +680,13 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
         "late_monitor_included": False,
         "exit_simulation_performed": False,
         "counts": {
-            "input_rows": input_rows,
-            "deduplicated_input_rows": int(input_rows - duplicate_counts["discarded_duplicate_rows"]),
-            "duplicate_event_ids": duplicate_counts["duplicate_event_ids"],
-            "discarded_duplicate_rows": duplicate_counts["discarded_duplicate_rows"],
+            "raw_input_rows": raw_input_rows,
+            "input_rows_before_deduplication": input_rows_before_deduplication,
+            "output_rows_after_deduplication": int(len(event_df)),
+            "primary_scope_rows_before_deduplication": input_rows_before_deduplication,
+            "duplicate_event_id_count": duplicate_counts["duplicate_event_id_count"],
+            "discarded_duplicate_row_count": duplicate_counts["discarded_duplicate_row_count"],
+            "conflicting_duplicate_event_id_count": duplicate_counts["conflicting_duplicate_event_id_count"],
             "primary_scope_rows": int(len(event_df)),
             "bar_rows": int(len(bar_df)),
             "by_segment": {segment: int((event_df["segment_key"] == segment).sum()) if not event_df.empty else 0 for segment in PRIMARY_SEGMENTS},
@@ -675,8 +737,12 @@ def render_report(config: Backtest3AConfig, summary: dict[str, Any], mappings: d
         *mapping_lines,
         "",
         "## Duplicate input rows",
-        f"- Duplicate event IDs: {summary.get('counts', {}).get('duplicate_event_ids', 0)}",
-        f"- Discarded identical duplicate rows: {summary.get('counts', {}).get('discarded_duplicate_rows', 0)}",
+        f"- Total input rows before deduplication: {summary.get('counts', {}).get('input_rows_before_deduplication', 0)}",
+        f"- Primary-Scope rows before deduplication: {summary.get('counts', {}).get('primary_scope_rows_before_deduplication', 0)}",
+        f"- Event-level output rows after deduplication: {summary.get('counts', {}).get('output_rows_after_deduplication', 0)}",
+        f"- Duplicate event IDs: {summary.get('counts', {}).get('duplicate_event_id_count', 0)}",
+        f"- Discarded lower-priority or identical duplicate rows: {summary.get('counts', {}).get('discarded_duplicate_row_count', 0)}",
+        f"- Conflicting duplicate event IDs: {summary.get('counts', {}).get('conflicting_duplicate_event_id_count', 0)}",
         "",
         "## Row counts by segment",
         *[f"- `{segment}`: {summary.get('counts', {}).get('by_segment', {}).get(segment, 0)}" for segment in PRIMARY_SEGMENTS],
