@@ -26,6 +26,7 @@ DEFAULT_OUTPUT_DIR = Path(
     "evaluation/backtest/reports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/exit_path_metrics_4h"
 )
 DEFAULT_HISTORY_ROOT = Path("snapshots/history/ohlcv")
+MAX_PATH_BAR_1_OPEN_FALLBACK_DELTA_SECONDS = 1
 PRIMARY_SEGMENT_PAIRS = (
     ("early_candidates", "base_reclaim"),
     ("confirmed_candidates", "ema_reclaim"),
@@ -141,6 +142,20 @@ def _is_finite_positive(value: Any) -> bool:
     except (TypeError, ValueError):
         return False
     return math.isfinite(number) and number > 0
+
+
+def _is_immediate_post_signal_path_bar(path_bar_1_timestamp: Any, signal_timestamp: Any) -> bool:
+    if path_bar_1_timestamp is None or signal_timestamp is None:
+        return False
+    try:
+        path_bar_1_ts = pd.Timestamp(path_bar_1_timestamp)
+        signal_ts = pd.Timestamp(signal_timestamp)
+    except (TypeError, ValueError):
+        return False
+    if path_bar_1_ts.tzinfo is None or signal_ts.tzinfo is None:
+        return False
+    delta_seconds = (path_bar_1_ts.tz_convert("UTC") - signal_ts.tz_convert("UTC")).total_seconds()
+    return 0 < delta_seconds <= MAX_PATH_BAR_1_OPEN_FALLBACK_DELTA_SECONDS
 
 
 def _finite_float_or_none(value: Any) -> float | None:
@@ -610,7 +625,7 @@ def build_exit_path_metrics(config: Backtest3AConfig) -> tuple[pd.DataFrame, pd.
             reference_status == "missing"
             and first is not None
             and _is_finite_positive(first["open"])
-            and first["_open_ts"] > pd.Timestamp(signal_dt)
+            and _is_immediate_post_signal_path_bar(first["_open_ts"], signal_dt)
         ):
             reference_price = float(first["open"])
             reference_source = "path_bar_1_open"
