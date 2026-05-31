@@ -118,6 +118,15 @@ def _read_table(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == ".csv": return pd.read_csv(path)
     raise ValueError(f"unsupported table extension for {path}; use explicit .parquet or .csv path")
 
+def _reject_duplicate_matrix_values(values: Iterable[Any], name: str) -> tuple[Any, ...]:
+    result = tuple(values)
+    seen = set()
+    for value in result:
+        if value in seen:
+            raise ValueError(f"Duplicate matrix values are not allowed: {name} contains {value}")
+        seen.add(value)
+    return result
+
 def _positive_list(values: Iterable[Any], name: str, *, integers: bool = False) -> tuple[Any, ...]:
     result = []
     for raw in values:
@@ -126,7 +135,7 @@ def _positive_list(values: Iterable[Any], name: str, *, integers: bool = False) 
             raise ValueError(f"{name} values must be finite positive {'integers' if integers else 'numbers'}: {raw!r}")
         result.append(int(value) if integers else float(value))
     if not result: raise ValueError(f"{name} must not be empty")
-    return tuple(result)
+    return _reject_duplicate_matrix_values(result, name)
 
 def validate_config(config: Backtest3BConfig) -> None:
     _positive_list(config.time_stops_hours, "time_stops_hours", integers=True)
@@ -139,6 +148,7 @@ def validate_config(config: Backtest3BConfig) -> None:
     if any(value > 1 for value in sizes): raise ValueError("partial_sizes values must be in (0, 1]")
     if not config.trail_modes or any(value not in {"none", "low_2bars", "low_3bars"} for value in config.trail_modes):
         raise ValueError("trail_modes values must be one of: none, low_2bars, low_3bars")
+    _reject_duplicate_matrix_values(config.trail_modes, "trail_modes")
 
 def build_exit_model_matrix(config: Backtest3BConfig = Backtest3BConfig()) -> list[ExitModel]:
     validate_config(config)
@@ -230,8 +240,14 @@ def simulate_event_model(event: pd.Series, event_bars: pd.DataFrame, model: Exit
     mae_index = _finite(event.get("mae_bar_index_4h"))
     if mae_index is not None:
         later_closes = [_finite(bar.get("return_close_pct")) for index, bar in bar_map.items() if index > mae_index]
-        valid = [value for value in later_closes if value is not None]
-        row["recovery_after_initial_mae"] = None if not valid else any(value >= 0 for value in valid)
+        if not later_closes:
+            row["recovery_after_initial_mae"] = False
+        elif any(value is not None and value >= 0 for value in later_closes):
+            row["recovery_after_initial_mae"] = True
+        elif any(value is None for value in later_closes):
+            row["recovery_after_initial_mae"] = None
+        else:
+            row["recovery_after_initial_mae"] = False
     partial_bar = None
     row["partial_filled"] = False
     time_index = model.time_stop_hours // 4
@@ -298,16 +314,30 @@ def render_report(summary: dict[str, Any]) -> str:
     return "\n".join(["# BACKTEST-3B 4h Exit Model Simulation", "", "Analytics-only in-sample evidence. This report does not define a live exit rule.", "", "## Scope", "", "- Closed-candle-only path simulation", "- Fees, slippage, and execution simulation are excluded", "- `late_monitor` is excluded", "", "## Counts", "", f"- Events: {summary['event_count']}", f"- Models: {summary['exit_model_variant_count']}", f"- Event-model rows: {summary['event_model_row_count']}", "", "## best_by_segment_observed_in_sample", "", *(best or ["- No evaluable rows."]), ""])
 
 def _write_outputs_atomic(config: Backtest3BConfig, rows: pd.DataFrame, segments: pd.DataFrame, summary: dict[str, Any], report: str) -> None:
-    parent = config.output_dir.parent; parent.mkdir(parents=True, exist_ok=True); tmp = Path(tempfile.mkdtemp(prefix=f".{config.output_dir.name}.", dir=parent))
+    parent = config.output_dir.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix=f".{config.output_dir.name}.tmp.", dir=parent))
+    backup: Path | None = None
     try:
         rows.to_parquet(tmp / REQUIRED_OUTPUT_FILES[0], index=False); rows.to_csv(tmp / REQUIRED_OUTPUT_FILES[1], index=False)
         segments.to_parquet(tmp / REQUIRED_OUTPUT_FILES[2], index=False); segments.to_csv(tmp / REQUIRED_OUTPUT_FILES[3], index=False)
         (tmp / REQUIRED_OUTPUT_FILES[4]).write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         (tmp / REQUIRED_OUTPUT_FILES[5]).write_text(report, encoding="utf-8")
-        if config.output_dir.exists(): shutil.rmtree(config.output_dir)
-        tmp.replace(config.output_dir)
+        if config.output_dir.exists():
+            backup = Path(tempfile.mkdtemp(prefix=f".{config.output_dir.name}.backup.", dir=parent))
+            backup.rmdir()
+            config.output_dir.replace(backup)
+        try:
+            tmp.replace(config.output_dir)
+        except Exception:
+            if backup is not None and backup.exists() and not config.output_dir.exists():
+                backup.replace(config.output_dir)
+            raise
+        if backup is not None:
+            shutil.rmtree(backup)
     except Exception:
-        shutil.rmtree(tmp, ignore_errors=True); raise
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
 
 def run(config: Backtest3BConfig) -> dict[str, Any]:
     rows, segments, summary, report = build_outputs(config); _write_outputs_atomic(config, rows, segments, summary, report); return summary

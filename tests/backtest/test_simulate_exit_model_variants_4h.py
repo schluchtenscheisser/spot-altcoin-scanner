@@ -14,6 +14,7 @@ from scripts.backtest.simulate_exit_model_variants_4h import (
     REQUIRED_OUTPUT_FILES,
     build_exit_model_matrix,
     build_outputs,
+    build_segment_summary,
     run,
     simulate_event_model,
     validate_config,
@@ -87,6 +88,20 @@ def test_invalid_matrix_values_fail_preflight(field: str, value: tuple[object, .
     with pytest.raises(ValueError): validate_config(Backtest3BConfig(**values))
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "duplicate"),
+    [
+        ("time_stops_hours", (24, 24), "24"),
+        ("atr_stop_multipliers", (1.2, 1.2), "1.2"),
+        ("fixed_partial_trigger_pcts", (7.5, 7.5), "7.5"),
+        ("trail_modes", ("none", "none"), "none"),
+    ],
+)
+def test_duplicate_matrix_values_rejected(field: str, value: tuple[object, ...], duplicate: str) -> None:
+    with pytest.raises(ValueError, match=rf"Duplicate matrix values are not allowed: {field} contains {duplicate}"):
+        validate_config(Backtest3BConfig(**{field: value}))
+
+
 def test_same_bar_stop_partial_collision_stop_wins() -> None:
     row = simulate_event_model(_event(), _bars([(106, 94, 103)]), _model(time_stop_hours=4))
     assert row["exit_reason"] == "stop" and row["partial_filled"] is False and row["exit_price"] == 95
@@ -135,6 +150,20 @@ def test_non_finite_row_value_is_not_evaluable() -> None:
     assert row["simulation_status"] == "not_evaluable" and row["exit_reason"] == "path_incomplete"
 
 
+def test_final_bar_mae_is_unrecovered_and_included_in_segment_rate() -> None:
+    event = _event(mae_bar_index_4h=2)
+    row = simulate_event_model(
+        event,
+        _bars([(101, 99, 100), (102, 95, 101)]),
+        _model(partial_mode="none", partial_trigger_value=None, partial_size=0, time_stop_hours=8),
+    )
+    summary = build_segment_summary(pd.DataFrame([row]))
+
+    assert row["simulation_status"] == "evaluated"
+    assert row["recovery_after_initial_mae"] is False
+    assert summary.iloc[0]["recovery_after_initial_mae_rate"] == 0.0
+
+
 def test_build_outputs_is_deterministic_and_segmentwise(tmp_path: Path) -> None:
     event2 = _event(event_id="e2", symbol="BBBUSDT", segment_key="confirmed_candidates__ema_reclaim", decision_bucket="confirmed_candidates", entry_pattern="ema_reclaim")
     bars = pd.concat([_bars([(102, 99, 101), (106, 100, 105), (108, 101, 107)]), _bars([(101, 99, 100), (102, 99, 101), (103, 99, 102)], event2)], ignore_index=True)
@@ -151,6 +180,59 @@ def test_run_writes_expected_files_atomically(tmp_path: Path) -> None:
     assert set(path.name for path in config.output_dir.iterdir()) == set(REQUIRED_OUTPUT_FILES)
     assert summary["analysis_id"] == "BACKTEST-3B_EXIT_MODEL_SIMULATION_4H" and summary["exit_simulation_performed"] is True
     assert summary["fees_included"] is False and summary["slippage_included"] is False and summary["execution_simulation_included"] is False
+
+
+def test_duplicate_matrix_preflight_failure_writes_no_output_files(tmp_path: Path) -> None:
+    config = _fixture(tmp_path, time_stops_hours=(12, 12))
+    with pytest.raises(ValueError, match="Duplicate matrix values"):
+        run(config)
+    assert not config.output_dir.exists()
+
+
+def test_existing_output_without_overwrite_fails_before_writes(tmp_path: Path) -> None:
+    config = _fixture(tmp_path)
+    config.output_dir.mkdir()
+    sentinel = config.output_dir / "previous-report.txt"
+    sentinel.write_text("previous", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pass --overwrite"):
+        run(config)
+
+    assert sentinel.read_text(encoding="utf-8") == "previous"
+    assert set(config.output_dir.iterdir()) == {sentinel}
+
+
+def test_overwrite_replaces_existing_output(tmp_path: Path) -> None:
+    config = _fixture(tmp_path, overwrite=True)
+    config.output_dir.mkdir()
+    sentinel = config.output_dir / "previous-report.txt"
+    sentinel.write_text("previous", encoding="utf-8")
+
+    run(config)
+
+    assert not sentinel.exists()
+    assert set(path.name for path in config.output_dir.iterdir()) == set(REQUIRED_OUTPUT_FILES)
+
+
+def test_failed_overwrite_swap_restores_previous_output_without_partial_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _fixture(tmp_path, overwrite=True)
+    config.output_dir.mkdir()
+    sentinel = config.output_dir / "previous-report.txt"
+    sentinel.write_text("previous", encoding="utf-8")
+    original_replace = Path.replace
+
+    def fail_new_report_swap(source: Path, target: Path) -> Path:
+        if target == config.output_dir and source.name.startswith(f".{config.output_dir.name}.tmp."):
+            raise OSError("simulated replacement failure")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", fail_new_report_swap)
+
+    with pytest.raises(OSError, match="simulated replacement failure"):
+        run(config)
+
+    assert sentinel.read_text(encoding="utf-8") == "previous"
+    assert set(config.output_dir.iterdir()) == {sentinel}
 
 
 def test_cli_invalid_input_schema_fails_before_writes(tmp_path: Path) -> None:
