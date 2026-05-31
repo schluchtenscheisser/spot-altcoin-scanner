@@ -126,17 +126,47 @@ def test_primary_scope_filter_excludes_late_monitor_and_non_primary(tmp_path: Pa
     assert "late_monitor was not included in Primary Trade Scope metrics." in report
 
 
-def test_future_path_bar_1_open_is_not_used_as_reference_price(tmp_path: Path) -> None:
+def test_daily_close_aligned_path_bar_1_open_is_used_as_reference_price(tmp_path: Path) -> None:
     events = tmp_path / "events.parquet"
-    _write_events(events, [_event(signal_timestamp="2026-05-01T00:01:00Z", signal_reference_price=None)])
+    _write_events(events, [_event(signal_timestamp="2026-05-01T23:59:59Z", signal_reference_price=None)])
     history = tmp_path / "history" / "ohlcv"
-    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-01T04:00:00Z", 100, 103, 98, 101)])
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-02T00:00:00Z", 100, 103, 98, 101)])
     config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
 
     event_df, bar_df, _summary, _report, _ = build_exit_path_metrics(config)
     row = event_df.iloc[0]
 
-    assert row["path_bar_1_timestamp"] == "2026-05-01T04:00:00Z"
+    assert row["path_bar_1_timestamp"] == "2026-05-02T00:00:00Z"
+    assert row["path_bar_1_open"] == 100.0
+    assert row["reference_price"] == 100.0
+    assert row["reference_price_status"] == "available"
+    assert row["reference_price_source"] == "path_bar_1_open"
+    assert row["reference_price_reason"] == "fallback_to_path_bar_1_open"
+    assert row["mfe_pct"] == pytest.approx(3.0)
+    assert row["mae_pct"] == pytest.approx(-2.0)
+    assert bar_df.iloc[0]["return_close_pct"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    ("signal_timestamp", "path_bar_1_timestamp"),
+    [
+        ("2026-05-01T00:01:00Z", "2026-05-01T04:00:00Z"),
+        ("2026-05-01T23:59:58Z", "2026-05-02T00:00:00Z"),
+    ],
+)
+def test_path_bar_1_open_fallback_rejects_delta_greater_than_one_second(
+    tmp_path: Path, signal_timestamp: str, path_bar_1_timestamp: str
+) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(events, [_event(signal_timestamp=signal_timestamp, signal_reference_price=None)])
+    history = tmp_path / "history" / "ohlcv"
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", path_bar_1_timestamp, 100, 103, 98, 101)])
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
+
+    event_df, bar_df, _summary, _report, _ = build_exit_path_metrics(config)
+    row = event_df.iloc[0]
+
+    assert row["path_bar_1_timestamp"] == path_bar_1_timestamp
     assert row["path_bar_1_open"] == 100.0
     assert row["reference_price_status"] == "missing"
     assert row["reference_price_source"] == "null"
@@ -144,6 +174,44 @@ def test_future_path_bar_1_open_is_not_used_as_reference_price(tmp_path: Path) -
     assert pd.isna(row["mfe_pct"])
     assert pd.isna(row["mae_pct"])
     assert bar_df["return_close_pct"].isna().all()
+
+
+@pytest.mark.parametrize("value", [None, float("nan"), 0.0, -1.0])
+def test_invalid_path_bar_1_open_does_not_fire_reference_price_fallback(tmp_path: Path, value: float | None) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(events, [_event(signal_timestamp="2026-05-01T23:59:59Z", signal_reference_price=None)])
+    history = tmp_path / "history" / "ohlcv"
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-02T00:00:00Z", value, 103, 98, 101)])
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
+
+    event_df, bar_df, _summary, _report, _ = build_exit_path_metrics(config)
+    row = event_df.iloc[0]
+
+    assert row["reference_price_status"] == "missing"
+    assert row["reference_price_source"] == "null"
+    assert pd.isna(row["reference_price"])
+    assert pd.isna(row["mfe_pct"])
+    assert pd.isna(row["mae_pct"])
+    assert bar_df.empty
+
+
+def test_path_bar_1_open_fallback_uses_computed_path_value_not_input_row_value(tmp_path: Path) -> None:
+    events = tmp_path / "events.parquet"
+    _write_events(
+        events,
+        [_event(signal_timestamp="2026-05-01T23:59:59Z", signal_reference_price=None, path_bar_1_open=float("nan"))],
+    )
+    history = tmp_path / "history" / "ohlcv"
+    _write_ohlcv(history, "AAAUSDT", [_bar("AAAUSDT", "2026-05-02T00:00:00Z", 100, 103, 98, 101)])
+    config = Backtest3AConfig(input_events_path=events, output_dir=tmp_path / "out", history_root=history, path_bars=1)
+
+    event_df, _bar_df, _summary, _report, _ = build_exit_path_metrics(config)
+    row = event_df.iloc[0]
+
+    assert row["path_bar_1_open"] == 100.0
+    assert row["reference_price"] == 100.0
+    assert row["reference_price_source"] == "path_bar_1_open"
+    assert row["reference_price_status"] == "available"
 
 
 def test_ambiguous_event_close_remains_not_evaluable(tmp_path: Path) -> None:
