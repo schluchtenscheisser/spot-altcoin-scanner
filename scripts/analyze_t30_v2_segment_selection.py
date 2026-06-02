@@ -70,11 +70,25 @@ def nested(record: dict[str, Any], first: str, *fallbacks: tuple[str, str] | str
     return None
 
 
+def extract_setup_cycle_id(record: dict[str, Any]) -> Any:
+    state = block(record, "state")
+    for key in ("setup_cycle_id", "current_setup_cycle_id"):
+        value = state.get(key)
+        if value is not None:
+            return value
+    for key in ("setup_cycle_id", "current_setup_cycle_id"):
+        value = record.get(key)
+        if value is not None:
+            return value
+    return block(record, "cycle").get("resolved_setup_cycle_id")
+
+
 def extract_record(record: dict[str, Any], run_id: str) -> dict[str, Any]:
     entry = block(record, "entry_location")
     return {
         **record,
         "run_id": run_id,
+        "setup_cycle_id": extract_setup_cycle_id(record),
         "decision_bucket": nested(record, "decision.decision_bucket", "decision_bucket"),
         "priority_score": nested(record, "decision.priority_score", "priority_score"),
         "entry_pattern": nested(record, "decision.entry_pattern", ("pattern", "entry_pattern"), "entry_pattern"),
@@ -127,10 +141,17 @@ def _safe_member(name: str) -> bool:
     return bool(name) and not p.is_absolute() and ".." not in p.parts
 
 
+def is_daily_diagnostics_path(path: Path | PurePosixPath | str) -> bool:
+    normalized = PurePosixPath(path.as_posix() if isinstance(path, Path) else str(path))
+    return normalized.name == "symbol_diagnostics.jsonl.gz" and any(part.startswith("daily-") for part in normalized.parts[:-1])
+
+
 def discover_runs(project_root: Path, input_zip_dir: Path | None) -> list[dict[str, Any]]:
     runs: list[dict[str, Any]] = []
     if input_zip_dir is None:
         for diag in sorted((project_root / "reports/runs").glob("**/symbol_diagnostics.jsonl.gz")):
+            if not is_daily_diagnostics_path(diag.relative_to(project_root)):
+                continue
             report = diag.with_name("report.json")
             runs.append({"run_id": diag.parent.name, "source": diag.as_posix(), "records": _read_gzip(diag.read_bytes()), "report": json.loads(report.read_text()) if report.exists() else None})
         return runs
@@ -138,7 +159,7 @@ def discover_runs(project_root: Path, input_zip_dir: Path | None) -> list[dict[s
     for archive in sorted(zip_root.glob("*.zip")):
         with zipfile.ZipFile(archive) as zf:
             names = [n for n in zf.namelist() if _safe_member(n)]
-            diagnostics = [n for n in names if n.endswith("/symbol_diagnostics.jsonl.gz") or n == "symbol_diagnostics.jsonl.gz"]
+            diagnostics = [n for n in names if is_daily_diagnostics_path(PurePosixPath(n))]
             for diag_name in diagnostics:
                 parent = str(PurePosixPath(diag_name).parent)
                 report_name = f"{parent}/report.json" if parent != "." else "report.json"
@@ -179,28 +200,41 @@ def basket_filters(thresholds: dict[str, float]) -> dict[str, Callable[[dict[str
 
 
 def apply_slippage(raw: Any, bps: Any) -> tuple[float | None, bool]:
-    if not finite(raw): return None, finite(bps)
-    if not finite(bps): return float(raw), False
+    if not finite(raw) or not finite(bps): return None, False
     return float(raw) - float(bps) / 100.0, True
 
 
-def attach_forward_returns(project_root: Path, records: list[dict[str, Any]]) -> set[str]:
+def attach_forward_returns(project_root: Path, records: list[dict[str, Any]]) -> tuple[set[str], list[dict[str, Any]]]:
     """Attach metrics from T18/T30 event export; never reconstruct readiness events."""
     path = project_root / "evaluation/exports/signal_event_metrics.parquet"
     missing: set[str] = set()
+    warnings: list[dict[str, Any]] = []
     if not path.exists():
         for r in records:
             r["forward_return_derivable"] = False
             missing.add(str(r.get("symbol")))
-        return missing
+        return missing, warnings
     events = pd.read_parquet(path).to_dict("records")
-    by_key: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    by_cycle_key: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    by_symbol_event: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for event in events:
-        by_key[(str(event.get("symbol")), str(event.get("event_type")))].append(event)
+        symbol_event = (str(event.get("symbol")), str(event.get("event_type")))
+        by_symbol_event[symbol_event].append(event)
+        if event.get("setup_cycle_id") is not None:
+            by_cycle_key[(symbol_event[0], str(event.get("setup_cycle_id")), symbol_event[1])].append(event)
     for r in records:
         wanted = "first_confirmed_ready" if r.get("decision_bucket") == "confirmed_candidates" else "first_early_ready" if r.get("decision_bucket") == "early_candidates" else ""
-        matches = by_key.get((str(r.get("symbol")), wanted), [])
-        event = matches[-1] if matches else None
+        symbol_event = (str(r.get("symbol")), wanted)
+        cycle_id = r.get("setup_cycle_id")
+        matches = by_cycle_key.get((symbol_event[0], str(cycle_id), wanted), []) if cycle_id is not None else []
+        event = matches[-1] if len(matches) == 1 else None
+        if cycle_id is None:
+            candidates = by_symbol_event.get(symbol_event, [])
+            if len(candidates) == 1:
+                event = candidates[0]
+                warnings.append({"run_id": r.get("run_id"), "symbol": r.get("symbol"), "warning": "missing_setup_cycle_id_single_cycle_fallback"})
+            elif len(candidates) > 1:
+                warnings.append({"run_id": r.get("run_id"), "symbol": r.get("symbol"), "warning": "missing_setup_cycle_id_for_multi_cycle_match"})
         r["forward_return_derivable"] = bool(event and event.get("reference_price_status") == "ok")
         if not r["forward_return_derivable"]:
             missing.add(str(r.get("symbol")))
@@ -212,7 +246,7 @@ def attach_forward_returns(project_root: Path, records: list[dict[str, Any]]) ->
             r["slippage_adjustment_available"] = available
             r[f"mae_{h}d_pct"] = event.get(f"mae_{h}d_pct") if event and finite(event.get(f"mae_{h}d_pct")) else None
             r[f"mfe_{h}d_pct"] = event.get(f"mfe_{h}d_pct") if event and finite(event.get(f"mfe_{h}d_pct")) else None
-    return missing
+    return missing, warnings
 
 
 def dist(records: list[dict[str, Any]], key: str) -> dict[str, int]: return dict(sorted(Counter(str(r.get(key)) for r in records).items()))
@@ -271,7 +305,7 @@ def analyze(project_root: Path, *, input_zip_dir: Path | None = None, output_dir
     if len(included) < minimum_runs:
         raise RuntimeError(f"T30-v2 requires at least 20 ir1.5+ runs. Found: {len(included)}. Accumulate more runs and retry.")
     records = [extract_record(r, run["run_id"]) for run in included for r in run["records"]]
-    missing_symbols = attach_forward_returns(project_root, records)
+    missing_symbols, forward_return_warnings = attach_forward_returns(project_root, records)
     run_ids = [r["run_id"] for r in included]
     seg_filters, baskets = segments(), basket_filters(thresholds)
     seg_members = {k: [r for r in records if f(r)] for k, f in seg_filters.items()}
@@ -291,7 +325,7 @@ def analyze(project_root: Path, *, input_zip_dir: Path | None = None, output_dir
     }
     priority = {bucket: {"p10": pct(num(rows,"priority_score"),.1), "p25":pct(num(rows,"priority_score"),.25), "median":pct(num(rows,"priority_score"),.5), "p75":pct(num(rows,"priority_score"),.75), "p90":pct(num(rows,"priority_score"),.9)} for bucket in ("confirmed_candidates","early_candidates") for rows in [[r for r in records if r.get("decision_bucket") == bucket]]}
     s6_excluded = sum(baseline(r) and r.get("decision_bucket") == "early_candidates" and r.get("entry_action_hint") == "buy_now_candidate" for r in records)
-    coverage = {"included_runs": [{k:v for k,v in run.items() if k not in {"records","report"}} for run in included], "excluded_runs": excluded, "cross_validation_mismatches": mismatches, "missing_ohlcv_symbols": sorted(missing_symbols), "execution_status_raw_distribution": dist(records,"execution_status_raw"), "s6_buy_now_candidate_exclusion_count": s6_excluded, "basket_out_of_segment_member_counts": out_of_segment}
+    coverage = {"included_runs": [{k:v for k,v in run.items() if k not in {"records","report"}} for run in included], "excluded_runs": excluded, "cross_validation_mismatches": mismatches, "missing_ohlcv_symbols": sorted(missing_symbols), "forward_return_warnings": forward_return_warnings, "execution_status_raw_distribution": dist(records,"execution_status_raw"), "s6_buy_now_candidate_exclusion_count": s6_excluded, "basket_out_of_segment_member_counts": out_of_segment}
     mfe_rows = [r for r in records if any(finite(r.get(f"mfe_{h}d_pct")) and finite(r.get(f"mae_{h}d_pct")) for h in HORIZONS)]
     mfe = {"mfe_mae_available": bool(mfe_rows)}
     if mfe_rows:
@@ -305,7 +339,8 @@ def analyze(project_root: Path, *, input_zip_dir: Path | None = None, output_dir
     mismatch_table = "| run_id | bucket | diagnostics_count | report_count |\n|---|---|---:|---:|\n" + "\n".join(f"| {m['run_id']} | {m['bucket']} | {m['diagnostics_count']} | {m['report_count']} |" for m in mismatches)
     if not mismatches:
         mismatch_table += "| _none_ | _none_ | 0 | 0 |"
-    coverage_md = f"# T30-v2 Run Coverage\n\n{warning}\nIncluded runs: {len(included)}\n\nExcluded runs: {len(excluded)}\n\nS6 buy_now_candidate exclusion count: {s6_excluded}\n\nBasket out-of-segment member counts: {out_of_segment}\n\n## Cross-validation mismatches\n\n{mismatch_table}\n"
+    forward_warning_lines = "\n".join(f"- {item['warning']}: run_id={item['run_id']}, symbol={item['symbol']}" for item in forward_return_warnings) or "- _none_"
+    coverage_md = f"# T30-v2 Run Coverage\n\n{warning}\nIncluded runs: {len(included)}\n\nExcluded runs: {len(excluded)}\n\nS6 buy_now_candidate exclusion count: {s6_excluded}\n\nBasket out-of-segment member counts: {out_of_segment}\n\n## Forward-return matching warnings\n\n{forward_warning_lines}\n\n## Cross-validation mismatches\n\n{mismatch_table}\n"
     decision_md = f"# T30-v2 Decision Support — Evidence Only\n\n{warning}\n## Applied Configuration\n\n{basket_summary['applied_config']}\n\n## Q1. Minimum execution_size_class\nSee cross_breakdown_exec_bucket.json.\n## Q2. Allowed entry_action_hints\nSee S1/S2 and entry-location breakdown.\n## Q3. confirmed_candidates only vs. including early_candidates\nSee S6/S9 and Basket C.\n## Q4. Priority score floor\nSee priority_score_distributions.json. Thresholds are preliminary pending manual review.\n## Q5. Pattern restrictions\nSee cross_breakdown_pattern_bucket.json.\n## Q6. Frequency / parallelism\nSee basket_frequency.json.\n\n## Limitations\nBull-market bias; small segment samples; no exit modeling; entry slippage only; MFE/MAE may be unavailable; buy-now comparisons may be unavailable. This report does not recommend or select a live trading basket.\n"
     (out/"run_coverage.md").write_text(coverage_md); (out/"decision_support.md").write_text(decision_md)
     segment_rows = "\n".join(f"| {name} | {summary['n_total_records']} | {summary['n_forward_return_derivable']} | {summary['n_per_run_median']} | {summary['execution_status_raw_distribution']} |" for name, summary in seg_summary.items())
