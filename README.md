@@ -97,6 +97,8 @@ Scope and guarantees:
 - This smoke workflow validates stage execution and canonical artifact locations only (not business-logic quality assertions or calibration).
 
 ## Canonical docs and deeper architecture
+**Documentation authority:** See [`docs/AUTHORITY.md`](docs/AUTHORITY.md) for the complete authority hierarchy and documentation taxonomy. When documents conflict, `docs/AUTHORITY.md` defines which source wins.
+
 - Canonical entry point: `docs/canonical/INDEX.md`
 - Authority and precedence: `docs/canonical/AUTHORITY.md`
 - Runtime target model: `docs/canonical/RUNTIME_AND_OPERATIONS.md`
