@@ -124,6 +124,7 @@ Observed files:
 ```text
 docs/canonical/FEATURES/FEAT_ATR_WILDER.md
 docs/canonical/FEATURES/FEAT_EMA_STANDARD.md
+docs/canonical/FEATURES/FEAT_PERCENT_RANK.md
 docs/canonical/FEATURES/FEAT_VOLUME_SPIKE.md
 docs/canonical/FEATURES/FEAT_ATR_PCT_RANK_120_1D.md
 docs/canonical/FEATURES/FEAT_BB_WIDTH_4H_RANK_120.md
@@ -132,7 +133,7 @@ docs/canonical/FEATURES/FEAT_BB_WIDTH_4H_RANK_120.md
 Inventory finding:
 
 ```text
-The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed files still declare status: canonical.
+The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed documentation files declare or appear to declare canonical status.
 ```
 
 ### 9.2 `docs/canonical/LIQUIDITY/`
@@ -149,7 +150,7 @@ docs/canonical/LIQUIDITY/TRADEABILITY_GATE.md
 Inventory finding:
 
 ```text
-The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed files still declare status: canonical. TRADEABILITY_GATE.md is especially important for later validation because current execution/tradeability semantics remain central to the scanner.
+The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed documentation files declare or appear to declare canonical status. TRADEABILITY_GATE.md is especially important for later validation because current execution/tradeability semantics remain central to the scanner.
 ```
 
 ### 9.3 `docs/canonical/OUTPUTS/`
@@ -165,7 +166,7 @@ docs/canonical/OUTPUTS/SHADOW_CALIBRATION_PREP_REPORT.md
 Inventory finding:
 
 ```text
-The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed files still declare status: canonical. Some files may represent later evaluation/output work rather than pure previous-scanner documentation and require ticket/code validation before reclassification.
+The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed documentation files declare or appear to declare canonical status. Some files may represent later evaluation/output work rather than pure previous-scanner documentation and require ticket/code validation before reclassification.
 ```
 
 ### 9.4 `docs/canonical/BACKTEST/`
@@ -174,12 +175,13 @@ Observed files:
 
 ```text
 docs/canonical/BACKTEST/MODEL_E2.md
+docs/canonical/BACKTEST/TRADE_MODEL_4H_IMMEDIATE_RETEST.md
 ```
 
 Inventory finding:
 
 ```text
-The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while the observed file declares status: canonical and purpose: analytics_only.
+The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed documentation files declare or appear to declare canonical status, including `MODEL_E2.md` with `purpose: analytics_only`.
 ```
 
 ### 9.5 `docs/canonical/SCORING/`
@@ -187,14 +189,16 @@ The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, wh
 Observed files:
 
 ```text
+docs/canonical/SCORING/DISCOVERY_TAG.md
 docs/canonical/SCORING/SCORE_BREAKOUT_TREND_1_5D.md
 docs/canonical/SCORING/GLOBAL_RANKING_TOP20.md
+docs/canonical/SCORING/SETUP_VALIDITY_RULES.md
 ```
 
 Inventory finding:
 
 ```text
-The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed files still declare status: canonical. This group likely contains previous-scanner scoring logic and requires careful validation before reuse.
+The folder is classified as legacy_reference_only by docs/canonical/INDEX.md, while observed documentation files declare or appear to declare canonical status. This group likely contains previous-scanner scoring logic and requires careful validation before reuse.
 ```
 
 ## 10. Current-state documentation candidates
