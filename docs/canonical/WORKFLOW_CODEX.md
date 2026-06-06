@@ -309,6 +309,14 @@ Do not silently resolve stop conditions.
 
 ---
 
+## 12.1) Documentation Impact Guard
+
+Every Codex-targeted ticket must contain a standalone `## Documentation impact` section as defined by `docs/tickets/_TEMPLATE.md` and checked by `docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md`. Use `docs/canonical/AUTHORITY.md` as the central documentation authority reference when deciding whether current-state documentation is affected.
+
+If documentation is affected, the source ticket must name the affected files and either include the update in the same PR or explicitly name the follow-up / out-of-scope reason. The PR body must summarize the documentation-impact outcome from the ticket's `## Documentation impact` section.
+
+---
+
 ## 13) Ticket Lifecycle (Inbox → In Progress → Archive)
 
 ### Inbox
@@ -365,7 +373,7 @@ PR body must include:
 - original ticket path,
 - archived ticket path,
 - implementation summary,
-- docs impact summary,
+- docs impact summary based on the ticket's `## Documentation impact` section,
 - tests/verification performed,
 - stop-condition or contract checks performed.
 
@@ -407,7 +415,7 @@ Before PR:
 - [ ] Tests or targeted checks run where applicable.
 - [ ] Relevant docs updated only where applicable.
 - [ ] Ticket archived in `docs/legacy/tickets/`.
-- [ ] PR body includes docs impact and verification summary.
+- [ ] PR body includes the documentation-impact outcome from the ticket and the verification summary.
 
 ---
 
@@ -419,4 +427,4 @@ Each ticket PR must be self-contained and should explain:
 - which checks were run,
 - whether any stop condition was considered and ruled out.
 
-If no canonical docs changed, explicitly state why not.
+If no canonical docs changed, explicitly state why not; if documentation is affected but not updated in the same PR, explicitly name the follow-up or out-of-scope reason in both ticket and PR.
