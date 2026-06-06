@@ -537,7 +537,37 @@ Diese Sektion muss **wörtlich oder inhaltlich gleichwertig** in jedes Ticket au
 
 \---
 
-## 21\. Freigabe-Gate vor Ticket-Abgabe
+## 21. Documentation-Impact-Check
+
+Der Documentation-Impact-Check ist für alle neu erstellten Codex-Zieltickets nach DOC-C verpflichtend. Er gilt außerdem für bestehende Tickets, die nach DOC-C materiell überarbeitet, neu ausgegeben oder reworked werden, sowie für bestehende Tickets, bei denen Codex ausdrücklich gebeten wird, das Ticket vor der Implementierung zu aktualisieren. Das Ticket muss eine konkrete Entscheidung enthalten, ob Dokumentation betroffen ist und wie damit umgegangen wird.
+
+Bereits vor DOC-C existierende historische/backlog Tickets werden nicht allein dadurch automatisch ungültig, dass ihnen die exakte eigenständige Sektion `## Documentation impact` fehlt. Wenn ein solches älteres Ticket zur Implementierung aufgenommen wird und keine klare Documentation-Impact-Entscheidung enthält, muss Codex dies als Preflight-Gap sichtbar machen und vor der Implementierung eine kleine Ticket-Aktualisierung anfordern oder ergänzen, statt stillschweigend fortzufahren.
+
+### Prüffragen
+
+* [ ] Enthält das Ticket eine eigenständige Sektion `## Documentation impact`?
+* [ ] Betrifft das Ticket Architektur, Pipeline-Flow oder Systemstruktur?
+* [ ] Betrifft das Ticket Felder, Schemas, Diagnostics, Reports, Snapshots, persistierte Daten oder Output-Semantik?
+* [ ] Betrifft das Ticket Runtime, Scheduling, Persistenz, Artefakte, CI oder operative Workflows?
+* [ ] Betrifft das Ticket Evaluation, Replay, Backtesting oder Analyse-Outputs?
+* [ ] Betrifft das Ticket Documentation Authority, Dokumentrollen, Onboarding, Workflow oder Prozessdokumentation?
+* [ ] Falls Dokumentation betroffen ist: sind die betroffenen Dokumente im Ticket konkret genannt?
+* [ ] Falls Dokumentation betroffen ist: werden die betroffenen Dokumente im selben PR aktualisiert oder ist ein explizites Follow-up / Out-of-Scope begründet?
+* [ ] Falls keine Dokumentation betroffen ist: enthält das Ticket die Formulierung `No canonical documentation update required` mit spezifischer Begründung?
+
+### Abbruchregel
+
+Für neue oder nach DOC-C materiell überarbeitete, neu ausgegebene, reworked oder explizit zur Aktualisierung geöffnete Codex-Zieltickets gilt: Wenn die Sektion `## Documentation impact` im Ticket fehlt, ist das Ticket nicht freigabefähig.
+
+Wenn Variante B (`No canonical documentation update required`) gewählt wird, aber die Begründung leer, generisch oder nicht auf den Ticket-Scope bezogen ist, ist das Ticket nicht freigabefähig.
+
+Wenn das Ticket dokumentationsrelevante Änderungen enthält, aber weder eine Dokumentationsaktualisierung im selben PR noch ein explizit begründetes Follow-up / Out-of-Scope benennt, ist das Ticket nicht freigabefähig.
+
+Für ältere Pre-DOC-C-Backlog-Tickets ohne exakte Sektion gilt: Nicht automatisch invalidieren, aber fehlende oder unklare Documentation-Impact-Entscheidungen als Preflight-Gap behandeln und vor Implementierungsbeginn klären.
+
+\---
+
+## 22\. Freigabe-Gate vor Ticket-Abgabe
 
 Ein Ticket darf erst als **codex-fest** gelten, wenn alle folgenden Fragen mit **Ja** beantwortet sind:
 
@@ -547,6 +577,7 @@ Ein Ticket darf erst als **codex-fest** gelten, wenn alle folgenden Fragen mit *
 * \[ ] Könnte Codex das Ticket umsetzen, ohne Merge-vs-Replace bei Config erraten zu müssen?
 * \[ ] Könnte Codex das Ticket umsetzen, ohne not-evaluated-vs-failed zu verwischen?
 * \[ ] Könnte Codex das Ticket umsetzen, ohne bei Dokumenten-Autorität oder Repo-Kollisionen zu raten?
+* \[ ] Könnte Codex die PR umsetzen, ohne bei Documentation Impact oder betroffenen Current-State-Docs raten zu müssen?
 * \[ ] Könnte Codex das Ticket umsetzen, ohne bei Input-Typen, Units, Koerzierung oder Rejection-Semantik raten zu müssen?
 * \[ ] Könnte Codex die Tests schreiben, ohne zusätzliche Semantik zu erfinden?
 * \[ ] Könnte Codex die PR umsetzen, ohne benachbarte Epics mitzuziehen?
@@ -556,7 +587,7 @@ Wenn eine Antwort **Nein** ist, ist das Ticket noch nicht scharf genug.
 
 \---
 
-## 22\. Wiederverwendbare Standardsätze für Tickets
+## 23\. Wiederverwendbare Standardsätze für Tickets
 
 Diese Sätze können fast wörtlich wiederverwendet werden:
 
@@ -594,7 +625,7 @@ Diese Sätze können fast wörtlich wiederverwendet werden:
 
 \---
 
-## 23\. Schnellprüfung vor Freigabe
+## 24\. Schnellprüfung vor Freigabe
 
 Diese Kurzprüfung muss vor Ticket-Abgabe einmal bewusst beantwortet werden:
 
@@ -636,6 +667,12 @@ Diese Kurzprüfung muss vor Ticket-Abgabe einmal bewusst beantwortet werden:
 * \[ ] mehrdeutige Inputs verboten oder explizit geregelt?
 * \[ ] harte Reject-Fälle ausgeschrieben?
 
+### Documentation Impact
+
+* \[ ] `## Documentation impact` vorhanden?
+* \[ ] Falls keine Doku betroffen: spezifische Begründung enthalten?
+* \[ ] Falls Doku betroffen: betroffene Dateien / Follow-up klar benannt?
+
 ### Tests
 
 * \[ ] ein Missing-Key-Test
@@ -648,7 +685,7 @@ Diese Kurzprüfung muss vor Ticket-Abgabe einmal bewusst beantwortet werden:
 
 \---
 
-## 24\. Zielzustand
+## 25\. Zielzustand
 
 Ein Ticket ist erst dann „codex-fest“, wenn es:
 
@@ -661,7 +698,7 @@ Ein Ticket ist erst dann „codex-fest“, wenn es:
 * Missing vs Invalid / null vs false / unknown vs fail explizit trennt,
 * und Input-Typen / Units / Koerzierung / Rejection-Semantik vollständig festlegt.
 
-## 25\. Ausgabe
+## 26\. Ausgabe
 
 Je Ticket eine Datei im Markdown-Format erzeugen und dem User als downloadbare Datei zur Verfügung stellen.
 

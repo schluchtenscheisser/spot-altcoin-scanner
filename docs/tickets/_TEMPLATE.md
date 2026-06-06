@@ -65,6 +65,43 @@ List the canonical documents that define/are affected by this change.
 - docs/canonical/...
 - docs/canonical/...
 
+## Documentation impact
+
+For newly created Codex-targeted tickets, this section is mandatory. Check whether this ticket changes or invalidates any of the following:
+
+- system architecture or pipeline flow,
+- fields, schemas, diagnostics, reports, persisted data, or output semantics,
+- runtime behavior, scheduling, persistence, artifacts, CI behavior, or operational workflow,
+- evaluation, replay, backtesting, or analysis outputs,
+- documentation authority, document role, onboarding, workflow, or process documentation.
+
+Select exactly one variant. If documentation is affected, list the affected documentation files and update them in the same PR unless explicitly out of scope.
+
+### Variant A — Documentation update required
+
+Affected documentation:
+- [ ] `docs/canonical/ARCHITECTURE.md`
+- [ ] `docs/canonical/DATA_MODEL.md`
+- [ ] `docs/canonical/REPORTS.md`
+- [ ] `docs/canonical/SNAPSHOTS.md`
+- [ ] `docs/canonical/RUNTIME_AND_OPERATIONS.md`
+- [ ] `docs/canonical/TEST_STRATEGY.md`
+- [ ] `docs/SCHEMA_CHANGES.md`
+- [ ] `docs/canonical/WORKFLOW_CODEX.md`
+- [ ] `docs/tickets/_TEMPLATE.md`
+- [ ] `docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md`
+- [ ] Other: `<path>`
+
+Documentation update plan:
+- `<what will be updated in this PR>`
+
+### Variant B — No documentation update required
+
+No canonical documentation update required.
+Reason: `<specific reason why this ticket does not change or invalidate architecture, data model, reports, snapshots, runtime/operations, evaluation, authority, onboarding, or process documentation>`.
+
+If this section is missing, or if Variant B is selected without a specific reason, the ticket is not Codex-ready.
+
 ## Proposed change (high-level)
 Describe intended behavior (not implementation details unless necessary):
 - Before:
