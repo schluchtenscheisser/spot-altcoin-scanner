@@ -1,5 +1,5 @@
 {
-  "as_of_utc": "2026-06-05T06:10:09Z",
+  "as_of_utc": "2026-06-06T05:24:20Z",
   "counts_by_bucket": {
     "confirmed_candidates": 0,
     "discarded": 0,
@@ -7,13 +7,13 @@
     "late_monitor": 0,
     "watchlist": 0
   },
-  "daily_bar_id": "2026-06-04",
-  "diagnostics_path": "reports/runs/2026/06/04/intraday-2026-06-04-a8a5762a4d2c/symbol_diagnostics.jsonl.gz",
-  "intraday_bar_id": "2026-06-05T04:00:00Z",
-  "manifest_path": "snapshots/runs/2026/06/04/intraday-2026-06-04-a8a5762a4d2c/run.manifest.json",
+  "daily_bar_id": "2026-06-05",
+  "diagnostics_path": "reports/runs/2026/06/05/intraday-2026-06-05-9a251e03a591/symbol_diagnostics.jsonl.gz",
+  "intraday_bar_id": "2026-06-06T04:00:00Z",
+  "manifest_path": "snapshots/runs/2026/06/05/intraday-2026-06-05-9a251e03a591/run.manifest.json",
   "no_op": true,
   "no_op_reason": "empty_monitoring_universe",
-  "run_id": "intraday-2026-06-04-a8a5762a4d2c",
+  "run_id": "intraday-2026-06-05-9a251e03a591",
   "scan_mode": "intraday",
   "schema_version": "ir1.5",
   "symbol_lists": {
