@@ -539,7 +539,9 @@ Diese Sektion muss **wörtlich oder inhaltlich gleichwertig** in jedes Ticket au
 
 ## 21. Documentation-Impact-Check
 
-Der Documentation-Impact-Check ist für jedes Ticket verpflichtend. Das Ticket muss eine konkrete Entscheidung enthalten, ob Dokumentation betroffen ist und wie damit umgegangen wird.
+Der Documentation-Impact-Check ist für alle neu erstellten Codex-Zieltickets nach DOC-C verpflichtend. Er gilt außerdem für bestehende Tickets, die nach DOC-C materiell überarbeitet, neu ausgegeben oder reworked werden, sowie für bestehende Tickets, bei denen Codex ausdrücklich gebeten wird, das Ticket vor der Implementierung zu aktualisieren. Das Ticket muss eine konkrete Entscheidung enthalten, ob Dokumentation betroffen ist und wie damit umgegangen wird.
+
+Bereits vor DOC-C existierende historische/backlog Tickets werden nicht allein dadurch automatisch ungültig, dass ihnen die exakte eigenständige Sektion `## Documentation impact` fehlt. Wenn ein solches älteres Ticket zur Implementierung aufgenommen wird und keine klare Documentation-Impact-Entscheidung enthält, muss Codex dies als Preflight-Gap sichtbar machen und vor der Implementierung eine kleine Ticket-Aktualisierung anfordern oder ergänzen, statt stillschweigend fortzufahren.
 
 ### Prüffragen
 
@@ -555,11 +557,13 @@ Der Documentation-Impact-Check ist für jedes Ticket verpflichtend. Das Ticket m
 
 ### Abbruchregel
 
-Wenn die Sektion `## Documentation impact` im Ticket fehlt, ist das Ticket nicht freigabefähig.
+Für neue oder nach DOC-C materiell überarbeitete, neu ausgegebene, reworked oder explizit zur Aktualisierung geöffnete Codex-Zieltickets gilt: Wenn die Sektion `## Documentation impact` im Ticket fehlt, ist das Ticket nicht freigabefähig.
 
 Wenn Variante B (`No canonical documentation update required`) gewählt wird, aber die Begründung leer, generisch oder nicht auf den Ticket-Scope bezogen ist, ist das Ticket nicht freigabefähig.
 
 Wenn das Ticket dokumentationsrelevante Änderungen enthält, aber weder eine Dokumentationsaktualisierung im selben PR noch ein explizit begründetes Follow-up / Out-of-Scope benennt, ist das Ticket nicht freigabefähig.
+
+Für ältere Pre-DOC-C-Backlog-Tickets ohne exakte Sektion gilt: Nicht automatisch invalidieren, aber fehlende oder unklare Documentation-Impact-Entscheidungen als Preflight-Gap behandeln und vor Implementierungsbeginn klären.
 
 \---
 

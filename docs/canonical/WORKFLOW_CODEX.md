@@ -311,9 +311,11 @@ Do not silently resolve stop conditions.
 
 ## 12.1) Documentation Impact Guard
 
-Every Codex-targeted ticket must contain a standalone `## Documentation impact` section as defined by `docs/tickets/_TEMPLATE.md` and checked by `docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md`. Use `docs/canonical/AUTHORITY.md` as the central documentation authority reference when deciding whether current-state documentation is affected.
+Every newly created Codex-targeted ticket after DOC-C is merged must contain a standalone `## Documentation impact` section as defined by `docs/tickets/_TEMPLATE.md` and checked by `docs/tickets/_TICKET_PREFLIGHT_CHECKLIST.md`. The same requirement applies to any existing ticket that is materially revised, reissued, or reworked after DOC-C, and to any existing ticket where Codex is explicitly asked to update the ticket before implementation. Use `docs/canonical/AUTHORITY.md` as the central documentation authority reference when deciding whether current-state documentation is affected.
 
-If documentation is affected, the source ticket must name the affected files and either include the update in the same PR or explicitly name the follow-up / out-of-scope reason. The PR body must summarize the documentation-impact outcome from the ticket's `## Documentation impact` section.
+Pre-DOC-C historical/backlog tickets are not automatically invalidated solely because they lack the exact standalone `## Documentation impact` section. If such an older ticket is selected for implementation and lacks a clear documentation-impact decision, Codex must surface that as a preflight gap and ask for or add a small ticket update before implementation rather than silently proceeding.
+
+If documentation is affected, the source ticket must name the affected files and either include the update in the same PR or explicitly name the follow-up / out-of-scope reason. The PR body must summarize the documentation-impact outcome from the ticket's `## Documentation impact` section or the resolved preflight ticket update.
 
 ---
 

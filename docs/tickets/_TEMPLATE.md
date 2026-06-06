@@ -67,7 +67,7 @@ List the canonical documents that define/are affected by this change.
 
 ## Documentation impact
 
-Check whether this ticket changes or invalidates any of the following:
+For newly created Codex-targeted tickets, this section is mandatory. Check whether this ticket changes or invalidates any of the following:
 
 - system architecture or pipeline flow,
 - fields, schemas, diagnostics, reports, persisted data, or output semantics,
