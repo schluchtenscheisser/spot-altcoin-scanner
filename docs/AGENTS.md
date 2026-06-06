@@ -1,13 +1,14 @@
-# AGENTS.md — Spot Altcoin Scanner (Canonical)
+# AGENTS.md — Spot Altcoin Scanner
 
 ## Read first
-1) `docs/canonical/AUTHORITY.md`
-2) `docs/canonical/INDEX.md`
-3) `docs/canonical/INDEX.md`
+1. `docs/canonical/AUTHORITY.md`
+2. `docs/canonical/INDEX.md`
+3. `docs/canonical/WORKFLOW_CODEX.md`
 
 ## Precedence
-canonical > auto-docs > legacy.
-- Auto-docs: `docs/code_map.md`, `docs/GPT_SNAPSHOT.md` (do not edit; keep under docs/)
+Current repository reality is the primary anchor for implemented scanner behavior. `docs/canonical/AUTHORITY.md` is the central documentation authority and precedence file; `docs/canonical/INDEX.md` is the role/navigation index.
+
+Auto-docs such as `docs/code_map.md` and `docs/GPT_SNAPSHOT.md` are generated navigation/context helpers, not authority for implemented behavior.
 
 ## Fixed decisions (Phase 1)
 - Global Top‑20 tab + Setup tabs (Top‑10 each)

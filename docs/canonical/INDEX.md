@@ -10,7 +10,7 @@ primary_architecture: independence_release
 ```
 
 ## Start here
-- [AUTHORITY](AUTHORITY.md)
+- [AUTHORITY](AUTHORITY.md) — central documentation authority and precedence file
 - [INDEX](INDEX.md)
 - [ARCHITECTURE](ARCHITECTURE.md)
 - [SCOPE](SCOPE.md)
@@ -28,7 +28,7 @@ primary_architecture: independence_release
 - [WORKFLOW_CODEX](WORKFLOW_CODEX.md)
 
 ## Legacy-track compatibility references (`legacy_reference_only`)
-The files below remain inside `docs/canonical/` for migration continuity, but they are explicitly classified as `legacy_reference_only` and are **not** active Independence-Release requirements. Use them only as reference unless a future ticket promotes/replaces them explicitly.
+The files below remain inside `docs/canonical/` for migration continuity, but they are explicitly classified as `legacy_reference_only` and are **not** active current-state requirements. Use them only as reference unless a dedicated future ticket revalidates and reclassifies them explicitly. Per [AUTHORITY](AUTHORITY.md), this role classification takes precedence over stale in-file `status: canonical` headers.
 
 - [PIPELINE](PIPELINE.md)
 - [DATA_SOURCES](DATA_SOURCES.md)

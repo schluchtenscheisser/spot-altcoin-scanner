@@ -36,53 +36,34 @@ Core rules:
 
 ## 1) Authority Hierarchy (binding)
 
-### Level 1 — Current repository reality (strongest)
-Includes current code, tests, schemas, GitHub Actions workflows, generated run artifacts, diagnostics, reports, manifests, and evaluation replay outputs.
+Use `docs/canonical/AUTHORITY.md` as the central documentation authority and precedence file. No separate root-level `docs/AUTHORITY.md` is used.
 
-This level is the strongest source for what currently exists.
+Operational summary for Codex work:
 
-### Level 2 — Build-spec authority where not superseded
-Includes:
-- `independence_release_gesamtkonzept_final.md`
-- the 7 v2.1 section documents
+1. Current repository reality is strongest for implemented behavior: current code, tests, schemas, GitHub Actions workflows, current run artifacts, diagnostics, reports, manifests, and evaluation replay outputs.
+2. Validated current-state canonical documentation describes current scanner behavior only when aligned with implemented repository reality.
+3. The v2.1 section documents and `independence_release_gesamtkonzept_final.md` are build-spec / design-intent authority, not complete post-implementation current-state documentation.
+4. The current ticket defines concrete task scope and acceptance criteria, but it does not silently override higher authority layers.
+5. AI context helpers are routing/context aids, not independent domain authority.
+6. `docs/code_map.md` is generated structural navigation only, not architecture authority.
+7. Previous-scanner and legacy documentation is historical/reference-only unless explicitly revalidated and reclassified.
 
-Use as domain-intent authority where no newer current-state implementation contract or validated current-state documentation supersedes it.
-
-### Level 3 — Current ticket
-The ticket defines concrete task scope, acceptance criteria, and requested files/behavior.
-
-The ticket does not override architecture contracts.
-
-If a ticket conflicts with current repo reality, AI context, open questions, or implementation contracts: stop and surface the conflict.
-
-### Level 4 — AI context helpers (not independent domain authority)
-- `docs/AI_CONTEXT_CURRENT.md`
-- `docs/GPT_SNAPSHOT.md`
-
-These are routing/context aids.
-
-### Level 5 — Structural navigation only
-- `docs/code_map.md`
-
-Generated structural navigation only. It can list active and legacy paths and must not be treated as architecture authority.
-
-### Level 6 — Legacy / historical reference
-Includes old scanner docs, old pre-Independence snapshots, legacy pipeline docs, old scoring/ranking/output docs, and archived ticket history.
-
-Use only for historical understanding unless ticket scope explicitly requires it and current repo reality supports it.
+If authority layers conflict, stop and surface the conflict in the ticket, PR, or documentation audit instead of silently choosing a convenient source.
 
 ---
 
 ## 2) Mandatory Pre-Read Order (before implementation)
 1. Current ticket.
-2. `docs/AI_CONTEXT_CURRENT.md`.
-3. `docs/GPT_SNAPSHOT.md`.
-4. `docs/canonical/WORKFLOW_CODEX.md` (this file; re-read if updated).
-5. `docs/code_map.md` (navigation only).
-6. Relevant current source files.
-7. Relevant tests, schemas, and workflows.
-8. Relevant v2.1 build-spec sections only where ticket touches domain logic not fully covered by current code/docs.
-9. `open_questions.md` if unresolved domain logic may be affected.
+2. `docs/canonical/AUTHORITY.md`.
+3. `docs/canonical/INDEX.md`.
+4. `docs/AI_CONTEXT_CURRENT.md`.
+5. `docs/GPT_SNAPSHOT.md`.
+6. `docs/canonical/WORKFLOW_CODEX.md` (this file; re-read if updated).
+7. `docs/code_map.md` (generated navigation only).
+8. Relevant current source files.
+9. Relevant tests, schemas, and workflows.
+10. Relevant v2.1 build-spec sections only where ticket touches domain logic not fully covered by current code/docs.
+11. `open_questions.md` if unresolved domain logic may be affected.
 
 Do not start coding before checking the active-vs-legacy boundary.
 
