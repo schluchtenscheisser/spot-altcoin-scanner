@@ -1,107 +1,137 @@
-# AUTHORITY — Dokument-Hierarchie & Quelle der Wahrheit (Canonical)
+# Documentation Authority — Current-State Precedence (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
 id: CANON_AUTHORITY
 status: canonical
 canonical_root: docs/canonical
-autodocs_read_only:
-  - docs/code_map.md
-  - docs/GPT_SNAPSHOT.md
-independence_release_fachlich_authority:
-  - independence_release_gesamtkonzept_final.md
-  - 7_abschnittsdateien
-canonical_roles:
-  active_independence_release:
-    - docs/canonical/ARCHITECTURE.md
-    - docs/canonical/SCOPE.md
-    - docs/canonical/DATA_MODEL.md
-    - docs/canonical/RUNTIME_AND_OPERATIONS.md
-    - docs/canonical/REPORTS.md
-    - docs/canonical/SNAPSHOTS.md
-    - docs/canonical/TEST_STRATEGY.md
-    - docs/canonical/MIGRATION_NOTES.md
-    - docs/canonical/CHANGELOG.md
-    - docs/canonical/GLOSSARY.md
-    - docs/canonical/WORKFLOW_CODEX.md
-  legacy_reference_only_within_canonical_path:
-    - docs/canonical/PIPELINE.md
-    - docs/canonical/OUTPUT_SCHEMA.md
-    - docs/canonical/DECISION_LAYER.md
-    - docs/canonical/DATA_SOURCES.md
-    - docs/canonical/CONFIGURATION.md
-    - docs/canonical/VERIFICATION_FOR_AI.md
-    - docs/canonical/MAPPING.md
-    - docs/canonical/RISK_MODEL.md
-    - docs/canonical/BUDGET_AND_POOL_MODEL.md
-    - docs/canonical/SCORING/*
-    - docs/canonical/LIQUIDITY/*
-    - docs/canonical/FEATURES/*
-    - docs/canonical/OUTPUTS/*
-    - docs/canonical/BACKTEST/*
-precedence_order:
-  - independence_release_gesamtkonzept_final.md + 7_abschnittsdateien
-  - docs/canonical/* (role-aware: active_independence_release > legacy_reference_only)
-  - docs/*
-  - docs/code_map.md
-  - docs/GPT_SNAPSHOT.md
-  - docs/legacy/*
-change_process:
-  - update_canonical_docs_first
-  - update_tests_and_fixtures
-  - regenerate_autodocs_via_ci
+central_authority_file: docs/canonical/AUTHORITY.md
+root_level_docs_authority_used: false
+last_updated_utc: "2026-06-06T00:00:00Z"
 ```
 
-## Ziel
-Diese Datei verhindert widersprüchliche “Wahrheiten” in der Doku. Für KI-Modelle gilt: **Canonical ist deterministisch und vollständig definiert.** Wenn etwas nicht definiert ist, ist es **nicht erlaubt** (kein Interpretationsspielraum).
+## 1. Purpose
 
-## Fachliche Authority für Independence-Release (primär)
-Für Independence-Release ist die fachliche Primär-Authority:
-- `independence_release_gesamtkonzept_final.md`
-- die 7 Abschnittsdateien
+This file defines the repository documentation authority model, precedence rules, and conflict-handling rules for current scanner documentation work.
 
-Die Repo-Canonical-Dokumente unter `docs/canonical/` operationalisieren diese Authority. Sie ersetzen sie nicht.
+This repository uses `docs/canonical/AUTHORITY.md` as the central documentation authority and precedence file. No separate root-level `docs/AUTHORITY.md` is used.
 
-## Canonical ist role-aware (kein flacher SoT-Bucket)
-`docs/canonical/` wird **nicht** als undifferenzierter SoT-Ordner behandelt.
+This file does not define scanner domain logic. It defines how documentation and evidence sources may be used when documenting, auditing, or changing the current repository.
 
-Es gibt zwei Rollen:
-1. **active_independence_release**
-   - aktive, bindende Canonical-Verträge für die aktuelle Independence-Release-Architektur.
-2. **legacy_reference_only**
-   - historisch nützliche Legacy-Scanner-Verträge, die aus Kompatibilitäts-/Migrationsgründen weiter im Repo liegen.
-   - Diese sind **nicht** aktive Independence-Release-Anforderungen.
+## 2. Authority hierarchy
 
-Pflichtregel: Wenn ein Dokument `legacy_reference_only` ist, darf es nicht als aktive Independence-Release-Quelle interpretiert werden.
+For current implemented scanner behavior, the primary anchor is current repository reality: current code, tests, schemas, GitHub Actions workflows, current run artifacts, diagnostics, manifests, reports, and evaluation outputs.
 
-## Operative Doku (unterstützend)
-Dokumente unter `docs/` (außer Auto-Doks) sind unterstützend (z.B. Lauf-/Dev-Infos). Bei Widerspruch zu aktiven Canonical-Dokumenten gilt Canonical.
+Use the following hierarchy when determining implemented current-state behavior:
 
-## Auto-Dokumente (read-only)
-Diese Dateien werden per GitHub Actions aktualisiert und dürfen **nicht manuell editiert** werden:
-- `docs/code_map.md` (Code-Struktur/Module/Pfade)
-- `docs/GPT_SNAPSHOT.md` (aktueller Lauf-/Betriebszustand)
+1. **Current repository reality** — current code, tests, schemas, workflows, current run artifacts, diagnostics, manifests, reports, and evaluation outputs.
+2. **Validated current-state canonical documentation** — documents that have been validated against implemented repository reality and are intended to describe the current scanner.
+3. **Build-spec / design-intent authority** — the v2.1 section files and `independence_release_gesamtkonzept_final.md`, where useful for Independence transformation intent and not contradicted by current repository reality.
+4. **Current ticket scope** — concrete task scope and acceptance criteria. A ticket does not silently override higher authority layers.
+5. **Planning, tracking, evidence, routing, and context helpers** — useful supporting material with the roles defined below.
+6. **Previous-scanner documentation and legacy references** — historical or migration context only unless explicitly revalidated and reclassified.
 
-Auto-Dokumente sind **Status/Referenz**, aber **nicht** Requirements-Quelle.
+Current-state documentation should describe implemented behavior, not merely historical intent, previous-scanner design, or unvalidated build-spec expectations.
 
-## Legacy Doku (nur Kontext)
-Alles unter `docs/legacy/` ist historischer Kontext. Bei Widerspruch gilt aktive Canonical-Authority.
+## 3. Document class / taxonomy
 
-## Precedence (bei Widerspruch)
-1) `independence_release_gesamtkonzept_final.md` + 7 Abschnittsdateien  
-2) `docs/canonical/*` mit expliziter Rollenauflösung (`active_independence_release` vor `legacy_reference_only`)  
-3) `docs/*` (nicht auto-generated)  
-4) `docs/code_map.md`, `docs/GPT_SNAPSHOT.md` (Status/Referenz)  
-5) `docs/legacy/*` (Kontext)
+### 3.1 Current-state canonical documentation
 
-## Änderungsprozess (drift-frei)
-Regel: Änderungen laufen **immer** über Canonical, dann Tests/Fixtures, dann Auto-Doks.
-- Fachliche Änderung → zuerst relevante Canonical-Spez anpassen
-- Dann Tests/Golden Fixtures aktualisieren (Determinismus & Invariants)
-- Dann Code/CI laufen lassen, Auto-Doks werden aktualisiert
+Current-state canonical documentation is documentation that has been validated against implemented repository reality and is intended to describe the current scanner.
 
-## Verbotene Praktiken
-- “Stille” Logikänderungen ohne Canonical Update
-- Fuzzy/heuristische Interpretation in der Doku (“ungefähr”, “meistens”)
-- Nicht-deterministische Regeln ohne explizite Determinismus-Sektion
-- Legacy-Referenzdokumente als aktive Independence-Release-Pflicht zu behandeln
+A file path under `docs/canonical/` does not by itself make a document current-state authority. The document role in `docs/canonical/INDEX.md` and the current authority model determine how it may be used.
+
+`docs/canonical/INDEX.md` is the canonical role/navigation index. The repository uses a role-aware canonical model, not a flat source-of-truth bucket: the index records which documents are active current-state references, including `active_independence_release` documents where applicable, and which documents or folders are `legacy_reference_only`.
+
+### 3.2 Build-spec / design-intent authority
+
+The v2.1 section files and `independence_release_gesamtkonzept_final.md` are build-spec / design-intent authority for the Independence transformation. They are not ordinary previous-scanner legacy documentation, but they are also not complete current-state documentation after implementation.
+
+These build-spec documents remain useful for:
+
+- domain intent,
+- unresolved design questions,
+- explaining why the current implementation exists,
+- identifying spec-vs-implementation gaps.
+
+They must not silently override current code, tests, schemas, workflows, current artifacts, diagnostics, manifests, reports, evaluation outputs, or validated current-state canonical documentation for implemented behavior.
+
+### 3.3 Previous-scanner reference documentation
+
+Previous-scanner documentation may be useful as historical reference or migration context, but it must not be used as active current-state authority unless a dedicated ticket revalidates and reclassifies it.
+
+This includes previous-scanner contracts that remain in the repository for migration continuity, compatibility reference, or audit history.
+
+### 3.4 Tracking and evidence documents
+
+`docs/SCHEMA_CHANGES.md` is a schema/output change evidence log. It is a strong evidence source for later `docs/canonical/DATA_MODEL.md`, `docs/canonical/REPORTS.md`, and `docs/canonical/SNAPSHOTS.md` updates, but it is not a complete current-state data model or report specification.
+
+`docs/canonical/open_questions.md` and `docs/canonical/feature_enhancements.md` are active planning/tracking documents. They are not previous-scanner legacy documentation, and they do not by themselves override current repository reality.
+
+### 3.5 AI context helpers
+
+AI context documents are routing and context helpers. They do not override current repository reality or validated current-state canonical documentation.
+
+Examples include:
+
+- `docs/AI_CONTEXT_CURRENT.md`
+- `docs/GPT_SNAPSHOT.md`
+- `docs/AGENTS.md`
+
+### 3.6 Generated navigation
+
+`docs/code_map.md` is generated structural navigation. It is not architecture authority and is not a source of truth for implemented behavior.
+
+Generated navigation can help locate files and modules, but it cannot establish requirements, resolve authority conflicts, or override current repository reality.
+
+## 4. `INDEX.md` role precedence rule
+
+Where `docs/canonical/INDEX.md` classifies a file or folder as `legacy_reference_only`, that classification takes precedence over any `status: canonical` declaration in the file header, until the file has been explicitly revalidated and reclassified in a dedicated ticket.
+
+This rule is binding. Do not treat stale in-file headers as active current-state authority when `docs/canonical/INDEX.md` classifies that file or folder as `legacy_reference_only`.
+
+## 5. Current-state documentation rule
+
+Current-state documentation must be anchored in implemented repository reality and should identify uncertainty instead of converting historical intent into implemented facts.
+
+When current-state documentation and current repository reality diverge, use current repository reality as the primary anchor, then update or ticket the documentation gap explicitly.
+
+## 6. Build-spec / design-intent rule
+
+Use the v2.1 section files and `independence_release_gesamtkonzept_final.md` as Independence transformation design-intent sources, not as complete post-implementation current-state documentation.
+
+If build-spec intent differs from current repository reality, surface the spec-vs-implementation gap instead of silently treating either source as interchangeable.
+
+## 7. Previous-scanner reference rule
+
+Previous-scanner documentation is reference-only unless explicitly revalidated and reclassified in a dedicated ticket.
+
+Do not use previous-scanner documentation to reintroduce old architecture, output contracts, scoring, ranking, runtime modes, or workflow assumptions as active current-state behavior without explicit revalidation.
+
+## 8. Tracking / evidence document rule
+
+Tracking and evidence documents may support audits, implementation follow-ups, and documentation updates, but their role must be respected:
+
+- `docs/SCHEMA_CHANGES.md` records schema/output changes and is evidence for later data-model/report/snapshot documentation work.
+- `docs/canonical/open_questions.md` records unresolved decisions.
+- `docs/canonical/feature_enhancements.md` records planned or proposed enhancements.
+
+These documents are not full substitutes for current code, tests, schemas, workflows, artifacts, or validated current-state canonical documentation.
+
+## 9. AI context helper rule
+
+AI context helpers may route an agent to relevant files, summarize recent repository state, or warn about active boundaries. They are supporting context only.
+
+They do not override current repository reality, the binding `docs/canonical/INDEX.md` role classifications, or validated current-state canonical documentation.
+
+## 10. Generated navigation rule
+
+Use `docs/code_map.md` only as generated structural navigation.
+
+Do not treat `docs/code_map.md` as architecture authority, a requirements source, or a source of truth for implemented behavior.
+
+## 11. Conflict-handling rule
+
+If authority layers conflict, do not silently choose the convenient source. Surface the conflict in the ticket, PR, or documentation audit and resolve it through an explicit follow-up decision or ticket.
+
+Do not hide conflicts by relying on stale headers, legacy references, generated navigation, or context-helper summaries when current repository reality or validated role classifications say otherwise.

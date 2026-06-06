@@ -5,6 +5,12 @@ Audience: Developer + GPT
 
 ---
 
+## Supersession notice
+
+This document is superseded for current Codex/documentation workflow by `docs/canonical/WORKFLOW_CODEX.md`. Any statement in this file that treats `docs/code_map.md` as a source of truth is obsolete; `docs/code_map.md` is generated navigation only.
+
+---
+
 ## 1. Purpose
 
 This document defines the **development workflow** for the scanner project.  
