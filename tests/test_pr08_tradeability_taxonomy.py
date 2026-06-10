@@ -1,4 +1,7 @@
-from scanner.pipeline.liquidity import apply_liquidity_metrics_to_shortlist, compute_tradeability_metrics
+from pathlib import Path
+
+from scanner.execution.tradeability_metrics import compute_tradeability_metrics
+from scanner.pipeline.liquidity import apply_liquidity_metrics_to_shortlist
 
 
 def _tradeability_cfg(overrides=None):
@@ -103,3 +106,16 @@ def test_pr08_tradeability_reason_paths_are_deterministic_for_same_input():
 
     assert out1["tradeability_class"] == out2["tradeability_class"] == "FAIL"
     assert out1["tradeability_reason_keys"] == out2["tradeability_reason_keys"]
+
+
+def test_tradeability_metrics_active_namespace_is_canonical_owner():
+    from scanner.pipeline.liquidity import compute_tradeability_metrics as compatibility_compute_tradeability_metrics
+
+    assert compatibility_compute_tradeability_metrics is compute_tradeability_metrics
+
+
+def test_active_execution_grading_does_not_import_pipeline_liquidity():
+    source = Path("scanner/execution/grading.py").read_text()
+
+    assert "scanner.pipeline.liquidity" not in source
+    assert "scanner.execution.tradeability_metrics" in source

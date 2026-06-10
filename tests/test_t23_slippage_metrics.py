@@ -1,8 +1,8 @@
+from scanner.execution.tradeability_metrics import compute_tradeability_metrics
 from scanner.pipeline.global_ranking import compute_global_top20
 from scanner.pipeline.liquidity import (
     apply_liquidity_metrics_to_shortlist,
     compute_orderbook_liquidity_metrics,
-    compute_tradeability_metrics,
     compute_orderbook_metrics,
 )
 
