@@ -1,38 +1,12 @@
-"""Liquidity stage utilities (Top-K orderbook budget + slippage metrics)."""
+"""Active execution-layer tradeability metric helpers."""
 
 from __future__ import annotations
 
-import logging
-
 from typing import Any, Dict, List, Set, Tuple
-
-from scanner.execution.tradeability_metrics import compute_tradeability_metrics
-
-
-logger = logging.getLogger(__name__)
 
 
 def _root_config(config: Dict[str, Any]) -> Dict[str, Any]:
     return config.raw if hasattr(config, "raw") else config
-
-
-def get_orderbook_top_k(config: Dict[str, Any]) -> int:
-    root = _root_config(config)
-    return int(root.get("liquidity", {}).get("orderbook_top_k", 200))
-
-
-def get_slippage_notional_usdt(config: Dict[str, Any]) -> float:
-    root = _root_config(config)
-    return float(root.get("liquidity", {}).get("slippage_notional_usdt", 20_000.0))
-
-
-def get_grade_thresholds_bps(config: Dict[str, Any]) -> Tuple[float, float, float]:
-    root = _root_config(config)
-    cfg = root.get("liquidity", {}).get("grade_thresholds_bps", {})
-    a_max = float(cfg.get("a_max", 20.0))
-    b_max = float(cfg.get("b_max", 50.0))
-    c_max = float(cfg.get("c_max", 100.0))
-    return a_max, b_max, c_max
 
 
 def _read_tradeability_thresholds(config: Dict[str, Any]) -> Tuple[float, float, float]:
@@ -94,49 +68,6 @@ def _tradeability_params(config: Dict[str, Any]) -> Dict[str, float]:
         "tranche_ok_max_slippage_bps": tranche_max,
         "marginal_max_slippage_bps": marginal_max,
     }
-
-
-def select_top_k_for_orderbook(candidates: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
-    """Select top-k candidates by proxy_liquidity_score then quote_volume_24h."""
-    ranked = sorted(
-        candidates,
-        key=lambda x: (float(x.get("proxy_liquidity_score", 0.0)), float(x.get("quote_volume_24h", 0.0))),
-        reverse=True,
-    )
-    return ranked[: max(0, top_k)]
-
-
-def fetch_orderbooks_for_top_k(
-    mexc_client: Any,
-    candidates: List[Dict[str, Any]],
-    config: Dict[str, Any],
-) -> Tuple[Dict[str, Any], Set[str]]:
-    """Fetch Top-K orderbooks and return (validated_payloads, selected_symbols)."""
-    top_k = get_orderbook_top_k(config)
-    selected = select_top_k_for_orderbook(candidates, top_k)
-
-    payload: Dict[str, Any] = {}
-    selected_symbols: Set[str] = set()
-
-    for row in selected:
-        symbol = row.get("symbol")
-        if not symbol:
-            continue
-        selected_symbols.add(symbol)
-        try:
-            fetched = mexc_client.get_orderbook(symbol)
-            if not isinstance(fetched, dict):
-                logger.debug("Malformed orderbook payload ignored for %s: non-dict", symbol)
-                continue
-            bids = fetched.get("bids")
-            asks = fetched.get("asks")
-            if not isinstance(bids, list) or not bids or not isinstance(asks, list) or not asks:
-                logger.debug("Malformed orderbook payload ignored for %s: missing/empty bids or asks", symbol)
-                continue
-            payload[symbol] = fetched
-        except Exception as exc:
-            logger.warning("Orderbook fetch failed for %s: %s", symbol, exc, exc_info=True)
-    return payload, selected_symbols
 
 
 def _to_levels(levels: Any) -> List[Tuple[float, float]]:
@@ -214,64 +145,6 @@ def _unknown_tradeability(reason: str) -> Dict[str, Any]:
     }
 
 
-# Compatibility re-export: active execution tradeability metrics live in
-# scanner.execution.tradeability_metrics.
-
-def compute_orderbook_liquidity_metrics(orderbook: Dict[str, Any], notional_usdt: float, thresholds_bps: Tuple[float, float, float]) -> Dict[str, Any]:
-    """Compute spread/slippage/grade from an orderbook snapshot."""
-    bids = _to_levels(orderbook.get("bids"))
-    asks = _to_levels(orderbook.get("asks"))
-
-    if not bids or not asks:
-        return {
-            "spread_bps": None,
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    best_bid = bids[0][0]
-    best_ask = asks[0][0]
-    mid = (best_bid + best_ask) / 2.0
-    if mid <= 0:
-        return {
-            "spread_bps": None,
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    spread_bps = ((best_ask - best_bid) / mid) * 10_000.0
-    vwap_ask, insufficient = _compute_buy_vwap(asks, float(notional_usdt))
-
-    if insufficient or vwap_ask <= 0:
-        return {
-            "spread_bps": round(spread_bps, 6),
-            "slippage_bps": None,
-            "liquidity_grade": "D",
-            "liquidity_insufficient": True,
-        }
-
-    slippage_bps = ((vwap_ask - mid) / mid) * 10_000.0
-
-    a_max, b_max, c_max = thresholds_bps
-    if slippage_bps <= a_max:
-        grade = "A"
-    elif slippage_bps <= b_max:
-        grade = "B"
-    elif slippage_bps <= c_max:
-        grade = "C"
-    else:
-        grade = "D"
-
-    return {
-        "spread_bps": round(spread_bps, 6),
-        "slippage_bps": round(slippage_bps, 6),
-        "liquidity_grade": grade,
-        "liquidity_insufficient": False,
-    }
-
-
 def _band_label(band: float) -> str:
     bf = float(band)
     if bf.is_integer():
@@ -321,54 +194,80 @@ def compute_orderbook_metrics(orderbook: Dict[str, Any], bands_pct: List[float])
     return metrics
 
 
-def apply_liquidity_metrics_to_shortlist(
-    shortlist: List[Dict[str, Any]],
-    orderbooks: Dict[str, Any],
-    config: Dict[str, Any],
-    selected_symbols: Set[str] | None = None,
-) -> List[Dict[str, Any]]:
-    """Attach liquidity fields for fetched symbols and leave non-fetched symbols untouched."""
-    notional = get_slippage_notional_usdt(config)
-    thresholds = get_grade_thresholds_bps(config)
+def compute_tradeability_metrics(orderbook: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+    params = _tradeability_params(config)
+    if _is_orderbook_stale(orderbook):
+        return _unknown_tradeability("orderbook_data_stale")
 
-    root = _root_config(config)
-    gate_cfg = root.get("execution_gates", {}).get("mexc_orderbook", {})
-    bands_cfg = gate_cfg.get("bands_pct", [0.5, 1.0])
-    bands_pct = [float(v) for v in bands_cfg]
+    band_metrics = compute_orderbook_metrics(orderbook, [float(params["band_pct"])])
+    band_label = _band_label(float(params["band_pct"]))
+    depth_bid = band_metrics.get(f"depth_bid_{band_label}pct_usd")
+    depth_ask = band_metrics.get(f"depth_ask_{band_label}pct_usd")
+    spread_pct = band_metrics.get("spread_pct")
 
-    out: List[Dict[str, Any]] = []
-    for row in shortlist:
-        symbol = row.get("symbol")
-        r = dict(row)
-        orderbook = orderbooks.get(symbol)
-        if isinstance(orderbook, dict):
-            metrics = compute_orderbook_liquidity_metrics(orderbook, notional, thresholds)
-            r.update(metrics)
-            r.update(compute_orderbook_metrics(orderbook, bands_pct))
-            r.update(compute_tradeability_metrics(orderbook, config))
-        elif selected_symbols is not None and symbol in selected_symbols:
-            r.update(
-                {
-                    "spread_bps": None,
-                    "slippage_bps": None,
-                    "liquidity_grade": "D",
-                    "liquidity_insufficient": True,
-                }
-            )
-            r.update(_empty_orderbook_metrics(bands_pct))
-            r.update(_unknown_tradeability("orderbook_data_missing"))
-        else:
-            r.update(
-                {
-                    "spread_bps": None,
-                    "slippage_bps": None,
-                    "liquidity_grade": None,
-                    "liquidity_insufficient": None,
-                }
-            )
-            metrics = _empty_orderbook_metrics(bands_pct)
-            metrics["orderbook_ok"] = None
-            r.update(metrics)
-            r.update(_unknown_tradeability("orderbook_not_in_budget"))
-        out.append(r)
-    return out
+    slippage_5k = _compute_slippage_bps(orderbook, float(params["notional_chunk_usdt"]))
+    slippage_20k = _compute_slippage_bps(orderbook, float(params["notional_total_usdt"]))
+
+    spread_ok = spread_pct is not None and float(spread_pct) <= float(params["max_spread_pct"])
+    depth_ok = (
+        depth_bid is not None
+        and depth_ask is not None
+        and float(depth_bid) >= float(params["min_depth_1pct_usd"])
+        and float(depth_ask) >= float(params["min_depth_1pct_usd"])
+    )
+
+    tradeable_20k = (
+        slippage_20k is not None and float(slippage_20k) <= float(params["direct_ok_max_slippage_bps"]) and spread_ok and depth_ok
+    )
+    tradeable_5k = (
+        slippage_5k is not None and float(slippage_5k) <= float(params["tranche_ok_max_slippage_bps"]) and spread_ok and depth_ok
+    )
+    tradeable_via_tranches = tradeable_5k and (float(params["notional_chunk_usdt"]) * int(params["max_tranches"]) >= float(params["notional_total_usdt"]))
+
+    reasons: Set[str] = set()
+    if not spread_ok:
+        reasons.add("spread_too_wide")
+    if not depth_ok:
+        reasons.add("depth_1pct_insufficient")
+    if slippage_20k is None or float(slippage_20k) > float(params["direct_ok_max_slippage_bps"]):
+        reasons.add("slippage_20k_too_high")
+    if slippage_5k is None or float(slippage_5k) > float(params["tranche_ok_max_slippage_bps"]):
+        reasons.add("slippage_5k_too_high")
+    if not tradeable_via_tranches:
+        reasons.add("tranche_execution_not_feasible")
+
+    if tradeable_20k:
+        tradeability_class = "DIRECT_OK"
+        execution_mode = "direct"
+        reasons = set()
+    elif tradeable_via_tranches:
+        tradeability_class = "TRANCHE_OK"
+        execution_mode = "tranches"
+        reasons = set()
+    else:
+        within_marginal = (slippage_20k is not None and float(slippage_20k) <= float(params["marginal_max_slippage_bps"])) or (
+            slippage_5k is not None and float(slippage_5k) <= float(params["marginal_max_slippage_bps"])
+        )
+        spread_borderline = spread_pct is not None and float(spread_pct) <= (float(params["max_spread_pct"]) * 1.25)
+        depth_borderline = (
+            depth_bid is not None
+            and depth_ask is not None
+            and float(depth_bid) >= float(params["min_depth_1pct_usd"]) * 0.8
+            and float(depth_ask) >= float(params["min_depth_1pct_usd"]) * 0.8
+        )
+        tradeability_class = "MARGINAL" if (within_marginal or spread_borderline or depth_borderline) else "FAIL"
+        execution_mode = "none"
+
+    return {
+        "spread_pct": spread_pct,
+        "depth_bid_1pct_usd": depth_bid,
+        "depth_ask_1pct_usd": depth_ask,
+        "slippage_bps_5k": slippage_5k,
+        "slippage_bps_20k": slippage_20k,
+        "tradeable_5k": tradeable_5k,
+        "tradeable_20k": tradeable_20k,
+        "tradeable_via_tranches": tradeable_via_tranches,
+        "tradeability_class": tradeability_class,
+        "execution_mode": execution_mode,
+        "tradeability_reason_keys": sorted(reasons),
+    }

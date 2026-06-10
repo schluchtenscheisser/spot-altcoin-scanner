@@ -5,7 +5,7 @@ import math
 from typing import Any, Mapping
 
 from scanner.decision.models import ExecutionInputContract
-from scanner.pipeline.liquidity import compute_tradeability_metrics
+from scanner.execution.tradeability_metrics import compute_tradeability_metrics
 
 
 @dataclass(frozen=True)
