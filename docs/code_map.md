@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-06-10 11:43 UTC  
+**Last Updated:** 2026-06-10 17:57 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -65,9 +65,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 120
+- **Total Modules:** 121
 - **Total Classes:** 81
-- **Total Functions:** 860
+- **Total Functions:** 871
 
 ---
 
@@ -549,7 +549,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Module Variables:** `contract, execution_pass, levels, metrics, p, q, raw_class, raw_reason, raw_reasons, reason_map` _(+3 more)_
 
-**Imports:** `__future__, dataclasses, math, scanner.decision.models, scanner.pipeline.liquidity, typing`
+**Imports:** `__future__, dataclasses, math, scanner.decision.models, scanner.execution.tradeability_metrics, typing`
 
 ---
 
@@ -562,6 +562,16 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 **Module Variables:** `ALLOWED_REDUCED_SIZE_CAPACITY_REASON_KEYS, TOP_TRADEABLE_BUCKETS, TRADEABLE_SIZE_CLASSES, TRADEABLE_STATUSES, band, gates, has_explicit_gate_state, normalized, orderbook_available, orderbook_stale` _(+5 more)_
 
 **Imports:** `__future__, collections.abc, dataclasses, math, typing`
+
+---
+
+### 📄 `scanner/execution/tradeability_metrics.py`
+
+**Functions:** `_band_label, _compute_buy_vwap, _compute_slippage_bps, _empty_orderbook_metrics, _is_orderbook_stale, _read_tradeability_thresholds, _root_config, _to_levels, _tradeability_params, _unknown_tradeability, compute_orderbook_metrics, compute_tradeability_metrics`
+
+**Module Variables:** `ask_cutoff, ask_depth, asks, band_f, band_label, band_metrics, best_ask, best_bid, bf, bid_cutoff` _(+38 more)_
+
+**Imports:** `__future__, typing`
 
 ---
 
@@ -815,11 +825,11 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ### 📄 `scanner/pipeline/liquidity.py`
 
-**Functions:** `_band_label, _compute_buy_vwap, _compute_slippage_bps, _empty_orderbook_metrics, _is_orderbook_stale, _read_tradeability_thresholds, _root_config, _to_levels, _tradeability_params, _unknown_tradeability, apply_liquidity_metrics_to_shortlist, compute_orderbook_liquidity_metrics, compute_orderbook_metrics, compute_tradeability_metrics, fetch_orderbooks_for_top_k, get_grade_thresholds_bps, get_orderbook_top_k, get_slippage_notional_usdt, select_top_k_for_orderbook`
+**Functions:** `_band_label, _compute_buy_vwap, _compute_slippage_bps, _empty_orderbook_metrics, _is_orderbook_stale, _read_tradeability_thresholds, _root_config, _to_levels, _tradeability_params, _unknown_tradeability, apply_liquidity_metrics_to_shortlist, compute_orderbook_liquidity_metrics, compute_orderbook_metrics, fetch_orderbooks_for_top_k, get_grade_thresholds_bps, get_orderbook_top_k, get_slippage_notional_usdt, select_top_k_for_orderbook`
 
-**Module Variables:** `a_max, ask_cutoff, ask_depth, asks, b_max, band_f, band_label, band_metrics, bands_cfg, bands_pct` _(+57 more)_
+**Module Variables:** `a_max, ask_cutoff, ask_depth, asks, b_max, band_f, bands_cfg, bands_pct, best_ask, best_bid` _(+38 more)_
 
-**Imports:** `__future__, logging, typing`
+**Imports:** `__future__, logging, scanner.execution.tradeability_metrics, typing`
 
 ---
 
@@ -1804,6 +1814,20 @@ _This section shows which functions call which other functions, helping identify
 | `is_reduced_size_eligible` | `passes_reduced_size_non_depth_gates` | — |
 | `passes_reduced_size_non_depth_gates` | `_normalize_reason_keys`, `_nullable_bool`, `has_non_depth_blocking_reason` | `get` |
 
+### 📄 scanner/execution/tradeability_metrics.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_band_label` | — | `is_integer`, `replace` |
+| `_compute_slippage_bps` | `_compute_buy_vwap`, `_to_levels` | `get` |
+| `_empty_orderbook_metrics` | `_band_label` | — |
+| `_is_orderbook_stale` | — | `get` |
+| `_read_tradeability_thresholds` | `_root_config` | `ValueError`, `get` |
+| `_to_levels` | — | `append` |
+| `_tradeability_params` | `_read_tradeability_thresholds`, `_root_config` | `get` |
+| `compute_orderbook_metrics` | `_band_label`, `_empty_orderbook_metrics`, `_to_levels` | `get` |
+| `compute_tradeability_metrics` | `_band_label`, `_compute_slippage_bps`, `_is_orderbook_stale`, `_tradeability_params`, `_unknown_tradeability`, `compute_orderbook_metrics` | `add`, `get` |
+
 ### 📄 scanner/features/bundle.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2070,10 +2094,9 @@ _This section shows which functions call which other functions, helping identify
 | `_read_tradeability_thresholds` | `_root_config` | `ValueError`, `get` |
 | `_to_levels` | — | `append` |
 | `_tradeability_params` | `_read_tradeability_thresholds`, `_root_config` | `get` |
-| `apply_liquidity_metrics_to_shortlist` | `_empty_orderbook_metrics`, `_root_config`, `_unknown_tradeability`, `compute_orderbook_liquidity_metrics`, `compute_orderbook_metrics`, `compute_tradeability_metrics`, `get_grade_thresholds_bps`, `get_slippage_notional_usdt` | `append`, `get`, `update` |
+| `apply_liquidity_metrics_to_shortlist` | `_empty_orderbook_metrics`, `_root_config`, `_unknown_tradeability`, `compute_orderbook_liquidity_metrics`, `compute_orderbook_metrics`, `get_grade_thresholds_bps`, `get_slippage_notional_usdt` | `append`, `compute_tradeability_metrics`, `get`, `update` |
 | `compute_orderbook_liquidity_metrics` | `_compute_buy_vwap`, `_to_levels` | `get` |
 | `compute_orderbook_metrics` | `_band_label`, `_empty_orderbook_metrics`, `_to_levels` | `get` |
-| `compute_tradeability_metrics` | `_band_label`, `_compute_slippage_bps`, `_is_orderbook_stale`, `_tradeability_params`, `_unknown_tradeability`, `compute_orderbook_metrics` | `add`, `get` |
 | `fetch_orderbooks_for_top_k` | `get_orderbook_top_k`, `select_top_k_for_orderbook` | `add`, `debug`, `get`, `get_orderbook`, `warning` |
 | `get_grade_thresholds_bps` | `_root_config` | `get` |
 | `get_orderbook_top_k` | `_root_config` | `get` |
@@ -2587,12 +2610,12 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/evaluation/historical_replay/replay_runner.py` | 7 | 59 | 66 | 🔴 High |
 | `scanner/output/schema.py` | 24 | 42 | 66 | 🔴 High |
 | `scanner/pipeline/__init__.py` | 9 | 52 | 61 | 🔴 High |
-| `scanner/pipeline/liquidity.py` | 30 | 24 | 54 | ⚠️ Medium |
 | `scanner/data/ohlcv_fetch.py` | 10 | 41 | 51 | 🔴 High |
 | `scanner/evaluation/history/ohlcv_history_fetch.py` | 10 | 38 | 48 | 🔴 High |
 | `scanner/pipeline/filters.py` | 17 | 31 | 48 | 🔴 High |
 | `scanner/evaluation/history/parquet_store.py` | 10 | 37 | 47 | 🔴 High |
 | `scanner/evaluation/replay.py` | 16 | 30 | 46 | 🔴 High |
+| `scanner/pipeline/liquidity.py` | 23 | 23 | 46 | ⚠️ Medium |
 | `scanner/pipeline/scoring/breakout_trend_1_5d.py` | 16 | 30 | 46 | 🔴 High |
 | `scanner/tools/export_evaluation_dataset.py` | 11 | 32 | 43 | 🔴 High |
 | `scanner/output/report_builder.py` | 9 | 31 | 40 | 🔴 High |
@@ -2617,6 +2640,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/storage/snapshots.py` | 10 | 20 | 30 | 🔴 High |
 | `scanner/data/cache_policy.py` | 10 | 17 | 27 | 🔴 High |
 | `scanner/decision/entry_location.py` | 11 | 15 | 26 | ⚠️ Medium |
+| `scanner/execution/tradeability_metrics.py` | 15 | 11 | 26 | ⚠️ Medium |
 | `scanner/backtest/e2_model.py` | 10 | 15 | 25 | 🔴 High |
 | `scanner/clients/mapping.py` | 4 | 21 | 25 | 🔴 High |
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
@@ -2694,4 +2718,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-06-10 11:43 UTC_
+_Generated by GitHub Actions • 2026-06-10 17:57 UTC_
