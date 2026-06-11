@@ -1,7 +1,7 @@
 # 📘 Code Map — Automatically Generated
 
 **Repository:** schluchtenscheisser/spot-altcoin-scanner  
-**Last Updated:** 2026-06-11 15:24 UTC  
+**Last Updated:** 2026-06-11 15:53 UTC  
 **Generator:** scripts/update_codemap.py
 
 ---
@@ -65,9 +65,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ## 📊 Repository Statistics
 
-- **Total Modules:** 121
+- **Total Modules:** 122
 - **Total Classes:** 81
-- **Total Functions:** 871
+- **Total Functions:** 876
 
 ---
 
@@ -195,7 +195,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Module Variables:** `CONFIG_PATH, acceptable, allowed_shadow_modes, anchor, anchors, auxiliary, bh_cfg, block, btc_cfg, budget_cfg` _(+107 more)_
 
-**Imports:** `dataclasses, math, os, pathlib, typing, yaml`
+**Imports:** `dataclasses, math, os, pathlib, scanner.run_modes, typing, yaml`
 
 ---
 
@@ -639,9 +639,9 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Functions:** `_resolve_effective_run_mode, main, parse_args`
 
-**Module Variables:** `args, cfg, effective_mode, mode, parser`
+**Module Variables:** `args, cfg, effective_mode, parser`
 
-**Imports:** `__future__, argparse, config, runners, sys`
+**Imports:** `__future__, argparse, config, run_modes, runners, sys`
 
 ---
 
@@ -1007,6 +1007,16 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 ---
 
+### 📄 `scanner/run_modes.py`
+
+**Functions:** `_invalid_mode_error, normalize_storage_scan_mode_for_migration, resolve_cli_mode_to_run_metadata_scan_mode, resolve_cli_mode_to_runner, resolve_run_metadata_scan_mode_to_report_scan_mode`
+
+**Module Variables:** `CliRunMode, ReportScanMode, RunMetadataScanMode, RunnerTarget, value`
+
+**Imports:** `__future__, typing`
+
+---
+
 ### 📄 `scanner/runners/__init__.py`
 
 **Functions:** —
@@ -1131,7 +1141,7 @@ This hint is only routing guidance. If it conflicts with current repo reality, `
 
 **Module Variables:** `cols, columns, create_new_sql, current_version, distinct, insert_columns, mapped_case, missing_required, normalized, prior_fk_state` _(+6 more)_
 
-**Imports:** `__future__, sqlite3, typing`
+**Imports:** `__future__, scanner.run_modes, sqlite3, typing`
 
 ---
 
@@ -1876,7 +1886,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `_resolve_effective_run_mode` | — | `ValueError`, `setdefault` |
+| `_resolve_effective_run_mode` | — | `resolve_cli_mode_to_runner`, `setdefault` |
 | `main` | `_resolve_effective_run_mode`, `parse_args` | `load_config`, `run_daily_scan`, `run_intraday_scan` |
 | `parse_args` | `parse_args` | `ArgumentParser`, `add_argument` |
 
@@ -2301,6 +2311,16 @@ _This section shows which functions call which other functions, helping identify
 | `load_snapshot` | — | `FileNotFoundError`, `exists`, `info`, `load` |
 | `resolve_history_dir` | — | `Path`, `get` |
 
+### 📄 scanner/run_modes.py
+
+| Calling Function | Internal Calls | External Calls |
+|------------------|----------------|----------------|
+| `_invalid_mode_error` | — | `ValueError` |
+| `normalize_storage_scan_mode_for_migration` | `_invalid_mode_error` | — |
+| `resolve_cli_mode_to_run_metadata_scan_mode` | `_invalid_mode_error` | — |
+| `resolve_cli_mode_to_runner` | `_invalid_mode_error` | — |
+| `resolve_run_metadata_scan_mode_to_report_scan_mode` | `_invalid_mode_error` | — |
+
 ### 📄 scanner/runners/daily.py
 
 | Calling Function | Internal Calls | External Calls |
@@ -2401,7 +2421,7 @@ _This section shows which functions call which other functions, helping identify
 
 | Calling Function | Internal Calls | External Calls |
 |------------------|----------------|----------------|
-| `_migrate_run_metadata_scan_mode_constraint` | `_run_metadata_needs_scan_mode_migration` | `ValueError`, `execute`, `fetchall`, `fetchone`, `items`, `join`, `replace` |
+| `_migrate_run_metadata_scan_mode_constraint` | `_run_metadata_needs_scan_mode_migration` | `ValueError`, `append`, `execute`, `fetchall`, `fetchone`, `items`, `join`, `normalize_storage_scan_mode_for_migration`, `replace` |
 | `_run_metadata_needs_scan_mode_migration` | `_run_metadata_sql` | `join`, `replace`, `split` |
 | `_run_metadata_sql` | — | `execute`, `fetchone` |
 | `apply_schema` | `_migrate_run_metadata_scan_mode_constraint`, `get_schema_version` | `ValueError`, `execute`, `fetchall` |
@@ -2646,10 +2666,10 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/pipeline/scoring/trade_levels.py` | 14 | 11 | 25 | ⚠️ Medium |
 | `scanner/pipeline/manifest.py` | 5 | 19 | 24 | 🔴 High |
 | `scanner/pipeline/snapshot.py` | 2 | 22 | 24 | 🔴 High |
+| `scanner/storage/schema.py` | 4 | 19 | 23 | 🔴 High |
 | `scanner/evaluation/history/manifests.py` | 0 | 21 | 21 | 🔴 High |
 | `scanner/execution/adapter.py` | 4 | 17 | 21 | 🔴 High |
 | `scanner/storage/repositories.py` | 0 | 21 | 21 | 🔴 High |
-| `scanner/storage/schema.py` | 4 | 17 | 21 | 🔴 High |
 | `scanner/universe/market_data_budget.py` | 8 | 12 | 20 | 🔴 High |
 | `scanner/evaluation/history/history_fetch_config.py` | 4 | 15 | 19 | 🔴 High |
 | `scanner/evaluation/history/symbol_intersection.py` | 2 | 17 | 19 | 🔴 High |
@@ -2692,6 +2712,7 @@ _Modules with high external call counts may benefit from refactoring._
 | `scanner/universe/eligibility.py` | 2 | 5 | 7 | 🔴 High |
 | `scanner/pipeline/discovery.py` | 1 | 5 | 6 | 🔴 High |
 | `scanner/pipeline/scoring/decision_inputs.py` | 0 | 5 | 5 | 🔴 High |
+| `scanner/run_modes.py` | 4 | 1 | 5 | ✅ Low |
 | `scanner/universe/classification.py` | 1 | 4 | 5 | 🔴 High |
 | `scanner/pipeline/cross_section.py` | 0 | 3 | 3 | 🔴 High |
 | `scanner/decision/models.py` | 0 | 2 | 2 | 🔴 High |
@@ -2718,4 +2739,4 @@ _Modules with high external call counts may benefit from refactoring._
 
 ---
 
-_Generated by GitHub Actions • 2026-06-11 15:24 UTC_
+_Generated by GitHub Actions • 2026-06-11 15:53 UTC_
