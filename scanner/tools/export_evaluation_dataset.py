@@ -1,3 +1,13 @@
+"""Standalone legacy snapshot evaluation export tooling.
+
+This module is intentionally owned as a standalone legacy snapshot
+exporter. It is not active ``scanner/evaluation/*`` infrastructure and is
+not part of Daily/Intraday scanner runtime. Its dependencies on
+``scanner.pipeline.global_ranking.compute_global_top20`` and
+``scanner.backtest.e2_model`` are intentional compatibility dependencies for
+legacy snapshot evaluation exports.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -17,6 +27,14 @@ from scanner.config import load_config
 from scanner.pipeline.global_ranking import compute_global_top20
 
 DATASET_SCHEMA_VERSION = "1.3"
+LEGACY_EXPORT_BOUNDARY = (
+    "standalone legacy snapshot evaluation export tooling; "
+    "not active scanner/evaluation/* infrastructure"
+)
+INTENTIONAL_LEGACY_DEPENDENCIES = (
+    "scanner.pipeline.global_ranking.compute_global_top20",
+    "scanner.backtest.e2_model",
+)
 
 
 def _parse_date(value: str) -> date:
@@ -58,7 +76,9 @@ def _load_snapshot(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _build_price_series_by_symbol(snapshots: list[dict[str, Any]]) -> dict[str, dict[str, dict[str, Any]]]:
+def _build_price_series_by_symbol(
+    snapshots: list[dict[str, Any]],
+) -> dict[str, dict[str, dict[str, Any]]]:
     result: dict[str, dict[str, dict[str, Any]]] = {}
     for snapshot in snapshots:
         meta = snapshot.get("meta", {})
@@ -79,9 +99,14 @@ def _build_price_series_by_symbol(snapshots: list[dict[str, Any]]) -> dict[str, 
     return result
 
 
-
-
-def _evaluate_label_window_5d(*, t0_date: str, setup_type: str, trade_levels: dict[str, Any], price_series: dict[str, dict[str, Any]], t_trigger_max: int) -> dict[str, Any]:
+def _evaluate_label_window_5d(
+    *,
+    t0_date: str,
+    setup_type: str,
+    trade_levels: dict[str, Any],
+    price_series: dict[str, dict[str, Any]],
+    t_trigger_max: int,
+) -> dict[str, Any]:
     return evaluate_e2_candidate(
         t0_date=t0_date,
         setup_type=setup_type,
@@ -93,6 +118,7 @@ def _evaluate_label_window_5d(*, t0_date: str, setup_type: str, trade_levels: di
             "thresholds_pct": [5, 10, 20],
         },
     )
+
 
 def export_dataset(args: argparse.Namespace) -> Path:
     start = _parse_date(args.from_date)
@@ -270,7 +296,15 @@ def export_dataset(args: argparse.Namespace) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Export E2 evaluation dataset JSONL from snapshot history")
+    parser = argparse.ArgumentParser(
+        description="Export E2 evaluation dataset JSONL from snapshot history",
+        epilog=(
+            "Boundary: standalone legacy snapshot evaluation export tooling; "
+            "not active scanner/evaluation/* infrastructure. "
+            "Intentional legacy dependencies: "
+            + ", ".join(INTENTIONAL_LEGACY_DEPENDENCIES)
+        ),
+    )
     parser.add_argument("--from", dest="from_date", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--to", dest="to_date", required=True, help="End date YYYY-MM-DD")
     parser.add_argument("--run-id", dest="run_id", default=None, help="Optional run_id override")

@@ -298,3 +298,22 @@ def test_label_window_5d_non_finite_values_do_not_become_false_labels() -> None:
     assert labels["hits"]["20"] is None
     assert labels["mfe_pct"] is None
     assert labels["mae_pct"] is None
+
+
+def test_code_fu_b_boundary_is_explicit_in_module_and_cli_help() -> None:
+    parser = exporter.build_parser()
+    help_text = parser.format_help()
+
+    assert "standalone legacy snapshot evaluation export tooling" in exporter.LEGACY_EXPORT_BOUNDARY
+    assert "not active scanner/evaluation/* infrastructure" in exporter.LEGACY_EXPORT_BOUNDARY
+    assert "standalone legacy snapshot evaluation export tooling" in help_text
+    assert "not active scanner/evaluation/* infrastructure" in parser.epilog
+
+
+def test_code_fu_b_legacy_dependencies_are_intentional_and_documented() -> None:
+    assert exporter.INTENTIONAL_LEGACY_DEPENDENCIES == (
+        "scanner.pipeline.global_ranking.compute_global_top20",
+        "scanner.backtest.e2_model",
+    )
+    assert "compute_global_top20" in exporter.__doc__
+    assert "scanner.backtest.e2_model" in exporter.__doc__
