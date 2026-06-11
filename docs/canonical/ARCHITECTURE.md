@@ -1,18 +1,27 @@
-# Architecture — Independence-Release Target Skeleton (Canonical)
+# Architecture — Current-State Runtime Architecture (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
 id: CANON_ARCHITECTURE
 status: canonical
-primary_architecture: independence_release
-legacy_runtime_status: separate_repo_reference_only
-bootstrap_level: structure_plus_foundation
+primary_architecture: current_state_daily_intraday
+legacy_runtime_status: explicit_compatibility_boundaries
+bootstrap_level: implemented_runtime_overview
 ```
 
-## Primary target statement
-This repository is the bootstrap repository for the **Independence-Release** architecture. The duplicated legacy scanner implementation remains available only as reference material inside this repository; active target architecture work lands under the Independence-Release module structure below. The old scanner continues separately in the old repository.
+## Purpose and scope
 
-## Target module structure (Gesamtkonzept §2.1)
+This document describes the implemented current-state Independence-Release scanner architecture at module-group level. It is a runtime and architecture map for the active Daily Discovery and Intraday Promotion scanner paths, not a field-level data model, report schema, diagnostics schema, or function-by-function API reference.
+
+The primary evidence anchor is current repository reality, with the legacy boundary decisions from CODE-A1, CODE-A2, the legacy pipeline boundary decision note, CODE-FU-A, and CODE-FU-D applied where they explicitly classify compatibility paths.
+
+Detailed field/report semantics remain out of scope here. Use the later/current data, report, snapshot, and schema documents for output fields, diagnostics fields, Entry-Location fields, T30 fields, schema-version details, and nullable/not-evaluated semantics.
+
+
+## Current scanner module structure
+
+The current runtime is implemented inside the `scanner/` package. The active and supporting module groups include:
+
 ```text
 scanner/
 ├── universe/
@@ -30,194 +39,139 @@ scanner/
 └── evaluation/
 ```
 
-## Module responsibilities (bootstrap summary from Gesamtkonzept §2.2)
+Named paths in that package include `scanner/universe/`, `scanner/data/`, `scanner/features/`, `scanner/axes/`, `scanner/phase/`, `scanner/state/`, `scanner/entry/`, `scanner/execution/`, `scanner/decision/`, `scanner/storage/`, `scanner/output/`, `scanner/runners/`, and `scanner/evaluation/`.
 
-### `scanner/universe/`
-Owns the target-architecture universe definition and symbol population preparation that feeds the Independence-Release scans. Detailed selection logic is deferred to later tickets.
+## Active runtime entry points
 
-### `scanner/data/`
-Owns provider-facing data access, loading contracts, and the normalization boundary between external market data and internal processing stages. The canonical Independence-Release `bar_clock.py` lives here because daily and 4h bar identifiers are infrastructure, not optional helpers.
+The active scanner runtime enters through these files:
 
-#### `scanner/data/bar_clock.py`
-This module is the canonical UTC bar clock for Independence-Release. It defines:
-- `daily_bar_id(t)` as the `YYYY-MM-DD` identifier of the most recently closed daily bar,
-- `intraday_bar_id(t)` as the UTC epoch-millisecond close time of the most recently closed 4h bar,
-- `delta_closed_4h_bars(t_previous, t_current)` as the count of newly closed 4h bars in `(t_previous, t_current]`,
-- `DAILY_SCAN_DELTA_BARS = 6` as the fixed daily-to-4h mapping.
+| Entry point | Current role |
+|---|---|
+| `scanner/main.py` | CLI/config input boundary. It accepts canonical input modes and compatibility aliases, normalizes them to a Daily or Intraday runner target, and dispatches to the active runner. |
+| `scanner/runners/daily.py` | Active Daily Discovery runner. It owns the current daily closed-bar scan flow, run metadata write, per-symbol evaluation orchestration, report/diagnostics/manifest output, and persistence patching. |
+| `scanner/runners/intraday.py` | Active Intraday Promotion runner. It owns the current 4h closed-bar promotion flow, provider-backed daily-context boundary, intraday refresh boundary, execution subset evaluation, report/diagnostics/manifest output, and intraday run metadata. |
 
-All behavior is closed-bar-only, UTC-only, and deterministic at exact close boundaries.
-Public input contract: raw numeric timestamps are interpreted as Unix epoch milliseconds, timezone-aware datetimes are accepted (normalized to UTC), and naive datetimes are rejected.
+The canonical scanner runtime architecture is therefore centered on `scanner/main.py` plus `scanner/runners/daily.py` and `scanner/runners/intraday.py`. Old input mode names can still reach this dispatch layer, but they do not create independent runtime architectures.
 
-### `scanner/features/`
-Owns reusable feature computation for the target architecture. This bootstrap does not define feature formulas; it only reserves the module boundary for later implementation.
+## Active Daily/Intraday runtime flow
 
-### `scanner/axes/`
-Owns axis-level market interpretation inputs used by the Independence-Release concept. The ticket establishes the directory only and does not define axis semantics yet.
+### Daily Discovery flow
 
-### `scanner/phase/`
-Owns market-phase determination used by the target architecture. Exact phase logic is intentionally deferred and must be specified in later tickets before implementation.
+At module-group depth, the active Daily Discovery flow is:
 
-### `scanner/state/`
-Owns state-machine evaluation for setup lifecycle handling in the new architecture. This bootstrap keeps the module boundary explicit without introducing runtime state logic.
+1. `scanner/main.py` resolves the input mode to the Daily runner target.
+2. `scanner/runners/daily.py` opens the SQLite persistence boundary and creates `run_metadata` with the Daily runner-level scan mode.
+3. The runner resolves the run universe and OHLCV inputs through configured providers and supporting universe/data boundaries.
+4. `scanner/features` builds closed-bar feature bundles for each symbol.
+5. `scanner/axes` evaluates Tier-1 and Tier-2 axis bundles from feature inputs.
+6. `scanner/phase` computes the phase interpretation from axis outputs.
+7. `scanner/state` evaluates state-machine, invalidation, and setup-cycle context, including persisted prior state where available.
+8. `scanner/entry` resolves entry-pattern context from phase, axes, state, and configuration thresholds.
+9. `scanner/decision` assigns buckets and ranks decisions from phase/state/entry/execution-aware inputs.
+10. `scanner/execution` selects and evaluates the execution subset and attaches active tradeability/execution metrics.
+11. `scanner/output` builds run reports, daily reports, diagnostics, and run-output pathing.
+12. `scanner/storage` persists run metadata and active state patches.
+13. The runner writes the run manifest under the canonical snapshot run path.
 
-### `scanner/entry/`
-Owns Layer-5 entry-pattern resolution (`resolve_entry_pattern`) and typed `EntryPatternBundle` output. The layer is pure computation: no IO, no OHLCV fetch, no storage access, and no state re-derivation. It consumes only `PhaseInterpretationBundle`, `Tier1AxisBundle`, `Tier2AxisBundle`, and validated `cfg.entry` thresholds.
+### Intraday Promotion flow
 
-### `scanner/execution/`
-Owns execution-adjacent abstractions for downstream decision consumption. The bootstrap does not introduce automated trading or live-order behavior.
+At module-group depth, the active Intraday Promotion flow is:
 
-### `scanner/decision/`
-Owns Layer-6 decision bucketing, deterministic reason assignment, and bucket-aware ranking.
+1. `scanner/main.py` resolves the input mode to the Intraday runner target.
+2. `scanner/runners/intraday.py` computes the closed daily and 4h bar context, opens SQLite, and creates `run_metadata` with the Intraday runner-level scan mode.
+3. The runner resolves `intraday_context_provider` from configuration/injection; that provider is the current boundary for prior Daily context.
+4. The default context provider returns no rows. A normal CLI `intraday_promotion` run without a configured provider therefore does not automatically load prior Daily candidates from storage.
+5. When the provider yields no monitoring rows, the runner writes a no-op intraday report for the empty monitoring universe.
+6. When provider-backed rows are available, the runner selects the monitoring universe from prior daily state, decision, phase, and freshness context.
+7. The runner refreshes required intraday inputs where the latest 4h bar or stale-cache conditions require it.
+8. Rows without attachable execution context are serialized with explicit skip diagnostics rather than being promoted silently.
+9. `scanner/execution` selects/evaluates the intraday execution subset for attachable rows.
+10. `scanner/decision` and output-facing row builders preserve bucket/ranking context for promotion outputs.
+11. `scanner/output` writes intraday reports and diagnostics using report/diagnostics scan-mode values.
+12. `scanner/storage` updates intraday run metadata.
+13. The runner writes the intraday run manifest under the canonical snapshot run path.
 
-Ticket-12 additive contract:
-- `assign_bucket(...)` consumes `PhaseInterpretationBundle` (T8), `StateMachineBundle` (T10), `EntryPatternBundle` (T11), and optional `ExecutionInputContract` (T16-owned canonical model, T12 read-contract).
-- Dual-mode behavior is explicit:
-  - pre-execution mode (no execution contract): structural bucketing + `execution_pending=True` for candidate buckets;
-  - post-execution mode (execution contract present): execution fail can demote buckets and execution grade affects score.
-- Outputs are run-local in-memory contracts (`DecisionBundle`, `RankedDecision`) only; Layer-6 does not write storage.
+## Active module groups and responsibilities
 
-### `scanner/storage/`
-Owns persistence boundaries for Independence-Release. The initial foundation is SQLite infrastructure only: opening/creating the database, enabling WAL mode, tracking schema version via `PRAGMA user_version`, and creating the technical `run_metadata` table. Business tables such as `symbol_state`, `cycle_state`, and `cache_meta` are deferred to later tickets.
+| Module group | Current responsibility |
+|---|---|
+| `scanner/features` | Builds deterministic, closed-bar feature bundles consumed by axes, phase, state, entry, decision, and diagnostics layers. |
+| `scanner/axes` | Computes Tier-1 and Tier-2 axis interpretations from feature inputs. |
+| `scanner/phase` | Converts axis outputs into phase interpretation used by state, entry, decision, and diagnostics. |
+| `scanner/state` | Owns state-machine, invalidation, setup-cycle, and persisted-context evaluation for candidate lifecycle handling. |
+| `scanner/entry` | Resolves entry-pattern context from validated upstream interpretation bundles and configuration thresholds. |
+| `scanner/decision` | Owns bucket assignment, deterministic decision reasons, ranking, and decision-facing context assembly. |
+| `scanner/execution` | Owns execution subset selection, execution grading, execution policy classification, and active tradeability metrics; active tradeability metrics live in `scanner/execution/tradeability_metrics.py`. |
+| `scanner/output` | Owns report/diagnostics schemas, diagnostics serialization, report building, canonical output pathing, and output validation. |
+| `scanner/storage` | Owns SQLite schema/migration boundaries, run metadata, state persistence patches, and persisted context loading. |
 
-#### `scanner/storage/sqlite.py`
-Provides connection/bootstrap helpers that create the database if required, enable WAL mode, and initialize the canonical schema idempotently.
+Supporting active module families that feed the runtime include `scanner/universe` for symbol classification/universe-admission support, `scanner/data` for UTC closed-bar clock and market-data boundaries, `scanner/clients` for provider clients, and `scanner/utils` for shared utilities. They support the active runtime but are not replacements for the runner-centered Daily/Intraday architecture.
 
-#### `scanner/storage/schema.py`
-Provides the schema-version contract and idempotent migration entrypoint for the infrastructure foundation. This ticket defines schema version tracking plus exactly one table, `run_metadata`.
+## Data flow between module groups
 
-### `scanner/output/`
-Owns deterministic output artifact generation for Independence-Release.
+The active scanner flow is intentionally layered:
 
-Binding module responsibilities:
-- `scanner/output/schema.py`: canonical typed models, enums, `SCHEMA_VERSION = "ir1.4"`.
-- `scanner/output/diagnostics.py`: diagnostics validation and `symbol_diagnostics.jsonl.gz` serialization.
-- `scanner/output/report_builder.py`: canonical pathing + writer orchestration for run reports, daily reports, and index artifacts.
+```text
+CLI/config input
+  -> scanner/main.py
+  -> scanner/runners/{daily,intraday}.py
+  -> universe/data/provider inputs
+  -> scanner/features
+  -> scanner/axes
+  -> scanner/phase
+  -> scanner/state
+  -> scanner/entry
+  -> scanner/decision
+  -> scanner/execution
+  -> scanner/output
+  -> scanner/storage + snapshots/runs manifests
+```
 
-Architectural constraints:
-- summary (`report.json`) and full diagnostics (`symbol_diagnostics.jsonl.gz`) are separated artifacts.
-- manifest is referenced by path (`manifest_path`) and is not duplicated under `reports/`.
-- path date partitions under `reports/runs/` and `reports/daily/` derive from `daily_bar_id`.
-- writers are atomic (temp + rename); index finalization occurs only after run artifacts succeed.
+Daily runs traverse the full feature/axes/phase/state/entry/decision/execution/output/storage chain for the run universe. Intraday runs consume prior Daily context only through an injected/configured `intraday_context_provider`; the default provider returns an empty context, causing the empty-monitoring-universe no-op path rather than automatic storage-backed promotion. When provider-backed rows exist, intraday runs refresh 4h-dependent inputs where required and evaluate promotion/execution context for the selected monitoring subset.
 
-### `scanner/runners/`
-Owns orchestration entrypoints for scheduled scans and related runtime jobs in the new architecture. This ticket creates only the structural landing zone.
+This document does not define individual field meanings inside reports, diagnostics, Entry-Location payloads, T30 outputs, or schema versions. Those semantics belong to the data/report/snapshot documentation layer.
 
-### `scanner/evaluation/`
-Owns replay, calibration, and evaluation workflows that consume target-architecture outputs and persisted history. Evaluation logic remains out of scope for this bootstrap.
+## Active evaluation/replay boundary
 
-## Legacy isolation note
-Existing legacy modules such as `scanner/pipeline/`, `scanner/clients/`, and `scanner/utils/` may remain present for reference and technical reuse, but they are not the primary Independence-Release target path.
+The active evaluation and replay infrastructure is primarily under `scanner/evaluation/*`. It includes evaluation export support, forward-return evaluation, historical replay, history loading, replay adapters, scenario handling, replay state stores, and related evaluation history utilities.
 
-## AI Sparring Runtime (`tools/ai_sparring/`)
+Current scanner evaluation/replay documentation should treat `scanner/evaluation/*` as the active evaluation namespace. It should not use the legacy snapshot exporter or legacy backtest helper as evidence for current Daily/Intraday ranking or current Independence evaluation architecture.
 
-The repository includes a deterministic multi-round AI sparring runtime under `tools/ai_sparring/`.
+`scanner/tools/export_evaluation_dataset.py` is not part of the active `scanner/evaluation/*` infrastructure. It is the Legacy Snapshot Evaluation Export Path.
 
-- Roles are fixed to exactly two participants: `drafter` and `reviewer`.
-- Supported providers are `fake`, `openai`, and `anthropic` behind one normalized provider interface.
-- OpenAI integration uses the Chat Completions API for plain text generation only.
-- Anthropic integration uses the Messages API for plain text generation.
-- Round protocol is fixed as `draft_r -> review_r -> revision_r`.
-- For each `mode`, the runtime resolves deterministic built-in prompt identifiers per role and persists them in `session.json`.
-- Final summary generation is local-only from structured session state (no extra provider call).
-- The runtime is operational tooling only and is explicitly decoupled from `scanner/` runtime logic.
-- On `session.json.status == "completed"`, runtime executes exactly one additional ticket-drafter call and persists `ticket_draft.md` as an artifact.
-- The runtime appends `## Generated Ticket Draft` to `final_summary.md`; failures are recorded as `Not generated: <reason>` without changing session completion state.
-- `session.json` includes an additive top-level `ticket_draft` metadata block with deterministic generation/writeback fields.
-- Repository mutation is isolated to a downstream writeback step/job; session execution itself remains artifact-focused.
-- Writeback must create a branch + PR targeting `main` and never pushes directly to `main`.
+## Legacy and compatibility boundaries
 
-### AI Sparring Issue UI (additive control plane)
+The current repository still contains legacy, compatibility, and historical reconstruction paths. These paths must be documented with explicit boundaries so they are neither accidentally promoted to active Daily/Intraday architecture nor incorrectly described as completely unused.
 
-The runtime also supports an issue-thread UI via `.github/workflows/ai-sparring-issue.yml`.
+| Path / component | Current classification |
+|---|---|
+| `scanner.pipeline.liquidity` | Previous active dependency removed by CODE-FU-A; active tradeability metrics now live under `scanner/execution/tradeability_metrics.py` |
+| `scanner/execution/tradeability_metrics.py` | Active current-state target path for execution/tradeability metrics |
+| `scanner.pipeline.global_ranking.compute_global_top20` | Legacy |
+| `scanner.backtest.e2_model` | Legacy compatibility helper tied to legacy snapshot exporter |
+| `scanner/tools/export_evaluation_dataset.py` | Legacy Snapshot Evaluation Export Path, not active `scanner/evaluation/*` infrastructure |
+| `scanner/tools/backfill_snapshots.py --mode full` | Compatibility-only / historical reconstruction path |
+| `scanner.pipeline.run_pipeline` | Not active v2.1 Daily/Intraday runtime |
+| `scanner.pipeline.scoring/*` | Relevant only in old/full backfill compatibility path, not active Daily/Intraday runtime |
+| old mode names `standard`, `fast`, `offline`, `backtest` | Compatibility aliases only; not independent runtime modes |
 
-- Trigger source is `issue_comment` (`created`) and pull-request comments are ignored.
-- Supported command grammar is exact and first-token based:
-  - `/sparring start`
-  - `/continue`
-  - `/focus <text>`
-  - `/stop`
-- One issue maps to one deterministic session id: `issue-<issue_number>`.
-- Persisted runtime content (`session.json`, `session.md`, `final_summary.md`) remains artifact-backed.
-- Issue comment control-state is carried by one hidden pointer payload line:
-  `<!-- ai-sparring-state:v1:<base64-encoded-json> -->`.
-- Pointer control-state and artifact runtime-state are intentionally split; `/focus` and `/stop` update pointer-state without creating a new artifact.
+## Explicit `scanner/pipeline/*` boundary
 
-### `scanner/universe/` (Ticket 3 update)
-The module now owns the deterministic chain: pre-1d eligibility -> post-1d activity gate -> monitoring bypass -> pre-4h candidate filter -> non-bypass cap ranking.
+`scanner/pipeline/*` is not the current Daily/Intraday runtime architecture. It remains only where explicitly retained as legacy/compatibility or historical reconstruction support.
 
-## Ticket 4 OHLCV Fetch + Cache (transitional SQLite)
+Consequences for architecture documentation:
 
-Ticket 4 adds `scanner/data/cache_policy.py` and `scanner/data/ohlcv_fetch.py` as deterministic primitives for `(symbol, timeframe, now)` cache decisions and closed-bar-only persistence for `1d`/`4h` OHLCV. SQLite remains valid for operational cache metadata (`ohlcv_cache_meta`) and transitional local rows (`ohlcv_bars`), while Ticket 14 defines Parquet under `snapshots/history/ohlcv/` as the canonical long-term OHLCV base-history authority.
+- Do not describe `scanner.pipeline.run_pipeline` as the active scanner runtime.
+- Do not describe `scanner.pipeline.global_ranking.compute_global_top20` as current Daily/Intraday ranking logic.
+- Do not describe `scanner.pipeline.scoring/*` as active Daily/Intraday scoring logic.
+- Do not describe all `scanner/pipeline/*` files as dead or nonexistent; some retained paths support compatibility tooling and historical reconstruction.
+- Use `scanner/execution/tradeability_metrics.py` as the active execution/tradeability metrics path.
 
-## Ticket 5 additive architecture contract (raw features layer)
+## Pointers to deeper semantics
 
-`scanner/features/` now owns the deterministic raw feature layer with these modules:
-- `scanner/features/raw_1d.py`
-- `scanner/features/raw_4h.py`
-- `scanner/features/shared.py`
-- `scanner/features/models.py`
-- `scanner/features/bundle.py`
+Use this document for current runtime architecture and module-group responsibilities only. For deeper semantics, use the dedicated canonical documents when they are validated for current state:
 
-Fixed build order in `build_feature_bundle(...)` is `compute_raw_1d -> compute_raw_4h -> compute_raw_shared -> FeatureBundle`.
-
-Ticket-5 scope remains below axes/phase/state and excludes normalization utilities.
-
-## Ticket 6 additive architecture contract (Tier-1 axes)
-
-`scanner/axes/` now owns Ticket-6 deterministic Tier-1 computation:
-- `scanner/axes/normalization.py` (pure normalization helpers)
-- `scanner/axes/models.py` (`Tier1AxisBundle` typed in-memory contract)
-- `scanner/axes/tier1.py` (`compute_tier1_axes(feature_bundle, cfg)`).
-
-Scope boundary: Tier-1 consumes only `FeatureBundle` + `cfg.axes` and remains storage-free.
-
-## Ticket 7 additive architecture contract (Tier-2-Simplified axes)
-
-`scanner/axes/` now additionally owns Ticket-7 deterministic Tier-2-Simplified computation:
-- `scanner/axes/tier2.py` (`compute_tier2_axes(feature_bundle, cfg)`)
-- `scanner/axes/models.py` (`Tier2AxisBundle` typed in-memory contract).
-
-Tier-2-Simplified scope is exactly three axes:
-- `base_integrity_simplified`
-- `pullback_quality_simplified`
-- `reacceleration_strength_simplified`
-
-Execution contract:
-- input boundary is strictly `FeatureBundle` + `cfg.axes` (no `Tier1AxisBundle`, no OHLCV, no storage);
-- all three axes use deterministic two-path selection (`data_4h_available=true -> 4h path only`, otherwise 1d fallback);
-- no automatic 4h-to-1d fallthrough when 4h path has partial dropout;
-- `pullback_quality_simplified` enforces segmentation validity (`impulse_high_price_tf > impulse_start_price_tf`) as a pre-gate before scoring.
-
-## Ticket 8 additive architecture contract (Phase interpreter)
-
-`scanner/phase/` now owns deterministic Layer-3 phase interpretation:
-- `scanner/phase/models.py` (`PhaseInterpretationBundle` typed in-memory contract)
-- `scanner/phase/interpreter.py` (`compute_phase_interpretation(tier1_bundle, tier2_bundle, cfg)`).
-
-Scope boundary:
-- consumes exactly `Tier1AxisBundle`, `Tier2AxisBundle`, and `cfg.phase`;
-- computes exactly three positive phases plus `none`;
-- no raw features, no OHLCV, no storage, no state/invalidation/entry/ranking logic.
-
-## Ticket 9 additive architecture contract (state invalidation + cycle pre-state)
-
-`scanner/state/` now owns Layer-4 pre-state computation via:
-- `scanner/state/models.py` (`PersistedStateCycleContext`, `InvalidationCycleBundle`)
-- `scanner/state/invalidation.py` (`compute_invalidation_and_cycle(...)` public entrypoint)
-- `scanner/state/cycle.py` (cycle reset/new-cycle resolution helper).
-
-Scope boundary:
-- consumes only `PhaseInterpretationBundle`, `Tier1AxisBundle`, `Tier2AxisBundle`, persisted typed context, and `cfg`;
-- computes structural/timing invalidation + setup-cycle resolution;
-- performs no persistence writes and no final state assignment (reserved for Ticket 10).
-
-## Ticket 10 additive architecture contract (state freshness + final state machine + single writer)
-
-`scanner/state/` now includes:
-- `scanner/state/freshness.py` (`compute_state_freshness(...)`),
-- `scanner/state/machine.py` (`compute_state_machine(...)` authoritative Layer-4 state entrypoint),
-- `scanner/state/models.py` additive runtime/output/patch models.
-
-Persistence boundary:
-- pure compute remains storage-free,
-- final state/cycle continuity is persisted only via one repository write path (`apply_state_persistence_patch(...)`).
+- data model and schema details: `docs/canonical/DATA_MODEL.md` and `docs/SCHEMA_CHANGES.md`;
+- report and diagnostics field details: `docs/canonical/REPORTS.md`;
+- snapshot/replay artifact details: `docs/canonical/SNAPSHOTS.md`;
+- documentation authority and precedence: `docs/canonical/AUTHORITY.md` and `docs/canonical/INDEX.md`.
