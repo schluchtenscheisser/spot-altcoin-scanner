@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping
 import yaml
 
+from scanner.run_modes import ACCEPTED_CLI_RUN_MODES
+
 
 CONFIG_PATH = os.getenv("SCANNER_CONFIG_PATH", "config/config.yml")
 
@@ -2037,7 +2039,7 @@ def validate_config(config: ScannerConfig) -> List[str]:
     errors = []
 
     # Check run_mode
-    valid_modes = ["standard", "fast", "offline", "backtest"]
+    valid_modes = list(ACCEPTED_CLI_RUN_MODES)
     if config.run_mode not in valid_modes:
         errors.append(f"Invalid run_mode: {config.run_mode}. Must be one of {valid_modes}")
 

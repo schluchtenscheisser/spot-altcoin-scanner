@@ -23,7 +23,7 @@ def test_run_metadata_roundtrip_uses_canonical_intraday_id_string(tmp_path) -> N
         run_id="intraday-run-1",
         daily_id="2026-04-23",
         intraday_id="2026-04-24T08:00:00Z",
-        scan_mode="intraday",
+        scan_mode="intraday_promotion",
     )
     conn.execute(
         "UPDATE run_metadata SET status='completed', finished_at_utc='2026-04-24T09:01:00Z' WHERE run_id='intraday-run-1'"
@@ -43,7 +43,7 @@ def test_run_metadata_new_integer_intraday_id_write_fails_fast(tmp_path) -> None
             run_id="intraday-run-legacy-write",
             daily_id="2026-04-23",
             intraday_id=1774324800000,  # type: ignore[arg-type]
-            scan_mode="intraday",
+            scan_mode="intraday_promotion",
         )
     conn.close()
 
@@ -56,7 +56,7 @@ def test_run_metadata_new_digit_string_intraday_id_write_fails_fast(tmp_path) ->
             run_id="intraday-run-legacy-digit-write",
             daily_id="2026-04-23",
             intraday_id="1774324800000",
-            scan_mode="intraday",
+            scan_mode="intraday_promotion",
         )
     conn.close()
 

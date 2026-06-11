@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import gzip
 import json
 from pathlib import Path
+import sqlite3
 
 import pytest
 
@@ -20,6 +21,35 @@ def _cfg(raw: dict | None = None) -> ScannerConfig:
         merged["independence_release"].update(raw.get("independence_release", {}))
     return ScannerConfig(raw=merged)
 
+
+
+def _insert_legacy_run_metadata_row(
+    db_path: str,
+    *,
+    intraday_bar_id: str,
+    scan_mode: str = "intraday",
+) -> None:
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        CREATE TABLE run_metadata (
+            run_id TEXT PRIMARY KEY,
+            scan_mode TEXT NOT NULL,
+            started_at_utc TEXT NOT NULL,
+            finished_at_utc TEXT,
+            daily_bar_id TEXT NOT NULL,
+            intraday_bar_id TEXT,
+            schema_version INTEGER NOT NULL,
+            status TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO run_metadata(run_id, scan_mode, started_at_utc, finished_at_utc, daily_bar_id, intraday_bar_id, schema_version, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("r1", scan_mode, "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", intraday_bar_id, 4, "completed"),
+    )
+    conn.commit()
+    conn.close()
 
 def _load_intraday_diagnostics(tmp_path: Path) -> list[dict]:
     diag_paths = sorted((tmp_path / "reports" / "runs").glob("**/symbol_diagnostics.jsonl.gz"))
@@ -75,7 +105,7 @@ def test_intraday_runner_no_new_bar_noop_when_no_refresh_required(tmp_path, monk
     conn = init_db("data/independence_release.sqlite")
     conn.execute(
         "INSERT INTO run_metadata(run_id, scan_mode, started_at_utc, finished_at_utc, daily_bar_id, intraday_bar_id, schema_version, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("r1", "intraday", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "2026-04-24T08:00:00Z", 4, "completed"),
+        ("r1", "intraday_promotion", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "2026-04-24T08:00:00Z", 4, "completed"),
     )
     conn.commit()
     conn.close()
@@ -99,7 +129,7 @@ def test_intraday_run_metadata_schema_version_uses_storage_schema_version(tmp_pa
 
     conn = init_db("data/independence_release.sqlite")
     row = conn.execute(
-        "SELECT schema_version FROM run_metadata WHERE scan_mode='intraday' ORDER BY started_at_utc DESC LIMIT 1"
+        "SELECT schema_version FROM run_metadata WHERE scan_mode='intraday_promotion' ORDER BY started_at_utc DESC LIMIT 1"
     ).fetchone()
     conn.close()
     assert row is not None
@@ -214,13 +244,7 @@ def test_intraday_runner_accepts_legacy_digit_string_previous_bar_id(tmp_path, m
         }
     ]
 
-    conn = init_db("data/independence_release.sqlite")
-    conn.execute(
-        "INSERT INTO run_metadata(run_id, scan_mode, started_at_utc, finished_at_utc, daily_bar_id, intraday_bar_id, schema_version, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("r1", "intraday", "2026-04-24T09:00:00Z", "2026-04-24T09:01:00Z", "2026-04-23", "1774324800000", 4, "completed"),
-    )
-    conn.commit()
-    conn.close()
+    _insert_legacy_run_metadata_row("data/independence_release.sqlite", intraday_bar_id="1774324800000")
 
     run_intraday_scan(cfg, now_utc=datetime(2026, 4, 24, 10, 59, tzinfo=timezone.utc))
 

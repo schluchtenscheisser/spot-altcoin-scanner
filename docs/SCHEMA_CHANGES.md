@@ -931,3 +931,20 @@ Dieses Dokument protokolliert alle Änderungen an:
 
 #### Kompatibilität
 - **Rückwärtskompatibel?** Ja (additiv, bestehende Tabellen unverändert).
+
+## 2026-06-11 — CODE-FU-D run metadata scan_mode canonicalization
+
+**Bereich:** SQLite Runtime DB (`scanner/storage/schema.py`)  
+**Schema-Version:** `5 -> 6`  
+**Typ:** semantische Constraint-Migration
+
+#### Was hat sich geändert?
+- `run_metadata.scan_mode` verwendet für neue Writes nur noch die T1-kanonischen Werte `daily_discovery` und `intraday_promotion`.
+- Historische Werte `daily`, `intraday`, `standard`, `fast`, `offline` und `backtest` werden während der Migration auf die T1-kanonischen Werte normalisiert.
+
+#### Warum?
+- CODE-FU-D trennt CLI-/Config-Kompatibilitätsaliases, SQLite-Run-Metadaten und Report-/Diagnostics-`scan_mode` deterministisch voneinander.
+
+#### Kompatibilität
+- **Rückwärtskompatibel?** Ja für Migration/Read-Kompatibilität bestehender unterstützter Werte.
+- Neue SQLite-Writes mit alten Aliaswerten oder T13-Reportwerten werden durch den Constraint abgelehnt.

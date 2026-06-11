@@ -252,3 +252,14 @@ def test_v421_invalid_min_effective_rr_for_enter_fails() -> None:
 
     errors = validate_config(ScannerConfig(raw=raw))
     assert "decision.min_effective_rr_to_target_2_for_enter must be numeric" in errors
+
+
+def test_validate_config_accepts_canonical_and_compatibility_run_modes(monkeypatch) -> None:
+    monkeypatch.setenv("CMC_API_KEY", "dummy")
+    for run_mode in ["daily_discovery", "intraday_promotion", "standard", "fast", "offline", "backtest"]:
+        raw = {
+            "general": {"run_mode": run_mode},
+            "universe_filters": {"market_cap": {"min_usd": 1, "max_usd": 2}},
+        }
+        errors = validate_config(ScannerConfig(raw=raw))
+        assert not [error for error in errors if error.startswith("Invalid run_mode")]

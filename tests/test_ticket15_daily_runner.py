@@ -59,7 +59,7 @@ def test_empty_universe_non_publishable_minimal_artifacts(tmp_path: Path, monkey
     assert row is not None
     assert row[0] == "completed"
     assert row[1] == "2026-01-01"
-    assert row[2] == "daily"
+    assert row[2] == "daily_discovery"
 
     run_reports = list((tmp_path / "reports" / "runs" / "2026" / "01" / "01").glob("*/report.json"))
     assert len(run_reports) == 1
