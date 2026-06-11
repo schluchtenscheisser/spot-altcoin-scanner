@@ -10,13 +10,13 @@ Status vocabulary follows the ticket: `confirmed`, `partial`, and `needs_review`
 
 | Source type | Checked? | Paths / refs | Notes |
 |---|---|---|---|
-| Code | yes | `scanner/output/schema.py`, `scanner/output/report_builder.py`, `scanner/output/diagnostics.py`, `scanner/runners/daily.py`, `scanner/runners/intraday.py`, `scanner/decision/entry_location.py`, `scanner/execution/grading.py`, `scanner/execution/policy.py`, `scanner/execution/tradeability_metrics.py`, `scanner/storage/snapshots.py`, `scanner/evaluation/replay.py`, `scanner/evaluation/forward_returns.py`, `scanner/evaluation/dataset_export.py`, `scanner/tools/export_evaluation_dataset.py`, `scanner/backtest/e2_model.py` | Current output/report/runner/evaluation paths were used as primary evidence. Legacy exporter/backtest paths were inspected only as compatibility/legacy evidence. |
+| Code | yes | `scanner/output/schema.py`, `scanner/output/report_builder.py`, `scanner/output/diagnostics.py`, `scanner/runners/daily.py`, `scanner/runners/intraday.py`, `scanner/decision/entry_location.py`, `scanner/execution/grading.py`, `scanner/execution/policy.py`, `scanner/execution/tradeability_metrics.py`, `scanner/storage/snapshots.py`, `scanner/evaluation/replay.py`, `scanner/evaluation/forward_returns.py`, `scanner/evaluation/dataset_export.py`, `scanner/tools/export_evaluation_dataset.py`, `scanner/pipeline/global_ranking.py`, `scanner/backtest/e2_model.py` | Current output/report/runner/evaluation paths were used as primary evidence. The exporter cluster is treated as active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*` infrastructure. |
 | Tests | yes | `tests/test_ticket13_output_artifacts.py`, `tests/test_q1_q2_operational_tradeability.py`, `tests/test_ticket16_execution_adapter.py`, `tests/test_ticket26_execution_depth_analysis.py`, `tests/test_ticket27_execution_size_policy.py`, `tests/test_ticket28_operational_tradeability.py`, `tests/test_ticket29_reduced_size_eligibility.py`, `tests/test_ticket30_forward_return_evaluation.py`, `tests/test_ticket30_operational_tradeability_eval.py`, `tests/test_entry_location_t_el2.py`, `tests/test_ticket14_snapshots.py`, `tests/test_ticket15_daily_runner.py`, `tests/test_intraday_runner.py`, `tests/test_evaluation_dataset_export.py` | Tests confirm many output, tradeability, Entry-Location, snapshot path, and evaluation fields. |
 | Schemas / validators | yes | `scanner/output/schema.py`, `scanner/storage/schema.py` | Output validators are code-level schemas; no standalone JSON Schema file found for report/diagnostics. |
 | Current artifacts | partial | Path templates in producer code: `reports/runs/YYYY/MM/DD/<run_id>/report.json`, `reports/runs/YYYY/MM/DD/<run_id>/symbol_diagnostics.jsonl.gz`, `reports/daily/YYYY/MM/DD/report.json`, `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json`, `evaluation/replay/*`, `evaluation/exports/*` | Historical/generated artifacts were not modified. Evidence is primarily producer path code and tests. |
 | SCHEMA_CHANGES | yes | `docs/SCHEMA_CHANGES.md` | Strong change/evidence log for `ir1.1` through `ir1.5`; not treated as a full data model. |
 | Current docs | yes | `docs/canonical/ARCHITECTURE.md`, `docs/canonical/RUNTIME_AND_OPERATIONS.md`, `docs/canonical/DATA_MODEL.md`, `docs/canonical/REPORTS.md`, `docs/canonical/SNAPSHOTS.md`, `docs/canonical/AUTHORITY.md` | Current docs provide boundaries and known stale/partial areas; field-level semantics remain incomplete. |
-| Tickets / PRs | yes | `docs/tickets/2026-06-11__DOC-E1__data_reports_evidence_inventory.md`, `docs/decision_notes/2026-06-07__legacy_pipeline_boundary_decision_note.md`, current decision note under `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md` | Used for requested scope and boundary classification; not used alone for confirmed claims. |
+| Tickets / PRs | yes | `docs/tickets/2026-06-11__DOC-E1__data_reports_evidence_inventory.md`, `docs/audit/active_code_path_inventory_v0.md`, `docs/audit/legacy_pipeline_boundary_review_v0.md`, `docs/decision_notes/2026-06-07__legacy_pipeline_boundary_decision_note.md`, current decision note under `docs/canonical/decisions/Q1_Q2_operational_tradeability_and_stablecoin_exclusion.md` | Used for requested scope and boundary classification; CODE-A1/CODE-A2 nuance is preserved for the exporter/global-ranking/e2-model cluster. |
 | AI context | no | none | `docs/AI_CONTEXT_CURRENT.md` was not needed and is not the sole source for any confirmed claim. |
 
 ## Candidate exclusion and tradeability fields
@@ -538,28 +538,28 @@ Status: needs_review
 Notes: Expected T30-v2 naming differs from implementation.
 
 Field: mfe
-Claim: No generic field named exactly `mfe` is emitted by active evaluation. Active fields are `mfe_<h>d_pct` for horizons 1, 3, 5, and 10; legacy compatibility backtest helper uses `mfe_pct`.
+Claim: No generic field named exactly `mfe` is emitted by active `scanner/evaluation/*`. Active `scanner/evaluation/*` fields are `mfe_<h>d_pct` for horizons 1, 3, 5, and 10; linked exporter dependency `scanner.backtest.e2_model` uses `mfe_pct` inside the active executable legacy snapshot evaluation export tooling cluster.
 Evidence sources:
   - ticket_text: DOC-E1 section 8.7 expected subject.
-  - current_code: `scanner/evaluation/forward_returns.py::build_signal_metrics`; legacy/compatibility `scanner/backtest/e2_model.py` uses `mfe_pct`.
+  - current_code: `scanner/evaluation/forward_returns.py::build_signal_metrics`; `scanner/backtest/e2_model.py` uses `mfe_pct` as a linked dependency in the active executable legacy snapshot evaluation export tooling cluster, not in active `scanner/evaluation/*` infrastructure.
   - test: `tests/test_ticket30_forward_return_evaluation.py`; legacy backtest tests where applicable.
   - schema: none found.
-  - artifact: active `evaluation/exports/signal_event_metrics.parquet`; legacy exporter artifacts are compatibility-only.
+  - artifact: active `evaluation/exports/signal_event_metrics.parquet`; exporter-cluster artifacts are unresolved active executable legacy snapshot evaluation export tooling outputs, separate from active `scanner/evaluation/*` infrastructure.
   - schema_changes: none found for exact generic field.
 Status: partial
-Notes: Document active horizon-specific names; classify `mfe_pct` as legacy if mentioned.
+Notes: Document active horizon-specific names; if `mfe_pct` is mentioned, tie it to the unresolved exporter/global-ranking/e2-model cluster rather than marking it inactive legacy-only.
 
 Field: mae
-Claim: No generic field named exactly `mae` is emitted by active evaluation. Active fields are `mae_<h>d_pct` for horizons 1, 3, 5, and 10; legacy compatibility backtest helper uses `mae_pct`.
+Claim: No generic field named exactly `mae` is emitted by active `scanner/evaluation/*`. Active `scanner/evaluation/*` fields are `mae_<h>d_pct` for horizons 1, 3, 5, and 10; linked exporter dependency `scanner.backtest.e2_model` uses `mae_pct` inside the active executable legacy snapshot evaluation export tooling cluster.
 Evidence sources:
   - ticket_text: DOC-E1 section 8.7 expected subject.
-  - current_code: `scanner/evaluation/forward_returns.py::build_signal_metrics`; legacy/compatibility `scanner/backtest/e2_model.py` uses `mae_pct`.
+  - current_code: `scanner/evaluation/forward_returns.py::build_signal_metrics`; `scanner/backtest/e2_model.py` uses `mae_pct` as a linked dependency in the active executable legacy snapshot evaluation export tooling cluster, not in active `scanner/evaluation/*` infrastructure.
   - test: `tests/test_ticket30_forward_return_evaluation.py`; legacy backtest tests where applicable.
   - schema: none found.
-  - artifact: active `evaluation/exports/signal_event_metrics.parquet`; legacy exporter artifacts are compatibility-only.
+  - artifact: active `evaluation/exports/signal_event_metrics.parquet`; exporter-cluster artifacts are unresolved active executable legacy snapshot evaluation export tooling outputs, separate from active `scanner/evaluation/*` infrastructure.
   - schema_changes: none found for exact generic field.
 Status: partial
-Notes: Document active horizon-specific names; classify `mae_pct` as legacy if mentioned.
+Notes: Document active horizon-specific names; if `mae_pct` is mentioned, tie it to the unresolved exporter/global-ranking/e2-model cluster rather than marking it inactive legacy-only.
 
 Field: segment
 Claim: Active daily reports use multiple segment blocks (`candidate_segments`, `execution_aware_candidate_segments`, `entry_location_candidate_segments`). Active evaluation outputs do not appear to emit a generic `segment` field in signal metrics.
@@ -598,16 +598,29 @@ Status: partial
 Notes: Expected-name mismatch; document active reference-price fields in future evaluation docs.
 
 Field: evaluation_dataset
-Claim: The active evaluation export path writes replay and metric artifacts under `evaluation/replay/` and `evaluation/exports/`; the legacy `scanner/tools/export_evaluation_dataset.py` path remains legacy/compatibility and should not be canonized as current active evaluation architecture.
+Claim: The active `scanner/evaluation/*` export path writes replay and metric artifacts under `evaluation/replay/` and `evaluation/exports/`. Separately, `scanner/tools/export_evaluation_dataset.py` with linked dependencies `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model` is active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*` infrastructure; final documentation treatment remains unresolved.
 Evidence sources:
-  - ticket_text: DOC-E1 sections 6 and 10 instruct active `scanner/evaluation/*` vs legacy exporter boundary.
-  - current_code: `scanner/evaluation/dataset_export.py::run_evaluation_export`; legacy `scanner/tools/export_evaluation_dataset.py`; `scanner/evaluation/replay.py`; `scanner/evaluation/forward_returns.py`.
-  - test: `tests/test_ticket30_forward_return_evaluation.py`; `tests/test_evaluation_dataset_export.py` for legacy/compat exporter.
+  - ticket_text: DOC-E1 sections 6 and 10 instruct active `scanner/evaluation/*` vs exporter boundary.
+  - current_code: `scanner/evaluation/dataset_export.py::run_evaluation_export`; `scanner/evaluation/replay.py`; `scanner/evaluation/forward_returns.py`; exporter cluster `scanner/tools/export_evaluation_dataset.py`, `scanner.pipeline.global_ranking.compute_global_top20`, and `scanner.backtest.e2_model`.
+  - test: `tests/test_ticket30_forward_return_evaluation.py`; `tests/test_evaluation_dataset_export.py` for executable exporter-tool behavior.
   - schema: no standalone evaluation dataset schema found.
-  - artifact: active `evaluation/replay/event_timeline.jsonl`, `evaluation/replay/replay_manifest.json`, `evaluation/replay/replay_diagnostics.json`, `evaluation/exports/signal_event_metrics.parquet`, `terminal_event_timeline.parquet`, `transition_lead_times.parquet`, `evaluation_summary.json`.
+  - artifact: active `evaluation/replay/event_timeline.jsonl`, `evaluation/replay/replay_manifest.json`, `evaluation/replay/replay_diagnostics.json`, `evaluation/exports/signal_event_metrics.parquet`, `terminal_event_timeline.parquet`, `transition_lead_times.parquet`, `evaluation_summary.json`; exporter-cluster output remains a separate legacy snapshot evaluation export contract candidate.
   - schema_changes: none found as full evaluation schema.
-Status: confirmed
-Notes: DOC-E2 should likely point active evaluation details to future evaluation documentation rather than expanding DATA_MODEL/REPORTS excessively.
+Status: partial
+Notes: DOC-E2 should document or defer the exporter/global-ranking/e2-model cluster separately from active `scanner/evaluation/*`; do not describe it as inactive legacy-only or as active Daily/Intraday runtime/evaluation infrastructure.
+
+
+Field: legacy snapshot evaluation export path
+Claim: `scanner/tools/export_evaluation_dataset.py`, `scanner.pipeline.global_ranking.compute_global_top20`, and `scanner.backtest.e2_model` form active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*` infrastructure and not active Daily/Intraday scanner runtime. CODE-FU-B or a dedicated evaluation-doc decision should classify whether to document this as a separate contract, extract helpers, or retire it.
+Evidence sources:
+  - ticket_text: DOC-E1 sections 6 and 10 mention the exporter/backtest paths and instruct boundary qualification.
+  - current_code: `scanner/tools/export_evaluation_dataset.py` imports/calls `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model` helpers.
+  - test: `tests/test_evaluation_dataset_export.py`; CODE-A1/CODE-A2 inventories also identify executable tests/tooling.
+  - schema: no standalone schema found for this exporter cluster.
+  - artifact: caller-supplied exporter output path; distinct from active `evaluation/replay/*` and `evaluation/exports/*` artifacts produced by `scanner/evaluation/dataset_export.py`.
+  - schema_changes: none found as full exporter schema.
+Status: partial
+Notes: This block preserves the review nuance: the cluster is executable tooling with unresolved classification, not current `scanner/evaluation/*` infrastructure and not inactive legacy-only.
 
 ## Consumer contract findings
 
@@ -685,9 +698,10 @@ Notes: DOC-E2 should separate list-level exclusion from row-level labels.
 | `docs/canonical/REPORTS.md` | missing | `ir1.5+` consumer guidance | confirmed | State that operational/T30 consumers prefer `is_operational_trade_candidate`; `is_tradeable_candidate` remains audit signal. |
 | `docs/canonical/SNAPSHOTS.md` | partial | Snapshot/report split and diagnostics lookup | confirmed | Existing placement is mostly covered; add cross-reference that reports/diagnostics live under `reports/runs` while manifests live under `snapshots/runs`. |
 | `docs/SCHEMA_CHANGES.md` | partial | Full field catalog | confirmed | Keep as change log; do not rewrite as data model. Add future entries only for schema changes. |
-| future evaluation documentation | missing | Active T30/evaluation output schema | partial/needs_review | Create dedicated evaluation output schema for `event_timeline.jsonl`, `signal_event_metrics.parquet`, terminal/transition parquet, summary/manifest/diagnostics JSON. |
+| future evaluation documentation | missing | Active T30/evaluation output schema | partial/needs_review | Create dedicated evaluation output schema for `event_timeline.jsonl`, `signal_event_metrics.parquet`, terminal/transition parquet, summary/manifest/diagnostics JSON. Separately document or defer the exporter/global-ranking/e2-model cluster. |
 | future evaluation documentation | contradicted | Expected 7/14/30d fields vs implemented 1/3/5/10d fields | needs_review | Product owner should decide whether docs follow implementation or implementation should add T30-v2 horizons. |
 | future evaluation documentation | missing | Shadow-Live analysis consumer | partial | Define explicit consumer contract or state it consumes standard reports/diagnostics/evaluation outputs only. |
+| future evaluation documentation | partial | `scanner/tools/export_evaluation_dataset.py`, `scanner.pipeline.global_ranking.compute_global_top20`, `scanner.backtest.e2_model` | partial | Do not omit the exporter entirely and do not describe its linked dependencies as broadly active runtime/evaluation infrastructure. Document it separately as active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*`, or defer final treatment to CODE-FU-B / a future evaluation documentation ticket. Clarify that `compute_global_top20` and `e2_model` are linked to this exporter path, not active Daily/Intraday runtime. |
 
 ## Conflicts and uncertainties
 
@@ -702,9 +716,9 @@ Notes: DOC-E2 should separate list-level exclusion from row-level labels.
 | `failed` vs `fail` | Raw execution status is `fail`; report labels use `failed`. | `scanner/execution/grading.py`, `scanner/runners/daily.py`, `docs/SCHEMA_CHANGES.md` Ticket 24 | DOC-E2 should define raw-vs-summary value mapping. |
 | `not_applicable` | Required semantic value has no active evidence. | explicit searches in active paths | Human review; avoid claiming support. |
 | `forward_return_7d/14d/30d` | Expected T30-v2 subjects are not active; active horizons are 1/3/5/10 days and include `_pct` suffix. | `scanner/evaluation/forward_returns.py::HORIZONS`, `tests/test_ticket30_forward_return_evaluation.py` | Product decision: update docs to current horizons or create implementation ticket for 7/14/30. |
-| Generic `forward_return`, `mfe`, `mae` | Active implementation uses horizon-specific fields; legacy backtest uses `mfe_pct`/`mae_pct`. | `scanner/evaluation/forward_returns.py`, `scanner/backtest/e2_model.py`, legacy boundary decision note | Document active fields; label legacy names compatibility-only. |
+| Generic `forward_return`, `mfe`, `mae` | Active `scanner/evaluation/*` implementation uses horizon-specific fields; `scanner.backtest.e2_model` uses `mfe_pct`/`mae_pct` inside the active executable legacy snapshot evaluation export tooling cluster. | `scanner/evaluation/forward_returns.py`, `scanner/backtest/e2_model.py`, `docs/audit/active_code_path_inventory_v0.md`, `docs/audit/legacy_pipeline_boundary_review_v0.md`, legacy boundary decision note | Document active fields; tie backtest names to the exporter/global-ranking/e2-model cluster and defer final classification to CODE-FU-B rather than labeling them inactive legacy-only. |
 | `basket` | No active field found. | explicit searches in active paths | Do not document as implemented; product owner should define if needed. |
 | `entry_reference` | Expected field differs from active `reference_price*` fields. | `scanner/evaluation/forward_returns.py` | Document actual reference-price fields in future evaluation documentation. |
 | Run manifest payload schema | Path is confirmed, but full manifest payload schema is producer-specific/partial in scanned docs. | `scanner/storage/snapshots.py`, `scanner/runners/daily.py`, `scanner/runners/intraday.py`, `docs/canonical/SNAPSHOTS.md` | DOC-E2 or SNAPSHOTS follow-up should define manifest payload fields or explicitly defer. |
 | Shadow-Live analysis consumer | Consumer concept is requested but no explicit active consumer contract found. | `scanner/evaluation/*`, report/diagnostics paths | Product owner should specify whether Shadow-Live consumes daily reports, diagnostics, evaluation outputs, or a separate contract. |
-| Legacy evaluation dataset exporter | Legacy `scanner/tools/export_evaluation_dataset.py` and `scanner/backtest/e2_model.py` still exist but are not active evaluation architecture. | `docs/decision_notes/2026-06-07__legacy_pipeline_boundary_decision_note.md`, `docs/canonical/ARCHITECTURE.md`, `scanner/evaluation/*` | DOC-E2 should classify these as legacy/compatibility, not current T30 architecture. |
+| `scanner/tools/export_evaluation_dataset.py`, `scanner.pipeline.global_ranking.compute_global_top20`, `scanner.backtest.e2_model` | CODE-A1/CODE-A2 identify the exporter as active executable evaluation tooling with legacy-named dependencies, while DOC-D / the boundary decision distinguish this path from active `scanner/evaluation/*` infrastructure. The exporter should not be documented as current `scanner/evaluation/*`, but the exporter plus linked dependencies should also not be de-canonized as inactive legacy-only without a follow-up decision. | `docs/audit/active_code_path_inventory_v0.md`; `docs/audit/legacy_pipeline_boundary_review_v0.md`; `docs/decision_notes/2026-06-07__legacy_pipeline_boundary_decision_note.md`; current exporter code; `scanner.pipeline.global_ranking.compute_global_top20`; `scanner.backtest.e2_model` | DOC-E2 should treat this as a separate legacy snapshot evaluation export contract or defer final classification to CODE-FU-B / a dedicated evaluation-doc ticket. |
