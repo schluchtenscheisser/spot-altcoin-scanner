@@ -298,6 +298,24 @@ Without an authoritative formula, independent implementations may invent incompa
 
 ---
 
+### Q14) DOC-E2 data/report evidence items that remain not yet fully validated
+
+**Status:** Still open / DOC-E2 follow-up
+
+The following DOC-E1 items are relevant to data/report interpretation but must not be documented as current-state facts until additional evidence or a follow-up decision validates them:
+
+- DOC-E2 follow-up: `execution_grade` remains not yet fully validated as an active serialized output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+- DOC-E2 follow-up: `execution_notional_usdt` remains not yet fully validated as an active serialized output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+- DOC-E2 follow-up: `entry_location_score` remains not yet fully validated as an active Entry-Location output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+- DOC-E2 follow-up: `not_applicable` remains not yet fully validated as an active diagnostics/report field value. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+- DOC-E2 follow-up: `basket` remains not yet fully validated as an active report/diagnostics/evaluation output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+
+**Current boundary**
+
+DOC-E2 documents implemented alternatives or boundaries where evidence is confirmed or partial with qualification. It does not promote any item above into a current artifact contract.
+
+---
+
 ## Resolved questions (for reference)
 
 ### Q1) `is_tradeable_candidate` vs. `candidate_excluded` / universe exclusion

@@ -39,7 +39,7 @@ Die Independence-Release Reports-Struktur enthält verbindliche maschinenlesbare
 Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) existieren, sie sind aber nicht die Canonical-Truth-Ebene.
 
 ## Canonical schema and ownership
-- `schema_version` is currently `ir1.4` for newly emitted report/diagnostics artifacts.
+- `schema_version` is currently `ir1.5` for newly emitted report/diagnostics artifacts.
 - The output layer owns report/diagnostics/index writers in `scanner/output/`.
 - `scan_mode` values are exactly `daily` or `intraday`.
 - `run_id` is a non-empty opaque string (format not constrained here).
@@ -47,7 +47,7 @@ Optional können abgeleitete Convenience-Ausgaben (`report.md`, `report.xlsx`) e
 - `daily_bar_id` uses `YYYY-MM-DD` and is the date basis for report directories.
 - `intraday_bar_id` is always present; for daily mode it is `null`, for intraday mode it is a canonical UTC 4h bar-id string (`YYYY-MM-DDTHH:00:00Z`).
 
-## Canonical run and daily artifacts
+## Canonical run, daily, intraday, and snapshot-linked artifacts
 Run outputs:
 - `reports/runs/YYYY/MM/DD/<run_id>/report.json`
 - `reports/runs/YYYY/MM/DD/<run_id>/symbol_diagnostics.jsonl.gz`
@@ -55,8 +55,23 @@ Run outputs:
 Daily outputs:
 - `reports/daily/YYYY/MM/DD/report.json`
 
+Snapshot manifest:
+- `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json`
+
 Path derivation rule:
 - `YYYY/MM/DD` comes from `daily_bar_id` only (never from wall-clock time, never from `as_of_utc` date).
+- Report paths are produced by the output/report writer layer under `scanner/output/`; daily and intraday runners call those writers after runner-specific data collection and diagnostics construction.
+- Snapshot run-manifest placement is owned by the snapshot storage layer; reports carry `manifest_path` as a repository-root-relative reference and do not duplicate the manifest body.
+
+### Artifact purpose and consumers
+
+| Artifact | Producer path | Primary consumer purpose | Notes |
+|---|---|---|---|
+| `reports/runs/YYYY/MM/DD/<run_id>/report.json` | Output report writer called by daily/intraday runners | Compact machine-readable run summary and candidate/report segment surface | `latest.json` is a content-identical copy of the latest run report, regardless of scan mode. |
+| `reports/runs/YYYY/MM/DD/<run_id>/symbol_diagnostics.jsonl.gz` | Diagnostics writer called by daily/intraday runners | Full row-level machine diagnostics for audit, analysis, and operational row-level labels | Prefer this artifact for per-symbol evidence such as `candidate_excluded`, `is_operational_trade_candidate`, execution fields, and Entry-Location blocks. |
+| `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json` | Snapshot storage/runner path | Run provenance and manifest body | `report.json.manifest_path` references this path; full manifest payload schema remains owned outside this report-summary contract. |
+| `reports/daily/YYYY/MM/DD/report.json` | Daily discovery runner/report writer | Latest canonical daily candidate-producing report for that daily bar | Consumers needing daily candidates should prefer this path or `reports/index/latest_daily.json` over generic `latest.json`. |
+| Intraday report under `reports/runs/.../report.json` | Intraday promotion runner/report writer | Intraday promotion or no-op run summary | No-op intraday reports may contain `no_op=true` and `no_op_reason`; diagnostics-only/no-op intraday runs must not clear candidate-oriented latest files. |
 
 ## `report.json` contract (compact summary)
 Required top-level keys:
@@ -104,6 +119,23 @@ Replay compatibility:
 - replay extraction keeps backward-compatible top-level fallbacks and also accepts `cycle.resolved_setup_cycle_id` as cycle-id fallback.
 
 This contract does not introduce `data_resolution_class`.
+
+
+## Current `ir1.5+` report and diagnostics field groups
+
+Daily report consumers should read `reports/daily/YYYY/MM/DD/report.json` or `reports/index/latest_daily.json` for daily discovery candidates. Generic `reports/index/latest.json` points to the latest run report and may therefore point to intraday no-op or diagnostics-oriented runs. Diagnostics consumers should follow `diagnostics_path` from a report or latest index to `symbol_diagnostics.jsonl.gz` for row-level evidence.
+
+For `ir1.5+`, actionable report candidate lists (`confirmed_candidates`, `early_candidates`, and `watchlist`) are already filtered so rows with `candidate_excluded=true` are not included as actionable candidates. Row-level operational consumers should prefer `is_operational_trade_candidate` wherever diagnostics or report segment rows expose it. `is_tradeable_candidate` remains useful as bucket-/execution-scoped audit evidence, but it is not the final operational label.
+
+Execution-aware report blocks expose current implemented execution names such as `execution_status_raw`, `execution_size_class`, `execution_grade_effective`, and `is_reduced_size_eligible`. `execution_status` is not the active serialized artifact field. Report-level execution summaries may normalize raw `fail` into `failed` segment/count labels, so consumers must not expect report summary labels to be byte-identical to raw diagnostics values.
+
+Entry-Location report support is segment-oriented. Daily reports can include `entry_location_candidate_segments`, with segment keys such as `buy_now_candidates`, `early_watch_candidates`, and `avoid_chasing`, sourced from nested diagnostics fields under `entry_location`. The implemented diagnostics values are `entry_location.entry_location_status` and `entry_location.entry_action_hint`; field names such as `entry_location_bucket`, `entry_location_reason`, `entry_location_flags`, `entry_location_score`, `buy_now`, and `avoid_chase` are not current flat artifact fields unless a future schema introduces them explicitly.
+
+## Evaluation and legacy snapshot exporter boundary
+
+Evaluation/T30 output schemas are outside this document's current-state data/report contract and remain subject to dedicated evaluation documentation and CODE-FU-B boundary resolution. Do not read this reports contract as canonizing Evaluation/T30 dataset fields such as forward-return, MFE/MAE, basket, or evaluation-dataset columns.
+
+The linked path `scanner/tools/export_evaluation_dataset.py` together with `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model` is classified here only as active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*` infrastructure and not active Daily/Intraday scanner runtime. This boundary prevents conflating legacy snapshot evaluation exports with current report/diagnostics artifacts while avoiding a premature inactive-legacy classification.
 
 ## Manifest reference semantics (no duplicate truth)
 - Canonical manifest body remains under `snapshots/runs/.../run.manifest.json`.
