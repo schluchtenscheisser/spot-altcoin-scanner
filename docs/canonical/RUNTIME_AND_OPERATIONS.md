@@ -1,4 +1,4 @@
-# Runtime and Operations — Independence-Release Operating Model (Canonical)
+# Runtime and Operations — Current-State Operating Model (Canonical)
 
 ## Machine Header (YAML)
 ```yaml
@@ -9,12 +9,104 @@ scan_types:
   - daily_discovery_scan
   - intraday_promotion_scan
 bar_clock_policy: utc_closed_bar_only
+mode_model: canonical_daily_intraday_with_input_aliases
 ```
 
+## Purpose and scope
+
+This document describes current scanner runtime operations: active entry points, Daily vs Intraday operation, canonical run-mode naming, scan-mode storage/report boundaries, compatibility aliases, backfill compatibility, and operational guardrails.
+
+It does not define field-level data model, report, diagnostics, Entry-Location, T30, schema-version, or nullable/not-evaluated semantics. Those details belong to dedicated data/report/snapshot/schema documentation.
+
+## Runtime entry points
+
+The active scanner runtime entry points are:
+
+| Entry point | Operational role |
+|---|---|
+| `scanner/main.py` | CLI/config input boundary. It accepts canonical modes plus compatibility aliases and resolves them to a Daily or Intraday runner target. |
+| `scanner/runners/daily.py` | Active Daily Discovery operation for the latest closed daily context or explicit historical daily date used by the runner. |
+| `scanner/runners/intraday.py` | Active Intraday Promotion operation for the latest closed 4h context and prior daily context. |
+
+Operationally, callers should think in two current runner targets: Daily Discovery and Intraday Promotion. Old mode names may remain accepted at input boundaries, but they are not separate runtime modes.
+
+## Daily vs intraday operation
+
+### Daily Discovery Scan
+
+Daily Discovery is the full closed-daily scanner pass. It resolves the run universe, loads closed-bar inputs, builds features, evaluates axes/phase/state/entry/decision/execution context, writes reports and diagnostics, writes run metadata, persists state patches, and emits the run manifest.
+
+Daily Discovery is the active route for canonical `daily_discovery` input and for compatibility aliases that map to the Daily runner.
+
+### Intraday Promotion Scan
+
+Intraday Promotion is the 4h closed-bar promotion/recheck pass. It loads prior Daily context, selects the monitoring universe, refreshes required intraday inputs, evaluates attachable execution context, writes intraday reports and diagnostics, writes intraday run metadata, and emits the run manifest.
+
+Intraday Promotion is the active route for canonical `intraday_promotion` input only.
+
+## Canonical run mode naming
+
+The repository deliberately separates three mode contexts:
+
+```text
+SQLite run_metadata.scan_mode:   daily_discovery / intraday_promotion   (T1-canonical)
+Report/Diagnostics scan_mode:    daily / intraday                        (T13-canonical)
+Compatibility aliases:           standard / fast / offline / backtest    (CLI/input-layer only)
+```
+
+Required operational interpretation:
+
+- CLI/config input accepts canonical names `daily_discovery` and `intraday_promotion`.
+- CLI/config input also accepts the old names `standard`, `fast`, `offline`, and `backtest` only as compatibility aliases.
+- SQLite `run_metadata.scan_mode` uses `daily_discovery` / `intraday_promotion`.
+- Report and diagnostics `scan_mode` uses `daily` / `intraday`.
+- Compatibility aliases do not define additional runner targets, storage modes, report modes, or diagnostics modes.
+
+## Storage vs Report/Diagnostics `scan_mode` boundary
+
+`scan_mode` has different valid values depending on where it appears:
+
+| Context | Canonical values | Notes |
+|---|---|---|
+| CLI/config input | `daily_discovery`, `intraday_promotion`, plus compatibility aliases | Input-layer only; resolves to runner targets. |
+| SQLite `run_metadata.scan_mode` | `daily_discovery`, `intraday_promotion` | Runner-level / T1-canonical persisted metadata values. |
+| Report/Diagnostics `scan_mode` | `daily`, `intraday` | Output-level / T13-canonical values. |
+
+Do not use `daily` or `intraday` as new canonical SQLite `run_metadata.scan_mode` values. Do not use `daily_discovery` or `intraday_promotion` as report/diagnostics `scan_mode` values. Always identify which `scan_mode` context is being changed before editing code, tests, schemas, or documentation.
+
+## Compatibility aliases
+
+The old mode names standard, fast, offline, and backtest are compatibility aliases at the CLI/config/input layer. They are not independent runtime modes and must not be emitted as new canonical Storage, Report, or Diagnostics scan_mode values.
+
+Current alias behavior:
+
+| Input mode | Runner target | SQLite `run_metadata.scan_mode` | Report/diagnostics `scan_mode` |
+|---|---|---|---|
+| `daily_discovery` | Daily | `daily_discovery` | `daily` |
+| `intraday_promotion` | Intraday | `intraday_promotion` | `intraday` |
+| `standard` | Daily compatibility alias | `daily_discovery` | `daily` |
+| `fast` | Daily compatibility alias | `daily_discovery` | `daily` |
+| `offline` | Daily compatibility alias | `daily_discovery` | `daily` |
+| `backtest` | Daily compatibility alias | `daily_discovery` | `daily` |
+
+Compatibility aliases may appear at CLI/config/input-layer boundaries. They must not leak into new Storage, Report, or Diagnostics contexts.
+
+## Backfill and historical reconstruction compatibility
+
+`backfill_snapshots.py --mode full` is retained as compatibility-only / historical reconstruction support. It is not the current v2.1 Daily/Intraday runtime.
+
+Operational consequences:
+
+- Do not use full-mode backfill as evidence for the current Daily/Intraday scanner architecture.
+- Do not present `scanner.pipeline.run_pipeline` or `scanner.pipeline.scoring/*` as active Daily/Intraday runtime because full-mode backfill can reach them.
+- If historical reconstruction needs the full mode, document that invocation as compatibility/historical reconstruction work, not as a current scanner run mode.
+
 ## Persistence foundation
-SQLite is the persistence foundation for the Independence-Release operating model. The runtime layer uses SQLite for infrastructure metadata first; business tables are introduced only when later tickets define their fields canonically.
+
+SQLite is the persistence foundation for the current scanner operating model. The active runners write technical run metadata and state/context data through `scanner/storage`, with current run metadata scan-mode values constrained to `daily_discovery` and `intraday_promotion`.
 
 ## Canonical UTC bar semantics
+
 All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exact close boundaries are inclusive: if `t` equals a daily or 4h close timestamp exactly, the bar that closes at `t` is treated as closed.
 
 ### Bar-clock public input contract
@@ -70,35 +162,23 @@ All bar-clock behavior is UTC-only. Local timezone conversion is forbidden. Exac
 - Naive `datetime` values are invalid and raise `TypeError`
 - Unsupported types raise `TypeError`
 
-## Daily Discovery Scan (Gesamtkonzept §10, steps 1–14)
-1. Start the daily discovery run for the closed daily context.
-2. Resolve the eligible universe for the run.
-3. Load required market and history inputs for that universe.
-4. Prepare target-architecture feature inputs from the closed daily context.
-5. Evaluate the relevant structural/axis/phase prerequisites that are available at bootstrap level only as module boundaries.
-6. Build or update candidate state for the daily discovery pass.
-7. Apply the target-architecture entry qualification boundary for daily discovery candidates.
-8. Produce decision-oriented candidate classifications for the daily pass.
-9. Persist the daily run state to the SQLite-backed target architecture.
-10. Write report artifacts into the canonical reports structure.
-11. Write snapshot/history artifacts into the canonical snapshot structure.
-12. Export evaluation-facing artifacts where required by the target directory model.
-13. Record run metadata and operational diagnostics.
-14. Close the daily discovery run as a deterministic, closed-bar-only cycle.
+## Operational guardrails
 
-## Intraday Promotion Scan (Gesamtkonzept §10, steps 1–7)
-1. Start the intraday promotion run for the closed intraday context.
-2. Load the previously discovered candidate universe relevant for intraday review.
-3. Refresh required intraday inputs using the target data boundary.
-4. Re-evaluate promotion-relevant structure, phase, and state boundaries.
-5. Update decision bucketing for candidates eligible for promotion or reclassification.
-6. Persist and export the intraday promotion results into the target storage/output paths.
-7. Close the intraday promotion run as a deterministic, closed-bar-only cycle.
+- The current scanner does not implement live trading or automated order execution.
+- Daily and Intraday runner targets must remain distinct operational flows.
+- Compatibility aliases are accepted only at CLI/config/input boundaries and must not be emitted as new canonical Storage, Report, or Diagnostics `scan_mode` values.
+- `scanner/pipeline/*` is not the current Daily/Intraday runtime architecture; retained pipeline paths are legacy/compatibility/historical reconstruction boundaries only where explicitly classified.
+- Active tradeability metrics belong to `scanner/execution/tradeability_metrics.py`.
+- Deep output/report/data semantics are intentionally deferred to the dedicated data model, report, snapshot, and schema documentation layer.
 
-## Operating constraints
-- This bootstrap does not introduce live trading or automated order execution.
-- Runtime logic for phase/state/entry remains deferred even though the operating model reserves those stages.
-- All future implementations must preserve the documented separation between daily discovery and intraday promotion scans.
+## Pointers to output/report/data model details
+
+Use this runtime document for operational flow and run-mode boundaries. Use the dedicated canonical documents when validated for current state for:
+
+- data model/schema details (`docs/canonical/DATA_MODEL.md`, `docs/SCHEMA_CHANGES.md`),
+- report and diagnostics field details (`docs/canonical/REPORTS.md`),
+- snapshot and replay artifact details (`docs/canonical/SNAPSHOTS.md`),
+- architecture/module boundaries (`docs/canonical/ARCHITECTURE.md`).
 
 ## Shadow-Live Daily Workflow Operations Contract (Ticket 22)
 
