@@ -5,11 +5,13 @@ from __future__ import annotations
 import sqlite3
 from typing import Final
 
-SCHEMA_VERSION: Final[int] = 5
+from scanner.run_modes import normalize_storage_scan_mode_for_migration
+
+SCHEMA_VERSION: Final[int] = 6
 RUN_METADATA_TABLE_SQL: Final[str] = """
 CREATE TABLE IF NOT EXISTS run_metadata (
     run_id          TEXT PRIMARY KEY,
-    scan_mode       TEXT NOT NULL CHECK (scan_mode IN ('daily', 'intraday')),
+    scan_mode       TEXT NOT NULL CHECK (scan_mode IN ('daily_discovery', 'intraday_promotion')),
     started_at_utc  TEXT NOT NULL,
     finished_at_utc TEXT,
     daily_bar_id    TEXT NOT NULL,
@@ -119,18 +121,6 @@ def get_schema_version(connection: sqlite3.Connection) -> int:
     return int(row[0]) if row else 0
 
 
-_SCAN_MODE_MAP: Final[dict[str, str]] = {
-    "daily_discovery": "daily",
-    "standard": "daily",
-    "fast": "daily",
-    "offline": "daily",
-    "backtest": "daily",
-    "intraday_promotion": "intraday",
-    "daily": "daily",
-    "intraday": "intraday",
-}
-
-
 def _run_metadata_sql(connection: sqlite3.Connection) -> str | None:
     row = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='run_metadata'"
@@ -145,7 +135,7 @@ def _run_metadata_needs_scan_mode_migration(connection: sqlite3.Connection) -> b
     if not table_sql:
         return False
     normalized = " ".join(table_sql.replace("\n", " ").split())
-    return "scan_mode IN ('daily', 'intraday')" not in normalized
+    return "scan_mode IN ('daily_discovery', 'intraday_promotion')" not in normalized
 
 
 def _migrate_run_metadata_scan_mode_constraint(connection: sqlite3.Connection) -> None:
@@ -157,7 +147,13 @@ def _migrate_run_metadata_scan_mode_constraint(connection: sqlite3.Connection) -
         for row in connection.execute("SELECT DISTINCT scan_mode FROM run_metadata")
         if row[0] is not None
     }
-    unknown = sorted(value for value in distinct if value not in _SCAN_MODE_MAP)
+    unknown = []
+    for value in distinct:
+        try:
+            normalize_storage_scan_mode_for_migration(value)
+        except ValueError:
+            unknown.append(value)
+    unknown = sorted(unknown)
     if unknown:
         raise ValueError(
             "run_metadata.scan_mode migration failed: unsupported legacy values "
@@ -188,9 +184,8 @@ def _migrate_run_metadata_scan_mode_constraint(connection: sqlite3.Connection) -
 
     mapped_case = (
         "CASE "
-        "WHEN scan_mode IN ('daily', 'intraday') THEN scan_mode "
-        "WHEN scan_mode IN ('daily_discovery', 'standard', 'fast', 'offline', 'backtest') THEN 'daily' "
-        "WHEN scan_mode = 'intraday_promotion' THEN 'intraday' "
+        "WHEN scan_mode IN ('daily_discovery', 'standard', 'fast', 'offline', 'backtest', 'daily') THEN 'daily_discovery' "
+        "WHEN scan_mode IN ('intraday_promotion', 'intraday') THEN 'intraday_promotion' "
         "END"
     )
     insert_columns = [

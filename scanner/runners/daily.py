@@ -419,7 +419,7 @@ def run_daily_scan(cfg: ScannerConfig, as_of_date: str | None = None) -> None:
     ohlcv_provider = getattr(cfg, "daily_ohlcv_provider", _default_ohlcv)
 
     try:
-        _create_run_metadata(conn, run_id=run_id, daily_id=daily_id, scan_mode="daily")
+        _create_run_metadata(conn, run_id=run_id, daily_id=daily_id, scan_mode="daily_discovery")
         symbols = list(universe_resolver(cfg, daily_id))
 
         if not symbols:

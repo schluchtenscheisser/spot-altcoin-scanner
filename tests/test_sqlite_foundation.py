@@ -47,7 +47,7 @@ def test_run_metadata_schema_and_nullable_fields(tmp_path) -> None:
     ).fetchone()[0]
     assert "finished_at_utc TEXT" in table_sql
     assert "intraday_bar_id TEXT" in table_sql
-    assert "scan_mode IN ('daily', 'intraday')" in table_sql
+    assert "scan_mode IN ('daily_discovery', 'intraday_promotion')" in table_sql
     assert "status IN ('running', 'completed', 'failed')" in table_sql
 
     connection.execute(
@@ -59,7 +59,7 @@ def test_run_metadata_schema_and_nullable_fields(tmp_path) -> None:
         """,
         (
             "run-1",
-            "daily",
+            "daily_discovery",
             "2026-03-24T00:00:00Z",
             None,
             "2026-03-23",
@@ -131,7 +131,7 @@ def test_run_metadata_scan_mode_migration_from_legacy_constraint(tmp_path) -> No
         row[0]: row[1]
         for row in connection.execute("SELECT run_id, scan_mode FROM run_metadata ORDER BY run_id")
     }
-    assert modes == {"legacy-d": "daily", "legacy-i": "intraday"}
+    assert modes == {"legacy-d": "daily_discovery", "legacy-i": "intraday_promotion"}
 
     connection.execute(
         """
@@ -140,7 +140,7 @@ def test_run_metadata_scan_mode_migration_from_legacy_constraint(tmp_path) -> No
             daily_bar_id, intraday_bar_id, schema_version, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        ("new-d", "daily", "2026-03-25T00:00:00Z", None, "2026-03-24", None, SCHEMA_VERSION, "running"),
+        ("new-d", "daily_discovery", "2026-03-25T00:00:00Z", None, "2026-03-24", None, SCHEMA_VERSION, "running"),
     )
     connection.execute(
         """
@@ -149,7 +149,7 @@ def test_run_metadata_scan_mode_migration_from_legacy_constraint(tmp_path) -> No
             daily_bar_id, intraday_bar_id, schema_version, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        ("new-i", "intraday", "2026-03-25T04:00:00Z", None, "2026-03-24", "2026-03-25T00:00:00Z", SCHEMA_VERSION, "running"),
+        ("new-i", "intraday_promotion", "2026-03-25T04:00:00Z", None, "2026-03-24", "2026-03-25T00:00:00Z", SCHEMA_VERSION, "running"),
     )
     connection.commit()
 
@@ -161,7 +161,7 @@ def test_run_metadata_scan_mode_migration_from_legacy_constraint(tmp_path) -> No
                 daily_bar_id, intraday_bar_id, schema_version, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("bad-d", "daily_discovery", "2026-03-26T00:00:00Z", None, "2026-03-25", None, SCHEMA_VERSION, "running"),
+            ("bad-d", "daily", "2026-03-26T00:00:00Z", None, "2026-03-25", None, SCHEMA_VERSION, "running"),
         )
     with pytest.raises(sqlite3.IntegrityError):
         connection.execute(
@@ -171,7 +171,7 @@ def test_run_metadata_scan_mode_migration_from_legacy_constraint(tmp_path) -> No
                 daily_bar_id, intraday_bar_id, schema_version, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("bad-i", "intraday_promotion", "2026-03-26T04:00:00Z", None, "2026-03-25", "2026-03-26T00:00:00Z", SCHEMA_VERSION, "running"),
+            ("bad-i", "intraday", "2026-03-26T04:00:00Z", None, "2026-03-25", "2026-03-26T00:00:00Z", SCHEMA_VERSION, "running"),
         )
     connection.close()
 
@@ -231,7 +231,7 @@ def test_run_metadata_scan_mode_migration_is_idempotent(tmp_path) -> None:
 
     row = connection.execute("SELECT scan_mode FROM run_metadata WHERE run_id='legacy'").fetchone()
     assert row is not None
-    assert row[0] == "daily"
+    assert row[0] == "daily_discovery"
 
     count = connection.execute("SELECT COUNT(*) FROM run_metadata").fetchone()[0]
     assert count == 1
