@@ -49,7 +49,7 @@ The active scanner runtime enters through these files:
 |---|---|
 | `scanner/main.py` | CLI/config input boundary. It accepts canonical input modes and compatibility aliases, normalizes them to a Daily or Intraday runner target, and dispatches to the active runner. |
 | `scanner/runners/daily.py` | Active Daily Discovery runner. It owns the current daily closed-bar scan flow, run metadata write, per-symbol evaluation orchestration, report/diagnostics/manifest output, and persistence patching. |
-| `scanner/runners/intraday.py` | Active Intraday Promotion runner. It owns the current 4h closed-bar promotion flow, daily-context loading, intraday refresh boundary, execution subset evaluation, report/diagnostics/manifest output, and intraday run metadata. |
+| `scanner/runners/intraday.py` | Active Intraday Promotion runner. It owns the current 4h closed-bar promotion flow, provider-backed daily-context boundary, intraday refresh boundary, execution subset evaluation, report/diagnostics/manifest output, and intraday run metadata. |
 
 The canonical scanner runtime architecture is therefore centered on `scanner/main.py` plus `scanner/runners/daily.py` and `scanner/runners/intraday.py`. Old input mode names can still reach this dispatch layer, but they do not create independent runtime architectures.
 
@@ -79,15 +79,17 @@ At module-group depth, the active Intraday Promotion flow is:
 
 1. `scanner/main.py` resolves the input mode to the Intraday runner target.
 2. `scanner/runners/intraday.py` computes the closed daily and 4h bar context, opens SQLite, and creates `run_metadata` with the Intraday runner-level scan mode.
-3. The runner loads the prior daily context through its configured context provider.
-4. The runner selects the monitoring universe from prior daily state, decision, phase, and freshness context.
-5. The runner refreshes required intraday inputs where the latest 4h bar or stale-cache conditions require it.
-6. Rows without attachable execution context are serialized with explicit skip diagnostics rather than being promoted silently.
-7. `scanner/execution` selects/evaluates the intraday execution subset for attachable rows.
-8. `scanner/decision` and output-facing row builders preserve bucket/ranking context for promotion outputs.
-9. `scanner/output` writes intraday reports and diagnostics using report/diagnostics scan-mode values.
-10. `scanner/storage` updates intraday run metadata.
-11. The runner writes the intraday run manifest under the canonical snapshot run path.
+3. The runner resolves `intraday_context_provider` from configuration/injection; that provider is the current boundary for prior Daily context.
+4. The default context provider returns no rows. A normal CLI `intraday_promotion` run without a configured provider therefore does not automatically load prior Daily candidates from storage.
+5. When the provider yields no monitoring rows, the runner writes a no-op intraday report for the empty monitoring universe.
+6. When provider-backed rows are available, the runner selects the monitoring universe from prior daily state, decision, phase, and freshness context.
+7. The runner refreshes required intraday inputs where the latest 4h bar or stale-cache conditions require it.
+8. Rows without attachable execution context are serialized with explicit skip diagnostics rather than being promoted silently.
+9. `scanner/execution` selects/evaluates the intraday execution subset for attachable rows.
+10. `scanner/decision` and output-facing row builders preserve bucket/ranking context for promotion outputs.
+11. `scanner/output` writes intraday reports and diagnostics using report/diagnostics scan-mode values.
+12. `scanner/storage` updates intraday run metadata.
+13. The runner writes the intraday run manifest under the canonical snapshot run path.
 
 ## Active module groups and responsibilities
 
@@ -125,7 +127,7 @@ CLI/config input
   -> scanner/storage + snapshots/runs manifests
 ```
 
-Daily runs traverse the full feature/axes/phase/state/entry/decision/execution/output/storage chain for the run universe. Intraday runs reuse prior daily context, refresh 4h-dependent inputs where required, and evaluate promotion/execution context for the selected monitoring subset.
+Daily runs traverse the full feature/axes/phase/state/entry/decision/execution/output/storage chain for the run universe. Intraday runs consume prior Daily context only through an injected/configured `intraday_context_provider`; the default provider returns an empty context, causing the empty-monitoring-universe no-op path rather than automatic storage-backed promotion. When provider-backed rows exist, intraday runs refresh 4h-dependent inputs where required and evaluate promotion/execution context for the selected monitoring subset.
 
 This document does not define individual field meanings inside reports, diagnostics, Entry-Location payloads, T30 outputs, or schema versions. Those semantics belong to the data/report/snapshot documentation layer.
 

@@ -26,7 +26,7 @@ The active scanner runtime entry points are:
 |---|---|
 | `scanner/main.py` | CLI/config input boundary. It accepts canonical modes plus compatibility aliases and resolves them to a Daily or Intraday runner target. |
 | `scanner/runners/daily.py` | Active Daily Discovery operation for the latest closed daily context or explicit historical daily date used by the runner. |
-| `scanner/runners/intraday.py` | Active Intraday Promotion operation for the latest closed 4h context and prior daily context. |
+| `scanner/runners/intraday.py` | Active Intraday Promotion operation for the latest closed 4h context and provider-backed prior Daily context when an `intraday_context_provider` is configured/injected. |
 
 Operationally, callers should think in two current runner targets: Daily Discovery and Intraday Promotion. Old mode names may remain accepted at input boundaries, but they are not separate runtime modes.
 
@@ -40,7 +40,9 @@ Daily Discovery is the active route for canonical `daily_discovery` input and fo
 
 ### Intraday Promotion Scan
 
-Intraday Promotion is the 4h closed-bar promotion/recheck pass. It loads prior Daily context, selects the monitoring universe, refreshes required intraday inputs, evaluates attachable execution context, writes intraday reports and diagnostics, writes intraday run metadata, and emits the run manifest.
+Intraday Promotion is the 4h closed-bar promotion/recheck pass. `scanner/runners/intraday.py` supports Intraday Promotion from prior Daily context through an injected `intraday_context_provider`. The default provider returns an empty context; therefore a normal CLI intraday run without a configured provider writes a no-op report for an empty monitoring universe instead of automatically loading prior Daily candidates from storage. This is current implementation behavior, not an operational guarantee of storage-backed promotion.
+
+When provider-backed context rows are available, Intraday Promotion selects the monitoring universe, refreshes required intraday inputs, evaluates attachable execution context, writes intraday reports and diagnostics, writes intraday run metadata, and emits the run manifest.
 
 Intraday Promotion is the active route for canonical `intraday_promotion` input only.
 
