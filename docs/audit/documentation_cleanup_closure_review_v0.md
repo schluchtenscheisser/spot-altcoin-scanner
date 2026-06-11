@@ -52,7 +52,7 @@ DOC-F0 intentionally does not update canonical documentation. Its purpose is to 
 | `execution_size_class = "full"` two meanings | Q5 | Still valid but current docs explain the consumer rule to read it with `execution_status_raw`. | `defer` | Defer to future schema cleanup if a version bump is warranted | No evidence of current misbehavior; not a DOC-F0 blocker. |
 | `is_reduced_size_eligible` misleading name | Q6 | Still valid as a naming/schema-cleanup concern; current semantics are documented. | `defer` | Defer to future schema cleanup with migration plan | Rename requires schema bump and backward compatibility handling. |
 | Smoke-test vs full-universe intraday behavior | Q7 | Still an evidence/repro question, not resolved by documentation cleanup. | `follow_up_ticket_needed` | Verification ticket if current Shadow-Live evidence still shows divergence | Close only after checking current artifacts. |
-| `candidate_excluded_symbol_count` in `candidate_segments` | Q8 | Still a concrete report-contract validation item. | `follow_up_ticket_needed` | Small report-artifact validation/bugfix ticket | If current `ir1.5+` reports include an integer, then future cleanup can mark it resolved; DOC-F0 did not mutate open questions. |
+| `candidate_excluded_symbol_count` path wording | Q8 | Current report implementation/review evidence emits and asserts this count under `universe_classification.candidate_excluded_symbol_count`, not under `candidate_segments`; Q8's path wording appears stale rather than evidence of a missing report field. | `defer` | Future `open_questions.md` hygiene patch should correct or close Q8; do not create a report-artifact bugfix for `candidate_segments`. | Do not add or document a duplicate `candidate_segments.candidate_excluded_symbol_count`; preserve `universe_classification.candidate_excluded_symbol_count` as the current contract path. |
 | Non-ASCII symbol eligibility/classification | Q9 | Still a business/design policy decision. | `needs_human_decision` | Human decision on flag-first vs override-map vs operational eligibility impact | Do not introduce a hard ASCII filter through docs cleanup. |
 | `tokenized_stock_or_etf` higher `unknown_execution` rate | Q10 | Still observational and evidence-dependent. | `defer` | Defer until reproduced across newer runs | No immediate rule/config change recommended. |
 | `ARBUSDT` execution attempted without valid decision bucket | Q11 | Still an anomaly verification question. | `follow_up_ticket_needed` | Low-priority diagnostics/execution-adapter verification ticket | There is duplicated wording in the source question, but this audit does not edit `open_questions.md`. |
@@ -77,7 +77,7 @@ DOC-F0 intentionally does not update canonical documentation. Its purpose is to 
 | Legacy snapshot evaluation exporter cluster | Decision note classifies components but does not implement deprecation/removal/ownership. | CODE-FU-B code-boundary ticket. |
 | Snapshot/replay documentation alignment | SNAPSHOTS is valid but narrower than updated DATA_MODEL/REPORTS and only lightly mentions T30 OHLCV generation. | Standalone SNAPSHOTS doc update after or alongside CODE-FU-B, depending on scope. |
 | Q14 evidence-validation fields | DOC-E2 intentionally refused to promote unvalidated fields as contracts. | Focused evidence-validation ticket; move `basket` to Evaluation/T30 follow-up if it belongs there. |
-| Open-question tracker hygiene | Some active questions are correctly still open; resolved references remain for traceability; Q11 contains duplicated wording. | Optional later small_doc_patch after evidence decisions, not in DOC-F0. |
+| Open-question tracker hygiene | Some active questions are correctly still open; resolved references remain for traceability; Q8 appears to have stale path wording and Q11 contains duplicated wording. | Optional later small_doc_patch after evidence decisions, not in DOC-F0; Q8 cleanup should be wording/status hygiene only, not a report-contract bugfix. |
 | SCHEMA_CHANGES reader routing | Its role is clear in AUTHORITY, but INDEX-level navigation could be more explicit. | Small final navigation patch; no rewrite of SCHEMA_CHANGES. |
 
 ## Recommended follow-up sequence
@@ -91,7 +91,7 @@ DOC-F0 recommends path 4 as the immediate next step: CODE-FU-B first, then Evalu
 | P3 | SNAPSHOTS current-state update | doc_update | Aligns snapshot/replay/T30 artifact wording with post-DOC-E2 data/report boundaries. | Preferably CODE-FU-B; can proceed earlier if limited to placement/lifecycle wording |
 | P4 | Small INDEX/AUTHORITY navigation clarification for `SCHEMA_CHANGES.md` | doc_patch | Clarifies reader routing without changing the evidence-log role or rewriting schema history. | None |
 | P5 | Q14 evidence-validation cleanup | doc_inventory | Validates unconfirmed DOC-E1/DOC-E2 field subjects and prepares a later `open_questions.md` hygiene patch. | Access to current artifacts/code evidence |
-| P6 | Open-questions hygiene patch | doc_patch | Updates statuses only after evidence/code-boundary tickets have resolved the relevant items. | CODE-FU-B and/or Q14 validation outcomes |
+| P6 | Open-questions hygiene patch | doc_patch | Updates statuses only after evidence/code-boundary tickets have resolved the relevant items; corrects stale Q8 path wording to `universe_classification.candidate_excluded_symbol_count` without adding a duplicate `candidate_segments` contract. | CODE-FU-B and/or Q14 validation outcomes |
 
 ## Deferred items
 
@@ -100,6 +100,7 @@ DOC-F0 recommends path 4 as the immediate next step: CODE-FU-B first, then Evalu
 | Q5 schema split for execution capacity vs quality | Current documentation mitigates consumer ambiguity; schema rename/split requires versioning. | Future schema-version bump or consumer confusion. |
 | Q6 rename of `is_reduced_size_eligible` | Current semantics are documented; rename requires migration. | Future schema cleanup window. |
 | Q10 tokenized asset execution behavior | Informational until reproduced. | Multiple newer Shadow-Live runs show the same pattern. |
+| Q8 stale `candidate_excluded_symbol_count` path wording | Current implementation/review evidence points to `universe_classification.candidate_excluded_symbol_count`; the stale item is open-question wording, not report output. | Future `open_questions.md` hygiene patch. |
 | Broad rewrite of `docs/SCHEMA_CHANGES.md` | It is an evidence/change log, not a complete current-state data model. | Never as a rewrite; only append future schema changes or improve navigation elsewhere. |
 | Canonicalizing Evaluation/T30 schemas inside DATA_MODEL/REPORTS | Explicitly outside current contract. | Dedicated Evaluation/T30 doc ticket after CODE-FU-B. |
 
@@ -111,4 +112,5 @@ DOC-F0 recommends path 4 as the immediate next step: CODE-FU-B first, then Evalu
 | Legacy exporter executability | The exporter cluster is executable and tested but legacy-classified relative to active `scanner/evaluation/*` infrastructure. | Treat as active executable legacy snapshot evaluation export tooling, but not active scanner/evaluation/* infrastructure, until CODE-FU-B decides fate. |
 | SNAPSHOTS coverage | SNAPSHOTS is useful and not obviously stale, but it is less comprehensive than DOC-E2-updated DATA_MODEL/REPORTS. | Classify as partial and recommend a dedicated update ticket. |
 | Q14 field subjects | Several fields/concepts are plausible but not fully validated as active serialized contracts. | Keep them open; use a focused evidence-validation ticket rather than broad docs cleanup. |
+| Q8 path wording | `open_questions.md` names the stale `candidate_segments` path, while current implementation/review evidence uses `universe_classification.candidate_excluded_symbol_count`. | Treat as open-question hygiene only; do not recommend adding a duplicate report field. |
 | Human policy questions | Non-ASCII symbol treatment and structural formula definitions cannot be solved by evidence review alone. | Mark as `needs_human_decision`; no silent implementation or documentation invention. |
