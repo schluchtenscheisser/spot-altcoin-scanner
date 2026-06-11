@@ -137,7 +137,7 @@ The active evaluation and replay infrastructure is primarily under `scanner/eval
 
 Current scanner evaluation/replay documentation should treat `scanner/evaluation/*` as the active evaluation namespace. It should not use the legacy snapshot exporter or legacy backtest helper as evidence for current Daily/Intraday ranking or current Independence evaluation architecture.
 
-`scanner/tools/export_evaluation_dataset.py` is not part of the active `scanner/evaluation/*` infrastructure. It is the Legacy Snapshot Evaluation Export Path.
+`scanner/tools/export_evaluation_dataset.py` is not part of the active `scanner/evaluation/*` infrastructure. CODE-FU-B owns it as standalone legacy snapshot evaluation export tooling.
 
 ## Legacy and compatibility boundaries
 
@@ -149,7 +149,7 @@ The current repository still contains legacy, compatibility, and historical reco
 | `scanner/execution/tradeability_metrics.py` | Active current-state target path for execution/tradeability metrics |
 | `scanner.pipeline.global_ranking.compute_global_top20` | Legacy |
 | `scanner.backtest.e2_model` | Legacy compatibility helper tied to legacy snapshot exporter |
-| `scanner/tools/export_evaluation_dataset.py` | Legacy Snapshot Evaluation Export Path, not active `scanner/evaluation/*` infrastructure |
+| `scanner/tools/export_evaluation_dataset.py` | Standalone legacy snapshot evaluation export tooling, not active `scanner/evaluation/*` infrastructure |
 | `scanner/tools/backfill_snapshots.py --mode full` | Compatibility-only / historical reconstruction path |
 | `scanner.pipeline.run_pipeline` | Not active v2.1 Daily/Intraday runtime |
 | `scanner.pipeline.scoring/*` | Relevant only in old/full backfill compatibility path, not active Daily/Intraday runtime |

@@ -133,9 +133,9 @@ Entry-Location report support is segment-oriented. Current `ir1.5` daily reports
 
 ## Evaluation and legacy snapshot exporter boundary
 
-Evaluation/T30 output schemas are outside this document's current-state data/report contract and remain subject to dedicated evaluation documentation and CODE-FU-B boundary resolution. Do not read this reports contract as canonizing Evaluation/T30 dataset fields such as forward-return, MFE/MAE, basket, or evaluation-dataset columns.
+Evaluation/T30 output schemas are outside this document's current-state data/report contract and remain subject to dedicated evaluation documentation. Do not read this reports contract as canonizing Evaluation/T30 dataset fields such as forward-return, MFE/MAE, basket, or evaluation-dataset columns.
 
-The linked path `scanner/tools/export_evaluation_dataset.py` together with `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model` is classified here only as active executable legacy snapshot evaluation export tooling, but not active `scanner/evaluation/*` infrastructure and not active Daily/Intraday scanner runtime. This boundary prevents conflating legacy snapshot evaluation exports with current report/diagnostics artifacts while avoiding a premature inactive-legacy classification.
+CODE-FU-B selected `own_as_standalone_legacy_tool` for the linked path `scanner/tools/export_evaluation_dataset.py` together with `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model`. Treat that cluster as standalone legacy snapshot evaluation export tooling: executable and compatibility-supported, but not active `scanner/evaluation/*` infrastructure and not active Daily/Intraday scanner runtime. This boundary prevents conflating legacy snapshot evaluation exports with current report/diagnostics artifacts.
 
 ## Manifest reference semantics (no duplicate truth)
 - Canonical manifest body remains under `snapshots/runs/.../run.manifest.json`.

@@ -1,4 +1,8 @@
-"""Global ranking aggregation across setup-specific rankings."""
+"""Global ranking aggregation across setup-specific rankings.
+
+``compute_global_top20`` is retained for the standalone legacy snapshot
+evaluation exporter. It is not the active Daily/Intraday scanner ranking path.
+"""
 
 from __future__ import annotations
 

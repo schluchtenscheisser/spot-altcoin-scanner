@@ -1,3 +1,10 @@
+"""E2 legacy snapshot evaluation compatibility labels.
+
+This module is retained for the standalone legacy snapshot evaluation exporter
+(``scanner.tools.export_evaluation_dataset``). It is not active
+``scanner/evaluation/*`` infrastructure.
+"""
+
 from __future__ import annotations
 
 from datetime import date, timedelta
