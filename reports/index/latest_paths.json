@@ -1,10 +1,10 @@
 {
-  "as_of_utc": "2026-06-12T06:21:31Z",
-  "daily_bar_id": "2026-06-11",
-  "diagnostics_path": "reports/runs/2026/06/11/intraday-2026-06-11-75624b08b07a/symbol_diagnostics.jsonl.gz",
-  "intraday_bar_id": "2026-06-12T04:00:00Z",
-  "manifest_path": "snapshots/runs/2026/06/11/intraday-2026-06-11-75624b08b07a/run.manifest.json",
-  "report_path": "reports/runs/2026/06/11/intraday-2026-06-11-75624b08b07a/report.json",
-  "run_id": "intraday-2026-06-11-75624b08b07a",
+  "as_of_utc": "2026-06-13T06:15:12Z",
+  "daily_bar_id": "2026-06-12",
+  "diagnostics_path": "reports/runs/2026/06/12/intraday-2026-06-12-57aef57fb4c6/symbol_diagnostics.jsonl.gz",
+  "intraday_bar_id": "2026-06-13T04:00:00Z",
+  "manifest_path": "snapshots/runs/2026/06/12/intraday-2026-06-12-57aef57fb4c6/run.manifest.json",
+  "report_path": "reports/runs/2026/06/12/intraday-2026-06-12-57aef57fb4c6/report.json",
+  "run_id": "intraday-2026-06-12-57aef57fb4c6",
   "scan_mode": "intraday"
 }
