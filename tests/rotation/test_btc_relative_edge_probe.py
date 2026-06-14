@@ -43,6 +43,17 @@ def test_required_minimum_field_missing_fails(tmp_path):
     with pytest.raises(ProbeError): run(["--dataset",str(ds),"--history-root",str(hist)])
 
 
+
+def test_non_10d_primary_horizon_fails_fast(tmp_path):
+    ds,hist=base_fixture(tmp_path)
+    with pytest.raises(ProbeError, match="primary-horizon is fixed"):
+        run([
+            "--dataset",str(ds),
+            "--history-root",str(hist),
+            "--horizons","1,3,5,10,20",
+            "--primary-horizon","5",
+        ])
+
 def test_tier_mapping_prefer_bucket_and_fallback():
     df=pd.DataFrame({"historical_signal_bucket":["confirmed ready","watch"],"event_type":["x","y"]})
     assert map_tiers(df)["source"] == "historical_signal_bucket"

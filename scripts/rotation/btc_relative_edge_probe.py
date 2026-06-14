@@ -60,6 +60,7 @@ def parse_args(argv=None):
 
 def validate_config(a):
     hs=[int(x) for x in str(a.horizons).split(',') if str(x).strip()]
+    if a.primary_horizon != 10: raise ProbeError("--primary-horizon is fixed by the Stage-1 contract and must be exactly 10")
     if not hs or any(h<=0 for h in hs) or a.primary_horizon not in hs or 10 not in hs: raise ProbeError("invalid horizon list; primary horizon 10 must be present")
     if a.min_count<=0 or a.n_bootstrap<=0: raise ProbeError("--min-count and --n-bootstrap must be > 0")
     if a.cost_bps_low<0 or a.cost_bps_high<a.cost_bps_low or a.min_quote_volume<0: raise ProbeError("invalid cost/liquidity config")
