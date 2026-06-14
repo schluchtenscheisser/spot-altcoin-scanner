@@ -48,3 +48,7 @@ snapshots/**/*.parquet
 snapshots/**/*.jsonl.gz
 
 .local_data/
+
+# Rotation Stage-1 generated bulk artifacts
+evaluation/rotation/stage1/**/*.parquet
+evaluation/rotation/stage1/**/*.csv
