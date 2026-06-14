@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.rotation.btc_relative_edge_probe import ProbeError, run, norm_label, map_tiers
+from scripts.rotation.btc_relative_edge_probe import ProbeError, run, norm_label, map_tiers, primary_stats
 
 
 def write_hist(root: Path, symbol: str, closes: dict[str, float]):
@@ -73,8 +73,16 @@ def test_run_outputs_schema_caveats_benchmark_and_exact_alignment(tmp_path):
     assert manifest["history_symbol_resolution_counts"]["base_plus_usdt"] == 1
     assert manifest["benchmark_self_excluded_count"] == 1
     assert manifest["exclusions"]["static_denylist_count"] == 1
+    assert "history_symbol" not in manifest["dataset_columns"]
+    assert "history_symbol_resolution_source" not in manifest["dataset_columns"]
+    assert "relative_log_return_10d" not in manifest["dataset_columns"]
+    assert "history_symbol" in manifest["generated_columns"]
     seg=pd.read_parquet(od/"segment_relative_returns.parquet")
     assert {"event_count","unique_symbol_count","median_relative_log_return","hit_rate_vs_btc","passes_min_count"} <= set(seg.columns)
+    primary_rows=seg[(seg["segment_group"]=="scope") & (seg["segment_key"]=="operational_proxy_filtered") & (seg["analysis_role"]=="primary")]
+    assert primary_rows["horizon"].tolist() == [10]
+    exploratory_horizons=set(seg[(seg["segment_group"]=="scope") & (seg["segment_key"]=="operational_proxy_filtered") & (seg["analysis_role"]=="secondary_exploratory")]["horizon"])
+    assert {1,3,5,20} <= exploratory_horizons
     summary=json.loads((od/"btc_relative_edge_probe.json").read_text())
     assert "cost_log_high" in summary["cost_context"]
     assert summary["cost_context"]["cost_log_high"] == pytest.approx(math.log(1+80/10000))
@@ -92,4 +100,19 @@ def test_alternative_symbol_column_and_missing_exact_date_unavailable(tmp_path):
     run(["--dataset",str(ds),"--history-root",str(hist),"--output-root",str(out),"--replay-id","r2","--n-bootstrap","5","--min-count","1"])
     m=json.loads((out/"r2"/"probe_manifest.json").read_text())
     assert m["symbol_identifier_column_used"] == "pair"
+    assert m["validation"]["unresolved_history_symbol_count"] == 1
+    assert m["validation"]["missing_price_history_count"] >= 1
     assert m["validation"]["relative_return_unavailable_by_horizon"]["10"] >= 1
+
+
+def test_raw_pooled_fallback_bootstrap_matches_median_difference_with_uneven_counts():
+    df=pd.DataFrame({
+        "as_of_daily_bar_id":["2026-01-01"]*102,
+        "tier":["confirmed"]*2 + ["watch"]*100,
+        "relative_log_return_10d":[10.0,10.0] + [0.0]*100,
+    })
+    stats=primary_stats(df,"tier","confirmed","watch",10,min_dates=2,n_boot=20,seed=7,cost_high=0.0)
+    assert stats["primary_estimator"] == "raw_pooled_fallback"
+    assert stats["primary_spread_median"] == pytest.approx(10.0)
+    assert stats["primary_spread_ci_low"] == pytest.approx(10.0)
+    assert stats["primary_spread_ci_high"] == pytest.approx(10.0)

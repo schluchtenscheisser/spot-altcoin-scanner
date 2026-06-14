@@ -125,7 +125,9 @@ def map_tiers(df):
     raise ProbeError(f"confirmed/watch tiers not identifiable; observed={inv}")
 
 def add_returns(df, root, horizons, benchmark):
-    cache={benchmark: load_close_series(root, benchmark)}; unavailable={str(h):0 for h in horizons}; missing_hist=0
+    cache={benchmark: load_close_series(root, benchmark)}; unavailable={str(h):0 for h in horizons}
+    unresolved_count=int((df["history_symbol_resolution_source"]=="unavailable").sum()) if "history_symbol_resolution_source" in df.columns else int(df["history_symbol"].isna().sum())
+    missing_hist=unresolved_count
     for sym in sorted(set(x for x in df["history_symbol"].dropna())):
         if sym not in cache:
             try: cache[sym]=load_close_series(root,sym)
@@ -157,7 +159,21 @@ def bootstrap_ci_by_week(df, value_col, stat_fn, n=2000, seed=12345):
     if not stats: return (None,None)
     return tuple(float(x) for x in np.percentile(stats,[2.5,97.5]))
 
-def segment_metrics(df, group, key, role, horizons, min_count, costs, n_boot, seed):
+def bootstrap_raw_pooled_spread_ci(df, tier_col, conf, watch, value_col, n=2000, seed=12345):
+    d=df[["as_of_daily_bar_id", tier_col, value_col]].dropna().copy()
+    if d.empty: return (None,None)
+    d["week"]=pd.to_datetime(d["as_of_daily_bar_id"]).dt.strftime("%G-%V")
+    weeks=sorted(d["week"].unique()); rng=np.random.default_rng(seed); stats=[]
+    for _ in range(n):
+        sample_weeks=rng.choice(weeks, size=len(weeks), replace=True)
+        sample=pd.concat([d[d.week==w] for w in sample_weeks], ignore_index=True)
+        c=sample[sample[tier_col]==conf][value_col].dropna()
+        w=sample[sample[tier_col]==watch][value_col].dropna()
+        if len(c) and len(w): stats.append(float(c.median()-w.median()))
+    if not stats: return (None,None)
+    return tuple(float(x) for x in np.percentile(stats,[2.5,97.5]))
+
+def segment_metrics(df, group, key, role, horizons, min_count, costs, n_boot, seed, primary_horizon=None):
     rows=[]
     for h in horizons:
         col=f"relative_log_return_{h}d"; vals=df[col].dropna(); cnt=int(vals.size); passn=cnt>=min_count
@@ -167,7 +183,8 @@ def segment_metrics(df, group, key, role, horizons, min_count, costs, n_boot, se
         elif med < costs[0]: net="below_cost"
         elif med <= costs[1]: net="marginal"
         else: net="above_cost"
-        rows.append({"analysis_role":role,"segment_group":group,"segment_key":str(key),"horizon":h,"event_count":cnt,"unique_symbol_count":int(df.loc[vals.index,"history_symbol"].nunique()) if cnt else 0,"mean_relative_log_return":float(vals.mean()) if cnt else None,"median_relative_log_return":med,"hit_rate_vs_btc":float((vals>0).mean()) if cnt else None,"bootstrap_ci_low":ci[0],"bootstrap_ci_high":ci[1],"passes_min_count":bool(passn),"trimmed_mean_10pct":float(vals[(vals>=vals.quantile(.1))&(vals<=vals.quantile(.9))].mean()) if cnt else None,"winsorized_mean_5pct":float(vals.clip(vals.quantile(.05), vals.quantile(.95)).mean()) if cnt else None,"p25":float(vals.quantile(.25)) if cnt else None,"p75":float(vals.quantile(.75)) if cnt else None,"net_indication":net})
+        row_role = role(h) if callable(role) else role
+        rows.append({"analysis_role":row_role,"segment_group":group,"segment_key":str(key),"horizon":h,"event_count":cnt,"unique_symbol_count":int(df.loc[vals.index,"history_symbol"].nunique()) if cnt else 0,"mean_relative_log_return":float(vals.mean()) if cnt else None,"median_relative_log_return":med,"hit_rate_vs_btc":float((vals>0).mean()) if cnt else None,"bootstrap_ci_low":ci[0],"bootstrap_ci_high":ci[1],"passes_min_count":bool(passn),"trimmed_mean_10pct":float(vals[(vals>=vals.quantile(.1))&(vals<=vals.quantile(.9))].mean()) if cnt else None,"winsorized_mean_5pct":float(vals.clip(vals.quantile(.05), vals.quantile(.95)).mean()) if cnt else None,"p25":float(vals.quantile(.25)) if cnt else None,"p75":float(vals.quantile(.75)) if cnt else None,"net_indication":net})
     return rows
 
 def primary_stats(scope, tier_col, conf, watch, ph, min_dates, n_boot, seed, cost_high):
@@ -183,8 +200,7 @@ def primary_stats(scope, tier_col, conf, watch, ph, min_dates, n_boot, seed, cos
         estimator="raw_pooled_fallback"; robustness="reduced"
         c=d[d[tier_col]==conf][col]; w=d[d[tier_col]==watch][col]
         val=float(c.median()-w.median()) if len(c) and len(w) else None
-        tmp=pd.concat([d[d[tier_col]==conf].assign(spread=d[d[tier_col]==conf][col]), d[d[tier_col]==watch].assign(spread=-d[d[tier_col]==watch][col])])
-        ci=bootstrap_ci_by_week(tmp,"spread",np.median,n_boot,seed) if val is not None else (None,None)
+        ci=bootstrap_raw_pooled_spread_ci(d,tier_col,conf,watch,col,n_boot,seed) if val is not None else (None,None)
     demean=d.copy(); demean["resid"]=demean[col]-demean.groupby("as_of_daily_bar_id")[col].transform("mean")
     rc=demean[demean[tier_col]==conf].resid; rw=demean[demean[tier_col]==watch].resid
     resid_diff=float(rc.median()-rw.median()) if len(rc) and len(rw) else None
@@ -202,7 +218,7 @@ def write_outputs(out, seg, manifest, summary, md_extra):
 
 def run(argv=None):
     a=parse_args(argv); horizons=validate_config(a)
-    dataset=Path(a.dataset); root=Path(a.history_root); df=load_events(dataset); sym=required_columns(df)
+    dataset=Path(a.dataset); root=Path(a.history_root); df=load_events(dataset); source_columns=list(df.columns); sym=required_columns(df)
     symbols=available_history_symbols(root); benchmark=a.benchmark_symbol.strip()
     if benchmark not in symbols: raise ProbeError(f"benchmark symbol {benchmark} not resolvable in 1d history root")
     tier=map_tiers(df)
@@ -222,7 +238,8 @@ def run(argv=None):
     tier_col=tier["source"]; conf=tier["confirmed_tier"]; watch=tier["watch_tier"]
     costs=(math.log(1+a.cost_bps_low/10000), math.log(1+a.cost_bps_high/10000))
     rows=[]; rows+=segment_metrics(metric_all,"scope","all_events_system_view","secondary_exploratory",horizons,a.min_count,costs,a.n_bootstrap,a.seed)
-    rows+=segment_metrics(scope,"scope","operational_proxy_filtered","primary",horizons,a.min_count,costs,a.n_bootstrap,a.seed)
+    primary_scope_role=lambda h: "primary" if h == a.primary_horizon else "secondary_exploratory"
+    rows+=segment_metrics(scope,"scope","operational_proxy_filtered",primary_scope_role,horizons,a.min_count,costs,a.n_bootstrap,a.seed)
     for val,g in scope.groupby(tier_col, dropna=False): rows+=segment_metrics(g,"tier",val,"secondary_exploratory",horizons,a.min_count,costs,a.n_bootstrap,a.seed)
     for field in ["btc_regime_label","quote_volume_bucket"]:
         if field in scope.columns:
@@ -238,14 +255,16 @@ def run(argv=None):
     else: top5=[]; conc=None; status="not_applicable_no_positive_edge"
     top_detail=[{"symbol":s,"event_count":int((pos.history_symbol==s).sum()),"median_r_rel_10":float(pos[pos.history_symbol==s][col].median())} for s in top5]
     excl_primary=primary_stats(scope[~scope.history_symbol.isin(top5)],tier_col,conf,watch,a.primary_horizon,a.min_qualifying_dates,a.n_bootstrap,a.seed,costs[1]) if top5 else primary
-    validation={"relative_return_unavailable_by_horizon":unavailable,"missing_price_history_count":missing_hist,"cross_check":{}}
+    generated_columns=[c for c in df.columns if c not in source_columns]
+    unresolved_history_symbol_count=int((df["history_symbol_resolution_source"]=="unavailable").sum())
+    validation={"relative_return_unavailable_by_horizon":unavailable,"unresolved_history_symbol_count":unresolved_history_symbol_count,"missing_price_history_count":missing_hist,"cross_check":{}}
     for h in horizons:
         f=f"forward_close_return_{h}d"; has=f"has_forward_{h}d"
         if f in df.columns and has in df.columns:
             m=df[has].astype(bool) & df[f].notna() & df[f"alt_log_return_{h}d"].notna(); dev=(df.loc[m,f"alt_log_return_{h}d"]-np.log1p(pd.to_numeric(df.loc[m,f],errors="coerce"))).abs()
             validation["cross_check"][str(h)]={"available":True,"mismatch_count":int((dev>a.cross_check_tolerance).sum()),"max_abs_deviation":float(dev.max()) if len(dev) else None}
         else: validation["cross_check"][str(h)]={"available":False}
-    manifest={"created_at_utc":datetime.now(timezone.utc).isoformat(),"dataset_path":str(dataset),"dataset_columns":list(df.columns),"symbol_identifier_column_used":sym,"tier_mapping":tier,"history_symbol_resolution_counts":resolution_counts,"benchmark_symbol":benchmark,"benchmark_self_excluded_count":benchmark_count,"optional_field_availability":{f:f in df.columns for f in OPTIONAL_FIELDS},"config":vars(a),"validation":validation,"exclusions":{"static_denylist_count":int(excl_static.sum()),"category_exclusion_count":int(excl_cat.sum()),"exclusion_source":"universe_category_or_static_denylist" if "universe_category" in df.columns else "static_denylist"}}
+    manifest={"created_at_utc":datetime.now(timezone.utc).isoformat(),"dataset_path":str(dataset),"dataset_columns":source_columns,"generated_columns":generated_columns,"symbol_identifier_column_used":sym,"tier_mapping":tier,"history_symbol_resolution_counts":resolution_counts,"benchmark_symbol":benchmark,"benchmark_self_excluded_count":benchmark_count,"optional_field_availability":{f:f in source_columns for f in OPTIONAL_FIELDS},"config":vars(a),"validation":validation,"exclusions":{"static_denylist_count":int(excl_static.sum()),"category_exclusion_count":int(excl_cat.sum()),"exclusion_source":"universe_category_or_static_denylist" if "universe_category" in df.columns else "static_denylist"}}
     summary={"primary":primary,"dual_gate_result":{"gate_a_genuine_signal":primary["gate_a_pass"],"gate_b_cost_viability":primary["gate_b_pass"],"stage2_green_light":bool(primary["gate_a_pass"] and primary["gate_b_pass"])},"cost_context":{"cost_log_low":costs[0],"cost_log_high":costs[1]},"concentration_share_top_5_symbols":conc,"concentration_status":status,"edge_sign_stable_excluding_top5":bool(excl_primary.get("primary_spread_median") is not None and excl_primary["primary_spread_median"]>0),"top_contributor_symbols":top_detail,"output_schema_version":"rotation_stage1_v1"}
     replay_id=a.replay_id or dataset.parent.name; out=Path(a.output_root)/replay_id
     write_outputs(out,seg,manifest,summary,"Generated standalone from enriched replay events and 1d OHLCV history. No rotation, turnover, or execution is simulated.")
