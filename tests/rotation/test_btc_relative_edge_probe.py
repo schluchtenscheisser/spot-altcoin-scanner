@@ -4,13 +4,28 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.rotation.btc_relative_edge_probe import ProbeError, run, norm_label, map_tiers, primary_stats
+from scripts.rotation.btc_relative_edge_probe import ProbeError, run, norm_label, map_tiers, primary_stats, load_close_series
 
 
 def write_hist(root: Path, symbol: str, closes: dict[str, float]):
     d=root/"timeframe=1d"/f"symbol={symbol}"/"year=2026"/"month=01"
     d.mkdir(parents=True, exist_ok=True)
     pd.DataFrame({"daily_bar_id":list(closes.keys()),"close":list(closes.values())}).to_parquet(d/"part.parquet")
+
+
+def write_pre1_hist(root: Path, symbol: str):
+    d=root/"timeframe=1d"/f"symbol={symbol}"/"year=2026"/"month=01"
+    d.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "open_time_utc":["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"],
+        "close_time_utc":["2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"],
+        "open":[9.0, 10.0],
+        "high":[11.0, 12.0],
+        "low":[8.0, 9.0],
+        "close":[10.0, 11.0],
+        "volume":[100.0, 200.0],
+        "quote_volume":[1000.0, 2200.0],
+    }).to_parquet(d/"part.parquet")
 
 
 def base_fixture(tmp_path):
@@ -30,6 +45,18 @@ def base_fixture(tmp_path):
     })
     ds=tmp_path/"enriched_replay_events.parquet"; events.to_parquet(ds)
     return ds,hist
+
+
+def test_load_close_series_supports_pre1_open_time_utc_schema(tmp_path):
+    hist=tmp_path/"hist"
+    write_pre1_hist(hist,"BTCUSDT")
+
+    closes=load_close_series(hist,"BTCUSDT")
+
+    assert closes.index.tolist() == ["2026-01-01", "2026-01-02"]
+    assert closes.loc["2026-01-01"] == pytest.approx(10.0)
+    assert closes.loc["2026-01-02"] == pytest.approx(11.0)
+    assert "2026-01-03" not in closes.index
 
 
 def test_missing_dataset_fails(tmp_path):

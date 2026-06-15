@@ -99,10 +99,17 @@ def load_close_series(root: Path, symbol: str) -> pd.Series:
     frames=[]
     for f in files: frames.append(pd.read_parquet(f))
     df=pd.concat(frames, ignore_index=True)
-    date_col = "daily_bar_id" if "daily_bar_id" in df.columns else ("date" if "date" in df.columns else ("timestamp" if "timestamp" in df.columns else None))
-    if date_col is None or "close" not in df.columns: raise ProbeError(f"history for {symbol} lacks date/close columns")
+    close_col = "close" if "close" in df.columns else None
+    date_col = (
+        "daily_bar_id" if "daily_bar_id" in df.columns else
+        ("open_time_utc" if "open_time_utc" in df.columns else
+         ("date" if "date" in df.columns else
+          ("timestamp" if "timestamp" in df.columns else None)))
+    )
+    if date_col is None or close_col is None:
+        raise ProbeError(f"history for {symbol} lacks supported date/close columns; columns={list(df.columns)}")
     dates=pd.to_datetime(df[date_col], utc=True, errors="coerce").dt.strftime("%Y-%m-%d")
-    s=pd.Series(pd.to_numeric(df["close"], errors="coerce").to_numpy(), index=dates).dropna()
+    s=pd.Series(pd.to_numeric(df[close_col], errors="coerce").to_numpy(), index=dates).dropna()
     return s[~s.index.duplicated(keep="last")].sort_index()
 
 def resolve_history_symbols(df, sym_col, symbols):
