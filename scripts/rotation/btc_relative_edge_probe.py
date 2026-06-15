@@ -102,7 +102,7 @@ def load_close_series(root: Path, symbol: str) -> pd.Series:
     columns=list(df.columns)
     if "close" not in df.columns:
         raise ProbeError(f"history for {symbol} lacks supported date/close columns; columns={columns}")
-    date_sources=["daily_bar_id", "open_time_utc", "date", "timestamp"]
+    date_sources=["daily_bar_id", "close_time_utc", "date", "timestamp", "open_time_utc"]
     if not any(c in df.columns for c in date_sources):
         raise ProbeError(f"history for {symbol} lacks supported date/close columns; columns={columns}")
     date_series=pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns, UTC]")
