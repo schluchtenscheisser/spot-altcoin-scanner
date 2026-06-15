@@ -198,11 +198,25 @@ jobs:
           print("edge_sign_stable_excluding_top5:", nested(probe, ["edge_sign_stable_excluding_top5"]))
           PY
 
+      - name: Prepare artifact name
+        id: artifact_name
+        if: always()
+        env:
+          REPLAY_ID: ${{ inputs.replay_id }}
+        run: |
+          REPLAY_ID_SAFE=$(printf '%s' "$REPLAY_ID" | tr '":<>|*?\r\n\\/' '-')
+          if [ -z "$REPLAY_ID_SAFE" ]; then
+            echo "ERROR: sanitized replay id is empty" >&2
+            exit 1
+          fi
+          echo "replay_id_safe=$REPLAY_ID_SAFE" >> "$GITHUB_OUTPUT"
+          echo "Artifact-safe replay id: $REPLAY_ID_SAFE"
+
       - name: Upload Stage-1 outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rotation-stage1-${{ inputs.replay_id }}
+          name: rotation-stage1-${{ steps.artifact_name.outputs.replay_id_safe }}
           path: |
             evaluation/rotation/stage1/**
           retention-days: 90
