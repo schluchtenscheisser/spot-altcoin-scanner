@@ -68,37 +68,46 @@ jobs:
           pip install -e .
 
       - name: Verify committed replay event dataset
+        env:
+          DATASET_PATH: ${{ inputs.dataset_path }}
         run: |
-          test -f "${{ inputs.dataset_path }}" || (
-            echo "ERROR: committed replay event dataset not found: ${{ inputs.dataset_path }}" && exit 1
+          test -f "$DATASET_PATH" || (
+            echo "ERROR: committed replay event dataset not found: $DATASET_PATH" && exit 1
           )
-          ls -lh "${{ inputs.dataset_path }}"
+          ls -lh "$DATASET_PATH"
 
       - name: Download frozen Pre-1 history asset
         env:
+          HISTORY_RELEASE_TAG: ${{ inputs.history_release_tag }}
+          HISTORY_ASSET_NAME: ${{ inputs.history_asset_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "${{ inputs.history_release_tag }}" \
-            --pattern "${{ inputs.history_asset_name }}" \
-            --output "${{ inputs.history_asset_name }}"
-          gh release download "${{ inputs.history_release_tag }}" \
-            --pattern "${{ inputs.history_asset_name }}.sha256" \
-            --output "${{ inputs.history_asset_name }}.sha256"
+          gh release download "$HISTORY_RELEASE_TAG" \
+            --pattern "$HISTORY_ASSET_NAME" \
+            --output "$HISTORY_ASSET_NAME"
+          gh release download "$HISTORY_RELEASE_TAG" \
+            --pattern "${HISTORY_ASSET_NAME}.sha256" \
+            --output "${HISTORY_ASSET_NAME}.sha256"
 
       - name: Verify SHA256
+        env:
+          HISTORY_ASSET_NAME: ${{ inputs.history_asset_name }}
         run: |
-          sha256sum --check "${{ inputs.history_asset_name }}.sha256"
+          sha256sum --check "${HISTORY_ASSET_NAME}.sha256"
           echo "SHA256 verified."
 
       - name: Extract and normalize history
+        env:
+          HISTORY_ASSET_NAME: ${{ inputs.history_asset_name }}
+          BENCHMARK_SYMBOL: ${{ inputs.benchmark_symbol }}
         run: |
           rm -rf extracted_history
           mkdir -p extracted_history
 
           echo "Archive preview:"
-          tar -tzf "${{ inputs.history_asset_name }}" | head -80
+          tar -tzf "$HISTORY_ASSET_NAME" | head -80
 
-          tar -xzf "${{ inputs.history_asset_name }}" -C extracted_history
+          tar -xzf "$HISTORY_ASSET_NAME" -C extracted_history
           echo "History extracted into extracted_history/."
 
           echo "Detected extracted structure:"
@@ -128,32 +137,42 @@ jobs:
           fi
 
           test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after normalization" && exit 1)
-          test -d "snapshots/history/ohlcv/timeframe=1d/symbol=${{ inputs.benchmark_symbol }}" || (
-            echo "ERROR: snapshots/history/ohlcv/timeframe=1d/symbol=${{ inputs.benchmark_symbol }} not found after normalization" && exit 1
+          test -d "snapshots/history/ohlcv/timeframe=1d/symbol=${BENCHMARK_SYMBOL}" || (
+            echo "ERROR: snapshots/history/ohlcv/timeframe=1d/symbol=${BENCHMARK_SYMBOL} not found after normalization" && exit 1
           )
 
           ls -lh snapshots/history/ohlcv/ | head -5
           echo "Post-normalization validation passed."
 
       - name: Run Stage-1 BTC-relative edge probe
+        env:
+          DATASET_PATH: ${{ inputs.dataset_path }}
+          REPLAY_ID: ${{ inputs.replay_id }}
+          BENCHMARK_SYMBOL: ${{ inputs.benchmark_symbol }}
+          N_BOOTSTRAP: ${{ inputs.n_bootstrap }}
+          MIN_COUNT: ${{ inputs.min_count }}
+          MIN_QUALIFYING_DATES: ${{ inputs.min_qualifying_dates }}
         run: |
           python scripts/rotation/btc_relative_edge_probe.py \
-            --dataset "${{ inputs.dataset_path }}" \
+            --dataset "$DATASET_PATH" \
             --history-root snapshots/history/ohlcv \
             --output-root evaluation/rotation/stage1 \
-            --replay-id "${{ inputs.replay_id }}" \
-            --benchmark-symbol "${{ inputs.benchmark_symbol }}" \
-            --n-bootstrap "${{ inputs.n_bootstrap }}" \
-            --min-count "${{ inputs.min_count }}" \
-            --min-qualifying-dates "${{ inputs.min_qualifying_dates }}" \
+            --replay-id "$REPLAY_ID" \
+            --benchmark-symbol "$BENCHMARK_SYMBOL" \
+            --n-bootstrap "$N_BOOTSTRAP" \
+            --min-count "$MIN_COUNT" \
+            --min-qualifying-dates "$MIN_QUALIFYING_DATES" \
             --primary-horizon 10
 
       - name: Print Stage-1 summary
         if: success()
+        env:
+          REPLAY_ID: ${{ inputs.replay_id }}
         run: |
           python - <<'PY'
           import json
-          base = "evaluation/rotation/stage1/${{ inputs.replay_id }}"
+          import os
+          base = f"evaluation/rotation/stage1/{os.environ['REPLAY_ID']}"
           def load(p):
               try:
                   with open(p, encoding="utf-8") as f: return json.load(f)
