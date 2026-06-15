@@ -1,0 +1,188 @@
+name: Rotation Stage-1 — BTC-Relative Edge Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_path:
+        description: "Path to committed enriched replay events parquet"
+        required: false
+        default: "evaluation/backtest/exports/hsq_replay_2025_05_to_2026_05_v1/2026-05-24T21-27-31Z/enriched_replay_events.parquet"
+        type: string
+      replay_id:
+        description: "Replay id used for Stage-1 output partitioning"
+        required: false
+        default: "2026-05-24T21-27-31Z"
+        type: string
+      history_release_tag:
+        description: "GitHub Release tag for frozen Pre-1 history asset"
+        required: false
+        default: "history-pre1-2026-05-20"
+        type: string
+      history_asset_name:
+        description: "Frozen Pre-1 history asset filename within the release"
+        required: false
+        default: "pre1_history_2026-05-20.tar.gz"
+        type: string
+      benchmark_symbol:
+        description: "BTC-relative benchmark symbol"
+        required: false
+        default: "BTCUSDT"
+        type: string
+      n_bootstrap:
+        description: "Bootstrap sample count for the Stage-1 probe"
+        required: false
+        default: "2000"
+        type: string
+      min_count:
+        description: "Minimum count threshold for qualifying groups"
+        required: false
+        default: "30"
+        type: string
+      min_qualifying_dates:
+        description: "Minimum qualifying-date threshold"
+        required: false
+        default: "20"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rotation-stage1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Verify committed replay event dataset
+        run: |
+          test -f "${{ inputs.dataset_path }}" || (
+            echo "ERROR: committed replay event dataset not found: ${{ inputs.dataset_path }}" && exit 1
+          )
+          ls -lh "${{ inputs.dataset_path }}"
+
+      - name: Download frozen Pre-1 history asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}" \
+            --output "${{ inputs.history_asset_name }}"
+          gh release download "${{ inputs.history_release_tag }}" \
+            --pattern "${{ inputs.history_asset_name }}.sha256" \
+            --output "${{ inputs.history_asset_name }}.sha256"
+
+      - name: Verify SHA256
+        run: |
+          sha256sum --check "${{ inputs.history_asset_name }}.sha256"
+          echo "SHA256 verified."
+
+      - name: Extract and normalize history
+        run: |
+          rm -rf extracted_history
+          mkdir -p extracted_history
+
+          echo "Archive preview:"
+          tar -tzf "${{ inputs.history_asset_name }}" | head -80
+
+          tar -xzf "${{ inputs.history_asset_name }}" -C extracted_history
+          echo "History extracted into extracted_history/."
+
+          echo "Detected extracted structure:"
+          find extracted_history -maxdepth 5 -type d | sort | head -120
+
+          rm -rf snapshots/history
+          mkdir -p snapshots
+          echo "Removed existing snapshots/history before normalization."
+
+          if [ -d extracted_history/snapshots/history/ohlcv ]; then
+            echo "Detected layout: snapshots/history at archive root"
+            cp -a extracted_history/snapshots/history snapshots/history
+          elif [ -d extracted_history/history/ohlcv ]; then
+            echo "Detected layout: history/ at archive root"
+            cp -a extracted_history/history snapshots/history
+          elif [ -d extracted_history/ohlcv ]; then
+            echo "Detected layout: ohlcv/ at archive root"
+            mkdir -p snapshots/history
+            cp -a extracted_history/ohlcv snapshots/history/
+            if [ -d extracted_history/manifests ]; then cp -a extracted_history/manifests snapshots/history/; fi
+            if [ -d extracted_history/regime_labels ]; then cp -a extracted_history/regime_labels snapshots/history/; fi
+          else
+            echo "ERROR: Could not detect Pre-1 history layout."
+            echo "Files found:"
+            find extracted_history -maxdepth 6 -type f | sort | head -200
+            exit 1
+          fi
+
+          test -d snapshots/history/ohlcv || (echo "ERROR: snapshots/history/ohlcv not found after normalization" && exit 1)
+          test -d "snapshots/history/ohlcv/timeframe=1d/symbol=${{ inputs.benchmark_symbol }}" || (
+            echo "ERROR: snapshots/history/ohlcv/timeframe=1d/symbol=${{ inputs.benchmark_symbol }} not found after normalization" && exit 1
+          )
+
+          ls -lh snapshots/history/ohlcv/ | head -5
+          echo "Post-normalization validation passed."
+
+      - name: Run Stage-1 BTC-relative edge probe
+        run: |
+          python scripts/rotation/btc_relative_edge_probe.py \
+            --dataset "${{ inputs.dataset_path }}" \
+            --history-root snapshots/history/ohlcv \
+            --output-root evaluation/rotation/stage1 \
+            --replay-id "${{ inputs.replay_id }}" \
+            --benchmark-symbol "${{ inputs.benchmark_symbol }}" \
+            --n-bootstrap "${{ inputs.n_bootstrap }}" \
+            --min-count "${{ inputs.min_count }}" \
+            --min-qualifying-dates "${{ inputs.min_qualifying_dates }}" \
+            --primary-horizon 10
+
+      - name: Print Stage-1 summary
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          base = "evaluation/rotation/stage1/${{ inputs.replay_id }}"
+          def load(p):
+              try:
+                  with open(p, encoding="utf-8") as f: return json.load(f)
+              except Exception as e:
+                  print(f"(could not read {p}: {e})"); return {}
+          probe = load(f"{base}/btc_relative_edge_probe.json")
+          man   = load(f"{base}/probe_manifest.json")
+          def g(*keys):
+              for src in (probe, man):
+                  for k in keys:
+                      if isinstance(src, dict) and k in src: return src[k]
+              return "n/a"
+          print("primary_estimator              :", g("primary_estimator"))
+          print("gate_a                         :", g("gate_a", "gate_a_pass"))
+          print("gate_b                         :", g("gate_b", "gate_b_pass"))
+          print("stage2_green_light             :", g("stage2_green_light"))
+          print("benchmark_self_excluded_count  :", g("benchmark_self_excluded_count"))
+          print("unresolved_history_symbol_count:", g("unresolved_history_symbol_count"))
+          print("missing_price_history_count    :", g("missing_price_history_count"))
+          print("concentration_share_top_5      :", g("concentration_share_top_5_symbols"))
+          print("edge_sign_stable_excluding_top5:", g("edge_sign_stable_excluding_top5"))
+          PY
+
+      - name: Upload Stage-1 outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rotation-stage1-${{ inputs.replay_id }}
+          path: |
+            evaluation/rotation/stage1/**
+          retention-days: 90
+          if-no-files-found: warn
