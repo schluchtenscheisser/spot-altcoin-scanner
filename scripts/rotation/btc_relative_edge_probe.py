@@ -99,9 +99,20 @@ def load_close_series(root: Path, symbol: str) -> pd.Series:
     frames=[]
     for f in files: frames.append(pd.read_parquet(f))
     df=pd.concat(frames, ignore_index=True)
-    date_col = "daily_bar_id" if "daily_bar_id" in df.columns else ("date" if "date" in df.columns else ("timestamp" if "timestamp" in df.columns else None))
-    if date_col is None or "close" not in df.columns: raise ProbeError(f"history for {symbol} lacks date/close columns")
-    dates=pd.to_datetime(df[date_col], utc=True, errors="coerce").dt.strftime("%Y-%m-%d")
+    columns=list(df.columns)
+    if "close" not in df.columns:
+        raise ProbeError(f"history for {symbol} lacks supported date/close columns; columns={columns}")
+    date_sources=["daily_bar_id", "close_time_utc", "date", "timestamp", "open_time_utc"]
+    if not any(c in df.columns for c in date_sources):
+        raise ProbeError(f"history for {symbol} lacks supported date/close columns; columns={columns}")
+    date_series=pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns, UTC]")
+    for column in date_sources:
+        if column in df.columns:
+            parsed=pd.to_datetime(df[column], utc=True, errors="coerce")
+            date_series=date_series.fillna(parsed)
+    if date_series.isna().all():
+        raise ProbeError(f"history for {symbol} has supported date columns but all dates failed to parse; columns={columns}")
+    dates=date_series.dt.strftime("%Y-%m-%d")
     s=pd.Series(pd.to_numeric(df["close"], errors="coerce").to_numpy(), index=dates).dropna()
     return s[~s.index.duplicated(keep="last")].sort_index()
 
