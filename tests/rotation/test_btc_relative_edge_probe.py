@@ -28,6 +28,17 @@ def write_pre1_hist(root: Path, symbol: str):
     }).to_parquet(d/"part.parquet")
 
 
+def write_mixed_schema_hist(root: Path, symbol: str):
+    d=root/"timeframe=1d"/f"symbol={symbol}"/"year=2026"/"month=01"
+    d.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"daily_bar_id":["2026-01-01"],"close":[10.0]}).to_parquet(d/"daily_bar_id.parquet")
+    pd.DataFrame({
+        "open_time_utc":["2026-01-02T00:00:00Z"],
+        "close_time_utc":["2026-01-03T00:00:00Z"],
+        "close":[11.0],
+    }).to_parquet(d/"pre1.parquet")
+
+
 def base_fixture(tmp_path):
     hist=tmp_path/"hist"
     dates=pd.date_range("2026-01-01", periods=40, freq="D").strftime("%Y-%m-%d")
@@ -50,6 +61,18 @@ def base_fixture(tmp_path):
 def test_load_close_series_supports_pre1_open_time_utc_schema(tmp_path):
     hist=tmp_path/"hist"
     write_pre1_hist(hist,"BTCUSDT")
+
+    closes=load_close_series(hist,"BTCUSDT")
+
+    assert closes.index.tolist() == ["2026-01-01", "2026-01-02"]
+    assert closes.loc["2026-01-01"] == pytest.approx(10.0)
+    assert closes.loc["2026-01-02"] == pytest.approx(11.0)
+    assert "2026-01-03" not in closes.index
+
+
+def test_load_close_series_fills_mixed_schema_dates_row_wise(tmp_path):
+    hist=tmp_path/"hist"
+    write_mixed_schema_hist(hist,"BTCUSDT")
 
     closes=load_close_series(hist,"BTCUSDT")
 
