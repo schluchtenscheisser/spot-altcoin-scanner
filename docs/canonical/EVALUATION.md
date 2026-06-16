@@ -1,0 +1,158 @@
+# Evaluation and T30 Documentation
+
+## Machine Header (YAML)
+```yaml
+id: CANON_EVALUATION
+status: canonical
+canonical_root: docs/canonical
+last_updated_utc: "2026-06-16T00:00:00Z"
+scope: evaluation_t30_current_state
+```
+
+## Purpose
+
+This document defines the current-state Evaluation/T30 output boundary for the Independence Release repository. It documents implemented evaluation artifacts, confirmed field groups, and the boundary between active `scanner/evaluation/*` infrastructure and the standalone legacy snapshot evaluation exporter.
+
+Evaluation/T30 artifacts are not Daily/Intraday reports. Daily and Intraday report contracts remain documented in `docs/canonical/REPORTS.md`, diagnostics/data-model fields remain documented in `docs/canonical/DATA_MODEL.md`, and snapshot placement remains documented in `docs/canonical/SNAPSHOTS.md`.
+
+## Boundary summary
+
+The repository has two distinct evaluation lanes:
+
+| Lane | Meaning | Canonical treatment |
+|---|---|---|
+| Active Evaluation/T30 infrastructure | Current `scanner/evaluation/*` modules and T30 runner outputs built from current run manifests, diagnostics, replay event timelines, and OHLCV history | Active current-state evaluation documentation when supported by code/tests |
+| Standalone legacy snapshot evaluation export tooling | `scanner/tools/export_evaluation_dataset.py` plus `scanner.pipeline.global_ranking.compute_global_top20` and `scanner.backtest.e2_model` | Executable compatibility/legacy export tooling, not active `scanner/evaluation/*` infrastructure |
+
+The legacy snapshot exporter is standalone legacy snapshot evaluation export tooling. It is executable and compatibility-supported, but it is not active scanner/evaluation/* infrastructure and must not be used as the source of truth for active Evaluation/T30 output contracts.
+
+## Active evaluation infrastructure
+
+Active evaluation infrastructure includes:
+
+- `scanner/evaluation/replay.py`, which reconstructs first-observed signal/terminal events from canonical run manifests under `snapshots/runs/YYYY/MM/DD/<run_id>/run.manifest.json` and matching diagnostics under `reports/runs/YYYY/MM/DD/<run_id>/symbol_diagnostics.jsonl.gz`.
+- `scanner/evaluation/forward_returns.py`, which computes signal-event forward-return, MFE, and MAE metrics from 1d OHLCV history.
+- `scanner/evaluation/dataset_export.py`, which writes replay and export artifacts under `evaluation/replay/` and `evaluation/exports/`.
+- `scripts/run_t30_evaluation.py`, which wraps the active export, validates inputs/outputs, and writes the T30 run summary and note.
+- `scanner/evaluation/historical_replay/*`, which produces historical replay diagnostics, event candidates, and replay manifests under `evaluation/replay/runs/<scenario_id>/<replay_id>/` for full-window runs and under `evaluation/replay/runs/<scenario_id>/<replay_id>/chunks/<chunk_id>/` for chunk-scoped outputs.
+
+### Active artifact paths
+
+| Artifact | Path | Status | Notes |
+|---|---|---|---|
+| Event timeline JSONL | `evaluation/replay/event_timeline.jsonl` | Confirmed active T30 export | One row per reconstructed first event. |
+| Replay manifest | `evaluation/replay/replay_manifest.json` | Confirmed active T30 export | Contains event and signal-row counts for the active export. |
+| Replay diagnostics | `evaluation/replay/replay_diagnostics.json` | Confirmed active T30 export | Contains replay reconstruction diagnostics such as missing diagnostics runs and invalid numeric counts. |
+| Signal event metrics | `evaluation/exports/signal_event_metrics.parquet` | Confirmed active T30 export | One row per evaluable signal event included by config. |
+| Terminal event timeline | `evaluation/exports/terminal_event_timeline.parquet` | Confirmed active T30 export | Terminal events with return metrics explicitly out of scope. |
+| Transition lead times | `evaluation/exports/transition_lead_times.parquet` | Confirmed active T30 export | State transition timing rows. |
+| Evaluation summary | `evaluation/exports/evaluation_summary.json` | Confirmed active T30 export | Counts, metric-status summaries, output path references, and config hash. |
+| T30 run summary | `evaluation/replay/t30_run_summary.json` | Confirmed active T30 runner output | Wrapper-level validation and coverage summary. |
+| T30 note | `evaluation/notes/T30_forward_return_evaluation_v1.md` | Confirmed active T30 runner output | Human-readable evaluation note; not a schema authority. |
+| Historical replay diagnostics (full-window) | `evaluation/replay/runs/<scenario_id>/<replay_id>/replay_symbol_diagnostics.jsonl.gz` | Confirmed historical replay output | Full-window replay row diagnostics. Consumers must not assume this direct replay-root file exists for chunked runs. |
+| Historical replay event candidates (full-window) | `evaluation/replay/runs/<scenario_id>/<replay_id>/replay_event_candidates.parquet` | Confirmed historical replay output | Full-window replay event candidate rows. Consumers must not assume this direct replay-root file exists for chunked runs. |
+| Historical replay manifest | `evaluation/replay/runs/<scenario_id>/<replay_id>/replay_manifest.json` | Confirmed historical replay output | Full-window manifest; also the aggregate manifest updated by chunked runs. |
+
+### Chunked historical replay paths
+
+Chunked historical replays use an additional `/chunks/<chunk_id>/` path segment for chunk-scoped outputs. The direct `<scenario_id>/<replay_id>/...` diagnostics and candidate paths in the table above apply to full-window historical replays only.
+
+| Artifact | Path | Status | Notes |
+|---|---|---|---|
+| Chunk replay diagnostics | `evaluation/replay/runs/<scenario_id>/<replay_id>/chunks/<chunk_id>/replay_symbol_diagnostics.jsonl.gz` | Confirmed chunked historical replay output | Chunk-scoped replay row diagnostics. |
+| Chunk replay event candidates | `evaluation/replay/runs/<scenario_id>/<replay_id>/chunks/<chunk_id>/replay_event_candidates.parquet` | Confirmed chunked historical replay output | Chunk-scoped replay event candidate rows. |
+| Chunk manifest | `evaluation/replay/runs/<scenario_id>/<replay_id>/chunks/<chunk_id>/chunk_manifest.json` | Confirmed chunked historical replay output | Chunk-scoped execution/progress manifest. The aggregate `replay_manifest.json` remains at the replay root. |
+| Chunk state snapshot | `evaluation/replay/runs/<scenario_id>/<replay_id>/chunks/<chunk_id>/state_final.sqlite` | Confirmed chunked historical replay output | State handoff artifact used to resume the next chunk. |
+
+## T30 / forward-return output concepts
+
+T30 v1 computes forward-return metrics for reconstructed signal events, not for every diagnostics row. Signal event types are `first_watch`, `first_early_ready`, and `first_confirmed_ready`; terminal event types are `first_late`, `first_chased`, and `first_rejected`.
+
+The active horizons are 1, 3, 5, and 10 daily bars. Current active T30 fields therefore use names such as `forward_return_1d_pct`, `forward_return_3d_pct`, `forward_return_5d_pct`, and `forward_return_10d_pct`; the same horizon pattern is used for `mfe_<h>d_pct`, `mae_<h>d_pct`, and `metric_status_<h>d`.
+
+Price reference semantics:
+
+- `first_early_ready` and `first_confirmed_ready` prefer persisted state reference prices (`close_at_early_entry_bar` or `close_at_confirmed_entry_bar`) when those values are finite and positive.
+- If a persisted state reference is missing, active T30 falls back to the OHLCV event-bar close and marks the reason as `fallback_missing_persisted_state_reference`.
+- `first_watch` uses the OHLCV event-bar close and marks the reason as `watch_event_bar_close`.
+- Missing, invalid, or insufficient OHLCV produces null metric values with a status such as `missing_ohlcv_history`, `reference_price_not_evaluable`, or `insufficient_future_data`.
+
+MFE/MAE semantics for active daily T30 are horizon-based 1d OHLCV metrics:
+
+- `mfe_<h>d_pct` is the maximum favorable excursion from reference price to the highest 1d high in bars `start_idx + 1` through `start_idx + h`.
+- `mae_<h>d_pct` is the maximum adverse excursion from reference price to the lowest 1d low in the same forward window.
+- `forward_return_<h>d_pct` uses the close at `start_idx + h` versus the reference price.
+
+## Current Evaluation/T30 output fields
+
+### Event timeline fields
+
+| Field group | Fields | Artifact | Lane | Status |
+|---|---|---|---|---|
+| Event identity | `symbol`, `setup_cycle_id`, `event_type`, `event_order`, `event_timestamp_utc`, `event_bar_id`, `event_bar_id_type` | `evaluation/replay/event_timeline.jsonl` | Active Evaluation/T30 | Confirmed |
+| Event timeline provenance | `run_id`, `scan_mode`, `first_observed_run_id`, `first_observed_run_mode`, `source_snapshot_path`, `source_manifest_path`, `schema_version` | `evaluation/replay/event_timeline.jsonl` | Active Evaluation/T30 | Confirmed |
+| Signal metric provenance/context | `run_id`, `scan_mode`, `first_observed_run_id`, `first_observed_run_mode`, `source_snapshot_path`, `schema_version` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed; excludes `source_manifest_path` |
+| Signal state context | `state_machine_state`, `decision_bucket`, `market_phase`, `market_phase_confidence`, `state_confidence`, `priority_score`, `entry_pattern` | Event timeline and signal metrics | Active Evaluation/T30 | Confirmed |
+| Execution/tradeability context | `execution_status_raw`, `execution_size_class`, `is_tradeable_candidate`, `is_reduced_size_eligible`, `recommended_position_factor`, `execution_grade_effective`, `available_depth_ratio`, `depth_ratio_band`, `candidate_excluded`, `universe_category`, `is_operational_trade_candidate`, `operational_tradeability_compat`, `operational_tradeability_source` | Event timeline and signal metrics | Active Evaluation/T30 | Confirmed as carried diagnostics context |
+| Entry-location context | `entry_location_status`, `entry_action_hint`, `range_high_proximity_warning` | Event timeline and signal metrics | Active Evaluation/T30 | Confirmed as carried diagnostics context |
+| Persisted reference candidates | `close_at_early_entry_bar`, `close_at_confirmed_entry_bar` | Event timeline; used by signal metrics | Active Evaluation/T30 | Confirmed |
+
+`source_manifest_path` is event-timeline provenance only. It is not currently emitted as a `signal_event_metrics.parquet` column.
+
+### Signal metric fields
+
+| Field group | Fields | Artifact | Lane | Status |
+|---|---|---|---|---|
+| Reference price | `reference_price`, `reference_price_status`, `reference_price_source`, `reference_price_reason` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed |
+| Forward return | `forward_return_1d_pct`, `forward_return_3d_pct`, `forward_return_5d_pct`, `forward_return_10d_pct` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed |
+| MFE | `mfe_1d_pct`, `mfe_3d_pct`, `mfe_5d_pct`, `mfe_10d_pct` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed |
+| MAE | `mae_1d_pct`, `mae_3d_pct`, `mae_5d_pct`, `mae_10d_pct` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed |
+| Per-horizon metric status | `metric_status_1d`, `metric_status_3d`, `metric_status_5d`, `metric_status_10d` | `evaluation/exports/signal_event_metrics.parquet` | Active Evaluation/T30 | Confirmed |
+
+### Terminal and transition fields
+
+Terminal events are exported to `terminal_event_timeline.parquet` with event context and `return_metrics_status = terminal_event_returns_out_of_scope`. Transition rows in `transition_lead_times.parquet` contain source/target event type, timestamps, bar IDs, `bars_between`, `elapsed_hours`, and `transition_status`.
+
+### Historical replay fields
+
+Historical replay outputs use row-level fields such as `scenario_id`, `replay_id`, `symbol`, `as_of_daily_bar_id`, `historical_signal_bucket`, `entry_pattern`, `execution_mode`, and `execution_evaluation_status`. Current historical replay explicitly sets `execution_evaluation_status` to `not_evaluated_historical_ohlcv_only` and `execution_mode` to `disabled_historical_ohlcv_only`; this is replay metadata, not a Daily/Intraday execution verdict.
+
+## Legacy snapshot evaluation exporter
+
+`scanner/tools/export_evaluation_dataset.py` writes JSONL files named `eval_<run_id>.jsonl` to the configured output directory, defaulting to `datasets/eval`. Its dataset schema version is `1.3`.
+
+The exporter reads legacy daily snapshot JSON files, computes legacy setup rows from snapshot scoring sections, calls `scanner.pipeline.global_ranking.compute_global_top20`, and calls `scanner.backtest.e2_model.evaluate_e2_candidate`. These dependencies are intentional compatibility dependencies for the standalone legacy lane.
+
+### Legacy exporter row types and fields
+
+| Row type | Fields | Lane | Status |
+|---|---|---|---|
+| `meta` | `type`, `run_id`, `from_date`, `to_date`, `exported_at_iso`, `export_started_at_ts_ms`, `export_run_id`, `source_snapshot_count`, `source_snapshot_dates`, `thresholds_pct`, `T_hold`, `T_trigger_max`, `dataset_schema_version`, `notes` | Standalone legacy snapshot exporter | Confirmed |
+| `candidate_setup` identity | `type`, `record_id`, `run_id`, `t0_date`, `symbol`, `setup_type`, `setup_id` | Standalone legacy snapshot exporter | Confirmed |
+| Legacy snapshot context | `snapshot_version`, `asof_ts_ms`, `asof_iso`, `market_cap_usd`, `quote_volume_24h_usd`, `liquidity_grade`, `btc_regime` | Standalone legacy snapshot exporter | Confirmed |
+| Legacy ranking/scoring | `score`, `setup_rank`, `global_rank` | Standalone legacy snapshot exporter | Confirmed; `global_rank` comes from legacy global Top-20 compatibility ranking |
+| E2 labels | `reason`, `t_trigger_date`, `t_trigger_day_offset`, `entry_price`, `hit_10`, `hit_20`, `hits`, `mfe_pct`, `mae_pct`, `hit5_5d`, `hit10_5d`, `hit20_5d`, `mfe_5d_pct`, `mae_5d_pct` | Standalone legacy snapshot exporter | Confirmed; not active T30 contract |
+
+Legacy field-name overlap with active T30 is terminology overlap only unless this document explicitly lists the field under active Evaluation/T30. For example, active T30 uses horizon-specific `mfe_1d_pct` / `mae_1d_pct` style fields in Parquet outputs, while the legacy exporter has E2 label fields such as `mfe_pct`, `mae_pct`, `mfe_5d_pct`, and `mae_5d_pct` in JSONL rows.
+
+## Field ownership and consumer guidance
+
+- Use `evaluation/exports/signal_event_metrics.parquet` for active T30 forward-return, MFE, and MAE metrics.
+- Use `evaluation/replay/event_timeline.jsonl` when consumers need the reconstructed first-event timeline and source/provenance context.
+- Use `is_operational_trade_candidate` for `ir1.5+` final row-level operational tradeability when present; `is_tradeable_candidate` remains a bucket-/execution-scoped audit signal.
+- Do not treat active Evaluation/T30 fields as Daily/Intraday report fields.
+- Do not infer active Evaluation/T30 schema from `scanner/tools/export_evaluation_dataset.py`, `scanner.pipeline.global_ranking.compute_global_top20`, or `scanner.backtest.e2_model`.
+- T30-v2 segment/basket scripts under `scripts/` are offline evidence/analysis tooling unless separately canonized. Their outputs such as `segment_summary.json` and `basket_summary.json` are not current active Evaluation/T30 schema contracts.
+
+## Relationship to DATA_MODEL, REPORTS, and SNAPSHOTS
+
+- `DATA_MODEL.md` documents current diagnostics/report data fields and cross-layer semantics; it does not own the Evaluation/T30 output schema.
+- `REPORTS.md` documents Daily/Intraday report artifacts; Evaluation/T30 output schema is documented here and is not part of the Daily/Intraday report contract.
+- `SNAPSHOTS.md` documents run manifests and OHLCV snapshot/history placement. T30 consumes those inputs but writes outputs under `evaluation/`.
+
+## Open questions and deferred fields
+
+- `basket` is not a confirmed active Evaluation/T30 field. Current evidence shows basket hypotheses in T30-v2 offline segment-selection tooling (`scripts/analyze_t30_v2_segment_selection.py`) and outputs such as `basket_summary.json`, but not as an active `scanner/evaluation/*` output field.
+- Generic `segment` is not an active `signal_event_metrics.parquet` row field. Segment and basket analysis remains offline/evidence tooling unless a future ticket promotes a specific output contract.
+- `execution_grade`, `execution_notional_usdt`, `entry_location_score`, and `not_applicable` remain Q14 open items outside this Evaluation/T30 documentation except where other canonical docs already document implemented alternatives.
+- Forward-return horizons 7d, 14d, and 30d are not active T30 v1 output fields in `scanner/evaluation/forward_returns.py`; current active horizons are 1d, 3d, 5d, and 10d.

@@ -8,6 +8,8 @@ snapshot_root: snapshots
 history_format: parquet
 ```
 
+Evaluation/T30 output schema is documented in `docs/canonical/EVALUATION.md`. It is not part of the Daily/Intraday report contract.
+
 ## Snapshot classes
 The Independence-Release snapshot model uses canonical storage classes **A / B / C / D**:
 

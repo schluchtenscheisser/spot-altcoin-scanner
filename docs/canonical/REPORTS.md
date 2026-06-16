@@ -13,6 +13,8 @@ report_root: reports
 - This document defines the active Independence-Release reports architecture.
 
 
+Evaluation/T30 output schema is documented in `docs/canonical/EVALUATION.md`. It is not part of the Daily/Intraday report contract.
+
 ## Directory structure
 ```text
 reports/
