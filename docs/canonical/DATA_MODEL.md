@@ -13,6 +13,8 @@ bootstrap_level: foundation_plus_skeleton
 This document defines the first canonical persistence foundation required by the Independence-Release architecture: deterministic bar identifiers, SQLite infrastructure scope, and the initial `run_metadata` table. Business tables remain deferred until their fields are canonically specified.
 
 
+Evaluation/T30 output schema is documented in `docs/canonical/EVALUATION.md`. It is not part of the Daily/Intraday report contract.
+
 ## Current report and diagnostics data model (`ir1.5+`)
 
 The field contracts in this section describe the current serialized report/diagnostics artifacts produced by the output layer. They are additive to the persistence foundation above and are based on the DOC-E1 evidence inventory. Evaluation/T30 output schemas are outside this document's current-state data/report contract and remain subject to dedicated evaluation documentation and CODE-FU-B boundary resolution.

@@ -308,7 +308,7 @@ The following DOC-E1 items are relevant to data/report interpretation but must n
 - DOC-E2 follow-up: `execution_notional_usdt` remains not yet fully validated as an active serialized output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
 - DOC-E2 follow-up: `entry_location_score` remains not yet fully validated as an active Entry-Location output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
 - DOC-E2 follow-up: `not_applicable` remains not yet fully validated as an active diagnostics/report field value. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
-- DOC-E2 follow-up: `basket` remains not yet fully validated as an active report/diagnostics/evaluation output field. DOC-E1 status: `needs_review`. Resolution needed before documenting it as a current-state data/report contract.
+- DOC-G follow-up: `basket` is not confirmed as an active `scanner/evaluation/*` or Daily/Intraday report/diagnostics output field. Current evidence places basket hypotheses in offline T30-v2 segment-selection tooling and artifacts such as `basket_summary.json`; this remains non-canonical evidence tooling unless a future ticket promotes a specific basket output contract.
 
 **Current boundary**
 
