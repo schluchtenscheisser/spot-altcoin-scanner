@@ -9,8 +9,10 @@ from scripts.rotation.stage1b_term_structure_turnover import (
     ASSESSMENTS,
     cost_break_even,
     diagnostic_assessment,
+    horizons_from_arg,
     persistence,
     run,
+    term_structure,
     turnover,
     survivorship,
     validate_machine_output,
@@ -90,6 +92,40 @@ def test_cost_formulas_and_implied_rotations_exact():
     assert out["implied_max_rotations_per_year"] == pytest.approx(365 / 5)
     assert out["annualized_cost_drag_low"] == pytest.approx((365 / 5) * 0.003)
 
+
+
+
+def test_horizons_from_arg_requires_persistence_horizons():
+    assert horizons_from_arg("1,3,5,10,20") == [1, 3, 5, 10, 20]
+    with pytest.raises(ProbeError, match="missing required persistence horizons"):
+        horizons_from_arg("5")
+
+
+def test_term_structure_includes_tier_stratified_regime_and_liquidity_rows():
+    scope = pd.DataFrame({
+        "tier": ["confirmed_candidates", "late_discarded", "confirmed_candidates", "early_candidates"],
+        "btc_regime_label": ["bull", "bull", "bear", "bull"],
+        "quote_volume_bucket": ["high", "high", "low", "high"],
+        "as_of_daily_bar_id": ["2026-01-01", "2026-01-01", "2026-01-02", "2026-01-03"],
+        "relative_log_return_1d": [0.20, -0.40, 0.01, 0.03],
+        "relative_log_return_3d": [0.20, -0.40, 0.01, 0.03],
+        "relative_log_return_5d": [0.20, -0.40, 0.01, 0.03],
+        "relative_log_return_10d": [0.20, -0.40, 0.01, 0.03],
+        "relative_log_return_20d": [0.20, -0.40, 0.01, 0.03],
+    })
+    out = term_structure(scope, "tier", [10], min_count=1, seed=12345, n_boot=5)
+    regime = out[(out["segment_group"] == "tier_x_btc_regime_label") & (out["segment_key"] == "confirmed_candidates|bull")].iloc[0]
+    assert regime["analysis_role"] == "diagnostic"
+    assert regime["analysis_name"] == "regime_liquidity_stratification"
+    assert regime["tier"] == "confirmed_candidates"
+    assert regime["btc_regime_label"] == "bull"
+    assert regime["median_relative_log_return"] == pytest.approx(0.20)
+    overall = out[(out["segment_group"] == "btc_regime_label") & (out["segment_key"] == "bull")].iloc[0]
+    assert overall["median_relative_log_return"] != pytest.approx(regime["median_relative_log_return"])
+    liquidity = out[(out["segment_group"] == "tier_x_quote_volume_bucket") & (out["segment_key"] == "confirmed_candidates|high")].iloc[0]
+    assert liquidity["tier"] == "confirmed_candidates"
+    assert liquidity["quote_volume_bucket"] == "high"
+    assert liquidity["median_relative_log_return"] == pytest.approx(0.20)
 
 def test_forbidden_machine_readable_key_fails_but_caveat_phrase_allowed():
     with pytest.raises(ProbeError):

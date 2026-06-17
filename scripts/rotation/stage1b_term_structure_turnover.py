@@ -31,6 +31,7 @@ from scripts.rotation.btc_relative_edge_probe import (
 )
 
 HORIZONS_DEFAULT = [1, 3, 5, 10, 20]
+REQUIRED_PERSISTENCE_HORIZONS = {1, 3, 10, 20}
 REQUIRED_STAGE1_FILES = [
     "segment_relative_returns.parquet",
     "btc_relative_edge_probe.json",
@@ -89,6 +90,10 @@ def horizons_from_arg(raw: str) -> list[int]:
     hs = [int(x) for x in str(raw).split(",") if x.strip()]
     if not hs or any(h <= 0 for h in hs):
         raise ProbeError("horizons must be positive integers")
+    missing = sorted(REQUIRED_PERSISTENCE_HORIZONS - set(hs))
+    if missing:
+        required = sorted(REQUIRED_PERSISTENCE_HORIZONS)
+        raise ProbeError(f"horizons must include required persistence horizons {required}; missing required persistence horizons={missing}")
     return hs
 
 
@@ -152,6 +157,13 @@ def term_structure(scope: pd.DataFrame, tier_col: str, horizons: list[int], min_
                 for h in horizons:
                     r = metric_row(g, field, str(key), h, min_count, seed, n_boot)
                     r["analysis_name"] = "regime_liquidity_stratification"
+                    rows.append(r)
+            for (tier, value), g in scope.groupby([tier_col, field], dropna=False):
+                for h in horizons:
+                    r = metric_row(g, f"tier_x_{field}", f"{tier}|{value}", h, min_count, seed, n_boot)
+                    r["analysis_name"] = "regime_liquidity_stratification"
+                    r["tier"] = str(tier)
+                    r[field] = str(value)
                     rows.append(r)
     return pd.DataFrame(rows)
 
