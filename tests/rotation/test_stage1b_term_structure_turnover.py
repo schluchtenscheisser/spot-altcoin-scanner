@@ -288,3 +288,39 @@ def test_survivorship_small_cohort_below_min_count_has_no_ci(tmp_path):
     assert not small_age_rows.empty
     assert small_age_rows["bootstrap_ci_low"].isna().all()
     assert small_age_rows["bootstrap_ci_high"].isna().all()
+
+
+def test_survivorship_tail_contributors_use_positive_returns_only(tmp_path):
+    scope = pd.DataFrame({
+        "history_symbol": ["AAAUSDT", "AAAUSDT", "BBBUSDT", "CCCUSDT"],
+        "as_of_daily_bar_id": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+        "tier": ["confirmed"] * 4,
+        "available_history_days_1d_at_event": [10, 11, 12, 13],
+        "relative_log_return_10d": [10.0, -100.0, 9.0, 1.0],
+    })
+
+    table, meta = survivorship(scope, "tier", "confirmed", [10], 1, tmp_path, min_count=1, seed=12345, n_bootstrap=5)
+
+    assert meta["tail_contributor_symbols"] == ["AAAUSDT"]
+    assert meta["tail_contributor_status"] == "available"
+    tail = table[(table["analysis_name"] == "survivorship_recomputed_edge") & (table["segment_key"] == "exclude_top_1_contributors")].iloc[0]
+    assert tail["event_count"] == 2
+    assert tail["median_relative_log_return"] == pytest.approx(5.0)
+
+
+def test_survivorship_tail_contributors_empty_when_no_positive_edge(tmp_path):
+    scope = pd.DataFrame({
+        "history_symbol": ["AAAUSDT", "BBBUSDT", "CCCUSDT"],
+        "as_of_daily_bar_id": ["2026-01-01", "2026-01-02", "2026-01-03"],
+        "tier": ["confirmed"] * 3,
+        "available_history_days_1d_at_event": [10, 20, 30],
+        "relative_log_return_10d": [-1.0, -0.5, 0.0],
+    })
+
+    table, meta = survivorship(scope, "tier", "confirmed", [10], 2, tmp_path, min_count=1, seed=12345, n_bootstrap=5)
+
+    assert meta["tail_contributor_symbols"] == []
+    assert meta["tail_contributor_status"] == "not_applicable_no_positive_edge"
+    tail = table[(table["analysis_name"] == "survivorship_recomputed_edge") & (table["segment_key"] == "exclude_top_2_contributors")].iloc[0]
+    assert tail["event_count"] == 3
+    assert tail["tail_contributor_status"] == "not_applicable_no_positive_edge"

@@ -307,12 +307,15 @@ def survivorship(
     h = 10 if 10 in horizons else horizons[0]
     col = f"relative_log_return_{h}d"
     confirmed_df = d[d[tier_col] == confirmed]
-    contributors = confirmed_df.dropna(subset=[col]).groupby("history_symbol")[col].sum().sort_values(ascending=False)
+    confirmed_with_horizon = confirmed_df.dropna(subset=[col])
+    positive_confirmed = confirmed_with_horizon[confirmed_with_horizon[col] > 0]
+    contributors = positive_confirmed.groupby("history_symbol")[col].sum().sort_values(ascending=False)
     top = list(contributors.head(tail_n).index)
+    tail_status = "available" if top else "not_applicable_no_positive_edge"
     for key, g in [(f"exclude_top_{tail_n}_contributors", confirmed_df[~confirmed_df["history_symbol"].isin(top)]), ("exclude_youngest_cohort", confirmed_df[confirmed_df.get("age_cohort") != "youngest"] if avail else confirmed_df.iloc[0:0])]:
         for hh in horizons:
-            r = metric_row(g, "survivorship_recomputed", key, hh, min_count, seed, n_bootstrap); r["analysis_name"] = "survivorship_recomputed_edge"; rows.append(r)
-    meta = {"survivorship_age_proxy_available": bool(avail), "age_cohort_edges_days": edges, "tail_contributor_symbols": top, "delisting_status_available": False}
+            r = metric_row(g, "survivorship_recomputed", key, hh, min_count, seed, n_bootstrap); r["analysis_name"] = "survivorship_recomputed_edge"; r["tail_contributor_status"] = tail_status if key.startswith("exclude_top_") else None; rows.append(r)
+    meta = {"survivorship_age_proxy_available": bool(avail), "age_cohort_edges_days": edges, "tail_contributor_symbols": top, "tail_contributor_status": tail_status, "delisting_status_available": False}
     return pd.DataFrame(rows), meta
 
 
