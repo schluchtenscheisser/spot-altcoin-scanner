@@ -3,7 +3,7 @@
 ## Metadata
 - Ticket ID: ROTATION-STAGE1B
 - Title: Term-Structure, Persistence, Turnover & Survivorship Diagnostics on Stage-1 Outputs
-- Status: Draft — codex-ready pending final adversarial sign-off
+- Status: archived - codex has already implemented this ticket.
 - Priority: P2 (side project)
 - Language: implementation and artifacts in English
 - Depends on: ROTATION-STAGE1 (merged), Stage-1 Decision Note v1
