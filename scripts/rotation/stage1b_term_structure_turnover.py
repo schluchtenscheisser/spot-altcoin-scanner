@@ -7,7 +7,6 @@ import json
 import math
 import socket
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -435,7 +434,11 @@ def _run_impl(argv: list[str] | None = None) -> int:
             raise ProbeError(f"non-diagnostic analysis_role in {name}")
     assess = diagnostic_assessment(tables["cost_break_even"], tables["turnover_signal_frequency"])
     if assess not in ASSESSMENTS: raise ProbeError("invalid diagnostic assessment")
-    summary = {"analysis_role": "diagnostic", "diagnostic_assessment": assess, "created_at_utc": datetime.now(timezone.utc).isoformat(), "inputs": {"stage1_root": str(a.stage1_root), "events": str(a.events), "history_root": str(a.history_root), "stage1_manifest_run_id": manifest.get("run_id")}, "cost_context": {"cost_log_low": low, "cost_log_high": high}, "validation": {"relative_return_unavailable_by_horizon": unavailable, "missing_price_history_count": missing_hist}, "survivorship": surv_meta, "non_goals": NON_GOALS, "oos_requirement_specified_not_executed": True}
+    inputs = {"stage1_root": str(a.stage1_root), "events": str(a.events), "history_root": str(a.history_root), "stage1_manifest_run_id": manifest.get("run_id")}
+    for source_key in ["created_at_utc", "output_schema_version"]:
+        if manifest.get(source_key) is not None:
+            inputs[f"source_stage1_{source_key}"] = manifest.get(source_key)
+    summary = {"analysis_role": "diagnostic", "diagnostic_assessment": assess, "inputs": inputs, "cost_context": {"cost_log_low": low, "cost_log_high": high}, "validation": {"relative_return_unavailable_by_horizon": unavailable, "missing_price_history_count": missing_hist}, "survivorship": surv_meta, "non_goals": NON_GOALS, "oos_requirement_specified_not_executed": True}
     write_outputs(Path(a.output_root) / a.replay_id, tables, summary)
     print(f"wrote {Path(a.output_root) / a.replay_id}")
     return 0

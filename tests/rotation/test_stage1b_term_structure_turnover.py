@@ -33,7 +33,7 @@ def fixture(tmp_path, include_age=True):
     stage1.mkdir()
     pd.DataFrame({"analysis_role": ["primary"], "horizon": [10]}).to_parquet(stage1 / "segment_relative_returns.parquet")
     (stage1 / "btc_relative_edge_probe.json").write_text(json.dumps({"cost_context": {"cost_log_low": 0.003, "cost_log_high": 0.008}}))
-    (stage1 / "probe_manifest.json").write_text(json.dumps({"run_id": "r"}))
+    (stage1 / "probe_manifest.json").write_text(json.dumps({"run_id": "r", "created_at_utc": "2026-05-24T21:27:31Z", "output_schema_version": "rotation_stage1_v1"}))
     hist = tmp_path / "hist"
     dates = pd.date_range("2026-01-01", periods=35, freq="D").strftime("%Y-%m-%d")
     write_hist(hist, "BTCUSDT", {d: 100 + i for i, d in enumerate(dates)})
@@ -151,16 +151,20 @@ def test_no_pnl_equity_artifact_and_assessment_enum_and_roles(tmp_path):
             assert set(df["analysis_role"]) == {"diagnostic"}
 
 
-def test_deterministic_output_except_created_timestamp(tmp_path):
+def test_deterministic_output_json_has_no_generated_timestamp(tmp_path):
     stage1, hist, events = fixture(tmp_path)
     out1, out2 = tmp_path / "o1", tmp_path / "o2"
     args = ["--stage1-root", str(stage1), "--events", str(events), "--history-root", str(hist), "--n-bootstrap", "5", "--min-count", "1"]
     run(args + ["--output-root", str(out1)])
     run(args + ["--output-root", str(out2)])
-    a = json.loads((out1 / "2026-05-24T21-27-31Z" / "term_structure_turnover_diagnostics.json").read_text())
-    b = json.loads((out2 / "2026-05-24T21-27-31Z" / "term_structure_turnover_diagnostics.json").read_text())
-    a.pop("created_at_utc"); b.pop("created_at_utc")
-    assert a == b
+    raw_a = (out1 / "2026-05-24T21-27-31Z" / "term_structure_turnover_diagnostics.json").read_text()
+    raw_b = (out2 / "2026-05-24T21-27-31Z" / "term_structure_turnover_diagnostics.json").read_text()
+    assert raw_a == raw_b
+    summary = json.loads(raw_a)
+    assert "created_at_utc" not in summary
+    assert "generated_at_utc" not in summary
+    assert summary["inputs"]["source_stage1_created_at_utc"] == "2026-05-24T21:27:31Z"
+    assert summary["inputs"]["source_stage1_output_schema_version"] == "rotation_stage1_v1"
 
 
 def test_persistence_sign_transition_rates_fixture():
