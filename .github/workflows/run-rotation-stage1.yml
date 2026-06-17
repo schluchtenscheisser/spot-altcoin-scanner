@@ -1,4 +1,4 @@
-name: Rotation Stage-1 — BTC-Relative Edge Probe
+name: Rotation Stage-1 + Stage-1b Diagnostics
 
 on:
   workflow_dispatch:
@@ -164,6 +164,63 @@ jobs:
             --min-qualifying-dates "$MIN_QUALIFYING_DATES" \
             --primary-horizon 10
 
+      - name: Run Stage-1b term-structure turnover diagnostics
+        env:
+          DATASET_PATH: ${{ inputs.dataset_path }}
+          REPLAY_ID: ${{ inputs.replay_id }}
+          BENCHMARK_SYMBOL: ${{ inputs.benchmark_symbol }}
+          N_BOOTSTRAP: ${{ inputs.n_bootstrap }}
+          MIN_COUNT: ${{ inputs.min_count }}
+        run: |
+          python scripts/rotation/stage1b_term_structure_turnover.py \
+            --stage1-root "evaluation/rotation/stage1/${REPLAY_ID}" \
+            --events "$DATASET_PATH" \
+            --history-root snapshots/history/ohlcv \
+            --output-root evaluation/rotation/stage1b \
+            --replay-id "$REPLAY_ID" \
+            --benchmark-symbol "$BENCHMARK_SYMBOL" \
+            --n-bootstrap "$N_BOOTSTRAP" \
+            --min-count "$MIN_COUNT" \
+            --tail-contributor-count 5
+
+      - name: Print Stage-1b summary
+        if: success()
+        env:
+          REPLAY_ID: ${{ inputs.replay_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          base = f"evaluation/rotation/stage1b/{os.environ['REPLAY_ID']}"
+
+          def load(p):
+              try:
+                  with open(p, encoding="utf-8") as f:
+                      return json.load(f)
+              except Exception as e:
+                  print(f"(could not read {p}: {e})")
+                  return {}
+
+          d = load(f"{base}/term_structure_turnover_diagnostics.json")
+
+          def nested(obj, path, default="n/a"):
+              cur = obj
+              for key in path:
+                  if not isinstance(cur, dict) or key not in cur:
+                      return default
+                  cur = cur[key]
+              return cur
+
+          print("diagnostic_assessment           :", nested(d, ["diagnostic_assessment"]))
+          print("survivorship_age_proxy_available:", nested(d, ["survivorship", "survivorship_age_proxy_available"]))
+          print("delisting_status_available      :", nested(d, ["survivorship", "delisting_status_available"]))
+          print("tail_contributor_status         :", nested(d, ["survivorship", "tail_contributor_status"]))
+          print("tail_contributor_symbols        :", nested(d, ["survivorship", "tail_contributor_symbols"]))
+          print("oos_requirement_specified       :", nested(d, ["oos_requirement_specified_not_executed"]))
+          print("output_dir                      :", base)
+          PY
+
       - name: Print Stage-1 summary
         if: success()
         env:
@@ -196,7 +253,17 @@ jobs:
           print("missing_price_history_count    :", nested(man, ["validation", "missing_price_history_count"]))
           print("concentration_share_top_5      :", nested(probe, ["concentration_share_top_5_symbols"]))
           print("edge_sign_stable_excluding_top5:", nested(probe, ["edge_sign_stable_excluding_top5"]))
+          print("primary_spread_median          :", nested(probe, ["primary", "primary_spread_median"]))
+          print("primary_spread_ci_low          :", nested(probe, ["primary", "primary_spread_ci_low"]))
+          print("primary_spread_ci_high         :", nested(probe, ["primary", "primary_spread_ci_high"]))
+          print("qualifying_date_count          :", nested(probe, ["primary", "qualifying_date_count"]))
+          print("raw_confirmed_median_relative_log_return:", nested(probe, ["primary", "raw_confirmed_median_relative_log_return"]))
+          print("cost_log_high                  :", nested(probe, ["cost_context", "cost_log_high"]))
+          print("output_schema_version          :", nested(probe, ["output_schema_version"]))
           PY
+          sha256sum "evaluation/rotation/stage1/${REPLAY_ID}/btc_relative_edge_probe.json" || true
+          sha256sum "evaluation/rotation/stage1/${REPLAY_ID}/probe_manifest.json" || true
+          sha256sum "evaluation/rotation/stage1/${REPLAY_ID}/segment_relative_returns.parquet" || true
 
       - name: Prepare artifact name
         id: artifact_name
@@ -216,8 +283,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rotation-stage1-${{ steps.artifact_name.outputs.replay_id_safe }}
+          name: rotation-stage1-stage1b-${{ steps.artifact_name.outputs.replay_id_safe }}
           path: |
             evaluation/rotation/stage1/**
+            evaluation/rotation/stage1b/**
           retention-days: 90
           if-no-files-found: warn
