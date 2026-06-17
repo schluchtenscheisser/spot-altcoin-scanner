@@ -1,4 +1,5 @@
 import json
+import socket
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +17,7 @@ from scripts.rotation.stage1b_term_structure_turnover import (
     turnover,
     survivorship,
     validate_machine_output,
+    write_outputs,
 )
 
 
@@ -219,3 +221,23 @@ def test_persistence_without_early_tier_reports_confirmed_and_availability_note(
     assert "confirmed" in set(out["segment_key"])
     note = out[out["analysis_name"] == "persistence_tier_availability"].iloc[0]
     assert note["early_tier_available"] is False
+
+
+def test_run_restores_socket_create_connection_after_probe_error(tmp_path):
+    original = socket.create_connection
+    with pytest.raises(ProbeError):
+        run(["--stage1-root", str(tmp_path / "missing_stage1")])
+    assert socket.create_connection is original
+
+
+def test_machine_output_dataframe_forbidden_value_fails_before_writes(tmp_path):
+    out = tmp_path / "out"
+    tables = {"bad": pd.DataFrame({"analysis_role": ["diagnostic"], "segment_key": ["approved"]})}
+    summary = {"analysis_role": "diagnostic", "diagnostic_assessment": "compatible_evidence_absent"}
+    with pytest.raises(ProbeError, match="table value"):
+        write_outputs(out, tables, summary)
+    assert not out.exists()
+
+
+def test_machine_output_dataframe_benign_explanatory_phrase_allowed(tmp_path):
+    validate_machine_output(pd.DataFrame({"analysis_role": ["diagnostic"], "note": ["not a realized trade count"]}), context="table.benign")

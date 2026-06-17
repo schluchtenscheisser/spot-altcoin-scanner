@@ -306,18 +306,45 @@ def survivorship(scope: pd.DataFrame, tier_col: str, confirmed: str, horizons: l
     return pd.DataFrame(rows), meta
 
 
-def validate_machine_output(obj: Any) -> None:
-    def walk(x: Any, key: str | None = None):
-        if key and key in FORBIDDEN_MACHINE_TOKENS:
-            raise ProbeError(f"forbidden machine-readable key emitted: {key}")
-        if isinstance(x, str) and x in FORBIDDEN_MACHINE_TOKENS:
-            raise ProbeError(f"forbidden machine-readable value emitted: {x}")
+def _forbidden_token(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = norm_label(value)
+    return normalized if normalized in FORBIDDEN_MACHINE_TOKENS else None
+
+
+def validate_machine_output(obj: Any, context: str = "machine_output") -> None:
+    def fail(kind: str, token: str, where: str, value: Any) -> None:
+        raise ProbeError(f"forbidden machine-readable {kind} in {where}: token={token!r}, value={value!r}")
+
+    def walk(x: Any, where: str) -> None:
+        if isinstance(x, pd.DataFrame):
+            for column in x.columns:
+                token = _forbidden_token(str(column))
+                if token:
+                    fail("column", token, f"{where}.{column}", column)
+                if pd.api.types.is_object_dtype(x[column]) or pd.api.types.is_string_dtype(x[column]) or isinstance(x[column].dtype, pd.CategoricalDtype):
+                    for value in x[column].dropna().unique():
+                        token = _forbidden_token(str(value))
+                        if token:
+                            fail("table value", token, f"{where}.{column}", value)
+            return
         if isinstance(x, dict):
             for k, v in x.items():
-                walk(v, str(k))
-        elif isinstance(x, list):
-            for v in x: walk(v)
-    walk(obj)
+                token = _forbidden_token(str(k))
+                if token:
+                    fail("key", token, f"{where}.{k}", k)
+                walk(v, f"{where}.{k}")
+            return
+        if isinstance(x, list):
+            for idx, v in enumerate(x):
+                walk(v, f"{where}[{idx}]")
+            return
+        token = _forbidden_token(str(x)) if isinstance(x, str) else None
+        if token:
+            fail("value", token, where, x)
+
+    walk(obj, context)
 
 
 def diagnostic_assessment(cost_df: pd.DataFrame, turn_df: pd.DataFrame) -> str:
@@ -347,11 +374,13 @@ def diagnostic_assessment(cost_df: pd.DataFrame, turn_df: pd.DataFrame) -> str:
 
 
 def write_outputs(out: Path, tables: dict[str, pd.DataFrame], summary: dict[str, Any]) -> None:
+    validate_machine_output(summary, context="summary")
+    for name, df in tables.items():
+        validate_machine_output(df, context=f"table.{name}")
     out.mkdir(parents=True, exist_ok=True)
     for name, df in tables.items():
         df.to_parquet(out / f"{name}.parquet", index=False)
         df.to_csv(out / f"{name}.csv", index=False)
-    validate_machine_output(summary)
     (out / "term_structure_turnover_diagnostics.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     non_goals = "\n".join(f"- {x}" for x in NON_GOALS)
     (out / "term_structure_turnover_diagnostics.md").write_text(
@@ -360,10 +389,8 @@ def write_outputs(out: Path, tables: dict[str, pd.DataFrame], summary: dict[str,
     )
 
 
-def run(argv: list[str] | None = None) -> int:
+def _run_impl(argv: list[str] | None = None) -> int:
     a = parse_args(argv)
-    # No network: fail if code under test tries direct socket use after this point.
-    socket.create_connection = lambda *args, **kwargs: (_ for _ in ()).throw(ProbeError("network access disabled for Stage-1b"))  # type: ignore[assignment]
     horizons = horizons_from_arg(a.horizons)
     if a.primary_reference_horizon_days != 10:
         raise ProbeError("primary reference horizon is fixed at 10 days")
@@ -400,6 +427,19 @@ def run(argv: list[str] | None = None) -> int:
     print(f"wrote {Path(a.output_root) / a.replay_id}")
     return 0
 
+
+
+def run(argv: list[str] | None = None) -> int:
+    original_create_connection = socket.create_connection
+
+    def _blocked_create_connection(*args: Any, **kwargs: Any):
+        raise ProbeError("network access disabled for Stage-1b")
+
+    socket.create_connection = _blocked_create_connection
+    try:
+        return _run_impl(argv)
+    finally:
+        socket.create_connection = original_create_connection
 
 def main() -> None:
     try:
