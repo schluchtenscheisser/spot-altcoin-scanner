@@ -287,13 +287,23 @@ def assign_age(scope: pd.DataFrame, root: Path) -> tuple[pd.DataFrame, bool, lis
     return d, True, edges
 
 
-def survivorship(scope: pd.DataFrame, tier_col: str, confirmed: str, horizons: list[int], tail_n: int, root: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
+def survivorship(
+    scope: pd.DataFrame,
+    tier_col: str,
+    confirmed: str,
+    horizons: list[int],
+    tail_n: int,
+    root: Path,
+    min_count: int,
+    seed: int,
+    n_bootstrap: int,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     d, avail, edges = assign_age(scope, root)
     rows = []
     if avail:
         for cohort, g in d[(d[tier_col] == confirmed)].groupby("age_cohort", dropna=False):
             for h in horizons:
-                r = metric_row(g, "age_cohort", str(cohort), h, 1, 12345, 20); r["analysis_name"] = "survivorship_age_stratification"; rows.append(r)
+                r = metric_row(g, "age_cohort", str(cohort), h, min_count, seed, n_bootstrap); r["analysis_name"] = "survivorship_age_stratification"; rows.append(r)
     h = 10 if 10 in horizons else horizons[0]
     col = f"relative_log_return_{h}d"
     confirmed_df = d[d[tier_col] == confirmed]
@@ -301,7 +311,7 @@ def survivorship(scope: pd.DataFrame, tier_col: str, confirmed: str, horizons: l
     top = list(contributors.head(tail_n).index)
     for key, g in [(f"exclude_top_{tail_n}_contributors", confirmed_df[~confirmed_df["history_symbol"].isin(top)]), ("exclude_youngest_cohort", confirmed_df[confirmed_df.get("age_cohort") != "youngest"] if avail else confirmed_df.iloc[0:0])]:
         for hh in horizons:
-            r = metric_row(g, "survivorship_recomputed", key, hh, 1, 12345, 20); r["analysis_name"] = "survivorship_recomputed_edge"; rows.append(r)
+            r = metric_row(g, "survivorship_recomputed", key, hh, min_count, seed, n_bootstrap); r["analysis_name"] = "survivorship_recomputed_edge"; rows.append(r)
     meta = {"survivorship_age_proxy_available": bool(avail), "age_cohort_edges_days": edges, "tail_contributor_symbols": top, "delisting_status_available": False}
     return pd.DataFrame(rows), meta
 
@@ -416,7 +426,7 @@ def _run_impl(argv: list[str] | None = None) -> int:
         "turnover_signal_frequency": turnover(scope, tier_col, conf),
         "same_date_coverage": same_date(scope, tier_col, conf, watch),
     }
-    surv, surv_meta = survivorship(scope, tier_col, conf, horizons, a.tail_contributor_count, Path(a.history_root)); tables["survivorship"] = surv
+    surv, surv_meta = survivorship(scope, tier_col, conf, horizons, a.tail_contributor_count, Path(a.history_root), a.min_count, a.seed, a.n_bootstrap); tables["survivorship"] = surv
     for name, table in tables.items():
         if not table.empty and "analysis_role" in table.columns and not (table["analysis_role"] == "diagnostic").all():
             raise ProbeError(f"non-diagnostic analysis_role in {name}")

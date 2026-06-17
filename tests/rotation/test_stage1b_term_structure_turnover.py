@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from scripts.rotation.btc_relative_edge_probe import ProbeError
+import scripts.rotation.stage1b_term_structure_turnover as stage1b
 from scripts.rotation.stage1b_term_structure_turnover import (
     ASSESSMENTS,
     cost_break_even,
@@ -80,7 +81,7 @@ def test_age_proxy_unavailable_reports_false_without_crash(tmp_path):
     stage1, hist, events = fixture(tmp_path, include_age=False)
     empty_hist = tmp_path / "empty_hist"; (empty_hist / "timeframe=1d").mkdir(parents=True)
     scope = pd.DataFrame({"history_symbol": ["AAAUSDT"], "as_of_daily_bar_id": ["2026-01-01"], "historical_signal_bucket": ["confirmed ready"], "relative_log_return_10d": [0.1]})
-    table, meta = survivorship(scope, "historical_signal_bucket", "confirmed ready", [10], 5, empty_hist)
+    table, meta = survivorship(scope, "historical_signal_bucket", "confirmed ready", [10], 5, empty_hist, 1, 12345, 20)
     assert meta["survivorship_age_proxy_available"] is False
     assert not table.empty
 
@@ -173,7 +174,7 @@ def test_tail_and_youngest_edges_recomputed_not_subtracted(tmp_path):
     hist = tmp_path / "hist"
     write_hist(hist, "AAAUSDT", {"2026-01-01": 1, "2026-01-11": 2})
     scope = pd.DataFrame({"history_symbol": ["AAAUSDT", "BBBUSDT", "CCCUSDT"], "as_of_daily_bar_id": ["2026-01-01"] * 3, "tier": ["confirmed"] * 3, "available_history_days_1d_at_event": [1, 50, 100], "relative_log_return_10d": [10.0, 2.0, 4.0]})
-    table, meta = survivorship(scope, "tier", "confirmed", [10], 1, hist)
+    table, meta = survivorship(scope, "tier", "confirmed", [10], 1, hist, 1, 12345, 20)
     tail = table[(table["analysis_name"] == "survivorship_recomputed_edge") & (table["segment_key"] == "exclude_top_1_contributors")].iloc[0]
     assert tail["median_relative_log_return"] == pytest.approx(3.0)
     young = table[(table["analysis_name"] == "survivorship_recomputed_edge") & (table["segment_key"] == "exclude_youngest_cohort")].iloc[0]
@@ -241,3 +242,49 @@ def test_machine_output_dataframe_forbidden_value_fails_before_writes(tmp_path):
 
 def test_machine_output_dataframe_benign_explanatory_phrase_allowed(tmp_path):
     validate_machine_output(pd.DataFrame({"analysis_role": ["diagnostic"], "note": ["not a realized trade count"]}), context="table.benign")
+
+
+def test_survivorship_passes_configured_metric_parameters(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_metric_row(frame, group, key, horizon, min_count, seed, n_bootstrap):
+        calls.append((group, key, horizon, min_count, seed, n_bootstrap))
+        return {
+            "analysis_role": "diagnostic",
+            "analysis_name": "stub",
+            "segment_group": group,
+            "segment_key": str(key),
+            "horizon_days": horizon,
+            "event_count": len(frame),
+        }
+
+    monkeypatch.setattr(stage1b, "metric_row", fake_metric_row)
+    scope = pd.DataFrame({
+        "history_symbol": ["AAAUSDT", "BBBUSDT", "CCCUSDT"],
+        "as_of_daily_bar_id": ["2026-01-01"] * 3,
+        "tier": ["confirmed"] * 3,
+        "available_history_days_1d_at_event": [1, 50, 100],
+        "relative_log_return_10d": [10.0, 2.0, 4.0],
+    })
+
+    stage1b.survivorship(scope, "tier", "confirmed", [10], 1, tmp_path, min_count=7, seed=99, n_bootstrap=123)
+
+    assert calls
+    assert {call[0] for call in calls} >= {"age_cohort", "survivorship_recomputed"}
+    assert all(call[3:] == (7, 99, 123) for call in calls)
+
+
+def test_survivorship_small_cohort_below_min_count_has_no_ci(tmp_path):
+    scope = pd.DataFrame({
+        "history_symbol": ["AAAUSDT", "BBBUSDT", "CCCUSDT"],
+        "as_of_daily_bar_id": ["2026-01-01"] * 3,
+        "tier": ["confirmed"] * 3,
+        "available_history_days_1d_at_event": [1, 50, 100],
+        "relative_log_return_10d": [0.10, 0.20, 0.30],
+    })
+    table, _ = survivorship(scope, "tier", "confirmed", [10], 1, tmp_path, min_count=2, seed=77, n_bootstrap=10)
+    age_rows = table[table["analysis_name"] == "survivorship_age_stratification"]
+    small_age_rows = age_rows[age_rows["event_count"] < 2]
+    assert not small_age_rows.empty
+    assert small_age_rows["bootstrap_ci_low"].isna().all()
+    assert small_age_rows["bootstrap_ci_high"].isna().all()
