@@ -8,8 +8,10 @@ from scripts.rotation.btc_relative_edge_probe import ProbeError
 from scripts.rotation.stage1b_term_structure_turnover import (
     ASSESSMENTS,
     cost_break_even,
+    diagnostic_assessment,
     persistence,
     run,
+    turnover,
     survivorship,
     validate_machine_output,
 )
@@ -124,8 +126,8 @@ def test_deterministic_output_except_created_timestamp(tmp_path):
 
 def test_persistence_sign_transition_rates_fixture():
     scope = pd.DataFrame({"tier": ["confirmed"] * 4, "relative_log_return_1d": [1, 1, -1, -1], "relative_log_return_3d": [1, -1, 1, -1], "relative_log_return_10d": [1, -1, 1, -1], "relative_log_return_20d": [-1, -1, 1, 1]})
-    out = persistence(scope, "tier", "confirmed")
-    row = out[(out["analysis_name"] == "persistence_sign_transition") & (out["transition"] == "1d_to_10d") & (out["source_sign"] == "positive") & (out["destination_sign"] == "positive")].iloc[0]
+    out = persistence(scope, "tier", ["confirmed"])
+    row = out[(out["analysis_name"] == "persistence_sign_transition") & (out["segment_key"] == "confirmed") & (out["transition"] == "1d_to_10d") & (out["source_sign"] == "positive") & (out["destination_sign"] == "positive")].iloc[0]
     assert row["rate"] == pytest.approx(0.5)
 
 
@@ -138,3 +140,46 @@ def test_tail_and_youngest_edges_recomputed_not_subtracted(tmp_path):
     assert tail["median_relative_log_return"] == pytest.approx(3.0)
     young = table[(table["analysis_name"] == "survivorship_recomputed_edge") & (table["segment_key"] == "exclude_youngest_cohort")].iloc[0]
     assert young["event_count"] == 2
+
+
+def test_turnover_assessment_does_not_treat_missing_symbol_gap_as_promising():
+    scope = pd.DataFrame({
+        "tier": ["confirmed"] * 5,
+        "history_symbol": [f"SYM{i}USDT" for i in range(5)],
+        "as_of_daily_bar_id": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"],
+    })
+    turn = turnover(scope, "tier", "confirmed")
+    assert pd.isna(turn.iloc[0]["median_inter_signal_gap_days"])
+    assert turn.iloc[0]["universe_median_inter_signal_gap_days"] == pytest.approx(1.0)
+    assert turn.iloc[0]["unique_signal_date_count"] == 5
+    assert turn.iloc[0]["confirmed_event_count"] == 5
+    cost = pd.DataFrame({"horizon_days": [10], "one_roundtrip_net_high": [0.05]})
+    assert diagnostic_assessment(cost, turn) != "compatible_evidence_promising_but_oos_required"
+
+
+def test_persistence_includes_confirmed_and_early_tiers_with_explicit_keys():
+    scope = pd.DataFrame({
+        "tier": ["confirmed_candidates", "confirmed_candidates", "early_candidates", "early_candidates"],
+        "relative_log_return_1d": [1, -1, 1, -1],
+        "relative_log_return_3d": [1, -1, -1, 1],
+        "relative_log_return_10d": [1, -1, -1, 1],
+        "relative_log_return_20d": [1, -1, 1, -1],
+    })
+    out = persistence(scope, "tier", ["confirmed_candidates", "early_candidates"])
+    transition_rows = out[out["analysis_name"] == "persistence_sign_transition"]
+    assert {"confirmed_candidates", "early_candidates"} <= set(transition_rows["segment_key"])
+    assert set(transition_rows["segment_group"]) == {"tier"}
+
+
+def test_persistence_without_early_tier_reports_confirmed_and_availability_note():
+    scope = pd.DataFrame({
+        "tier": ["confirmed"] * 2,
+        "relative_log_return_1d": [1, -1],
+        "relative_log_return_3d": [1, -1],
+        "relative_log_return_10d": [1, -1],
+        "relative_log_return_20d": [1, -1],
+    })
+    out = persistence(scope, "tier", ["confirmed"])
+    assert "confirmed" in set(out["segment_key"])
+    note = out[out["analysis_name"] == "persistence_tier_availability"].iloc[0]
+    assert note["early_tier_available"] is False

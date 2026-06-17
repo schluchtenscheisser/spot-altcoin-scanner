@@ -25,6 +25,7 @@ from scripts.rotation.btc_relative_edge_probe import (
     bootstrap_ci_by_week,
     load_close_series,
     map_tiers,
+    norm_label,
     resolve_history_symbols,
     symbol_column,
 )
@@ -155,19 +156,36 @@ def term_structure(scope: pd.DataFrame, tier_col: str, horizons: list[int], min_
     return pd.DataFrame(rows)
 
 
-def persistence(scope: pd.DataFrame, tier_col: str, confirmed: str) -> pd.DataFrame:
-    d = scope[scope[tier_col] == confirmed].copy()
+def persistence_target_tiers(scope: pd.DataFrame, tier_col: str, confirmed: str) -> tuple[list[str], bool]:
+    observed = [str(x) for x in scope[tier_col].dropna().unique()] if tier_col in scope.columns else []
+    early = sorted(tier for tier in observed if "early" in norm_label(tier))
+    tiers = []
+    if confirmed in observed:
+        tiers.append(confirmed)
+    for tier in early:
+        if tier not in tiers:
+            tiers.append(tier)
+    return tiers, bool(early)
+
+
+def persistence(scope: pd.DataFrame, tier_col: str, target_tiers: list[str]) -> pd.DataFrame:
     rows = []
-    for src, dst in [(1, 10), (3, 10), (10, 20)]:
-        a, b = f"relative_log_return_{src}d", f"relative_log_return_{dst}d"
-        e = d.dropna(subset=[a, b])
-        pos = e[e[a] > 0]
-        for sk, dk in [("positive", "positive"), ("positive", "non_positive"), ("non_positive", "positive"), ("non_positive", "non_positive")]:
-            mask_src = e[a] > 0 if sk == "positive" else e[a] <= 0
-            mask_dst = e[b] > 0 if dk == "positive" else e[b] <= 0
-            denom = int(mask_src.sum())
-            rows.append({"analysis_role": "diagnostic", "analysis_name": "persistence_sign_transition", "transition": f"{src}d_to_{dst}d", "source_sign": sk, "destination_sign": dk, "event_count": int((mask_src & mask_dst).sum()), "source_count": denom, "rate": float(((mask_src & mask_dst).sum() / denom)) if denom else None})
-        rows.append({"analysis_role": "diagnostic", "analysis_name": "persistence_positive_carry", "transition": f"{src}d_to_{dst}d", "source_sign": "positive", "destination_sign": "positive", "event_count": int(((pos[b] > 0)).sum()), "source_count": int(len(pos)), "rate": float((pos[b] > 0).mean()) if len(pos) else None})
+    observed = {str(x) for x in scope[tier_col].dropna().unique()} if tier_col in scope.columns else set()
+    early_available = any("early" in norm_label(tier) for tier in observed)
+    for tier in target_tiers:
+        d = scope[scope[tier_col] == tier].copy()
+        for src, dst in [(1, 10), (3, 10), (10, 20)]:
+            a, b = f"relative_log_return_{src}d", f"relative_log_return_{dst}d"
+            e = d.dropna(subset=[a, b])
+            pos = e[e[a] > 0]
+            for sk, dk in [("positive", "positive"), ("positive", "non_positive"), ("non_positive", "positive"), ("non_positive", "non_positive")]:
+                mask_src = e[a] > 0 if sk == "positive" else e[a] <= 0
+                mask_dst = e[b] > 0 if dk == "positive" else e[b] <= 0
+                denom = int(mask_src.sum())
+                rows.append({"analysis_role": "diagnostic", "analysis_name": "persistence_sign_transition", "segment_group": "tier", "segment_key": str(tier), "transition": f"{src}d_to_{dst}d", "source_sign": sk, "destination_sign": dk, "event_count": int((mask_src & mask_dst).sum()), "source_count": denom, "rate": float(((mask_src & mask_dst).sum() / denom)) if denom else None})
+            rows.append({"analysis_role": "diagnostic", "analysis_name": "persistence_positive_carry", "segment_group": "tier", "segment_key": str(tier), "transition": f"{src}d_to_{dst}d", "source_sign": "positive", "destination_sign": "positive", "event_count": int(((pos[b] > 0)).sum()), "source_count": int(len(pos)), "rate": float((pos[b] > 0).mean()) if len(pos) else None})
+    if not early_available:
+        rows.append({"analysis_role": "diagnostic", "analysis_name": "persistence_tier_availability", "segment_group": "tier", "segment_key": "early", "early_tier_available": False, "event_count": 0, "note": "early tier unavailable; confirmed persistence reported"})
     return pd.DataFrame(rows)
 
 
@@ -183,14 +201,31 @@ def cost_break_even(scope: pd.DataFrame, tier_col: str, confirmed: str, horizons
 
 def turnover(scope: pd.DataFrame, tier_col: str, confirmed: str) -> pd.DataFrame:
     d = scope[scope[tier_col] == confirmed].copy()
-    d["week"] = pd.to_datetime(d["as_of_daily_bar_id"]).dt.strftime("%G-%V")
+    d["signal_date"] = pd.to_datetime(d["as_of_daily_bar_id"], errors="coerce")
+    d = d.dropna(subset=["signal_date"])
+    d["week"] = d["signal_date"].dt.strftime("%G-%V")
     by_sym_week = d.groupby(["history_symbol", "week"]).size()
     by_week = d.groupby("week").size()
-    gaps = []
-    for _, g in d.sort_values("as_of_daily_bar_id").groupby("history_symbol"):
-        days = pd.to_datetime(g["as_of_daily_bar_id"]).sort_values()
-        gaps += [float(x) for x in days.diff().dt.days.dropna().tolist()]
-    return pd.DataFrame([{"analysis_role": "diagnostic", "analysis_name": "turnover_signal_frequency_proxy", "events_per_symbol_week_median": float(by_sym_week.median()) if len(by_sym_week) else None, "events_per_symbol_week_p75": float(by_sym_week.quantile(.75)) if len(by_sym_week) else None, "universe_events_per_week_median": float(by_week.median()) if len(by_week) else None, "median_inter_signal_gap_days": float(np.median(gaps)) if gaps else None}])
+    per_symbol_gaps = []
+    for _, g in d.sort_values("signal_date").groupby("history_symbol"):
+        days = g["signal_date"].sort_values()
+        per_symbol_gaps += [float(x) for x in days.diff().dt.days.dropna().tolist()]
+    unique_dates = pd.Series(d["signal_date"].dt.normalize().drop_duplicates()).sort_values()
+    unique_gaps = unique_dates.diff().dt.days.dropna().astype(float).tolist()
+    all_dates = d["signal_date"].dt.normalize().sort_values()
+    all_event_gaps = all_dates.diff().dt.days.dropna().astype(float).tolist()
+    return pd.DataFrame([{
+        "analysis_role": "diagnostic",
+        "analysis_name": "turnover_signal_frequency_proxy",
+        "events_per_symbol_week_median": float(by_sym_week.median()) if len(by_sym_week) else None,
+        "events_per_symbol_week_p75": float(by_sym_week.quantile(.75)) if len(by_sym_week) else None,
+        "universe_events_per_week_median": float(by_week.median()) if len(by_week) else None,
+        "median_inter_signal_gap_days": float(np.median(per_symbol_gaps)) if per_symbol_gaps else None,
+        "universe_median_inter_signal_gap_days": float(np.median(unique_gaps)) if unique_gaps else None,
+        "universe_median_inter_event_gap_days_all_events": float(np.median(all_event_gaps)) if all_event_gaps else None,
+        "unique_signal_date_count": int(len(unique_dates)),
+        "confirmed_event_count": int(len(d)),
+    }])
 
 
 def same_date(scope: pd.DataFrame, tier_col: str, confirmed: str, watch: str) -> pd.DataFrame:
@@ -276,9 +311,24 @@ def validate_machine_output(obj: Any) -> None:
 def diagnostic_assessment(cost_df: pd.DataFrame, turn_df: pd.DataFrame) -> str:
     one = cost_df[cost_df["horizon_days"].isin([1, 3])]["one_roundtrip_net_high"].dropna()
     ten = cost_df[cost_df["horizon_days"] == 10]["one_roundtrip_net_high"].dropna()
-    low_turnover_gap = turn_df["median_inter_signal_gap_days"].iloc[0]
-    if len(ten) and (ten > 0).any() and (pd.isna(low_turnover_gap) or low_turnover_gap >= 10):
+    row = turn_df.iloc[0] if not turn_df.empty else pd.Series(dtype=float)
+    per_symbol_gap = row.get("median_inter_signal_gap_days")
+    universe_gap = row.get("universe_median_inter_signal_gap_days")
+    universe_weekly = row.get("universe_events_per_week_median")
+    turnover_evidence_available = all(pd.notna(x) for x in [per_symbol_gap, universe_gap, universe_weekly])
+    turnover_compatible = bool(
+        turnover_evidence_available
+        and float(per_symbol_gap) >= 10
+        and float(universe_gap) >= 10
+        and float(universe_weekly) <= 1
+    )
+    ten_positive = bool(len(ten) and (ten > 0).any())
+    if ten_positive and turnover_compatible:
         return "compatible_evidence_promising_but_oos_required"
+    if ten_positive and not turnover_evidence_available:
+        return "compatible_evidence_inconclusive"
+    if ten_positive:
+        return "compatible_evidence_weak"
     if len(one) and (one > 0).any():
         return "compatible_evidence_weak"
     return "compatible_evidence_absent"
@@ -322,7 +372,7 @@ def run(argv: list[str] | None = None) -> int:
     tier_col, conf, watch = tier["source"], tier["confirmed_tier"], tier["watch_tier"]
     tables = {
         "term_structure": term_structure(scope, tier_col, horizons, a.min_count, a.seed, a.n_bootstrap),
-        "persistence": persistence(scope, tier_col, conf),
+        "persistence": persistence(scope, tier_col, persistence_target_tiers(scope, tier_col, conf)[0]),
         "cost_break_even": cost_break_even(scope, tier_col, conf, horizons, low, high),
         "turnover_signal_frequency": turnover(scope, tier_col, conf),
         "same_date_coverage": same_date(scope, tier_col, conf, watch),
