@@ -1,22 +1,22 @@
 [
   {
-    "as_of_utc": "2026-07-20T05:13:37Z",
-    "daily_bar_id": "2026-07-19",
-    "diagnostics_path": "reports/runs/2026/07/19/intraday-2026-07-19-3ee084556b91/symbol_diagnostics.jsonl.gz",
-    "intraday_bar_id": "2026-07-20T04:00:00Z",
-    "manifest_path": "snapshots/runs/2026/07/19/intraday-2026-07-19-3ee084556b91/run.manifest.json",
-    "report_path": "reports/runs/2026/07/19/intraday-2026-07-19-3ee084556b91/report.json",
-    "run_id": "intraday-2026-07-19-3ee084556b91",
+    "as_of_utc": "2026-07-21T04:54:27Z",
+    "daily_bar_id": "2026-07-20",
+    "diagnostics_path": "reports/runs/2026/07/20/intraday-2026-07-20-462defe3dc5e/symbol_diagnostics.jsonl.gz",
+    "intraday_bar_id": "2026-07-21T04:00:00Z",
+    "manifest_path": "snapshots/runs/2026/07/20/intraday-2026-07-20-462defe3dc5e/run.manifest.json",
+    "report_path": "reports/runs/2026/07/20/intraday-2026-07-20-462defe3dc5e/report.json",
+    "run_id": "intraday-2026-07-20-462defe3dc5e",
     "scan_mode": "intraday"
   },
   {
-    "as_of_utc": "2026-07-20T05:13:36Z",
-    "daily_bar_id": "2026-07-19",
-    "diagnostics_path": "reports/runs/2026/07/19/daily-2026-07-19-158858ed6d13/symbol_diagnostics.jsonl.gz",
+    "as_of_utc": "2026-07-21T04:54:27Z",
+    "daily_bar_id": "2026-07-20",
+    "diagnostics_path": "reports/runs/2026/07/20/daily-2026-07-20-bfa3428bb74a/symbol_diagnostics.jsonl.gz",
     "intraday_bar_id": null,
-    "manifest_path": "snapshots/runs/2026/07/19/daily-2026-07-19-158858ed6d13/run.manifest.json",
-    "report_path": "reports/runs/2026/07/19/daily-2026-07-19-158858ed6d13/report.json",
-    "run_id": "daily-2026-07-19-158858ed6d13",
+    "manifest_path": "snapshots/runs/2026/07/20/daily-2026-07-20-bfa3428bb74a/run.manifest.json",
+    "report_path": "reports/runs/2026/07/20/daily-2026-07-20-bfa3428bb74a/report.json",
+    "run_id": "daily-2026-07-20-bfa3428bb74a",
     "scan_mode": "daily"
   }
 ]
